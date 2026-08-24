@@ -7,11 +7,15 @@
 
 ![screenshot](docs/screenshot.png)
 
-## 启动
+## 开发环境（uv）
+
+项目使用 [uv](https://docs.astral.sh/uv/) 管理依赖与虚拟环境：
 
 ```bash
-pip install -r requirements.txt
-python run.py        # 或 python -m src.main
+uv sync              # 创建 .venv 并安装锁定版本的依赖
+uv run run.py        # 运行应用（或 uv run python -m src.main）
+uv add <package>     # 添加运行时依赖
+uv add --dev pytest  # 添加开发依赖
 ```
 
 ## 核心体验
@@ -83,7 +87,9 @@ src/
 ## 测试
 
 ```bash
-python -m unittest discover -s tests -v
+uv run pytest -v            # 推荐
+# 或
+uv run python -m unittest discover -s tests -v
 ```
 
 覆盖：解析器单元测试、编辑器转换/切换/Undo/边界场景、
