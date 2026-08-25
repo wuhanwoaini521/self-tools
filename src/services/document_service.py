@@ -12,6 +12,10 @@ from ..config import settings
 
 MARKDOWN_FILTER = "Markdown (*.md *.markdown);;文本文件 (*.txt);;所有文件 (*)"
 
+# 扫描工作区时跳过的目录名（版本库 / 依赖 / 隐藏目录等）
+SKIP_DIRS = {".git", ".hg", ".svn", ".venv", "venv", "node_modules", "__pycache__", ".idea", ".vscode"}
+MARKDOWN_SUFFIXES = {".md", ".markdown"}
+
 
 class DocumentService:
     """封装打开 / 保存 / 另存为 / 最近文档等文档相关操作。"""
@@ -31,6 +35,10 @@ class DocumentService:
         path, _ = QFileDialog.getOpenFileName(
             self._parent, "打开文档", "", MARKDOWN_FILTER
         )
+        return Path(path) if path else None
+
+    def pick_open_folder(self) -> Path | None:
+        path = QFileDialog.getExistingDirectory(self._parent, "打开文件夹（工作区）")
         return Path(path) if path else None
 
     def pick_save_path(self, suggested_name: str = "untitled.md") -> Path | None:
@@ -54,3 +62,29 @@ class DocumentService:
             else:
                 settings.remove_recent_file(f)
         return existing
+
+    # -- 工作区 ------------------------------------------------------------
+    @staticmethod
+    def markdown_files_in(folder: Path) -> list[Path]:
+        """递归收集文件夹下的 Markdown 文件，按相对路径排序。
+
+        跳过 SKIP_DIRS 中的目录及隐藏目录。
+        """
+        folder = Path(folder)
+        results: list[Path] = []
+        stack = [folder]
+        while stack:
+            current = stack.pop()
+            try:
+                entries = sorted(current.iterdir(), key=lambda p: p.name.lower())
+            except OSError:
+                continue
+            for entry in entries:
+                if entry.is_dir():
+                    if entry.name in SKIP_DIRS or entry.name.startswith("."):
+                        continue
+                    stack.append(entry)
+                elif entry.suffix.lower() in MARKDOWN_SUFFIXES:
+                    results.append(entry)
+        # 按相对路径稳定排序，侧栏展示更可预测
+        return sorted(results, key=lambda p: str(p.relative_to(folder)).lower())

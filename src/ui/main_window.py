@@ -41,6 +41,11 @@ class MainWindow(QMainWindow):
         self._registry: TaskStateRegistry = create_default_registry()
         self._document = Document(self)
         self._service = DocumentService(self)
+        # 工作区：启动时恢复上次打开的文件夹
+        self._workspace_root: Path | None = None
+        restored = settings.workspace_path()
+        if restored and Path(restored).is_dir():
+            self._workspace_root = Path(restored)
         self._shortcut_manager = ShortcutManager(self)
 
         self._build_ui()
@@ -67,8 +72,9 @@ class MainWindow(QMainWindow):
 
         self.act_new = QAction("新建", self)
         self.act_open = QAction("打开", self)
+        self.act_open_folder = QAction("打开文件夹", self)
         self.act_save = QAction("保存", self)
-        for act in (self.act_new, self.act_open, self.act_save):
+        for act in (self.act_new, self.act_open, self.act_open_folder, self.act_save):
             toolbar.addAction(act)
         toolbar.addSeparator()
         self.act_convert = QAction("转换为任务", self)
@@ -115,6 +121,8 @@ class MainWindow(QMainWindow):
         menu_file = self.menuBar().addMenu("文件(&F)")
         menu_file.addAction(self.act_new)
         menu_file.addAction(self.act_open)
+        self.act_open_folder.setText("打开文件夹(&D)…")
+        menu_file.addAction(self.act_open_folder)
         menu_file.addSeparator()
         menu_file.addAction(self.act_save)
         self._act_save_as = QAction("另存为(&A)", self)
@@ -139,6 +147,7 @@ class MainWindow(QMainWindow):
         self.act_open.setShortcut(QKeySequence.StandardKey.Open)
         self.act_save.setShortcut(QKeySequence.StandardKey.Save)
         self._act_save_as.setShortcut(QKeySequence.StandardKey.SaveAs)
+        self.act_open_folder.setShortcut(QKeySequence("Ctrl+Shift+O"))
 
     def _install_shortcuts(self) -> None:
         self._shortcut_manager.install(
@@ -160,6 +169,7 @@ class MainWindow(QMainWindow):
     def _connect_signals(self) -> None:
         self.act_new.triggered.connect(lambda: self.new_document())
         self.act_open.triggered.connect(lambda: self.open_document())
+        self.act_open_folder.triggered.connect(lambda: self.open_folder())
         self.act_save.triggered.connect(lambda: self.save_document())
         self.act_convert.triggered.connect(self._editor.convert_selection_to_tasks)
         self.act_cycle.triggered.connect(lambda: self._editor.cycle_task_state(step=1))
@@ -205,6 +215,20 @@ class MainWindow(QMainWindow):
         self._refresh_sidebar()
         self._after_content_change()
         return True
+
+    def open_folder(self) -> bool:
+        """选择一个文件夹作为工作区，侧栏列出其中所有 Markdown 文件。"""
+        folder = self._service.pick_open_folder()
+        if folder is None:
+            return False
+        self._set_workspace(folder)
+        return True
+
+    def _set_workspace(self, folder: Path) -> None:
+        self._workspace_root = folder
+        settings.set_workspace_path(str(folder))
+        self._refresh_sidebar()
+        self.statusBar().showMessage(f"工作区：{folder}", 3000)
 
     def save_document(self) -> bool:
         if self._document.path is None:
@@ -299,7 +323,16 @@ class MainWindow(QMainWindow):
         )
 
     def _refresh_sidebar(self) -> None:
-        self._sidebar.refresh(self._service.recent_files(), self._document.path)
+        workspace_files = (
+            self._service.markdown_files_in(self._workspace_root)
+            if self._workspace_root is not None else []
+        )
+        self._sidebar.refresh(
+            workspace_files,
+            self._service.recent_files(),
+            current=self._document.path,
+            workspace_root=self._workspace_root,
+        )
 
     def _show_about(self) -> None:
         QMessageBox.about(

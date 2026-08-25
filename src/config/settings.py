@@ -42,6 +42,20 @@ def remove_recent_file(path: str) -> None:
     qsettings().setValue("recent/files", files)
 
 
+# -- 工作区 -------------------------------------------------------------
+def workspace_path() -> str | None:
+    """上次打开的工作区文件夹，无则返回 None。"""
+    value = qsettings().value("workspace/path")
+    return value if isinstance(value, str) and value else None
+
+
+def set_workspace_path(path: str | None) -> None:
+    if path:
+        qsettings().setValue("workspace/path", path)
+    else:
+        qsettings().remove("workspace/path")
+
+
 # -- 窗口几何 -------------------------------------------------------------
 def save_window_geometry(geometry: QByteArray) -> None:
     qsettings().setValue("window/geometry", geometry)
