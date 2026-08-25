@@ -8,8 +8,21 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import Qt, Signal
-from PySide6.QtWidgets import QLabel, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget
+from PySide6.QtCore import QSize, Qt, Signal
+from PySide6.QtGui import QIcon
+from PySide6.QtWidgets import (
+    QLabel,
+    QStyle,
+    QTreeWidget,
+    QTreeWidgetItem,
+    QVBoxLayout,
+    QWidget,
+)
+
+# 图标角色：区分文件夹 / 文件 / 分组标题
+ROLE_KIND = Qt.ItemDataRole.UserRole + 1
+KIND_FOLDER = "folder"
+KIND_FILE = "file"
 
 
 class Sidebar(QWidget):
@@ -32,6 +45,8 @@ class Sidebar(QWidget):
         self._tree.setHeaderHidden(True)
         self._tree.setIndentation(14)
         self._tree.setExpandsOnDoubleClick(False)
+        icon_px = self.style().pixelMetric(QStyle.PixelMetric.PM_SmallIconSize)
+        self._tree.setIconSize(QSize(icon_px, icon_px))
         self._tree.itemClicked.connect(self._on_item_clicked)
         layout.addWidget(self._tree, 1)
 
@@ -79,6 +94,9 @@ class Sidebar(QWidget):
             self._tree.blockSignals(False)
 
     # -- 构建辅助 ----------------------------------------------------------
+    def _style_icon(self, pixmap_kind: QStyle.StandardPixmap) -> QIcon:
+        return self.style().standardIcon(pixmap_kind)
+
     def _add_section(self, text: str) -> QTreeWidgetItem:
         """分组标题：可展开/收起但不可选中。"""
         item = QTreeWidgetItem(self._tree, [text])
@@ -86,9 +104,14 @@ class Sidebar(QWidget):
         return item
 
     def _add_folder(self, parent: QTreeWidgetItem, name: str) -> QTreeWidgetItem:
-        """文件夹节点：仅用于组织层级，点击切换展开。"""
+        """文件夹节点：目录图标 + 加粗，仅用于组织层级。"""
         item = QTreeWidgetItem(parent, [name])
         item.setFlags(Qt.ItemFlag.ItemIsEnabled)
+        item.setIcon(0, self._style_icon(QStyle.StandardPixmap.SP_DirIcon))
+        item.setData(0, ROLE_KIND, KIND_FOLDER)
+        font = item.font(0)
+        font.setBold(True)
+        item.setFont(0, font)
         return item
 
     def _add_placeholder(self, parent: QTreeWidgetItem, text: str) -> None:
@@ -98,6 +121,8 @@ class Sidebar(QWidget):
 
     def _add_file(self, parent: QTreeWidgetItem, path: Path) -> QTreeWidgetItem:
         item = QTreeWidgetItem(parent, [path.name])
+        item.setIcon(0, self._style_icon(QStyle.StandardPixmap.SP_FileIcon))
+        item.setData(0, ROLE_KIND, KIND_FILE)
         item.setData(0, Qt.ItemDataRole.UserRole, str(path))
         item.setToolTip(0, str(path))
         return item

@@ -87,6 +87,14 @@ class TestSidebarWorkspace(unittest.TestCase):
                          ["b.md", "deep"])
         deep = sub.child(1)
         self.assertEqual(deep.child(0).text(0), "c.md")
+        # 文件夹与文件可区分：文件夹有目录图标且加粗，文件是文档图标
+        from src.ui.sidebar import KIND_FILE, KIND_FOLDER
+        self.assertFalse(top.child(0).icon(0).isNull())
+        self.assertEqual(top.child(1).data(0, 0x0100 + 1), KIND_FOLDER)
+        self.assertTrue(top.child(1).font(0).bold())
+        self.assertFalse(top.child(0).font(0).bold())
+        self.assertEqual(top.child(0).data(0, 0x0100 + 1), KIND_FILE)
+        self.assertFalse(sub.child(0).icon(0).isNull())
 
     def test_groups_rendered_with_headers(self):
         ws = [Path("/w/a.md")]
