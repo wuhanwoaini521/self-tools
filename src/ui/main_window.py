@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QMainWindow,
     QMessageBox,
+    QSizePolicy,
     QSplitter,
     QToolBar,
     QVBoxLayout,
@@ -70,13 +71,14 @@ class MainWindow(QMainWindow):
         toolbar.setMovable(False)
         self.addToolBar(toolbar)
 
+        # 编辑动作统一靠右；文件操作只保留在菜单里
+        spacer = QWidget()
+        spacer.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        toolbar.addWidget(spacer)
         self.act_new = QAction("新建", self)
         self.act_open = QAction("打开", self)
         self.act_open_folder = QAction("打开文件夹", self)
         self.act_save = QAction("保存", self)
-        for act in (self.act_new, self.act_open, self.act_open_folder, self.act_save):
-            toolbar.addAction(act)
-        toolbar.addSeparator()
         self.act_convert = QAction("转换为任务", self)
         self.act_cycle = QAction("切换状态", self)
         toolbar.addAction(self.act_convert)
@@ -104,6 +106,8 @@ class MainWindow(QMainWindow):
         splitter.setStretchFactor(0, 0)
         splitter.setStretchFactor(1, 1)
         splitter.setContentsMargins(8, 8, 0, 0)
+        # 给侧栏一个初始宽度，用户可拖动分割条自由调整
+        splitter.setSizes([220, 880])
 
         container = QWidget(self)
         layout = QVBoxLayout(container)
@@ -120,6 +124,7 @@ class MainWindow(QMainWindow):
     def _build_menus(self) -> None:
         menu_file = self.menuBar().addMenu("文件(&F)")
         menu_file.addAction(self.act_new)
+        self.act_open.setText("打开(&O)…")
         menu_file.addAction(self.act_open)
         self.act_open_folder.setText("打开文件夹(&D)…")
         menu_file.addAction(self.act_open_folder)

@@ -47,6 +47,7 @@ uv add --dev pytest  # 添加开发依赖
 |------|-----------------|-------|
 | 新建 | Ctrl+N | Cmd+N |
 | 打开 | Ctrl+O | Cmd+O |
+| 打开文件夹（工作区） | Ctrl+Shift+O | Cmd+Shift+O |
 | 保存 | Ctrl+S | Cmd+S |
 | 另存为 | Ctrl+Shift+S | Cmd+Shift+S |
 | 选中行转换为任务 | Ctrl+L | Cmd+L |
@@ -56,6 +57,12 @@ uv add --dev pytest  # 添加开发依赖
 
 编辑器快捷键集中定义在 `src/shortcuts/shortcut_manager.py`，
 为未来用户自定义绑定预留了 `action_id`。
+
+## 工作区
+
+通过「文件 → 打开文件夹」选择一个文件夹后，侧栏会以**目录树**形式列出其中所有
+Markdown 文件（自动跳过 `.git`、`node_modules` 等噪音目录），点击即打开；
+应用会记住上次的工作区。
 
 ## 项目结构
 

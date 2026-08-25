@@ -75,20 +75,40 @@ QMenu::separator {{ height: 1px; background: {BORDER}; margin: 5px 8px; }}
     letter-spacing: 1px;
     padding: 14px 16px 6px 16px;
 }}
-QListWidget {{
+QListWidget, QTreeWidget {{
     background: transparent;
     border: none;
     outline: none;
     padding: 0 8px;
 }}
-QListWidget::item {{
+QListWidget::item, QTreeWidget::item {{
     border-radius: 6px;
     padding: 6px 10px;
     margin: 1px 0;
     color: {TEXT};
 }}
-QListWidget::item:hover {{ background: {BG_HOVER}; }}
-QListWidget::item:selected {{ background: {BG_HOVER}; color: {ACCENT}; }}
+QListWidget::item:hover, QTreeWidget::item:hover {{ background: {BG_HOVER}; }}
+QListWidget::item:selected, QTreeWidget::item:selected {{ background: {BG_HOVER}; color: {ACCENT}; }}
+QTreeWidget {{ padding: 0 4px; }}
+QTreeWidget::item {{ padding: 4px 8px; }}
+QTreeWidget::branch {{ background: transparent; }}
+
+/* ---- 侧栏窄滚动条 ---- */
+#Sidebar QScrollBar:vertical {{
+    background: transparent;
+    width: 8px;
+    margin: 2px 3px;
+}}
+#Sidebar QScrollBar::handle:vertical {{
+    background: #c9ced6;
+    border-radius: 3px;
+    min-height: 30px;
+}}
+#Sidebar QScrollBar::handle:vertical:hover {{ background: #aab2bf; }}
+#Sidebar QScrollBar::add-line:vertical,
+#Sidebar QScrollBar::sub-line:vertical {{ height: 0; }}
+#Sidebar QScrollBar::add-page:vertical,
+#Sidebar QScrollBar::sub-page:vertical {{ background: transparent; }}
 
 /* ---- 编辑器 / 预览 ---- */
 QPlainTextEdit, QTextEdit, QTextBrowser {{

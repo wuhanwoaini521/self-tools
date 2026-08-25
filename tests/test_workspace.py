@@ -65,46 +65,59 @@ class TestSidebarWorkspace(unittest.TestCase):
     def setUp(self) -> None:
         self.sidebar = Sidebar()
 
-    def _paths_at(self) -> list[str]:
-        return [
-            self.sidebar._list.item(i).data(0x0100)  # Qt.ItemDataRole.UserRole
-            for i in range(self.sidebar._list.count())
+    def _texts(self) -> list[str]:
+        t = self.sidebar._tree
+        return [t.topLevelItem(i).text(0) for i in range(t.topLevelItemCount())]
+
+    def test_workspace_tree_structure(self):
+        ws = [
+            Path("/w/a.md"),
+            Path("/w/sub/b.md"),
+            Path("/w/sub/deep/c.md"),
         ]
+        self.sidebar.refresh(ws, [], workspace_root=Path("/w"))
+        top = self.sidebar._tree.topLevelItem(0)
+        self.assertEqual(top.text(0), "工作区 · w")
+        # 根下：a.md + 文件夹 sub
+        root_names = [top.child(i).text(0) for i in range(top.childCount())]
+        self.assertEqual(root_names, ["a.md", "sub"])
+        # sub 下：b.md + deep；deep 下：c.md
+        sub = top.child(1)
+        self.assertEqual([sub.child(i).text(0) for i in range(sub.childCount())],
+                         ["b.md", "deep"])
+        deep = sub.child(1)
+        self.assertEqual(deep.child(0).text(0), "c.md")
 
     def test_groups_rendered_with_headers(self):
-        ws = [Path("/w/a.md"), Path("/w/sub/b.md")]
+        ws = [Path("/w/a.md")]
         recents = [Path("/r/c.md")]
         self.sidebar.refresh(ws, recents, workspace_root=Path("/w"))
-        texts = [self.sidebar._list.item(i).text()
-                 for i in range(self.sidebar._list.count())]
+        texts = self._texts()
         self.assertEqual(texts[0], "工作区 · w")
-        self.assertEqual(texts[-2], "最近文档")
-        # 文件条目携带路径数据，标题不携带
-        datas = self._paths_at()
-        self.assertEqual(datas[0], None)          # 工作区标题
-        self.assertEqual(Path(datas[-1]), Path("/r/c.md"))    # 最近条目
+        self.assertEqual(texts[-1], "最近文档")
 
     def test_no_workspace_only_recents(self):
         recents = [Path("/r/c.md")]
         self.sidebar.refresh([], recents)
-        texts = [self.sidebar._list.item(i).text()
-                 for i in range(self.sidebar._list.count())]
-        self.assertEqual(texts, ["最近文档", "c.md"])
+        texts = self._texts()
+        self.assertEqual(texts[0], "最近文档")
+        recent_section = self.sidebar._tree.topLevelItem(0)
+        self.assertEqual(recent_section.child(0).text(0), "c.md")
 
     def test_click_file_emits_signal_header_does_not(self):
-        from PySide6.QtCore import Qt
-
         received = []
         self.sidebar.openRequested.connect(received.append)
         self.sidebar.refresh([Path("/w/a.md")], [], workspace_root=Path("/w"))
-        # 点击分组标题 → 不发信号
-        header = self.sidebar._list.item(0)
-        self.sidebar._on_item_clicked(header)
+        # 点击分组标题 → 切换展开而非发信号
+        header = self.sidebar._tree.topLevelItem(0)
+        expanded_before = header.isExpanded()
+        self.sidebar._on_item_clicked(header, 0)
         self.assertEqual(received, [])
+        self.assertNotEqual(header.isExpanded(), expanded_before)
         # 点击文件条目 → 发出路径
-        file_item = self.sidebar._list.item(1)
-        self.assertTrue(file_item.flags() & Qt.ItemFlag.ItemIsSelectable)
-        self.sidebar._on_item_clicked(file_item)
+        file_items = self.sidebar._iter_file_items()
+        self.assertEqual(len(file_items), 1)
+        self.sidebar._on_item_clicked(file_items[0], 0)
         self.assertEqual(received, [Path("/w/a.md")])
 
 
