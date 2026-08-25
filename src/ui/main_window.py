@@ -59,6 +59,11 @@ class MainWindow(QMainWindow):
         self._preview_timer.setSingleShot(True)
         self._preview_timer.setInterval(300)
         self._preview_timer.timeout.connect(self._refresh_preview)
+        # 任务进度统计去抖：大文档全量扫描较慢，避免每次按键都算
+        self._status_timer = QTimer(self)
+        self._status_timer.setSingleShot(True)
+        self._status_timer.setInterval(150)
+        self._status_timer.timeout.connect(self._update_task_status)
 
         self._update_title()
         self._refresh_sidebar()
@@ -295,7 +300,7 @@ class MainWindow(QMainWindow):
 
     def _on_text_changed(self) -> None:
         self._update_title()
-        self._update_task_status()
+        self._status_timer.start()  # 统计防抖，打字不卡
         self._preview_timer.start()
 
     def _after_content_change(self) -> None:

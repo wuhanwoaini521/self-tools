@@ -5,8 +5,8 @@ description = "跨平台 Markdown 笔记工具，核心特色是多状态 Checkb
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
+    "mistune>=3.3.4",
     "pyside6>=6.5",
-    "markdown>=3.4",
 ]
 
 [tool.pytest.ini_options]

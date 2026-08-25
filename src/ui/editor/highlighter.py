@@ -60,6 +60,7 @@ class MarkdownHighlighter(QSyntaxHighlighter):
     def __init__(self, document, registry: TaskStateRegistry) -> None:
         super().__init__(document)
         self._registry = registry
+        self._fmt_cache: dict[str, QTextCharFormat] = {}
 
     # ------------------------------------------------------------------
     def highlightBlock(self, text: str) -> None:
@@ -82,10 +83,14 @@ class MarkdownHighlighter(QSyntaxHighlighter):
             fmt = self._code_block_format()
             self.setFormat(0, len(text), fmt)
             spec = self._spec_for(lang_index)
+            fmt_cache = self._fmt_cache
 
             def apply(start: int, length: int, color: str) -> None:
-                token_fmt = QTextCharFormat(fmt)
-                token_fmt.setForeground(QColor(color))
+                token_fmt = fmt_cache.get(color)
+                if token_fmt is None:
+                    token_fmt = QTextCharFormat(fmt)
+                    token_fmt.setForeground(QColor(color))
+                    fmt_cache[color] = token_fmt
                 self.setFormat(start, length, token_fmt)
 
             from .code_highlight import highlight_code
