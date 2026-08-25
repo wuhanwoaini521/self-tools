@@ -93,22 +93,37 @@ QTreeWidget {{ padding: 0 4px; }}
 QTreeWidget::item {{ padding: 4px 8px; }}
 QTreeWidget::branch {{ background: transparent; }}
 
-/* ---- 侧栏窄滚动条 ---- */
-#Sidebar QScrollBar:vertical {{
+/* ---- 窄滚动条（侧栏 / 编辑器 / 预览统一） ---- */
+QScrollBar:vertical {{
     background: transparent;
     width: 8px;
     margin: 2px 3px;
 }}
-#Sidebar QScrollBar::handle:vertical {{
+QScrollBar::handle:vertical {{
     background: #c9ced6;
     border-radius: 3px;
     min-height: 30px;
 }}
-#Sidebar QScrollBar::handle:vertical:hover {{ background: #aab2bf; }}
-#Sidebar QScrollBar::add-line:vertical,
-#Sidebar QScrollBar::sub-line:vertical {{ height: 0; }}
-#Sidebar QScrollBar::add-page:vertical,
-#Sidebar QScrollBar::sub-page:vertical {{ background: transparent; }}
+QScrollBar::handle:vertical:hover {{ background: #aab2bf; }}
+QScrollBar::add-line:vertical,
+QScrollBar::sub-line:vertical {{ height: 0; }}
+QScrollBar::add-page:vertical,
+QScrollBar::sub-page:vertical {{ background: transparent; }}
+QScrollBar:horizontal {{
+    background: transparent;
+    height: 8px;
+    margin: 3px 2px;
+}}
+QScrollBar::handle:horizontal {{
+    background: #c9ced6;
+    border-radius: 3px;
+    min-width: 30px;
+}}
+QScrollBar::handle:horizontal:hover {{ background: #aab2bf; }}
+QScrollBar::add-line:horizontal,
+QScrollBar::sub-line:horizontal {{ width: 0; }}
+QScrollBar::add-page:horizontal,
+QScrollBar::sub-page:horizontal {{ background: transparent; }}
 
 /* ---- 编辑器 / 预览 ---- */
 QPlainTextEdit, QTextEdit, QTextBrowser {{
