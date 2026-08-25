@@ -116,22 +116,27 @@ class MarkdownEditor(QPlainTextEdit):
     # 鼠标点击：点中 [x] 标记区域即切换状态
     # ==================================================================
     def mousePressEvent(self, event: QMouseEvent) -> None:
-        if event.button() == Qt.MouseButton.LeftButton and self._click_on_mark(event):
+        if event.button() == Qt.MouseButton.LeftButton \
+                and self._move_cursor_to_clicked_mark(event):
             self.cycle_task_state(step=1)
             event.accept()
             return
         super().mousePressEvent(event)
 
     def mouseDoubleClickEvent(self, event: QMouseEvent) -> None:
-        if self._click_on_mark(event):
+        if self._move_cursor_to_clicked_mark(event):
             self.cycle_task_state(step=1)
             event.accept()
             return
         super().mouseDoubleClickEvent(event)
 
-    def _click_on_mark(self, event: QMouseEvent) -> bool:
-        """判断点击位置是否落在当前行任务标记 ``[..]`` 上。"""
-        cursor = self.cursorForPosition(event.pos())
+    def _move_cursor_to_clicked_mark(self, event: QMouseEvent) -> bool:
+        """若点击位置落在任务标记 ``[..]`` 上，把光标移到该行并返回 True。
+
+        必须先移动光标再切换状态：否则 cycle_task_state 会作用在
+        光标原所在行，导致点任意任务都只改同一处。
+        """
+        cursor = self.cursorForPosition(event.position().toPoint())
         block = cursor.block()
         info = match_task(block.text())
         if info is None:
@@ -139,7 +144,13 @@ class MarkdownEditor(QPlainTextEdit):
         if self._registry.by_mark(info.mark) is None:
             return False
         col = cursor.positionInBlock()
-        return info.mark_start - 1 <= col <= info.mark_end + 1
+        if not (info.mark_start - 1 <= col <= info.mark_end + 1):
+            return False
+        # 清除选区并把光标定位到点击的块内，后续 cycle 才作用于该行
+        cursor.setPosition(cursor.position(),
+                           QTextCursor.MoveMode.MoveAnchor)
+        self.setTextCursor(cursor)
+        return True
 
     # ==================================================================
     # 键盘：回车自动延续列表 / 任务前缀

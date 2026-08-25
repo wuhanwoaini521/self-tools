@@ -15,6 +15,8 @@ from pathlib import Path
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
+from PySide6.QtCore import Qt  # noqa: E402
+from PySide6.QtTest import QTest  # noqa: E402
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
 from src.document.task_state import create_default_registry  # noqa: E402
@@ -53,6 +55,37 @@ class TestMarkdownEditorTasks(unittest.TestCase):
         for expected in ("- [~] US", "- [x] US", "- [ ] US"):
             self.editor.cycle_task_state(+1)
             self.assertTrue(self.editor.toPlainText().startswith(expected))
+
+    def _click_mark_in_block(self, block_number: int) -> None:
+        """用真实鼠标事件点击指定行的 ``[..]`` 标记。"""
+        self.editor.resize(400, 200)
+        self.editor.show()
+        block = self.editor.document().findBlockByNumber(block_number)
+        probe = self.editor.textCursor()
+        probe.setPosition(block.position() + 4)  # 落在 "[ ]" 内
+        rect = self.editor.cursorRect(probe)
+        QTest.mouseClick(
+            self.editor.viewport(), Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier, rect.center(),
+        )
+
+    def test_click_toggles_clicked_line_not_cursor_line(self):
+        """回归：点任意任务的 [] 都只改光标原所在行。"""
+        self._set_text("- [ ] US\n- [ ] JP\n- [ ] CA")
+        cursor = self.editor.textCursor()
+        cursor.setPosition(0)  # 光标停在第一行
+        self.editor.setTextCursor(cursor)
+        # 点击第二行和第三行的标记，各自切换，互不影响其它行
+        self._click_mark_in_block(1)
+        self.assertEqual(self.editor.toPlainText(),
+                         "- [ ] US\n- [~] JP\n- [ ] CA")
+        self._click_mark_in_block(2)
+        self.assertEqual(self.editor.toPlainText(),
+                         "- [ ] US\n- [~] JP\n- [~] CA")
+        # 第一行仍可正常点击切换
+        self._click_mark_in_block(0)
+        self.assertEqual(self.editor.toPlainText(),
+                         "- [~] US\n- [~] JP\n- [~] CA")
 
     def test_cycle_backward(self):
         self._set_text("- [ ] JP")
