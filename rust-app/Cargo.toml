@@ -1,0 +1,35 @@
+[workspace]
+members = [
+    "apps/desktop",
+    "crates/application",
+    "crates/core",
+    "crates/infrastructure",
+]
+default-members = [
+    "apps/desktop",
+    "crates/application",
+    "crates/core",
+    "crates/infrastructure",
+]
+resolver = "3"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.95"
+license = "MIT OR Apache-2.0"
+authors = ["DevToolbox contributors"]
+
+[workspace.dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+regex = "1"
+tempfile = "3"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+unused_crate_dependencies = "warn"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }

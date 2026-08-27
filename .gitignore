@@ -5,6 +5,13 @@ __pycache__/
 .venv/
 venv/
 
+# Rust
+target/
+
+# Node / Tauri UI
+node_modules/
+dist/
+
 # Qt / PySide
 *.pyc
 
@@ -18,4 +25,6 @@ Thumbs.db
 
 # 测试 / 临时
 *.log
+output/
+.playwright-cli/
 [0m

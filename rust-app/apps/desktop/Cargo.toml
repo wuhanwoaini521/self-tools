@@ -1,0 +1,21 @@
+[package]
+name = "devtoolbox-desktop"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "DevToolbox Tauri desktop adapter."
+
+[dependencies]
+devtoolbox-application = { path = "../../crates/application" }
+devtoolbox-infrastructure = { path = "../../crates/infrastructure" }
+serde.workspace = true
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[lints]
+workspace = true

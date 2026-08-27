@@ -1,0 +1,19 @@
+[package]
+name = "devtoolbox-core"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "DevToolbox UI-independent Markdown task domain rules."
+
+[dependencies]
+regex.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
+
+[lints]
+workspace = true

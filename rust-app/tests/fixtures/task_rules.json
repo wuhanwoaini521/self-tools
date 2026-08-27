@@ -1,0 +1,29 @@
+{
+  "make_task_line": [
+    { "line": "US", "mark": " ", "expected": "- [ ] US" },
+    { "line": "  JP", "mark": " ", "expected": "  - [ ] JP" },
+    { "line": "- US", "mark": "~", "expected": "- [~] US" },
+    { "line": "* JP", "mark": "x", "expected": "* [x] JP" },
+    { "line": "", "mark": " ", "expected": "- [ ]" },
+    { "line": "- [~] 已有任务", "mark": " ", "expected": "- [ ] 已有任务" }
+  ],
+  "set_task_mark": [
+    { "line": "- [ ] US", "mark": "x", "expected": "- [x] US" },
+    { "line": "ordinary", "mark": "x", "expected": "ordinary" },
+    { "line": "  2) [~] 嵌套", "mark": "x", "expected": "  2) [x] 嵌套" }
+  ],
+  "cycle_task_mark": [
+    { "line": "- [ ] US", "step": 1, "expected": "- [~] US", "changed": true },
+    { "line": "- [~] US", "step": 1, "expected": "- [x] US", "changed": true },
+    { "line": "- [x] US", "step": 1, "expected": "- [ ] US", "changed": true },
+    { "line": "- [ ] US", "step": -1, "expected": "- [x] US", "changed": true },
+    { "line": "- [?] US", "step": 1, "expected": "- [?] US", "changed": false },
+    { "line": "ordinary", "step": 1, "expected": "ordinary", "changed": false }
+  ],
+  "match_task": [
+    { "line": "    - [x] 嵌套", "is_known_task": true, "mark": "x", "mark_start": 6, "mark_end": 9 },
+    { "line": "1. [ ] ordered", "is_known_task": true, "mark": " ", "mark_start": 3, "mark_end": 6 },
+    { "line": "- [?] unknown", "is_known_task": false, "mark": "?", "mark_start": 2, "mark_end": 5 },
+    { "line": "plain text", "is_known_task": false, "mark": null, "mark_start": null, "mark_end": null }
+  ]
+}

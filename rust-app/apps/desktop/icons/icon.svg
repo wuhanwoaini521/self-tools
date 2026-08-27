@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title">
+  <title id="title">DevToolbox</title>
+  <rect width="512" height="512" rx="104" fill="#2563eb"/>
+  <path d="M154 132h128c74 0 120 47 120 124s-46 124-120 124H154V132Zm74 65v118h46c31 0 52-22 52-59s-21-59-52-59h-46Z" fill="#fff"/>
+  <path d="m142 355 54-54 31 31-54 54z" fill="#93c5fd"/>
+</svg>

@@ -101,3 +101,23 @@ uv run python -m unittest discover -s tests -v
 
 覆盖：解析器单元测试、编辑器转换/切换/Undo/边界场景、
 保存-重开状态恢复往返、未保存检测。
+
+## Rust 桌面版（迁移实现）
+
+Rust 实现位于 `rust-app/`，采用 Tauri + React UI 与 Rust domain/application/infrastructure 分层；Python 版本仍保留，作为功能回归基线。
+
+```powershell
+cd rust-app/apps/desktop
+npm --prefix ui install
+npm --prefix ui exec -- tauri dev
+```
+
+质量检查：
+
+```powershell
+cd rust-app
+cargo fmt --check
+cargo check --workspace
+cargo clippy --workspace --all-targets --all-features -- -D warnings
+cargo test --workspace
+```
