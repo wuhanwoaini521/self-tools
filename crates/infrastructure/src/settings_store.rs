@@ -14,6 +14,9 @@ pub struct AppSettings {
     pub recent_files: Vec<PathBuf>,
     pub workspace_path: Option<PathBuf>,
     pub theme_mode: ThemeMode,
+    /// UI 风格主题 id(如 "default" / "warm-editorial"),
+    /// 由前端 ThemeManager 注册表校验并回退;Rust 侧仅透传存储,不做主题枚举分支。
+    pub ui_theme: String,
     pub editor_font_size: u8,
     pub auto_save: bool,
     pub markdown_default_view: MarkdownView,
@@ -42,6 +45,7 @@ impl Default for AppSettings {
             recent_files: Vec::new(),
             workspace_path: None,
             theme_mode: ThemeMode::System,
+            ui_theme: "default".to_string(),
             editor_font_size: 13,
             auto_save: false,
             markdown_default_view: MarkdownView::Split,
@@ -96,6 +100,8 @@ impl SettingsStore {
 
 #[cfg(test)]
 mod tests {
+    use std::fs;
+
     use tempfile::tempdir;
 
     use super::SettingsStore;
@@ -108,5 +114,18 @@ mod tests {
         settings.auto_save = true;
         store.save(&settings).expect("save settings");
         assert_eq!(store.load().expect("reload settings"), settings);
+    }
+
+    #[test]
+    fn legacy_settings_without_ui_theme_get_the_default_theme() {
+        let directory = tempdir().expect("temporary directory");
+        let store = SettingsStore::new(directory.path());
+        fs::write(
+            store.path(),
+            r#"{"schema_version":1,"recent_files":[],"workspace_path":null,"theme_mode":"dark","editor_font_size":14,"auto_save":false,"markdown_default_view":"split"}"#,
+        )
+        .expect("write legacy settings");
+        let settings = store.load().expect("load legacy settings");
+        assert_eq!(settings.ui_theme, "default");
     }
 }
