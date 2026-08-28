@@ -42,6 +42,19 @@ fn text_content(text: Option<Text>) -> Option<String> {
         .filter(|value| !value.is_empty())
 }
 
+/// 展示内容：优先 summary,缺失时回退到完整 content(如 V2EX 等 Atom 源只有 <content>)。
+/// 注意 <content src="..."/> 表示外链正文(body 为空),此时仍视为无内容。
+fn entry_summary(entry: &feed_rs::model::Entry) -> Option<String> {
+    text_content(entry.summary.clone()).or_else(|| {
+        entry
+            .content
+            .as_ref()
+            .and_then(|content| content.body.as_ref())
+            .map(|body| body.trim().to_string())
+            .filter(|body| !body.is_empty())
+    })
+}
+
 fn entry_link(entry: &feed_rs::model::Entry) -> String {
     entry
         .links
@@ -96,8 +109,8 @@ fn normalize(parsed: ParsedFeed) -> FetchedFeed {
                 let guid = entry_guid(&entry);
                 let url = entry_link(&entry);
                 let published_at = entry_published_at(&entry);
+                let summary = entry_summary(&entry);
                 let title = text_content(entry.title).unwrap_or_else(|| "(untitled)".to_string());
-                let summary = text_content(entry.summary);
                 FetchedEntry {
                     guid,
                     url,
@@ -234,5 +247,41 @@ mod tests {
     #[test]
     fn rejects_invalid_xml() {
         assert!(parse_feed(b"this is not xml").is_err());
+    }
+
+    #[test]
+    fn uses_content_when_summary_missing() {
+        // V2EX 等 Atom 源:无 <summary>,正文在 <content type="html">。
+        let atom_content_only = r#"<?xml version="1.0"?>
+            <feed xmlns="http://www.w3.org/2005/Atom">
+                <title>Content Only</title>
+                <entry>
+                    <title>With Content</title>
+                    <link rel="alternate" href="https://example.org/c1"/>
+                    <id>tag:example.org,2024:/c1</id>
+                    <content type="html">&lt;p&gt;Full body here&lt;/p&gt;</content>
+                </entry>
+            </feed>"#;
+        let feed = parse_feed(atom_content_only.as_bytes()).expect("parse atom");
+        assert_eq!(
+            feed.entries[0].summary.as_deref(),
+            Some("<p>Full body here</p>")
+        );
+    }
+
+    #[test]
+    fn external_content_src_is_not_treated_as_body() {
+        let atom_linked_content = r#"<?xml version="1.0"?>
+            <feed xmlns="http://www.w3.org/2005/Atom">
+                <title>Linked Content</title>
+                <entry>
+                    <title>Outbound</title>
+                    <link rel="alternate" href="https://example.org/c2"/>
+                    <id>tag:example.org,2024:/c2</id>
+                    <content src="https://cdn.example.org/article.html"/>
+                </entry>
+            </feed>"#;
+        let feed = parse_feed(atom_linked_content.as_bytes()).expect("parse atom");
+        assert_eq!(feed.entries[0].summary, None);
     }
 }
