@@ -1,0 +1,11 @@
+{
+  "name": "devtoolbox-desktop",
+  "private": true,
+  "version": "0.1.0",
+  "description": "DevToolbox desktop shell — Tauri 启动器（UI 工程位于 ui/，脚本转发到子目录）",
+  "scripts": {
+    "dev": "npm --prefix ui run dev",
+    "build": "npm --prefix ui run build",
+    "preview": "npm --prefix ui run preview"
+  }
+}
