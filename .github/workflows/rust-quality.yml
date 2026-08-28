@@ -2,12 +2,8 @@ name: Rust quality
 
 on:
   pull_request:
-    paths:
-      - ".github/workflows/rust-quality.yml"
   push:
     branches: [main]
-    paths:
-      - ".github/workflows/rust-quality.yml"
 
 permissions:
   contents: read
@@ -25,6 +21,12 @@ jobs:
       - uses: dtolnay/rust-toolchain@1.95.0
         with:
           components: clippy, rustfmt
+      # Tauri 在 Linux 需要 GTK / WebKitGTK 系统库（官方文档清单）
+      - name: Install Tauri Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
       - run: cargo fmt --check
       - run: cargo check
       - run: cargo clippy --all-targets --all-features -- -D warnings
