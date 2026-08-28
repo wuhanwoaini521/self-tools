@@ -30,6 +30,7 @@ feed-rs = "2"
 futures-util = "0.3"
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "gzip"] }
 rusqlite = { version = "0.32", features = ["bundled"] }
+url = "2"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

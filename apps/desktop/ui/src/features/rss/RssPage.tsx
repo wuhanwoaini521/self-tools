@@ -179,7 +179,7 @@ export function RssPage({ active, version, refreshing, onRefresh, onFeedsChanged
             <span className="rss-read-tag"><Check size={14} />已读</span>
           </div>
           {selectedArticle.summary
-            ? <div className="rss-reading-content" onClick={handleContentClick(selectedArticle)} dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(selectedArticle.summary) }} />
+            ? <div className="rss-reading-content" onClick={handleContentClick(selectedArticle)} dangerouslySetInnerHTML={{ __html: prepareContent(selectedArticle.summary, selectedArticle.url) }} />
             : <p className="rss-empty">该文章没有摘要内容,可打开原文阅读。</p>}
         </article>}
     </section>
@@ -189,6 +189,28 @@ export function RssPage({ active, version, refreshing, onRefresh, onFeedsChanged
 /** 相对链接基于文章原文地址解析为绝对地址。 */
 function resolveUrl(href: string, base?: string): string {
   try { return new URL(href, base).toString(); } catch { return href; }
+}
+
+/**
+ * 阅读正文:先 DOMPurify 净化,再把相对 `a[href]` / `img[src]` 基于原文地址补全为绝对地址
+ * (feedparser / Miniflux 在聚合端的标准行为,否则正文里的相对图片会 404)。
+ */
+function prepareContent(html: string, baseUrl?: string): string {
+  const clean = DOMPurify.sanitize(html);
+  if (!baseUrl) return clean;
+  try {
+    const document = new DOMParser().parseFromString(clean, "text/html");
+    document.querySelectorAll("a[href], img[src]").forEach((element) => {
+      const attribute = element.tagName === "A" ? "href" : "src";
+      const value = element.getAttribute(attribute);
+      if (!value) return;
+      try { element.setAttribute(attribute, new URL(value, baseUrl).toString()); } catch { /* 保持原样 */ }
+    });
+    document.querySelectorAll("img").forEach((image) => image.setAttribute("loading", "lazy"));
+    return document.body.innerHTML;
+  } catch {
+    return clean;
+  }
 }
 
 /** 列表摘要:取纯文本,并去掉源站截断尾巴上的「…查看全文」等链接文字。 */
