@@ -3,11 +3,10 @@ name: Rust quality
 on:
   pull_request:
     paths:
-      - "rust-app/**"
       - ".github/workflows/rust-quality.yml"
   push:
+    branches: [main]
     paths:
-      - "rust-app/**"
       - ".github/workflows/rust-quality.yml"
 
 permissions:
@@ -21,9 +20,6 @@ jobs:
       fail-fast: false
       matrix:
         os: [windows-latest, macos-latest, ubuntu-latest]
-    defaults:
-      run:
-        working-directory: rust-app
     steps:
       - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@1.95.0
