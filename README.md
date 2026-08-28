@@ -3,19 +3,22 @@
 跨平台（Windows / Linux / macOS）Markdown 笔记工具，核心特色是
 **多状态 Checkbox**（Pending / Ing / Done，可扩展）。
 
-技术栈：Python + PySide6。
+技术栈：Rust + Tauri 2 + React 19 + CodeMirror 6。
 
 ![screenshot](docs/screenshot.png)
 
-## 开发环境（uv）
+## 开发环境
 
-项目使用 [uv](https://docs.astral.sh/uv/) 管理依赖与虚拟环境：
+```powershell
+cd rust-app/apps/desktop
+npm --prefix ui install
+npm --prefix ui exec -- tauri dev
+```
 
-```bash
-uv sync              # 创建 .venv 并安装锁定版本的依赖
-uv run run.py        # 运行应用（或 uv run python -m src.main）
-uv add <package>     # 添加运行时依赖
-uv add --dev pytest  # 添加开发依赖
+发布构建：
+
+```powershell
+npm --prefix ui exec -- tauri build
 ```
 
 ## 核心体验
@@ -38,25 +41,18 @@ uv add --dev pytest  # 添加开发依赖
 | Done | `- [x] CA` | ● | 绿 |
 
 * 点击编辑器中的 `[ ]` 标记即可切换状态；
-* 状态定义集中在 `src/document/task_state.py` 的注册表中，
+* 状态定义集中在 `rust-app/crates/core/src/task_state.rs` 的注册表中，
   新增 Blocked / Failed 等状态只需 `register()` 一条。
 
 ## 快捷键
 
 | 动作 | Windows / Linux | macOS |
 |------|-----------------|-------|
-| 新建 | Ctrl+N | Cmd+N |
-| 打开 | Ctrl+O | Cmd+O |
-| 打开文件夹（工作区） | Ctrl+Shift+O | Cmd+Shift+O |
-| 保存 | Ctrl+S | Cmd+S |
-| 另存为 | Ctrl+Shift+S | Cmd+Shift+S |
 | 选中行转换为任务 | Ctrl+L | Cmd+L |
 | 切换到下一状态 | Ctrl+Enter | Cmd+Enter |
 | 切换到上一状态 | Ctrl+Shift+Enter | Cmd+Shift+Enter |
-| 预览开关 | 菜单 视图 → 预览 | 同左 |
 
-编辑器快捷键集中定义在 `src/shortcuts/shortcut_manager.py`，
-为未来用户自定义绑定预留了 `action_id`。
+编辑器快捷键在 `rust-app/apps/desktop/ui/src/App.tsx` 中集中处理。
 
 ## 工作区
 
@@ -66,58 +62,37 @@ Markdown 文件（自动跳过 `.git`、`node_modules` 等噪音目录），点�
 
 ## 项目结构
 
+Rust workspace 位于 `rust-app/`，按领域分层：
+
 ```
-src/
-├── main.py                  # 入口：QApplication + 主题 + 主窗口
-├── ui/
-│   ├── main_window.py       # 主窗口（只做装配与协调）
-│   ├── sidebar.py           # 最近文档侧栏
-│   ├── theme.py             # 配色与样式表
-│   └── editor/
-│       ├── markdown_editor.py   # 编辑器：转换/切换/点击切换/列表延续
-│       ├── highlighter.py       # Markdown 语法高亮
-│       └── preview.py           # 简易预览面板
-├── document/
-│   ├── document.py          # 文档模型（路径元数据）
-│   ├── parser.py            # 任务行解析 / 生成 / 切换
-│   └── task_state.py        # 任务状态注册表（可扩展）
-├── services/
-│   └── document_service.py  # 文件 IO + 最近文档
-├── shortcuts/
-│   └── shortcut_manager.py  # 快捷键集中管理
-└── config/
-    └── settings.py          # QSettings 配置（跨平台路径）
+rust-app/
+├── apps/desktop/            # Tauri 桌面适配器
+│   ├── src-tauri/           # Tauri 命令 / 事件边界
+│   └── ui/                  # React 19 + CodeMirror 6 前端（Vite 构建）
+├── crates/
+│   ├── core/                # 纯领域规则：任务行解析、状态注册表（无 UI / 无 I/O）
+│   ├── application/         # 用例编排（workflows）
+│   └── infrastructure/      # 文件 IO、配置存储、工作区扫描
+└── tests/fixtures/          # 共享 Markdown 行为样例（含 task_rules.json）
 ```
 
 分层原则：`UI ≠ Markdown 解析 ≠ 文件读写 ≠ 任务状态逻辑`。
 
 ## 测试
 
-```bash
-uv run pytest -v            # 推荐
-# 或
-uv run python -m unittest discover -s tests -v
-```
-
-覆盖：解析器单元测试、编辑器转换/切换/Undo/边界场景、
-保存-重开状态恢复往返、未保存检测。
-
-## Rust 桌面版（迁移实现）
-
-Rust 实现位于 `rust-app/`，采用 Tauri + React UI 与 Rust domain/application/infrastructure 分层；Python 版本仍保留，作为功能回归基线。
+在 `rust-app/` 运行：
 
 ```powershell
-cd rust-app/apps/desktop
-npm --prefix ui install
-npm --prefix ui exec -- tauri dev
-```
-
-质量检查：
-
-```powershell
-cd rust-app
 cargo fmt --check
 cargo check --workspace
 cargo clippy --workspace --all-targets --all-features -- -D warnings
 cargo test --workspace
 ```
+
+覆盖：解析器单元测试（含 `tests/fixtures/task_rules.json` 共享样例）、
+状态注册表、编辑器转换/切换行为等。
+
+## 迁移历史
+
+本项目由 PySide6 (Python) 迁移至 Rust，原 Python 版已移除。
+迁移过程的设计决策与阶段记录保留在 `docs/migration/`，仅作历史档案。

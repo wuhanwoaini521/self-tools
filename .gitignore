@@ -1,19 +1,9 @@
-# Python
-__pycache__/
-*.py[cod]
-*.egg-info/
-.venv/
-venv/
-
 # Rust
 target/
 
 # Node / Tauri UI
 node_modules/
 dist/
-
-# Qt / PySide
-*.pyc
 
 # IDE
 .idea/
@@ -27,4 +17,3 @@ Thumbs.db
 *.log
 output/
 .playwright-cli/
-[0m
