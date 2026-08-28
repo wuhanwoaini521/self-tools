@@ -101,6 +101,26 @@ kbd { padding: 2px 5px; border: 1px solid rgb(225 240 255 / 24%); border-radius:
 .focus-editor .cm-line span { color: #c4cdd1; font-weight: 400 !important; }
 .focus-editor .ͼ11, .focus-editor .ͼ11.ͼ13 { color: #2499ff !important; font-weight: 700 !important; }
 .focus-editor .ͼ13, .focus-editor .ͼ10 { color: #c4cdd1 !important; }
+
+/* DevToolbox Markdown 装饰：与任务大纲面板共用状态色板（特异性需盖过上方 .cm-line span 强制色） */
+.focus-editor .cm-line.dtb-codeblock { background: #131d22; box-shadow: inset 3px 0 0 #24333c; }
+.focus-editor .cm-line.dtb-codeblock-fence { background: #12191d; }
+.focus-editor .cm-line.dtb-codeblock-fence span { color: #5d6f78 !important; }
+.focus-editor .cm-line.dtb-blockquote { background: rgb(22 136 255 / 7%); box-shadow: inset 3px 0 0 #1676c8; }
+.focus-editor .cm-line.dtb-blockquote span { color: #b6c6d4 !important; font-style: italic; }
+.focus-editor .cm-line span.dtb-heading-mark { color: #5d6f78 !important; font-weight: 600 !important; }
+.focus-editor .cm-line span.dtb-heading { font-weight: 700 !important; }
+.focus-editor .cm-line span.dtb-heading-1 { color: #8fd0ff !important; font-size: 1.18em; font-weight: 800 !important; }
+.focus-editor .cm-line span.dtb-heading-2 { color: #6db9f5 !important; font-size: 1.08em; }
+.focus-editor .cm-line span.dtb-heading-3 { color: #57a8e8 !important; }
+.focus-editor .cm-line span.dtb-heading-4 { color: #4b93cf !important; }
+.focus-editor .cm-line span.dtb-heading-5 { color: #4a86ba !important; }
+.focus-editor .cm-line span.dtb-heading-6 { color: #567c9e !important; }
+.focus-editor .cm-line span.dtb-task-mark { font-weight: 700 !important; }
+.focus-editor .cm-line span.dtb-task-todo { color: #9fadb5 !important; }
+.focus-editor .cm-line span.dtb-task-progress { color: var(--blue-hover) !important; }
+.focus-editor .cm-line span.dtb-task-done { color: var(--green) !important; }
+.focus-editor .cm-line span.dtb-task-line-done { color: #6f7d85 !important; text-decoration: line-through; text-decoration-color: rgb(39 198 123 / 50%); }
 .editor-status { justify-content: space-between; padding: 0 18px; border-top: 1px solid var(--line); background: #101719; color: #aeb8be; font-size: 12px; }
 .editor-status > div { display: flex; align-items: center; gap: 18px; }
 .editor-status > div:first-child { gap: 7px; }

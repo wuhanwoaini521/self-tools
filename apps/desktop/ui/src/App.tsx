@@ -6,6 +6,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import CodeMirror, { type ReactCodeMirrorRef } from "@uiw/react-codemirror";
 import { markdown } from "@codemirror/lang-markdown";
+import { devtoolboxMarkdown } from "./markdown-decorations";
 import { oneDark } from "@codemirror/theme-one-dark";
 import {
   CaretDown, CaretRight, Check, CheckCircle, CheckSquare, Circle, CloudArrowUp, Code,
@@ -62,6 +63,17 @@ const focusDocument = [
   "- Keep tasks small and verifiable",
   "- Update status as you go",
   "- Use headings to structure your flow",
+  "",
+  "## Snippets",
+  "",
+  "Set a task mark directly in the editor:",
+  "",
+  "```rust",
+  "let done = \"- [x] Ship the feature\";",
+  "```",
+  "",
+  "> State cycles: Pending → In Progress → Done.",
+  "> Every task stays valid Markdown.",
 ].join("\n");
 
 const sampleFiles = ["01-getting-started.md", "02-commands.md", "03-configuration.md", "04-focus-mode.md", "05-keyboard-shortcuts.md"];
@@ -198,7 +210,7 @@ export default function App() {
       <section className="editor-workbench">
         <div className="editor-tabs"><button className="editor-tab active"><Code size={17} weight="bold" />{documentTitle}<X size={15} /></button><button className="new-tab" onClick={() => { setPath(null); setText(focusDocument); }}><Plus size={17} /></button></div>
         <header className="editor-meta"><div><span>{workspace ? fileName(workspace) : "docs"}</span><CaretRight size={14} /><Code size={15} weight="bold" /><strong>{documentTitle}</strong></div><div><span>{text.trim().split(/\s+/).filter(Boolean).length.toLocaleString()} words</span><i /><span>{dirty ? "Unsaved" : "Live"} <b /></span><button title="More editor actions"><DotsThree size={20} /></button></div></header>
-        <CodeMirror ref={editorRef} className="focus-editor" height="100%" theme={oneDark} extensions={[markdown()]} value={text} onChange={setContent} onKeyDown={(event: ReactKeyboardEvent<HTMLDivElement>) => { if ((event.ctrlKey || event.metaKey) && event.key === "Enter") { event.preventDefault(); const line = editorRef.current?.view?.state.doc.lineAt(editorRef.current.view.state.selection.main.from).number; if (line) void cycleTask(line - 1); } }} basicSetup={{ lineNumbers: true, foldGutter: false, highlightActiveLine: false, highlightActiveLineGutter: false }} indentWithTab aria-label="Focus Mode Markdown editor" />
+        <CodeMirror ref={editorRef} className="focus-editor" height="100%" theme={oneDark} extensions={[markdown(), ...devtoolboxMarkdown()]} value={text} onChange={setContent} onKeyDown={(event: ReactKeyboardEvent<HTMLDivElement>) => { if ((event.ctrlKey || event.metaKey) && event.key === "Enter") { event.preventDefault(); const line = editorRef.current?.view?.state.doc.lineAt(editorRef.current.view.state.selection.main.from).number; if (line) void cycleTask(line - 1); } }} basicSetup={{ lineNumbers: true, foldGutter: false, highlightActiveLine: false, highlightActiveLineGutter: false }} indentWithTab aria-label="Focus Mode Markdown editor" />
         <footer className="editor-status"><div><SidebarSimple size={18} />Toggle Sidebar</div><div><span>Ln 1, Col 1</span><span>Spaces: 2</span><span>UTF-8</span><span>LF</span><span>Markdown</span><span><Check size={16} />{tasks.length} tasks</span></div></footer>
       </section>
       {tasksVisible ? <TaskOutline tasks={tasks} filter={filter} setFilter={setFilter} onCycle={(line) => void cycleTask(line)} /> : null}

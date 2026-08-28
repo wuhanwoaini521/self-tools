@@ -60,9 +60,21 @@ npm --prefix apps/desktop/ui exec -- tauri build
 | Done | `- [x] CA` | ● | 绿 |
 
 * 点击编辑器中的 `[ ]` 标记即可切换状态；
+* 编辑器内任务标记按状态着色（`[ ]` 灰 / `[~]` 蓝 / `[x]` 绿），已完成行自动删除线变暗，
+  与右侧任务大纲面板视觉统一；
 * 状态定义集中在 `crates/core/src/task_state.rs` 的注册表中，
   新增 Blocked / Failed 等状态只需 `register()` 一条；
 * 解析规则由 `tests/fixtures/task_rules.json` 固化，Rust 单元测试直接消费该文件。
+
+## 编辑器美化
+
+装饰逻辑位于 `apps/desktop/ui/src/markdown-decorations.ts`（CodeMirror ViewPlugin）：
+
+* **任务标记状态着色**：`[x]` 绿色 + 删除线，`[~]` 蓝色，`[ ]` 灰色；
+* **标题分级配色**：H1–H6 由亮到暗的蓝色阶，`#` 记号弱化，H1/H2 字号微调；
+* **围栏代码块**：整块背景色 + 左侧色条，围栏记号弱化；
+* **引用块**：左侧蓝色条 + 微背景 + 斜体；
+* **列表自动延续**：在列表项末尾回车，自动补全 `- `/序号前缀。
 
 ## 快捷键
 
