@@ -12,7 +12,7 @@ import {
   DotsThree, FloppyDisk, FolderOpen, MagnifyingGlass, Plus,
   SidebarSimple, SplitHorizontal, Target, X,
 } from "@phosphor-icons/react";
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import type { AppSettings, DocumentDto, WorkspaceFile } from "../../types";
 import { errorMessage, fileName, isTauriRuntime } from "../../utils";
 
@@ -88,6 +88,8 @@ const focusDocument = [
 
 function taskStatus(marker: string): TaskStatus { return marker.toLowerCase() === "x" ? "done" : marker === "~" ? "progress" : "todo"; }
 
+function clampWidth(value: number, min: number, max: number) { return Math.min(max, Math.max(min, value)); }
+
 /** 把工作区扫描结果(relative_path 含目录层级)构建为文件夹优先排序的文件树 */
 function buildFileTree(files: WorkspaceFile[]): FileTreeNode[] {
   const root: FileTreeNode = { name: "", path: "", isFile: false, children: [] };
@@ -156,7 +158,7 @@ function TaskOutline({ fileName, tasks, filter, setFilter, onCycle }: { fileName
     <header><div><p>Task Outline</p></div><button title="收起任务大纲"><CaretDown size={17} /></button></header>
     <nav className="task-tabs" aria-label="任务过滤">{([{ key: "all", label: "All" }, { key: "todo", label: "Todo" }, { key: "progress", label: "In Progress" }, { key: "done", label: "Done" }] as const).map((tab) => <button key={tab.key} className={filter === tab.key ? "selected" : ""} onClick={() => setFilter(tab.key)}>{tab.label}<b>{counts[tab.key]}</b></button>)}</nav>
     <div className="task-file"><Code size={17} weight="bold" />{fileName}</div>
-    <section className="task-list"><div className="task-list-title"><CaretDown size={15} />Tasks <b>{tasks.length}</b></div>{visible.map((task) => <button className={"outline-task " + task.status} key={task.line} onClick={() => onCycle(task.line)}>{task.status === "done" ? <CheckSquare size={19} weight="fill" /> : task.status === "progress" ? <Target size={20} weight="bold" /> : <Circle size={19} />}<span>{task.text}</span><small>{task.status === "done" ? "@done" : task.status === "progress" ? "@in-progress" : "@todo"}</small></button>)}</section>
+    <section className="task-list"><div className="task-list-title"><CaretDown size={15} />Tasks <b>{tasks.length}</b></div>{visible.map((task) => <button className={"outline-task " + task.status} key={task.line} onClick={() => onCycle(task.line)}>{task.status === "done" ? <CheckSquare size={19} weight="fill" /> : task.status === "progress" ? <Target size={20} weight="bold" /> : <Circle size={19} />}<span>{task.text}</span></button>)}</section>
     <footer><kbd>⌘\\</kbd> Toggle Task Outline <kbd>↵</kbd> Toggle Status</footer>
   </aside>;
 }
@@ -177,6 +179,10 @@ export function MarkdownPage({ settings, onSettingsChange, setNotice, active, in
   const [tasksVisible, setTasksVisible] = useState(true);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const workspaceInitRef = useRef(false);
+  // 三栏宽度：侧栏 / 任务大纲可在拖拽句柄上调整(会话内记忆)。
+  const [sidebarWidth, setSidebarWidth] = useState(312);
+  const [outlineWidth, setOutlineWidth] = useState(373);
+  const resizingRef = useRef<{ type: "sidebar" | "outline"; startX: number; startWidth: number } | null>(null);
 
   const refreshWorkspace = useCallback(async (folder: string | null) => { if (!folder) { setWorkspaceFiles([]); return; } setWorkspaceFiles(await invoke<WorkspaceFile[]>("list_workspace", { path: folder })); }, []);
 
@@ -191,6 +197,38 @@ export function MarkdownPage({ settings, onSettingsChange, setNotice, active, in
   const toggleFolder = useCallback((folderPath: string) => {
     setExpandedFolders((previous) => { const next = new Set(previous); if (next.has(folderPath)) next.delete(folderPath); else next.add(folderPath); return next; });
   }, []);
+
+  const startResize = useCallback((type: "sidebar" | "outline") => (event: ReactMouseEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    resizingRef.current = { type, startX: event.clientX, startWidth: type === "sidebar" ? sidebarWidth : outlineWidth };
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+  }, [sidebarWidth, outlineWidth]);
+
+  useEffect(() => {
+    const onMove = (event: MouseEvent) => {
+      const state = resizingRef.current;
+      if (!state) return;
+      const delta = event.clientX - state.startX;
+      if (state.type === "sidebar") setSidebarWidth(clampWidth(state.startWidth + delta, 180, 480));
+      else setOutlineWidth(clampWidth(state.startWidth - delta, 200, 560));
+    };
+    const onUp = () => {
+      if (!resizingRef.current) return;
+      resizingRef.current = null;
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+  }, []);
+
+  // 栏宽变化后让 CodeMirror 重新测量(隐藏/显示同名机制)。
+  useEffect(() => { requestAnimationFrame(() => editorRef.current?.view?.requestMeasure()); }, [sidebarWidth, outlineWidth]);
 
   /** 页面从隐藏切回可见时,让 CodeMirror 重新测量(保持挂载复用状态)。 */
   useEffect(() => {
@@ -291,6 +329,17 @@ export function MarkdownPage({ settings, onSettingsChange, setNotice, active, in
 
   const documentTitle = path?.split(/[\\/]/).pop() ?? "04-focus-mode.md";
   const classes = ["focus-shell", "markdown-page", focusMode ? "focus-mode" : "", zenMode ? "zen-mode" : "", !sidebarVisible ? "sidebar-hidden" : "", !tasksVisible ? "tasks-hidden" : ""].filter(Boolean).join(" ");
+  // 三栏宽度全部由状态驱动:Zen 或全隐藏时回退到单列撑满整宽,
+  // 其余情况按可见列给出显式 grid-template-columns,编辑器永远为 minmax(0,1fr)。
+  const workbenchStyle: CSSProperties = zenMode
+    ? { gridTemplateColumns: "minmax(0, 1fr)" }
+    : sidebarVisible
+      ? tasksVisible
+        ? { gridTemplateColumns: `${sidebarWidth}px minmax(0, 1fr) ${outlineWidth}px` }
+        : { gridTemplateColumns: `${sidebarWidth}px minmax(0, 1fr)` }
+      : tasksVisible
+        ? { gridTemplateColumns: `minmax(0, 1fr) ${outlineWidth}px` }
+        : { gridTemplateColumns: "minmax(0, 1fr)" };
   return <main className={classes}>
     <header className="command-bar">
       <div className="command-actions">
@@ -299,14 +348,16 @@ export function MarkdownPage({ settings, onSettingsChange, setNotice, active, in
       </div>
       <div className="view-actions"><button className={focusMode ? "active" : ""} onClick={() => setFocusMode((value) => !value)}><Target size={18} />Focus Mode <kbd>F11</kbd></button><button className={zenMode ? "active" : ""} onClick={() => setZenMode((value) => !value)}><Code size={18} />Zen Mode <kbd>⌘ K Z</kbd></button><button className={tasksVisible ? "active" : ""} onClick={() => setTasksVisible((value) => !value)}><SplitHorizontal size={18} />Split</button></div>
     </header>
-    <section className="focus-workbench">
+    <section className="focus-workbench" style={workbenchStyle}>
       {sidebarVisible ? <WorkspaceTree files={workspaceFiles} path={path} workspaceName={workspace ? fileName(workspace) : "打开文件夹…"} expanded={expandedFolders} onToggleFolder={toggleFolder} onOpen={(filePath) => void loadPath(filePath)} onChooseWorkspace={() => void chooseWorkspace()} headings={headings} onJump={jumpToLine} /> : null}
+      {!zenMode && sidebarVisible ? <div className="wb-resizer" style={{ left: sidebarWidth - 3 }} title="拖动调整宽度，双击还原" onMouseDown={startResize("sidebar")} onDoubleClick={() => setSidebarWidth(312)} /> : null}
       <section className="editor-workbench">
         <div className="editor-tabs"><button className="editor-tab active"><Code size={17} weight="bold" />{documentTitle}<X size={15} /></button><button className="new-tab" onClick={newDocument}><Plus size={17} /></button></div>
         <header className="editor-meta"><div><span>{workspace ? fileName(workspace) : "docs"}</span><CaretRight size={14} /><Code size={15} weight="bold" /><strong>{documentTitle}</strong></div><div><span>{text.trim().split(/\s+/).filter(Boolean).length.toLocaleString()} words</span><i /><span>{dirty ? "Unsaved" : "Live"} <b /></span><button title="More editor actions"><DotsThree size={20} /></button></div></header>
         <CodeMirror ref={editorRef} className="focus-editor" height="100%" extensions={[markdown(), ...devtoolboxMarkdown()]} value={text} onChange={setContent} onKeyDown={(event: ReactKeyboardEvent<HTMLDivElement>) => { if ((event.ctrlKey || event.metaKey) && event.key === "Enter") { event.preventDefault(); const line = editorRef.current?.view?.state.doc.lineAt(editorRef.current.view.state.selection.main.from).number; if (line) void cycleTask(line - 1); } }} basicSetup={{ lineNumbers: true, foldGutter: false, highlightActiveLine: false, highlightActiveLineGutter: false }} indentWithTab aria-label="Focus Mode Markdown editor" />
         <footer className="editor-status"><div><SidebarSimple size={18} />Toggle Sidebar</div><div><span>Ln 1, Col 1</span><span>Spaces: 2</span><span>UTF-8</span><span>LF</span><span>Markdown</span><span><Check size={16} />{tasks.length} tasks</span></div></footer>
       </section>
+      {!zenMode && tasksVisible ? <div className="wb-resizer" style={{ right: outlineWidth - 3 }} title="拖动调整宽度，双击还原" onMouseDown={startResize("outline")} onDoubleClick={() => setOutlineWidth(373)} /> : null}
       {tasksVisible ? <TaskOutline fileName={documentTitle} tasks={tasks} filter={filter} setFilter={setFilter} onCycle={(line) => void cycleTask(line)} /> : null}
     </section>
     {paletteOpen ? <div className="palette-backdrop" onMouseDown={() => setPaletteOpen(false)}><section className="command-palette" onMouseDown={(event) => event.stopPropagation()}><header><MagnifyingGlass size={20} /><input autoFocus placeholder="Find a command…" value={paletteQuery} onChange={(event) => setPaletteQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Escape") setPaletteOpen(false); }} /></header>{["New document", "Open document", "Save document", "Open folder", "Toggle focus mode", "Toggle task outline"].filter((item) => item.toLowerCase().includes(paletteQuery.toLowerCase())).map((item) => <button key={item} onClick={() => { setPaletteOpen(false); if (item === "New document") newDocument(); else if (item === "Open document") void chooseDocument(); else if (item === "Open folder") void chooseWorkspace(); else if (item === "Save document") void persist(); }}>{item}</button>)}</section></div> : null}

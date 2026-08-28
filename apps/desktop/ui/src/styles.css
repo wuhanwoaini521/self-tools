@@ -475,7 +475,7 @@ button { cursor: pointer; }
 .view-actions button:last-child { width: 37px; justify-content: center; padding: 0; border: 0; background: transparent; }
 kbd { padding: 2px 5px; border: 1px solid var(--kbd-border); border-radius: 3px; color: inherit; font-family: inherit; font-size: 10px; font-weight: 700; }
 
-.focus-workbench { display: grid; min-height: 0; overflow: hidden; grid-template-columns: 312px minmax(500px, 1fr) 373px; }
+.focus-workbench { position: relative; display: grid; min-width: 0; min-height: 0; overflow: hidden; /* 列宽由 MarkdownPage 拖拽状态驱动(内联 grid-template-columns),默认单列 */ }
 .command-sidebar, .task-outline { min-height: 0; background: var(--panel); }
 .command-sidebar { display: grid; grid-template-rows: 30px 40px minmax(260px, 1fr) 290px 46px; border-right: 1px solid var(--line); }
 .project-heading { display: flex; align-items: end; justify-content: space-between; padding: 0 18px 4px; color: var(--text-heading); font-size: 10px; font-weight: 700; letter-spacing: .02em; text-transform: uppercase; }
@@ -571,14 +571,11 @@ kbd { padding: 2px 5px; border: 1px solid var(--kbd-border); border-radius: 3px;
 .task-list { overflow: auto; padding: 5px 14px 15px; border-bottom: 1px solid var(--line); }
 .task-list-title { gap: 7px; min-height: 35px; color: var(--text-list-title); font-size: 13px; font-weight: 600; }
 .task-list-title b { margin-left: auto; }
-.outline-task { display: grid; grid-template-columns: 21px minmax(0, 1fr) auto; align-items: center; gap: 9px; width: 100%; min-height: 38px; padding: 5px 0; border: 0; background: transparent; color: var(--text-control); font-size: 13px; text-align: left; }
+.outline-task { display: grid; grid-template-columns: 21px minmax(0, 1fr); align-items: center; gap: 9px; width: 100%; min-height: 38px; padding: 5px 0; border: 0; background: transparent; color: var(--text-control); font-size: 13px; text-align: left; }
 .outline-task:hover { color: var(--text-hover); }
 .outline-task svg { color: var(--icon-dim); }
 .outline-task.done svg { color: var(--success); }
 .outline-task.progress svg { color: var(--accent); }
-.outline-task small { padding: 3px 5px; border: 1px solid var(--line-chip); border-radius: var(--radius-control); color: var(--text-chip); font-size: 10px; }
-.outline-task.done small { border-color: var(--success-border); color: var(--success); }
-.outline-task.progress small { border-color: var(--accent-chip-border); color: var(--accent); }
 .task-outline footer { display: flex; align-self: end; align-items: center; gap: 8px; height: 46px; padding: 0 15px; border-top: 1px solid var(--line); color: var(--text-soft-2); font-size: 11px; white-space: nowrap; }
 .task-outline footer kbd { color: var(--text-kbd); }
 
@@ -600,10 +597,13 @@ kbd { padding: 2px 5px; border: 1px solid var(--kbd-border); border-radius: 3px;
 .tree-scroll::-webkit-scrollbar-corner, .document-outline::-webkit-scrollbar-corner, .task-list::-webkit-scrollbar-corner, .focus-editor .cm-scroller::-webkit-scrollbar-corner { background: transparent; }
 
 .focus-shell.zen-mode .command-sidebar, .focus-shell.zen-mode .task-outline { display: none; }
-.focus-shell.zen-mode .focus-workbench, .focus-shell.sidebar-hidden.tasks-hidden .focus-workbench { grid-template-columns: minmax(0, 1fr); }
-.focus-shell.sidebar-hidden .focus-workbench { grid-template-columns: minmax(500px, 1fr) 373px; }
-.focus-shell.tasks-hidden .focus-workbench { grid-template-columns: 312px minmax(500px, 1fr); }
 .toast { position: fixed; right: 22px; bottom: 18px; display: flex; align-items: center; gap: 10px; max-width: 420px; padding: 11px 13px; border: 1px solid var(--line-toast); border-radius: var(--radius-control); background: var(--surface-raised); color: var(--text-toast); box-shadow: var(--shadow-toast); }
+
+/* Markdown 工作台拖拽分隔条：窄命中区 + 悬停时显示细色线,拖动微调整栏宽。
+ * 左侧句柄内联 left、右侧句柄内联 right,transform 居中于分隔线。 */
+.wb-resizer { position: absolute; top: 0; bottom: 0; width: 6px; z-index: 4; cursor: col-resize; transform: translateX(-3px); }
+.wb-resizer::before { content: ""; position: absolute; top: 0; bottom: 0; left: 2px; width: 2px; background: transparent; transition: background .12s ease; }
+.wb-resizer:hover::before { background: var(--accent); opacity: .45; }
 .palette-backdrop { position: fixed; inset: 0; display: grid; place-items: start center; padding-top: 15vh; background: var(--overlay-backdrop); }
 .command-palette { width: min(580px, 80vw); overflow: hidden; border: 1px solid var(--line-overlay); border-radius: var(--radius-overlay); background: var(--surface-overlay); box-shadow: var(--shadow-overlay); }
 .command-palette header { display: flex; align-items: center; gap: 10px; padding: 13px; border-bottom: 1px solid var(--line); color: var(--muted); }
@@ -635,7 +635,6 @@ kbd { padding: 2px 5px; border: 1px solid var(--kbd-border); border-radius: 3px;
   .brand p { display: none; }
   .command-actions { gap: 5px; }
   .command-actions button, .view-actions button { padding: 0 8px; }
-  .focus-workbench { grid-template-columns: 270px minmax(430px, 1fr) 330px; }
   .task-tabs { gap: 4px; padding: 0 8px; }
   .task-tabs button { gap: 5px; padding: 0 7px; }
 }
