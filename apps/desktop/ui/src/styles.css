@@ -508,7 +508,9 @@ kbd { padding: 2px 5px; border: 1px solid var(--kbd-border); border-radius: 3px;
 .editor-tab, .new-tab { display: inline-flex; align-items: center; gap: 8px; border: 0; background: transparent; color: var(--text-tab); font-size: 13px; }
 .editor-tab { min-width: 205px; padding: 0 17px; border-right: 1px solid var(--line); border-top: 1px solid var(--line-tab); background: var(--surface-raised); color: var(--text-bright); }
 .editor-tab svg:first-child { color: var(--accent); }
-.editor-tab svg:last-child { margin-left: auto; color: var(--icon-muted); }
+.editor-tab span:last-child { display: flex; align-items: center; margin-left: auto; }
+.editor-tab span:last-child svg { color: var(--icon-muted); transition: color .12s ease; }
+.editor-tab span:last-child:hover svg { color: var(--text-hover); }
 .new-tab { justify-content: center; width: 39px; border-right: 1px solid var(--line); color: var(--muted); }
 .new-tab:hover { color: var(--text-hover); background: var(--panel-hover); }
 .editor-meta { justify-content: space-between; padding: 0 18px; border-bottom: 1px solid var(--line-soft); color: var(--text-soft); font-size: 12px; }

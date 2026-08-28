@@ -30,62 +30,6 @@ type OutlineHeading = { line: number; level: number; number: string; text: strin
 /** 外壳下发的跨 Feature 意图(如 Home 页「打开笔记」)。 */
 export type MarkdownIntent = { type: "open" | "new"; path?: string; nonce: number };
 
-const focusDocument = [
-  "# Focus Mode Command Center",
-  "",
-  "DevToolbox is designed to help you write, organize, and complete Markdown",
-  "tasks with clarity and speed.",
-  "",
-  "## Goals",
-  "- Eliminate context switching",
-  "- Surface what matters now",
-  "- Turn tasks into progress",
-  "",
-  "## Core Principles",
-  "1. Focus on a single document",
-  "2. See your tasks. Finish your tasks.",
-  "3. Keyboard first. Always.",
-  "",
-  "---",
-  "",
-  "## Using Focus Mode",
-  "Focus Mode hides distractions and maximizes your writing surface.",
-  "Press F11 or click the Focus Mode button in the command bar.",
-  "",
-  "## Task Workflow",
-  "- [x] Define the task and desired outcome",
-  "- [x] Break the work into actionable steps",
-  "- [~] Implement the core functionality",
-  "- [ ] Add examples and docs",
-  "- [ ] Test thoroughly",
-  "- [ ] Review and refine",
-  "",
-  "## Keyboard Shortcuts",
-  "| Shortcut | Action |",
-  "|----------|--------|",
-  "| F11 | Toggle Focus Mode |",
-  "| Ctrl+B | Toggle Sidebar |",
-  "| Ctrl+\\\\ | Toggle Task Outline |",
-  "| Ctrl+Enter | Toggle Task Status |",
-  "| Ctrl+Shift+F | Find in Document |",
-  "",
-  "## Tips & Best Practices",
-  "- Keep tasks small and verifiable",
-  "- Update status as you go",
-  "- Use headings to structure your flow",
-  "",
-  "## Snippets",
-  "",
-  "Set a task mark directly in the editor:",
-  "",
-  "```rust",
-  "let done = \"- [x] Ship the feature\";",
-  "```",
-  "",
-  "> State cycles: Pending → In Progress → Done.",
-  "> Every task stays valid Markdown.",
-].join("\n");
-
 function taskStatus(marker: string): TaskStatus { return marker.toLowerCase() === "x" ? "done" : marker === "~" ? "progress" : "todo"; }
 
 function clampWidth(value: number, min: number, max: number) { return Math.min(max, Math.max(min, value)); }
@@ -165,7 +109,7 @@ function TaskOutline({ fileName, tasks, filter, setFilter, onCycle }: { fileName
 
 export function MarkdownPage({ settings, onSettingsChange, setNotice, active, intent, initialWorkspace }: { settings: AppSettings; onSettingsChange: (next: AppSettings) => void; setNotice: (message: string) => void; active: boolean; intent: MarkdownIntent | null; initialWorkspace: string | null | undefined }) {
   const editorRef = useRef<ReactCodeMirrorRef>(null);
-  const [text, setText] = useState(focusDocument);
+  const [text, setText] = useState("");
   const [path, setPath] = useState<string | null>(null);
   const [workspace, setWorkspace] = useState<string | null>(null);
   const [workspaceFiles, setWorkspaceFiles] = useState<WorkspaceFile[]>([]);
@@ -239,7 +183,7 @@ export function MarkdownPage({ settings, onSettingsChange, setNotice, active, in
 
   const persist = useCallback(async (target = path, content = text) => {
     if (!target) {
-      const selected = await save({ defaultPath: "04-focus-mode.md", filters: [{ name: "Markdown", extensions: ["md", "markdown"] }] });
+      const selected = await save({ defaultPath: "untitled.md", filters: [{ name: "Markdown", extensions: ["md", "markdown"] }] });
       if (!selected) return;
       setPath(selected);
       await persist(selected, content);
@@ -263,7 +207,12 @@ export function MarkdownPage({ settings, onSettingsChange, setNotice, active, in
 
   const chooseDocument = async () => { const selected = await open({ multiple: false, directory: false, filters: [{ name: "Markdown", extensions: ["md", "markdown", "txt"] }] }); if (typeof selected === "string") await loadPath(selected); };
   const chooseWorkspace = async () => { const selected = await open({ multiple: false, directory: true }); if (typeof selected !== "string") return; await refreshWorkspace(selected); setWorkspace(selected); const next = { ...settings, workspace_path: selected }; onSettingsChange(next); setNotice("已切换工作区"); };
-  const newDocument = () => { setPath(null); setText(focusDocument); setDirty(false); };
+  const newDocument = () => { setPath(null); setText(""); setDirty(false); };
+  /** 关闭当前标签：回到未命名空文档，未保存的修改先确认。 */
+  const closeDocument = () => {
+    if (dirty && !window.confirm("当前文档有未保存的修改，仍然关闭吗？")) return;
+    setPath(null); setText(""); setDirty(false);
+  };
   const setContent = (next: string) => { setText(next); setDirty(true); if (settings.auto_save && path) void persist(path, next); };
   const tasks = useMemo<OutlineTask[]>(() => text.split(/\r?\n/).flatMap((line, index) => { const match = /^\s*(?:(?:[-*+]|\d+[.)])\s+)?\[([ ~x])\]\s*(.*)$/.exec(line); return match ? [{ line: index, text: match[2] || "Untitled task", status: taskStatus(match[1]) }] : []; }), [text]);
   const headings = useMemo(() => outlineHeadings(text), [text]);
@@ -327,7 +276,7 @@ export function MarkdownPage({ settings, onSettingsChange, setNotice, active, in
     setExpandedFolders((previous) => { const next = new Set(previous); let accumulated = ""; for (const segment of segments) { accumulated = accumulated ? accumulated + "/" + segment : segment; next.add(accumulated); } return next; });
   }, [path, workspace, workspaceFiles]);
 
-  const documentTitle = path?.split(/[\\/]/).pop() ?? "04-focus-mode.md";
+  const documentTitle = path?.split(/[\\/]/).pop() ?? "untitled.md";
   const classes = ["focus-shell", "markdown-page", focusMode ? "focus-mode" : "", zenMode ? "zen-mode" : "", !sidebarVisible ? "sidebar-hidden" : "", !tasksVisible ? "tasks-hidden" : ""].filter(Boolean).join(" ");
   // 三栏宽度全部由状态驱动:Zen 或全隐藏时回退到单列撑满整宽,
   // 其余情况按可见列给出显式 grid-template-columns,编辑器永远为 minmax(0,1fr)。
@@ -352,7 +301,7 @@ export function MarkdownPage({ settings, onSettingsChange, setNotice, active, in
       {sidebarVisible ? <WorkspaceTree files={workspaceFiles} path={path} workspaceName={workspace ? fileName(workspace) : "打开文件夹…"} expanded={expandedFolders} onToggleFolder={toggleFolder} onOpen={(filePath) => void loadPath(filePath)} onChooseWorkspace={() => void chooseWorkspace()} headings={headings} onJump={jumpToLine} /> : null}
       {!zenMode && sidebarVisible ? <div className="wb-resizer" style={{ left: sidebarWidth - 3 }} title="拖动调整宽度，双击还原" onMouseDown={startResize("sidebar")} onDoubleClick={() => setSidebarWidth(312)} /> : null}
       <section className="editor-workbench">
-        <div className="editor-tabs"><button className="editor-tab active"><Code size={17} weight="bold" />{documentTitle}<X size={15} /></button><button className="new-tab" onClick={newDocument}><Plus size={17} /></button></div>
+        <div className="editor-tabs"><button className="editor-tab active"><Code size={17} weight="bold" />{documentTitle}<span title="关闭文档"><X size={15} onClick={(event) => { event.stopPropagation(); closeDocument(); }} /></span></button><button className="new-tab" onClick={newDocument}><Plus size={17} /></button></div>
         <header className="editor-meta"><div><span>{workspace ? fileName(workspace) : "docs"}</span><CaretRight size={14} /><Code size={15} weight="bold" /><strong>{documentTitle}</strong></div><div><span>{text.trim().split(/\s+/).filter(Boolean).length.toLocaleString()} words</span><i /><span>{dirty ? "Unsaved" : "Live"} <b /></span><button title="More editor actions"><DotsThree size={20} /></button></div></header>
         <CodeMirror ref={editorRef} className="focus-editor" height="100%" extensions={[markdown(), ...devtoolboxMarkdown()]} value={text} onChange={setContent} onKeyDown={(event: ReactKeyboardEvent<HTMLDivElement>) => { if ((event.ctrlKey || event.metaKey) && event.key === "Enter") { event.preventDefault(); const line = editorRef.current?.view?.state.doc.lineAt(editorRef.current.view.state.selection.main.from).number; if (line) void cycleTask(line - 1); } }} basicSetup={{ lineNumbers: true, foldGutter: false, highlightActiveLine: false, highlightActiveLineGutter: false }} indentWithTab aria-label="Focus Mode Markdown editor" />
         <footer className="editor-status"><div><SidebarSimple size={18} />Toggle Sidebar</div><div><span>Ln 1, Col 1</span><span>Spaces: 2</span><span>UTF-8</span><span>LF</span><span>Markdown</span><span><Check size={16} />{tasks.length} tasks</span></div></footer>
