@@ -124,6 +124,49 @@ async fn refresh_rss_feeds(state: State<'_, AppState>) -> Result<RefreshReport, 
     commit_refresh(&store, results).map_err(CommandError::from)
 }
 
+/// 按需抓取单篇文章页面原始 HTML(由前端抽取并净化正文)。
+/// 仅用于 RSS 正文被源站截断的"查看全文"场景,点击才抓取,不自动、不批量。
+#[tauri::command]
+async fn fetch_article_url(
+    state: State<'_, AppState>,
+    url: String,
+) -> Result<String, CommandError> {
+    let trimmed = url.trim().to_string();
+    if !(trimmed.starts_with("http://") || trimmed.starts_with("https://")) {
+        return Err(CommandError {
+            code: "rss_invalid_url",
+            message: "invalid article url".to_string(),
+        });
+    }
+    let response = state
+        .client
+        .get(&trimmed)
+        .timeout(std::time::Duration::from_secs(20))
+        .send()
+        .await
+        .map_err(|source| CommandError {
+            code: "rss_fetch_failed",
+            message: source.to_string(),
+        })?;
+    if !response.status().is_success() {
+        return Err(CommandError {
+            code: "rss_fetch_failed",
+            message: format!("server returned {}", response.status()),
+        });
+    }
+    let bytes = response.bytes().await.map_err(|source| CommandError {
+        code: "rss_fetch_failed",
+        message: source.to_string(),
+    })?;
+    // 限制单个页面大小,避免极端情况拖慢。
+    let bytes = if bytes.len() > 5 * 1024 * 1024 {
+        &bytes[..5 * 1024 * 1024]
+    } else {
+        &bytes[..]
+    };
+    Ok(String::from_utf8_lossy(bytes).into_owned())
+}
+
 #[tauri::command]
 fn list_rss_feeds(state: State<'_, AppState>) -> Result<Vec<FeedDto>, CommandError> {
     let store = state.store.lock().expect("rss store poisoned");
@@ -188,6 +231,7 @@ pub fn run() {
             put_settings,
             add_rss_feed,
             refresh_rss_feeds,
+            fetch_article_url,
             list_rss_feeds,
             list_rss_articles,
             latest_rss_articles,

@@ -1,7 +1,7 @@
 import DOMPurify from "dompurify";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { ArrowSquareOut, ArrowsClockwise, Check, Plus, Rss, TrashSimple } from "@phosphor-icons/react";
+import { ArrowSquareOut, ArrowsClockwise, Check, Plus, Rss, TextT, TrashSimple } from "@phosphor-icons/react";
 import { useCallback, useEffect, useState, type MouseEvent } from "react";
 import type { ArticleDto, FeedDto } from "../../types";
 import { errorMessage, formatDateTime, formatRelativeTime, isTauriRuntime } from "../../utils";
@@ -33,6 +33,8 @@ export function RssPage({ active, version, refreshing, onRefresh, onFeedsChanged
   const [selectedArticle, setSelectedArticle] = useState<ArticleDto | null>(null);
   const [newUrl, setNewUrl] = useState("");
   const [adding, setAdding] = useState(false);
+  const [fetchedHtml, setFetchedHtml] = useState<string | null>(null);
+  const [fetchingArticle, setFetchingArticle] = useState(false);
 
   const loadFeeds = useCallback(async () => {
     if (!isTauriRuntime()) return;
@@ -120,6 +122,25 @@ export function RssPage({ active, version, refreshing, onRefresh, onFeedsChanged
     else window.open(url, "_blank");
   };
 
+  /** 切换文章时重置抓取结果 */
+  useEffect(() => { setFetchedHtml(null); setFetchingArticle(false); }, [selectedArticle?.id]);
+
+  /** 按需抓取文章页正文(仅当 RSS 正文被截断时手动触发)。 */
+  const fetchFullText = async (article: ArticleDto) => {
+    if (!article.url) return;
+    if (!isTauriRuntime()) { window.open(article.url, "_blank"); return; }
+    setFetchingArticle(true);
+    try {
+      const html = await invoke<string>("fetch_article_url", { url: article.url });
+      const extracted = extractArticle(html);
+      if (extracted.trim().length < 80) {
+        setNotice("未能提取正文，页面可能需要登录或依赖脚本渲染。请在浏览器打开原文。");
+        return;
+      }
+      setFetchedHtml(extracted);
+    } catch (error) { setNotice(errorMessage(error)); } finally { setFetchingArticle(false); }
+  };
+
   /** 阅读面板内点击任意链接(如源站自带的「查看全文」):一律在系统浏览器打开,避免 Tauri 窗口内跳转。 */
   const handleContentClick = (article: ArticleDto) => (event: MouseEvent<HTMLDivElement>) => {
     const anchor = (event.target as HTMLElement).closest("a");
@@ -175,15 +196,50 @@ export function RssPage({ active, version, refreshing, onRefresh, onFeedsChanged
           <h2>{selectedArticle.title}</h2>
           <p className="rss-reading-meta">{selectedArticle.feed_title} · {formatDateTime(selectedArticle.published_at)}</p>
           <div className="rss-reading-actions">
-            {selectedArticle.url ? <button onClick={() => void openInBrowser(selectedArticle.url)}><ArrowSquareOut size={16} />Open in Browser</button> : null}
+            {selectedArticle.url ? <button onClick={() => void openInBrowser(selectedArticle.url)}><ArrowSquareOut size={16} />在浏览器打开</button> : null}
+            {selectedArticle.url ? <button onClick={() => void fetchFullText(selectedArticle)} disabled={fetchingArticle} title="RSS 只有摘要时，抓取文章页正文"><TextT size={16} />{fetchingArticle ? "抓取中…" : fetchedHtml ? "重新抓取" : "抓取全文"}</button> : null}
             <span className="rss-read-tag"><Check size={14} />已读</span>
           </div>
-          {selectedArticle.summary
-            ? <div className="rss-reading-content" onClick={handleContentClick(selectedArticle)} dangerouslySetInnerHTML={{ __html: prepareContent(selectedArticle.summary, selectedArticle.url) }} />
-            : <p className="rss-empty">该文章没有摘要内容,可打开原文阅读。</p>}
+          {fetchedHtml
+            ? <p className="rss-fetch-note">已加载网页全文</p>
+            : null}
+          {fetchedHtml
+            ? <div className="rss-reading-content rss-fetched" onClick={handleContentClick(selectedArticle)} dangerouslySetInnerHTML={{ __html: prepareContent(fetchedHtml, selectedArticle.url) }} />
+            : selectedArticle.summary
+              ? <div className="rss-reading-content" onClick={handleContentClick(selectedArticle)} dangerouslySetInnerHTML={{ __html: prepareContent(selectedArticle.summary, selectedArticle.url) }} />
+              : <p className="rss-empty">该文章没有摘要内容,可打开原文阅读。</p>}
         </article>}
     </section>
   </div>;
+}
+
+/**
+ * 从文章页 HTML 抽取正文容器(阅读器常用启发式):先去噪音,再找语义容器,
+ * 最后回退到最长文本块。返回的是待净化的片段,由 prepareContent 再处理。
+ */
+function extractArticle(html: string): string {
+  const document = new DOMParser().parseFromString(html, "text/html");
+  document.querySelectorAll(
+    "script,style,noscript,iframe,nav,footer,header,aside,form,canvas,svg," +
+    "[class*='ad'],[class*='advert'],[class*='comment'],[class*='sidebar']," +
+    "[class*='related'],[class*='footer'],[class*='nav'],[class*='share'],[class*='meta']," +
+    "[id*='comment'],[id*='sidebar'],[id*='advert']",
+  ).forEach((node) => node.remove());
+  const candidates = [
+    "article", "[role='main']", "main", ".article-content", ".post-content",
+    ".entry-content", ".article", ".post", "#article-content", "#content", ".content", "#article",
+  ];
+  for (const selector of candidates) {
+    const element = document.querySelector(selector);
+    if (element && (element.textContent || "").trim().length > 400) return element.innerHTML;
+  }
+  let best: Element | null = null;
+  let bestLength = 0;
+  for (const child of Array.from(document.body?.children ?? [])) {
+    const length = (child.textContent || "").trim().length;
+    if (length > bestLength) { bestLength = length; best = child; }
+  }
+  return best ? best.innerHTML : document.body ? document.body.innerHTML : "";
 }
 
 /** 相对链接基于文章原文地址解析为绝对地址。 */
