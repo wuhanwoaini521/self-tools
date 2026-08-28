@@ -2,7 +2,7 @@ import DOMPurify from "dompurify";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { ArrowSquareOut, ArrowsClockwise, Check, Plus, Rss, TrashSimple } from "@phosphor-icons/react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type MouseEvent } from "react";
 import type { ArticleDto, FeedDto } from "../../types";
 import { errorMessage, formatDateTime, formatRelativeTime, isTauriRuntime } from "../../utils";
 
@@ -120,6 +120,16 @@ export function RssPage({ active, version, refreshing, onRefresh, onFeedsChanged
     else window.open(url, "_blank");
   };
 
+  /** 阅读面板内点击任意链接(如源站自带的「查看全文」):一律在系统浏览器打开,避免 Tauri 窗口内跳转。 */
+  const handleContentClick = (article: ArticleDto) => (event: MouseEvent<HTMLDivElement>) => {
+    const anchor = (event.target as HTMLElement).closest("a");
+    const href = anchor?.getAttribute("href");
+    if (!href) return;
+    event.preventDefault();
+    const absolute = resolveUrl(href, article.url || undefined);
+    if (absolute) void openInBrowser(absolute);
+  };
+
   return <div className="rss-page">
     <aside className="rss-feeds">
       <header className="rss-feeds-header">
@@ -169,16 +179,25 @@ export function RssPage({ active, version, refreshing, onRefresh, onFeedsChanged
             <span className="rss-read-tag"><Check size={14} />已读</span>
           </div>
           {selectedArticle.summary
-            ? <div className="rss-reading-content" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(selectedArticle.summary) }} />
+            ? <div className="rss-reading-content" onClick={handleContentClick(selectedArticle)} dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(selectedArticle.summary) }} />
             : <p className="rss-empty">该文章没有摘要内容,可打开原文阅读。</p>}
         </article>}
     </section>
   </div>;
 }
 
-/** 摘要片段用纯文本截断展示(阅读面板才渲染净化后的 HTML)。 */
+/** 相对链接基于文章原文地址解析为绝对地址。 */
+function resolveUrl(href: string, base?: string): string {
+  try { return new URL(href, base).toString(); } catch { return href; }
+}
+
+/** 列表摘要:取纯文本,并去掉源站截断尾巴上的「…查看全文」等链接文字。 */
 function stripHtml(html: string): string {
   const template = document.createElement("div");
   template.innerHTML = DOMPurify.sanitize(html);
-  return (template.textContent || "").replace(/\s+/g, " ").trim();
+  const text = (template.textContent || "").replace(/\s+/g, " ").trim();
+  return text
+    .replace(/(?:…{1,2}|\.{2,6}|⋯+)?\s*(?:查看全文|阅读全文|继续阅读|[Rr]ead\s*[Mm]ore)\s*$/u, "")
+    .replace(/(?:…{1,2}|\.{2,6}|⋯+)\s*$/u, "")
+    .trim();
 }

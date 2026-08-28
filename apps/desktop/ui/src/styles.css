@@ -447,7 +447,7 @@ button { cursor: pointer; }
 .rss-read-tag { display: inline-flex; align-items: center; gap: 5px; color: var(--success); font-size: 12px; }
 .rss-reading-content { padding-top: 4px; color: var(--text); font-size: 14px; line-height: 1.7; }
 .rss-reading-content img { max-width: 100%; }
-.rss-reading-content a { color: var(--accent-hover); }
+.rss-reading-content a { color: var(--accent-hover); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
 .rss-reading-content h1, .rss-reading-content h2, .rss-reading-content h3 { color: var(--text); line-height: 1.4; }
 .rss-empty-pane, .rss-empty { display: grid; place-items: center; padding: 40px 20px; color: var(--faint); font-size: 13px; line-height: 1.8; text-align: center; }
 
