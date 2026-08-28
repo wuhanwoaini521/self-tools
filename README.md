@@ -1,7 +1,12 @@
 # DevToolbox
 
-跨平台（Windows / Linux / macOS）Markdown 笔记与任务管理工具，
-核心特色是**多状态 Checkbox**（Pending / In Progress / Done，可扩展）与键盘优先的专注写作流。
+跨平台（Windows / Linux / macOS）**个人 Dashboard / 效率中心**。
+
+目标是一个可以持续容纳多个个人工具的工作台，当前已内置：
+
+- **Home** — 个人信息总览（最近笔记、最新订阅、快捷入口）
+- **Markdown** — 笔记与任务管理，核心特色是**多状态 Checkbox**（Pending / In Progress / Done）与键盘优先的专注写作流
+- **RSS** — 订阅阅读器：添加 / 删除订阅、未读计数、定时后台刷新、SQLite 持久化
 
 技术栈：Rust + Tauri 2 + React 19 + CodeMirror 6。
 
@@ -44,9 +49,9 @@ npm --prefix apps/desktop/ui exec -- tauri build
 ## 核心体验
 
 ```
-打开应用 → 写 Markdown → 写下 US / JP / CA
+打开应用 → Home 总览 → 进入 Markdown → 写下 US / JP / CA
 → 转换为任务 → Ctrl+Enter 切换状态（Pending → In Progress → Done → Pending）
-→ 保存 → 下次打开状态仍在
+→ 保存 → 下次打开状态仍在；RSS 订阅在后台按时刷新，未读数挂在导航上
 ```
 
 ## 多状态 Checkbox 语法
@@ -100,19 +105,20 @@ npm --prefix apps/desktop/ui exec -- tauri build
 ├── rust-toolchain.toml      # 固定 Rust 版本
 ├── crates/
 │   ├── core/                # 纯领域规则：任务行解析、状态注册表（无 UI / 无 I/O）
-│   ├── application/         # 用例编排（workflows）
-│   └── infrastructure/      # 文件 IO、配置存储、工作区扫描
+│   ├── application/         # 用例编排：文档工作流 + RSS 工作流（抓取/落库两段式）
+│   └── infrastructure/      # 文件 IO、设置存储、SQLite(RSS)、工作区扫描、feed-rs 解析
 ├── apps/
-│   └── desktop/             # Tauri 桌面适配器
+│   └── desktop/             # Tauri 桌面适配器（命令层 + AppState）
 │       ├── src/             # Tauri 命令 / 事件边界
-│       └── ui/              # React 19 + CodeMirror 6 前端（Vite 构建）
+│       └── ui/              # React 19 前端：外壳(导航) + features(home/markdown/rss)
 ├── tests/fixtures/          # 跨实现共享的 Markdown 行为样例
 └── docs/
     ├── migration/           # PySide6 → Rust 迁移历史档案
     └── screenshots/
 ```
 
-分层原则：`UI ≠ Markdown 解析 ≠ 文件读写 ≠ 任务状态逻辑`。
+分层原则：`UI ≠ 领域解析 ≠ 文件/数据库读写 ≠ 网络抓取`；
+前端按 feature 划分（`ui/src/features/<模块>`），公共能力（主题、设置、工具函数）在外壳与共享层。
 
 ## 质量门禁
 

@@ -26,6 +26,10 @@ serde_json = "1"
 thiserror = "2"
 regex = "1"
 tempfile = "3"
+feed-rs = "2"
+futures-util = "0.3"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "gzip"] }
+rusqlite = { version = "0.32", features = ["bundled"] }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

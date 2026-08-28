@@ -9,10 +9,21 @@ pub enum ApplicationError {
     EmptyDocumentPath,
     #[error("workspace path is empty")]
     EmptyWorkspacePath,
+    #[error("feed url is invalid (expect http/https): {0}")]
+    InvalidFeedUrl(String),
+    #[error("feed already subscribed: {0}")]
+    DuplicateFeed(String),
+    #[error("feed not found: {0}")]
+    FeedNotFound(i64),
     #[error("operation failed for {path}: {source}")]
     Infrastructure {
         path: PathBuf,
         #[source]
+        source: InfrastructureError,
+    },
+    #[error("rss error: {source}")]
+    Rss {
+        #[from]
         source: InfrastructureError,
     },
 }

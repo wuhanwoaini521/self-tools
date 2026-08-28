@@ -10,9 +10,11 @@ description = "DevToolbox Tauri desktop adapter."
 [dependencies]
 devtoolbox-application = { path = "../../crates/application" }
 devtoolbox-infrastructure = { path = "../../crates/infrastructure" }
+reqwest.workspace = true
 serde.workspace = true
 tauri = { version = "2", features = [] }
 tauri-plugin-dialog = "2"
+tauri-plugin-opener = "2"
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }

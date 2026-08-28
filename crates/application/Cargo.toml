@@ -10,6 +10,8 @@ description = "DevToolbox document workflows and application DTOs."
 [dependencies]
 devtoolbox-core = { path = "../core" }
 devtoolbox-infrastructure = { path = "../infrastructure" }
+futures-util.workspace = true
+reqwest.workspace = true
 serde.workspace = true
 thiserror.workspace = true
 

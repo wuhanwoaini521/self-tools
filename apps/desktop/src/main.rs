@@ -2,9 +2,11 @@
 // workspace 级 `unused_crate_dependencies` lint 保持有效。
 use devtoolbox_application as _;
 use devtoolbox_infrastructure as _;
+use reqwest as _;
 use serde as _;
 use tauri as _;
 use tauri_plugin_dialog as _;
+use tauri_plugin_opener as _;
 
 fn main() {
     devtoolbox_desktop::run();

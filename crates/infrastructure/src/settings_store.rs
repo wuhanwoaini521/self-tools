@@ -17,6 +17,8 @@ pub struct AppSettings {
     /// UI 风格主题 id(如 "default" / "warm-editorial"),
     /// 由前端 ThemeManager 注册表校验并回退;Rust 侧仅透传存储,不做主题枚举分支。
     pub ui_theme: String,
+    /// RSS 自动刷新间隔(分钟),由前端定时器消费。
+    pub rss_refresh_minutes: u32,
     pub editor_font_size: u8,
     pub auto_save: bool,
     pub markdown_default_view: MarkdownView,
@@ -46,6 +48,7 @@ impl Default for AppSettings {
             workspace_path: None,
             theme_mode: ThemeMode::System,
             ui_theme: "default".to_string(),
+            rss_refresh_minutes: 30,
             editor_font_size: 13,
             auto_save: false,
             markdown_default_view: MarkdownView::Split,
