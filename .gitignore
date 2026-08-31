@@ -17,3 +17,7 @@ Thumbs.db
 *.log
 output/
 .playwright-cli/
+
+# Language 数据集（下载的原始语料不进 Git；fixtures 已归属 attribution 单独提交）
+data/raw/
+data/generated/

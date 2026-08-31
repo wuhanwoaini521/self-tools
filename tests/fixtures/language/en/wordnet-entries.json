@@ -1,0 +1,2353 @@
+{
+ "able": {
+  "a": {
+   "sense": [
+    {
+     "antonym": [
+      "unable%3:00:00::"
+     ],
+     "derivation": [
+      "ability%1:09:00::",
+      "ability%1:07:00::"
+     ],
+     "id": "able%3:00:00::",
+     "synset": "00001740-a"
+    },
+    {
+     "derivation": [
+      "ability%1:09:00::",
+      "ability%1:07:00::"
+     ],
+     "id": "able%5:00:00:competent:00",
+     "synset": "00512273-s"
+    },
+    {
+     "derivation": [
+      "ability%1:09:00::",
+      "ability%1:07:00::"
+     ],
+     "id": "able%5:00:00:capable:00",
+     "synset": "00307461-s"
+    },
+    {
+     "id": "able%5:00:00:fit:01",
+     "synset": "01021031-s"
+    }
+   ]
+  }
+ },
+ "book": {
+  "n": {
+   "sense": [
+    {
+     "derivation": [
+      "booklet%1:10:00::"
+     ],
+     "id": "book%1:10:00::",
+     "synset": "06422547-n"
+    },
+    {
+     "derivation": [
+      "booklet%1:10:00::"
+     ],
+     "id": "book%1:06:00::",
+     "synset": "02873453-n"
+    },
+    {
+     "id": "book%1:10:02::",
+     "synset": "06649049-n"
+    },
+    {
+     "derivation": [
+      "booklet%1:10:00::"
+     ],
+     "id": "book%1:10:01::",
+     "synset": "07023062-n"
+    },
+    {
+     "id": "book%1:21:00::",
+     "synset": "13425421-n"
+    },
+    {
+     "id": "book%1:14:01::",
+     "synset": "07971027-n"
+    },
+    {
+     "id": "book%1:14:00::",
+     "synset": "07970797-n"
+    },
+    {
+     "id": "book%1:10:03::",
+     "synset": "06406508-n"
+    },
+    {
+     "id": "book%1:06:02::",
+     "synset": "02873887-n"
+    }
+   ]
+  },
+  "v": {
+   "sense": [
+    {
+     "derivation": [
+      "booker%1:18:00::",
+      "booking%1:04:01::"
+     ],
+     "id": "book%2:31:00::",
+     "subcat": [
+      "vtaa",
+      "vtaa-pp",
+      "vtai",
+      "vtai-pp"
+     ],
+     "synset": "00680696-v"
+    },
+    {
+     "derivation": [
+      "bookable%5:00:00:reserved:02",
+      "booking%1:04:00::"
+     ],
+     "id": "book%2:41:01::",
+     "subcat": [
+      "vtai"
+     ],
+     "synset": "02503969-v"
+    },
+    {
+     "id": "book%2:41:00::",
+     "subcat": [
+      "vtaa",
+      "vtaa-pp"
+     ],
+     "synset": "02503785-v"
+    },
+    {
+     "derivation": [
+      "bookable%5:00:00:reserved:02",
+      "booking%1:04:00::"
+     ],
+     "id": "book%2:41:03::",
+     "subcat": [
+      "via"
+     ],
+     "synset": "02605751-v"
+    }
+   ]
+  }
+ },
+ "booking": {
+  "n": {
+   "pronunciation": [
+    {
+     "value": "ˈbʊkɪŋ"
+    }
+   ],
+   "sense": [
+    {
+     "derivation": [
+      "book%2:31:00::"
+     ],
+     "id": "booking%1:04:01::",
+     "synset": "00271763-n"
+    },
+    {
+     "derivation": [
+      "book%2:41:03::",
+      "book%2:41:01::"
+     ],
+     "id": "booking%1:04:00::",
+     "synset": "01220817-n"
+    }
+   ]
+  }
+ },
+ "city": {
+  "n": {
+   "pronunciation": [
+    {
+     "value": "ˈsɪti"
+    }
+   ],
+   "sense": [
+    {
+     "derivation": [
+      "citify%2:30:00::"
+     ],
+     "id": "city%1:15:00::",
+     "synset": "08542298-n"
+    },
+    {
+     "id": "city%1:15:01::",
+     "synset": "08558466-n"
+    },
+    {
+     "derivation": [
+      "citify%2:30:00::"
+     ],
+     "id": "city%1:14:00::",
+     "synset": "08243256-n"
+    }
+   ]
+  }
+ },
+ "delicious": {
+  "a": {
+   "pronunciation": [
+    {
+     "value": "dɪˈlɪʃəs",
+     "variety": "GB"
+    },
+    {
+     "value": "dəˈlɪʃəs",
+     "variety": "US"
+    }
+   ],
+   "sense": [
+    {
+     "id": "delicious%5:00:00:pleasing:00",
+     "synset": "01813229-s"
+    },
+    {
+     "id": "delicious%5:00:00:tasty:00",
+     "synset": "02405305-s"
+    }
+   ]
+  }
+ },
+ "eat": {
+  "v": {
+   "form": [
+    "ate",
+    "eaten"
+   ],
+   "pronunciation": [
+    {
+     "value": "iːt",
+     "variety": "GB"
+    },
+    {
+     "value": "it",
+     "variety": "US"
+    }
+   ],
+   "sense": [
+    {
+     "agent": [
+      "eater%1:18:00::"
+     ],
+     "derivation": [
+      "eater%1:18:00::",
+      "eater%1:13:00::",
+      "eating%1:04:00::"
+     ],
+     "id": "eat%2:34:00::",
+     "sent": [
+      "They eat more bread"
+     ],
+     "subcat": [
+      "vtai"
+     ],
+     "synset": "01170802-v",
+     "undergoer": [
+      "eater%1:13:00::"
+     ]
+    },
+    {
+     "agent": [
+      "eater%1:18:00::"
+     ],
+     "also": [
+      "eat_in%2:34:00::",
+      "eat_out%2:34:00::",
+      "eat_up%2:34:00::"
+     ],
+     "derivation": [
+      "eater%1:18:00::",
+      "eating%1:04:00::"
+     ],
+     "id": "eat%2:34:01::",
+     "sent": [
+      "Sam and Sue eat"
+     ],
+     "subcat": [
+      "via"
+     ],
+     "synset": "01168667-v"
+    },
+    {
+     "derivation": [
+      "eating%1:04:00::"
+     ],
+     "id": "eat%2:34:02::",
+     "sent": [
+      "The animals eat"
+     ],
+     "subcat": [
+      "vii",
+      "vii-pp"
+     ],
+     "synset": "01182162-v"
+    },
+    {
+     "id": "eat%2:37:00::",
+     "sent": [
+      "The bad news will eat him"
+     ],
+     "subcat": [
+      "vtia"
+     ],
+     "synset": "01770125-v"
+    },
+    {
+     "id": "eat%2:34:13::",
+     "sent": [
+      "They eat more bread"
+     ],
+     "subcat": [
+      "via-pp",
+      "vtai",
+      "vtii"
+     ],
+     "synset": "01159815-v"
+    },
+    {
+     "id": "eat%2:30:00::",
+     "subcat": [
+      "vtii"
+     ],
+     "synset": "00275082-v"
+    }
+   ]
+  }
+ },
+ "food": {
+  "n": {
+   "pronunciation": [
+    {
+     "value": "fuːd",
+     "variety": "GB"
+    },
+    {
+     "value": "fud",
+     "variety": "US"
+    }
+   ],
+   "sense": [
+    {
+     "id": "food%1:03:00::",
+     "synset": "00021445-n"
+    },
+    {
+     "id": "food%1:09:00::",
+     "synset": "05819240-n"
+    }
+   ]
+  }
+ },
+ "hotel": {
+  "n": {
+   "pronunciation": [
+    {
+     "value": "(h)əʊˈtɛl",
+     "variety": "GB"
+    },
+    {
+     "value": "hoʊˈtɛl",
+     "variety": "US"
+    }
+   ],
+   "sense": [
+    {
+     "id": "hotel%1:06:00::",
+     "synset": "03547513-n"
+    }
+   ]
+  }
+ },
+ "house": {
+  "n": {
+   "pronunciation": [
+    {
+     "value": "haʊs"
+    }
+   ],
+   "sense": [
+    {
+     "derivation": [
+      "house%2:41:00::"
+     ],
+     "id": "house%1:06:00::",
+     "synset": "03549540-n"
+    },
+    {
+     "id": "house%1:14:01::",
+     "synset": "08076706-n"
+    },
+    {
+     "id": "house%1:14:04::",
+     "synset": "08241501-n"
+    },
+    {
+     "id": "house%1:14:03::",
+     "synset": "08239887-n"
+    },
+    {
+     "id": "house%1:14:02::",
+     "synset": "08179924-n"
+    },
+    {
+     "id": "house%1:14:00::",
+     "synset": "07987896-n"
+    },
+    {
+     "id": "house%1:04:00::",
+     "synset": "00433104-n"
+    },
+    {
+     "id": "house%1:15:00::",
+     "synset": "08703415-n"
+    },
+    {
+     "id": "house%1:14:06::",
+     "synset": "08398027-n"
+    },
+    {
+     "id": "house%1:14:05::",
+     "synset": "08094856-n"
+    },
+    {
+     "id": "house%1:06:02::",
+     "synset": "04424944-n"
+    },
+    {
+     "derivation": [
+      "house%2:41:00::"
+     ],
+     "id": "house%1:06:01::",
+     "synset": "03550330-n"
+    }
+   ]
+  },
+  "v": {
+   "pronunciation": [
+    {
+     "value": "haʊz"
+    }
+   ],
+   "sense": [
+    {
+     "derivation": [
+      "housing%1:06:01::"
+     ],
+     "id": "house%2:42:02::",
+     "subcat": [
+      "vtia",
+      "vtii"
+     ],
+     "synset": "02707688-v"
+    },
+    {
+     "derivation": [
+      "house%1:06:01::",
+      "house%1:06:00::",
+      "housing%1:06:00::"
+     ],
+     "id": "house%2:41:00::",
+     "subcat": [
+      "vtaa",
+      "vtaa-pp",
+      "vtai",
+      "vtai-pp"
+     ],
+     "synset": "02464596-v",
+     "uses": [
+      "house%1:06:01::",
+      "house%1:06:00::"
+     ]
+    }
+   ]
+  }
+ },
+ "journey": {
+  "n": {
+   "pronunciation": [
+    {
+     "value": "ˈd͡ʒɝni",
+     "variety": "US"
+    },
+    {
+     "value": "ˈd͡ʒɜːni",
+     "variety": "GB"
+    }
+   ],
+   "sense": [
+    {
+     "derivation": [
+      "journey%2:38:01::",
+      "journey%2:38:00::"
+     ],
+     "id": "journey%1:04:00::",
+     "synset": "00307252-n"
+    }
+   ]
+  },
+  "v": {
+   "pronunciation": [
+    {
+     "value": "ˈd͡ʒɝni",
+     "variety": "US"
+    },
+    {
+     "value": "ˈd͡ʒɜːni",
+     "variety": "GB"
+    }
+   ],
+   "sense": [
+    {
+     "agent": [
+      "journeyer%1:18:00::"
+     ],
+     "derivation": [
+      "journey%1:04:00::",
+      "journeyer%1:18:00::",
+      "journeying%1:04:00::"
+     ],
+     "event": [
+      "journey%1:04:00::"
+     ],
+     "id": "journey%2:38:00::",
+     "subcat": [
+      "via",
+      "vtaa-pp"
+     ],
+     "synset": "01849662-v"
+    },
+    {
+     "agent": [
+      "journeyer%1:18:00::"
+     ],
+     "derivation": [
+      "journey%1:04:00::",
+      "journeyer%1:18:00::"
+     ],
+     "event": [
+      "journey%1:04:00::"
+     ],
+     "id": "journey%2:38:01::",
+     "subcat": [
+      "vtai",
+      "vtii"
+     ],
+     "synset": "01850858-v"
+    }
+   ]
+  }
+ },
+ "language": {
+  "n": {
+   "sense": [
+    {
+     "id": "language%1:10:00::",
+     "synset": "06293304-n"
+    },
+    {
+     "id": "language%1:10:01::",
+     "synset": "07123904-n"
+    },
+    {
+     "id": "language%1:10:02::",
+     "synset": "07066015-n"
+    },
+    {
+     "id": "language%1:09:01::",
+     "synset": "05816565-n"
+    },
+    {
+     "id": "language%1:09:00::",
+     "synset": "05658665-n"
+    },
+    {
+     "id": "language%1:10:03::",
+     "synset": "06315049-n"
+    }
+   ]
+  }
+ },
+ "learn": {
+  "v": {
+   "form": [
+    "learnt"
+   ],
+   "sense": [
+    {
+     "agent": [
+      "learner%1:18:01::",
+      "learner%1:18:00::"
+     ],
+     "derivation": [
+      "learner%1:18:01::",
+      "learner%1:18:00::"
+     ],
+     "id": "learn%2:31:00::",
+     "sent": [
+      "They learn to move"
+     ],
+     "subcat": [
+      "via",
+      "via-pp",
+      "via-to-inf",
+      "vtai"
+     ],
+     "synset": "00599310-v"
+    },
+    {
+     "id": "learn%2:31:01::",
+     "sent": [
+      "They learn that there was a traffic accident"
+     ],
+     "subcat": [
+      "via-that",
+      "vtai"
+     ],
+     "synset": "00600349-v"
+    },
+    {
+     "id": "learn%2:31:03::",
+     "subcat": [
+      "vtai"
+     ],
+     "synset": "00605971-v"
+    },
+    {
+     "id": "learn%2:31:02::",
+     "subcat": [
+      "vtai"
+     ],
+     "synset": "00601387-v"
+    },
+    {
+     "id": "learn%2:32:00::",
+     "subcat": [
+      "via-that",
+      "vtaa",
+      "vtaa-to-inf",
+      "vtia"
+     ],
+     "synset": "00830768-v"
+    },
+    {
+     "id": "learn%2:32:02::",
+     "sent": [
+      "They learn whether there was a traffic accident"
+     ],
+     "subcat": [
+      "via-whether-inf"
+     ],
+     "synset": "00922307-v"
+    }
+   ]
+  }
+ },
+ "library": {
+  "n": {
+   "pronunciation": [
+    {
+     "value": "ˈlaɪbɹi",
+     "variety": "GB"
+    },
+    {
+     "value": "ˈlaɪˌbɹɛɹi",
+     "variety": "US"
+    }
+   ],
+   "sense": [
+    {
+     "id": "library%1:06:01::",
+     "synset": "03666235-n"
+    },
+    {
+     "id": "library%1:14:00::",
+     "synset": "07994293-n"
+    },
+    {
+     "id": "library%1:06:00::",
+     "synset": "03665990-n"
+    },
+    {
+     "id": "library%1:14:01::",
+     "synset": "07994015-n"
+    },
+    {
+     "id": "library%1:06:02::",
+     "synset": "03666369-n"
+    }
+   ]
+  }
+ },
+ "make": {
+  "n": {
+   "sense": [
+    {
+     "derivation": [
+      "make%2:36:13::",
+      "make%2:36:01::"
+     ],
+     "id": "make%1:09:00::",
+     "synset": "05853667-n"
+    },
+    {
+     "id": "make%1:04:00::",
+     "synset": "00341289-n"
+    }
+   ]
+  },
+  "v": {
+   "form": [
+    "made"
+   ],
+   "sense": [
+    {
+     "id": "make%2:41:00::",
+     "subcat": [
+      "vtai"
+     ],
+     "synset": "02566500-v"
+    },
+    {
+     "id": "make%2:30:00::",
+     "subcat": [
+      "vtaa-inf",
+      "vtii-adj"
+     ],
+     "synset": "00120124-v"
+    },
+    {
+     "also": [
+      "make_over%2:36:00::",
+      "make_up%2:36:01::"
+     ],
+     "derivation": [
+      "making%1:04:00::"
+     ],
+     "id": "make%2:36:00::",
+     "subcat": [
+      "vtai",
+      "vtii"
+     ],
+     "synset": "01620211-v"
+    },
+    {
+     "id": "make%2:32:00::",
+     "sent": [
+      "They make him to write the letter"
+     ],
+     "subcat": [
+      "vtaa-inf"
+     ],
+     "synset": "00772482-v"
+    },
+    {
+     "id": "make%2:36:08::",
+     "subcat": [
+      "vtai",
+      "vtii"
+     ],
+     "synset": "01649143-v"
+    },
+    {
+     "agent": [
+      "maker%1:14:00::",
+      "maker%1:18:00::"
+     ],
+     "derivation": [
+      "maker%1:18:00::",
+      "maker%1:14:00::",
+      "make%1:09:00::",
+      "making%1:04:00::"
+     ],
+     "id": "make%2:36:01::",
+     "result": [
+      "make%1:09:00::"
+     ],
+     "sent": [
+      "Sam and Sue make the movie"
+     ],
+     "subcat": [
+      "vtai",
+      "vtii"
+     ],
+     "synset": "01624592-v"
+    },
+    {
+     "id": "make%2:31:00::",
+     "subcat": [
+      "vtai"
+     ],
+     "synset": "00732743-v"
+    },
+    {
+     "id": "make%2:36:15::",
+     "subcat": [
+      "vtaa-to-inf"
+     ],
+     "synset": "01649617-v"
+    },
+    {
+     "derivation": [
+      "making%1:04:00::"
+     ],
+     "id": "make%2:36:09::",
+     "sent": [
+      "Sam and Sue make the movie"
+     ],
+     "subcat": [
+      "vtai"
+     ],
+     "synset": "01643749-v"
+    },
+    {
+     "id": "make%2:40:01::",
+     "sent": [
+      "They make the money"
+     ],
+     "subcat": [
+      "vtai"
+     ],
+     "synset": "02294200-v"
+    },
+    {
+     "antonym": [
+      "unmake%2:36:00::"
+     ],
+     "id": "make%2:36:05::",
+     "sent": [
+      "Did he make his major works over a short period of time?"
+     ],
+     "subcat": [
+      "vtai",
+      "vtai-pp"
+     ],
+     "synset": "01622033-v"
+    },
+    {
+     "id": "make%2:42:05::",
+     "subcat": [
+      "vtii"
+     ],
+     "synset": "02627475-v"
+    },
+    {
+     "id": "make%2:38:02::",
+     "subcat": [
+      "vtai"
+     ],
+     "synset": "02026014-v"
+    },
+    {
+     "id": "make%2:42:00::",
+     "subcat": [
+      "vtaa",
+      "vtii"
+     ],
+     "synset": "02680519-v"
+    },
+    {
+     "derivation": [
+      "making%1:04:00::"
+     ],
+     "id": "make%2:36:11::",
+     "subcat": [
+      "vtai",
+      "vtii"
+     ],
+     "synset": "01657416-v"
+    },
+    {
+     "id": "make%2:36:12::",
+     "subcat": [
+      "vtai"
+     ],
+     "synset": "01759660-v"
+    },
+    {
+     "agent": [
+      "maker%1:18:00::"
+     ],
+     "derivation": [
+      "maker%1:18:00::",
+      "make%1:09:00::",
+      "making%1:04:00::"
+     ],
+     "id": "make%2:36:13::",
+     "sent": [
+      "The men make the bookshelves"
+     ],
+     "subcat": [
+      "vtai"
+     ],
+     "synset": "01658171-v"
+    },
+    {
+     "id": "make%2:30:15::",
+     "subcat": [
+      "vtai-pp"
+     ],
+     "synset": "00557932-v"
+    },
+    {
+     "id": "make%2:29:08::",
+     "subcat": [
+      "vtaa"
+     ],
+     "synset": "00012260-v"
+    },
+    {
+     "id": "make%2:41:03::",
+     "sent": [
+      "They make her vice president"
+     ],
+     "subcat": [
+      "ditransitive"
+     ],
+     "synset": "02401858-v"
+    },
+    {
+     "id": "make%2:40:02::",
+     "subcat": [
+      "vtai",
+      "vtii"
+     ],
+     "synset": "02360592-v"
+    },
+    {
+     "id": "make%2:38:00::",
+     "sent": [
+      "They make the water"
+     ],
+     "subcat": [
+      "vtai"
+     ],
+     "synset": "02024442-v"
+    },
+    {
+     "id": "make%2:31:13::",
+     "subcat": [
+      "via-that",
+      "vtai"
+     ],
+     "synset": "00667394-v"
+    },
+    {
+     "id": "make%2:41:13::",
+     "subcat": [
+      "vtai"
+     ],
+     "synset": "02589006-v"
+    },
+    {
+     "id": "make%2:41:01::",
+     "subcat": [
+      "vtaa",
+      "vtai",
+      "vtii"
+     ],
+     "synset": "02604480-v"
+    },
+    {
+     "id": "make%2:36:04::",
+     "subcat": [
+      "vtai"
+     ],
+     "synset": "01737358-v"
+    },
+    {
+     "id": "make%2:30:02::",
+     "subcat": [
+      "vtai"
+     ],
+     "synset": "00276867-v"
+    },
+    {
+     "id": "make%2:38:05::",
+     "subcat": [
+      "via-pp"
+     ],
+     "synset": "02080104-v"
+    },
+    {
+     "id": "make%2:29:00::",
+     "subcat": [
+      "via",
+      "vii"
+     ],
+     "synset": "00073791-v"
+    },
+    {
+     "derivation": [
+      "making%1:06:00::",
+      "making%1:04:00::"
+     ],
+     "id": "make%2:42:09::",
+     "subcat": [
+      "vii-pp"
+     ],
+     "synset": "02754634-v"
+    },
+    {
+     "derivation": [
+      "making%1:06:00::"
+     ],
+     "id": "make%2:42:13::",
+     "subcat": [
+      "vtaa",
+      "vtii"
+     ],
+     "synset": "02754502-v"
+    },
+    {
+     "id": "make%2:42:12::",
+     "subcat": [
+      "vtii"
+     ],
+     "synset": "02751207-v"
+    },
+    {
+     "id": "make%2:42:11::",
+     "subcat": [
+      "vtii"
+     ],
+     "synset": "02671201-v"
+    },
+    {
+     "id": "make%2:42:15::",
+     "subcat": [
+      "vtia"
+     ],
+     "synset": "02627213-v"
+    },
+    {
+     "id": "make%2:39:12::",
+     "subcat": [
+      "via",
+      "via-to-inf"
+     ],
+     "synset": "02138515-v"
+    },
+    {
+     "id": "make%2:38:10::",
+     "subcat": [
+      "via-pp",
+      "vii-pp"
+     ],
+     "synset": "02054955-v"
+    },
+    {
+     "id": "make%2:36:10::",
+     "subcat": [
+      "vtai"
+     ],
+     "synset": "01759348-v"
+    },
+    {
+     "id": "make%2:36:07::",
+     "sent": [
+      "The chefs make the vegetables"
+     ],
+     "subcat": [
+      "vtai"
+     ],
+     "synset": "01668067-v"
+    },
+    {
+     "id": "make%2:35:13::",
+     "subcat": [
+      "vtaa"
+     ],
+     "synset": "01431211-v"
+    },
+    {
+     "antonym": [
+      "break%2:41:09::"
+     ],
+     "id": "make%2:32:14::",
+     "subcat": [
+      "vtaa",
+      "vtai",
+      "vtia",
+      "vtii"
+     ],
+     "synset": "00892559-v"
+    },
+    {
+     "id": "make%2:32:09::",
+     "subcat": [
+      "via-pp",
+      "via-that"
+     ],
+     "synset": "00840203-v"
+    },
+    {
+     "id": "make%2:31:10::",
+     "subcat": [
+      "vtii-adj"
+     ],
+     "synset": "00700022-v"
+    },
+    {
+     "id": "make%2:31:12::",
+     "subcat": [
+      "vtii-adj"
+     ],
+     "synset": "00699870-v"
+    },
+    {
+     "id": "make%2:30:10::",
+     "subcat": [
+      "vtai",
+      "vtii"
+     ],
+     "synset": "00563259-v"
+    },
+    {
+     "id": "make%2:30:14::",
+     "subcat": [
+      "vtia"
+     ],
+     "synset": "00563144-v"
+    },
+    {
+     "derivation": [
+      "making%1:07:00::"
+     ],
+     "id": "make%2:30:12::",
+     "subcat": [
+      "vtia"
+     ],
+     "synset": "00547033-v"
+    },
+    {
+     "id": "make%2:29:06::",
+     "subcat": [
+      "via-adj"
+     ],
+     "synset": "00107173-v"
+    },
+    {
+     "id": "make%2:29:01::",
+     "subcat": [
+      "via",
+      "vii"
+     ],
+     "synset": "00071765-v"
+    },
+    {
+     "id": "make%2:38:15::",
+     "subcat": [
+      "vtai"
+     ],
+     "synset": "02022224-v"
+    }
+   ]
+  }
+ },
+ "meeting": {
+  "n": {
+   "sense": [
+    {
+     "derivation": [
+      "meet%2:38:01::"
+     ],
+     "id": "meeting%1:14:00::",
+     "synset": "08324519-n"
+    },
+    {
+     "derivation": [
+      "meet%2:41:01::",
+      "meet%2:41:00::"
+     ],
+     "id": "meeting%1:14:01::",
+     "synset": "08327319-n"
+    },
+    {
+     "derivation": [
+      "meet%2:38:01::"
+     ],
+     "id": "meeting%1:11:00::",
+     "synset": "07429522-n"
+    },
+    {
+     "derivation": [
+      "meet%2:41:01::",
+      "meet%2:41:00::"
+     ],
+     "id": "meeting%1:04:00::",
+     "synset": "01233454-n"
+    },
+    {
+     "id": "meeting%1:04:02::",
+     "synset": "00147676-n"
+    },
+    {
+     "id": "meeting%1:15:00::",
+     "synset": "08560197-n"
+    }
+   ]
+  }
+ },
+ "request": {
+  "n": {
+   "pronunciation": [
+    {
+     "value": "ɹɪˈkwɛst"
+    }
+   ],
+   "sense": [
+    {
+     "derivation": [
+      "request%2:32:02::"
+     ],
+     "id": "request%1:10:01::",
+     "synset": "06525357-n"
+    },
+    {
+     "derivation": [
+      "request%2:32:13::",
+      "request%2:32:02::",
+      "request%2:32:01::"
+     ],
+     "id": "request%1:10:00::",
+     "synset": "07199985-n"
+    }
+   ]
+  },
+  "v": {
+   "pronunciation": [
+    {
+     "value": "ɹɪˈkwɛst"
+    }
+   ],
+   "sense": [
+    {
+     "derivation": [
+      "request%1:10:00::"
+     ],
+     "event": [
+      "request%1:10:00::"
+     ],
+     "id": "request%2:32:01::",
+     "subcat": [
+      "vtaa",
+      "vtai"
+     ],
+     "synset": "00754770-v"
+    },
+    {
+     "derivation": [
+      "request%1:10:01::",
+      "request%1:10:00::"
+     ],
+     "event": [
+      "request%1:10:01::",
+      "request%1:10:00::"
+     ],
+     "id": "request%2:32:02::",
+     "sent": [
+      "They request to move",
+      "They request him to write the letter"
+     ],
+     "subcat": [
+      "via-that",
+      "vtaa-inf",
+      "vtaa-to-inf"
+     ],
+     "synset": "00755473-v"
+    },
+    {
+     "derivation": [
+      "request%1:10:00::"
+     ],
+     "event": [
+      "request%1:10:00::"
+     ],
+     "id": "request%2:32:13::",
+     "subcat": [
+      "vtai",
+      "vtai-from"
+     ],
+     "synset": "01071831-v"
+    }
+   ]
+  }
+ },
+ "reservation": {
+  "n": {
+   "pronunciation": [
+    {
+     "value": "ˌɹɛzəˈveɪʃən",
+     "variety": "GB"
+    },
+    {
+     "value": "ˌɹɛzɚˈveɪʃən",
+     "variety": "US"
+    }
+   ],
+   "sense": [
+    {
+     "id": "reservation%1:15:00::",
+     "synset": "08604729-n"
+    },
+    {
+     "id": "reservation%1:10:00::",
+     "synset": "06775091-n"
+    },
+    {
+     "id": "reservation%1:09:00::",
+     "synset": "05706585-n"
+    },
+    {
+     "derivation": [
+      "reserve%2:41:00::",
+      "reserve%2:32:00::"
+     ],
+     "id": "reservation%1:04:01::",
+     "synset": "01220817-n"
+    },
+    {
+     "id": "reservation%1:10:01::",
+     "synset": "07192432-n"
+    },
+    {
+     "derivation": [
+      "reserve%2:41:00::",
+      "reserve%2:32:00::"
+     ],
+     "id": "reservation%1:09:01::",
+     "synset": "05803468-n"
+    },
+    {
+     "derivation": [
+      "reserve%2:40:03::"
+     ],
+     "id": "reservation%1:04:00::",
+     "synset": "00821752-n"
+    }
+   ]
+  }
+ },
+ "reserve": {
+  "n": {
+   "pronunciation": [
+    {
+     "value": "ɹɪˈzɝv",
+     "variety": "US"
+    },
+    {
+     "value": "ɹɪˈzɜːv",
+     "variety": "GB"
+    }
+   ],
+   "sense": [
+    {
+     "id": "reserve%1:07:01::",
+     "synset": "04907298-n"
+    },
+    {
+     "derivation": [
+      "reserve%2:31:00::",
+      "reserve%2:40:03::"
+     ],
+     "id": "reserve%1:21:00::",
+     "synset": "13389225-n"
+    },
+    {
+     "id": "reserve%1:18:00::",
+     "synset": "10690481-n"
+    },
+    {
+     "id": "reserve%1:23:00::",
+     "synset": "13781913-n"
+    },
+    {
+     "id": "reserve%1:15:00::",
+     "synset": "08604729-n"
+    },
+    {
+     "derivation": [
+      "reservist%1:18:00::"
+     ],
+     "id": "reserve%1:14:00::",
+     "synset": "08223381-n"
+    },
+    {
+     "id": "reserve%1:07:00::",
+     "synset": "04659795-n"
+    }
+   ]
+  },
+  "v": {
+   "pronunciation": [
+    {
+     "value": "ɹɪˈzɝv",
+     "variety": "US"
+    },
+    {
+     "value": "ɹɪˈzɜːv",
+     "variety": "GB"
+    }
+   ],
+   "sense": [
+    {
+     "derivation": [
+      "reserve%1:21:00::",
+      "reservation%1:04:00::"
+     ],
+     "event": [
+      "reservation%1:04:00::"
+     ],
+     "id": "reserve%2:40:03::",
+     "subcat": [
+      "vtai"
+     ],
+     "synset": "02219267-v",
+     "undergoer": [
+      "reserve%1:21:00::"
+     ]
+    },
+    {
+     "derivation": [
+      "reserve%1:21:00::"
+     ],
+     "id": "reserve%2:31:00::",
+     "subcat": [
+      "vtai",
+      "vtai-to"
+     ],
+     "synset": "00726112-v",
+     "undergoer": [
+      "reserve%1:21:00::"
+     ]
+    },
+    {
+     "derivation": [
+      "reservation%1:09:01::",
+      "reservation%1:04:01::"
+     ],
+     "event": [
+      "reservation%1:04:01::"
+     ],
+     "id": "reserve%2:32:00::",
+     "subcat": [
+      "ditransitive",
+      "vtai"
+     ],
+     "synset": "00797294-v",
+     "undergoer": [
+      "reservation%1:09:01::"
+     ]
+    },
+    {
+     "derivation": [
+      "reservation%1:09:01::",
+      "reservation%1:04:01::"
+     ],
+     "event": [
+      "reservation%1:04:01::"
+     ],
+     "id": "reserve%2:41:00::",
+     "subcat": [
+      "vtai"
+     ],
+     "synset": "02503969-v",
+     "undergoer": [
+      "reservation%1:09:01::"
+     ]
+    }
+   ]
+  }
+ },
+ "restaurant": {
+  "n": {
+   "pronunciation": [
+    {
+     "value": "ˈɹɛs.t(ə).ɹɒ̃",
+     "variety": "GB"
+    },
+    {
+     "value": "ˈɹɛs.t(ə)ˌɹɑnt",
+     "variety": "US"
+    }
+   ],
+   "sense": [
+    {
+     "id": "restaurant%1:06:00::",
+     "synset": "04088393-n"
+    }
+   ]
+  }
+ },
+ "school": {
+  "n": {
+   "sense": [
+    {
+     "derivation": [
+      "scholastic%3:01:00::",
+      "school%2:41:01::"
+     ],
+     "id": "school%1:14:00::",
+     "synset": "08293641-n"
+    },
+    {
+     "derivation": [
+      "scholastic%3:01:00::",
+      "school%2:41:01::"
+     ],
+     "id": "school%1:06:00::",
+     "synset": "04153115-n"
+    },
+    {
+     "derivation": [
+      "scholastic%3:01:00::",
+      "school%2:41:01::"
+     ],
+     "id": "school%1:09:00::",
+     "synset": "05765533-n"
+    },
+    {
+     "id": "school%1:14:02::",
+     "synset": "08292106-n"
+    },
+    {
+     "derivation": [
+      "scholastic%3:01:00::",
+      "school%2:41:01::"
+     ],
+     "id": "school%1:28:00::",
+     "synset": "15228025-n"
+    },
+    {
+     "derivation": [
+      "scholastic%3:01:00::",
+      "school%2:41:01::"
+     ],
+     "id": "school%1:14:03::",
+     "synset": "08294314-n"
+    },
+    {
+     "derivation": [
+      "school%2:38:00::"
+     ],
+     "id": "school%1:14:01::",
+     "synset": "08011895-n"
+    }
+   ]
+  },
+  "v": {
+   "sense": [
+    {
+     "derivation": [
+      "school%1:28:00::",
+      "school%1:14:03::",
+      "school%1:09:00::",
+      "school%1:06:00::",
+      "school%1:14:00::",
+      "schooling%1:04:00::"
+     ],
+     "event": [
+      "school%1:28:00::",
+      "school%1:09:00::"
+     ],
+     "id": "school%2:41:01::",
+     "location": [
+      "school%1:06:00::",
+      "school%1:14:00::"
+     ],
+     "subcat": [
+      "vtaa"
+     ],
+     "synset": "02393052-v"
+    },
+    {
+     "id": "school%2:41:02::",
+     "subcat": [
+      "vtaa",
+      "vtai"
+     ],
+     "synset": "02393545-v"
+    },
+    {
+     "derivation": [
+      "school%1:14:01::"
+     ],
+     "event": [
+      "school%1:14:01::"
+     ],
+     "id": "school%2:38:00::",
+     "subcat": [
+      "vii"
+     ],
+     "synset": "01965341-v"
+    }
+   ]
+  }
+ },
+ "station": {
+  "n": {
+   "pronunciation": [
+    {
+     "value": "ˈsteɪʃən"
+    }
+   ],
+   "sense": [
+    {
+     "id": "station%1:06:00::",
+     "synset": "04313218-n"
+    },
+    {
+     "id": "station%1:26:00::",
+     "synset": "13970825-n"
+    },
+    {
+     "derivation": [
+      "station%2:33:00::"
+     ],
+     "id": "station%1:15:01::",
+     "synset": "08674221-n"
+    },
+    {
+     "derivation": [
+      "station%2:33:00::"
+     ],
+     "id": "station%1:15:00::",
+     "synset": "08641960-n"
+    },
+    {
+     "id": "station%1:07:00::",
+     "synset": "05064212-n"
+    }
+   ]
+  },
+  "v": {
+   "pronunciation": [
+    {
+     "value": "ˈsteɪʃən"
+    }
+   ],
+   "sense": [
+    {
+     "derivation": [
+      "station%1:15:00::",
+      "station%1:15:01::"
+     ],
+     "id": "station%2:33:00::",
+     "location": [
+      "station%1:15:00::",
+      "station%1:15:01::"
+     ],
+     "subcat": [
+      "vtaa-pp"
+     ],
+     "synset": "01091334-v"
+    }
+   ]
+  }
+ },
+ "student": {
+  "n": {
+   "pronunciation": [
+    {
+     "value": "ˈstjuː.dənt",
+     "variety": "GB"
+    },
+    {
+     "value": "ˈstu.dn̩t",
+     "variety": "US"
+    }
+   ],
+   "sense": [
+    {
+     "derivation": [
+      "studentship%1:04:00::",
+      "study%2:31:03::"
+     ],
+     "id": "student%1:18:00::",
+     "synset": "10685137-n"
+    },
+    {
+     "id": "student%1:18:01::",
+     "synset": "10271476-n"
+    }
+   ]
+  }
+ },
+ "teacher": {
+  "n": {
+   "pronunciation": [
+    {
+     "value": "ˈtit͡ʃɚ",
+     "variety": "US"
+    },
+    {
+     "value": "ˈtiːt͡ʃə",
+     "variety": "GB"
+    }
+   ],
+   "sense": [
+    {
+     "derivation": [
+      "teachership%1:04:00::",
+      "teach%2:32:00::",
+      "teach%2:30:00::"
+     ],
+     "id": "teacher%1:18:00::",
+     "synset": "10713754-n"
+    },
+    {
+     "derivation": [
+      "teach%2:32:00::",
+      "teach%2:30:00::"
+     ],
+     "id": "teacher%1:09:00::",
+     "synset": "05863377-n"
+    }
+   ]
+  }
+ },
+ "train": {
+  "n": {
+   "pronunciation": [
+    {
+     "value": "tɹeɪn"
+    }
+   ],
+   "sense": [
+    {
+     "derivation": [
+      "train%2:38:00::"
+     ],
+     "id": "train%1:06:00::",
+     "synset": "04475240-n"
+    },
+    {
+     "id": "train%1:14:02::",
+     "synset": "08476659-n"
+    },
+    {
+     "id": "train%1:14:00::",
+     "synset": "08444586-n"
+    },
+    {
+     "id": "train%1:11:00::",
+     "synset": "07309535-n"
+    },
+    {
+     "derivation": [
+      "train%2:35:04::"
+     ],
+     "id": "train%1:06:02::",
+     "synset": "04475711-n"
+    },
+    {
+     "id": "train%1:06:01::",
+     "synset": "03436655-n"
+    }
+   ]
+  },
+  "v": {
+   "pronunciation": [
+    {
+     "value": "tɹeɪn"
+    }
+   ],
+   "sense": [
+    {
+     "agent": [
+      "trainer%1:18:00::"
+     ],
+     "derivation": [
+      "trainee%1:18:00::",
+      "trainer%1:18:00::",
+      "training%1:04:00::"
+     ],
+     "id": "train%2:31:01::",
+     "subcat": [
+      "vtaa"
+     ],
+     "synset": "00604693-v",
+     "undergoer": [
+      "trainee%1:18:00::"
+     ]
+    },
+    {
+     "derivation": [
+      "trainee%1:18:00::"
+     ],
+     "id": "train%2:31:00::",
+     "subcat": [
+      "via-to"
+     ],
+     "synset": "00604200-v",
+     "undergoer": [
+      "trainee%1:18:00::"
+     ]
+    },
+    {
+     "derivation": [
+      "trainee%1:18:00::"
+     ],
+     "id": "train%2:41:02::",
+     "subcat": [
+      "vtaa",
+      "vtai"
+     ],
+     "synset": "02559394-v",
+     "undergoer": [
+      "trainee%1:18:00::"
+     ]
+    },
+    {
+     "agent": [
+      "trainer%1:18:00::"
+     ],
+     "derivation": [
+      "trainee%1:18:00::",
+      "trainer%1:18:00::",
+      "training%1:04:00::"
+     ],
+     "id": "train%2:41:00::",
+     "subcat": [
+      "vtaa"
+     ],
+     "synset": "02392176-v",
+     "undergoer": [
+      "trainee%1:18:00::"
+     ]
+    },
+    {
+     "id": "train%2:41:01::",
+     "subcat": [
+      "vtaa",
+      "vtai"
+     ],
+     "synset": "02393545-v"
+    },
+    {
+     "id": "train%2:33:00::",
+     "subcat": [
+      "via",
+      "via-pp",
+      "vtai-pp"
+     ],
+     "synset": "01153576-v"
+    },
+    {
+     "agent": [
+      "trainer%1:18:00::"
+     ],
+     "derivation": [
+      "trainer%1:18:00::",
+      "training%1:04:00::"
+     ],
+     "id": "train%2:32:00::",
+     "subcat": [
+      "vtaa",
+      "vtaa-to-inf"
+     ],
+     "synset": "00835381-v"
+    },
+    {
+     "derivation": [
+      "training%1:04:00::"
+     ],
+     "id": "train%2:29:00::",
+     "subcat": [
+      "via"
+     ],
+     "synset": "00099798-v"
+    },
+    {
+     "id": "train%2:41:03::",
+     "subcat": [
+      "vtai"
+     ],
+     "synset": "02515254-v"
+    },
+    {
+     "derivation": [
+      "train%1:06:00::"
+     ],
+     "id": "train%2:38:00::",
+     "subcat": [
+      "via",
+      "via-pp"
+     ],
+     "synset": "01940396-v",
+     "vehicle": [
+      "train%1:06:00::"
+     ]
+    },
+    {
+     "derivation": [
+      "train%1:06:02::"
+     ],
+     "id": "train%2:35:04::",
+     "subcat": [
+      "vtai"
+     ],
+     "synset": "01456580-v",
+     "undergoer": [
+      "train%1:06:02::"
+     ]
+    }
+   ]
+  }
+ },
+ "travel": {
+  "n": {
+   "pronunciation": [
+    {
+     "value": "ˈtɹævəl"
+    }
+   ],
+   "sense": [
+    {
+     "derivation": [
+      "travel%2:38:05::",
+      "travel%2:38:02::",
+      "travel%2:38:04::"
+     ],
+     "id": "travel%1:04:00::",
+     "synset": "00296527-n"
+    },
+    {
+     "derivation": [
+      "travel%2:38:03::",
+      "travel%2:38:00::"
+     ],
+     "id": "travel%1:11:00::",
+     "synset": "07325733-n"
+    },
+    {
+     "derivation": [
+      "travel%2:38:00::"
+     ],
+     "id": "travel%1:04:01::",
+     "synset": "00283971-n"
+    }
+   ]
+  },
+  "v": {
+   "form": [
+    "travelled",
+    "travelling"
+   ],
+   "pronunciation": [
+    {
+     "value": "ˈtɹævəl"
+    }
+   ],
+   "sense": [
+    {
+     "agent": [
+      "traveller%1:18:00::",
+      "traveler%1:18:00::"
+     ],
+     "antonym": [
+      "stay_in_place%2:38:00::"
+     ],
+     "derivation": [
+      "travel%1:11:00::",
+      "travel%1:04:01::",
+      "traveller%1:18:00::",
+      "traveler%1:18:00::"
+     ],
+     "event": [
+      "travel%1:11:00::",
+      "travel%1:04:01::"
+     ],
+     "id": "travel%2:38:00::",
+     "sent": [
+      "They travel the countryside",
+      "They travel in the countryside"
+     ],
+     "subcat": [
+      "via",
+      "via-pp",
+      "vii",
+      "vii-pp"
+     ],
+     "synset": "01839438-v"
+    },
+    {
+     "agent": [
+      "traveller%1:18:00::",
+      "traveler%1:18:00::"
+     ],
+     "derivation": [
+      "travel%1:04:00::",
+      "traveller%1:18:00::",
+      "traveler%1:18:00::",
+      "travelling%1:04:00::",
+      "traveling%1:04:00::"
+     ],
+     "event": [
+      "travel%1:04:00::"
+     ],
+     "id": "travel%2:38:04::",
+     "sent": [
+      "They travel"
+     ],
+     "subcat": [
+      "via",
+      "vtaa-pp"
+     ],
+     "synset": "01849662-v"
+    },
+    {
+     "agent": [
+      "traveller%1:18:00::",
+      "traveler%1:18:00::"
+     ],
+     "derivation": [
+      "traveller%1:18:00::",
+      "traveler%1:18:00::"
+     ],
+     "id": "travel%2:38:01::",
+     "subcat": [
+      "via",
+      "vtaa-pp"
+     ],
+     "synset": "01846997-v"
+    },
+    {
+     "agent": [
+      "traveller%1:18:00::"
+     ],
+     "derivation": [
+      "travel%1:04:00::",
+      "traveller%1:18:00::"
+     ],
+     "event": [
+      "travel%1:04:00::"
+     ],
+     "id": "travel%2:38:02::",
+     "subcat": [
+      "vtai",
+      "vtii"
+     ],
+     "synset": "01850858-v"
+    },
+    {
+     "agent": [
+      "traveller%1:18:00::",
+      "traveler%1:18:00::"
+     ],
+     "derivation": [
+      "travel%1:11:00::",
+      "traveller%1:18:00::",
+      "traveler%1:18:00::"
+     ],
+     "event": [
+      "travel%1:11:00::"
+     ],
+     "id": "travel%2:38:03::",
+     "subcat": [
+      "via",
+      "via-pp",
+      "vii",
+      "vii-pp"
+     ],
+     "synset": "01845021-v"
+    },
+    {
+     "agent": [
+      "traveller%1:18:00::",
+      "traveler%1:18:00::"
+     ],
+     "derivation": [
+      "travel%1:04:00::",
+      "traveller%1:18:00::",
+      "traveler%1:18:00::"
+     ],
+     "event": [
+      "travel%1:04:00::"
+     ],
+     "id": "travel%2:38:05::",
+     "subcat": [
+      "via"
+     ],
+     "synset": "02106280-v"
+    }
+   ]
+  }
+ },
+ "trip": {
+  "n": {
+   "pronunciation": [
+    {
+     "value": "tɹɪp"
+    }
+   ],
+   "sense": [
+    {
+     "derivation": [
+      "trip%2:38:02::"
+     ],
+     "id": "trip%1:04:00::",
+     "synset": "00309196-n"
+    },
+    {
+     "derivation": [
+      "trip%2:34:00::"
+     ],
+     "id": "trip%1:26:00::",
+     "synset": "14401716-n"
+    },
+    {
+     "derivation": [
+      "trip%2:38:01::",
+      "trip%2:38:00::"
+     ],
+     "id": "trip%1:11:00::",
+     "synset": "07332119-n"
+    },
+    {
+     "id": "trip%1:11:01::",
+     "synset": "07303090-n"
+    },
+    {
+     "derivation": [
+      "trip%2:36:00::"
+     ],
+     "id": "trip%1:06:00::",
+     "synset": "04492482-n"
+    },
+    {
+     "id": "trip%1:04:02::",
+     "synset": "00287084-n"
+    },
+    {
+     "id": "trip%1:04:01::",
+     "synset": "00077383-n"
+    }
+   ]
+  },
+  "v": {
+   "form": [
+    "tripped",
+    "tripping"
+   ],
+   "pronunciation": [
+    {
+     "value": "tɹɪp"
+    }
+   ],
+   "sense": [
+    {
+     "agent": [
+      "tripper%1:18:01::"
+     ],
+     "derivation": [
+      "trip%1:11:00::",
+      "tripper%1:18:01::"
+     ],
+     "event": [
+      "trip%1:11:00::"
+     ],
+     "id": "trip%2:38:00::",
+     "subcat": [
+      "via",
+      "via-pp"
+     ],
+     "synset": "01904401-v"
+    },
+    {
+     "derivation": [
+      "trip%1:11:00::"
+     ],
+     "event": [
+      "trip%1:11:00::"
+     ],
+     "id": "trip%2:38:01::",
+     "subcat": [
+      "vtaa",
+      "vtia"
+     ],
+     "synset": "01904753-v"
+    },
+    {
+     "agent": [
+      "tripper%1:18:00::"
+     ],
+     "derivation": [
+      "trip%1:04:00::",
+      "tripper%1:18:00::"
+     ],
+     "event": [
+      "trip%1:04:00::"
+     ],
+     "id": "trip%2:38:02::",
+     "subcat": [
+      "via",
+      "vtaa-pp"
+     ],
+     "synset": "01846997-v"
+    },
+    {
+     "by_means_of": [
+      "trip%1:06:00::"
+     ],
+     "derivation": [
+      "trip%1:06:00::",
+      "tripper%1:06:00::"
+     ],
+     "event": [
+      "tripper%1:06:00::"
+     ],
+     "id": "trip%2:36:00::",
+     "subcat": [
+      "vtai",
+      "vtii"
+     ],
+     "synset": "01647199-v"
+    },
+    {
+     "derivation": [
+      "trip%1:26:00::"
+     ],
+     "event": [
+      "trip%1:26:00::"
+     ],
+     "id": "trip%2:34:00::",
+     "subcat": [
+      "via",
+      "via-on-inanim"
+     ],
+     "synset": "01203572-v"
+    }
+   ]
+  }
+ },
+ "unable": {
+  "a": {
+   "sense": [
+    {
+     "antonym": [
+      "able%3:00:00::"
+     ],
+     "id": "unable%3:00:00::",
+     "synset": "00002098-a"
+    },
+    {
+     "adjposition": "p",
+     "id": "unable%5:00:00:incapable:00",
+     "synset": "00308592-s"
+    },
+    {
+     "id": "unable%5:00:00:impotent:00",
+     "synset": "01830798-s"
+    }
+   ]
+  }
+ },
+ "water": {
+  "n": {
+   "sense": [
+    {
+     "derivation": [
+      "watery%5:00:02:wet:01",
+      "watery%5:00:00:liquid:00",
+      "water%2:40:00::",
+      "water%2:30:00::"
+     ],
+     "id": "water%1:27:00::",
+     "synset": "14869913-n"
+    },
+    {
+     "id": "water%1:17:00::",
+     "synset": "09248053-n"
+    },
+    {
+     "id": "water%1:27:02::",
+     "synset": "14871527-n"
+    },
+    {
+     "id": "water%1:06:00::",
+     "synset": "04569944-n"
+    },
+    {
+     "id": "water%1:27:01::",
+     "synset": "14879875-n"
+    },
+    {
+     "id": "water%1:13:00::",
+     "synset": "07951744-n"
+    }
+   ]
+  },
+  "v": {
+   "sense": [
+    {
+     "agent": [
+      "waterer%1:18:01::"
+     ],
+     "derivation": [
+      "water%1:27:00::",
+      "waterer%1:18:01::",
+      "watering%1:04:00::"
+     ],
+     "id": "water%2:30:00::",
+     "material": [
+      "water%1:27:00::"
+     ],
+     "subcat": [
+      "vtai",
+      "vtii"
+     ],
+     "synset": "00228662-v",
+     "uses": [
+      "water%1:27:00::"
+     ]
+    },
+    {
+     "agent": [
+      "waterer%1:18:01::",
+      "waterer%1:18:00::"
+     ],
+     "derivation": [
+      "water%1:27:00::",
+      "waterer%1:18:01::",
+      "waterer%1:18:00::"
+     ],
+     "id": "water%2:40:00::",
+     "material": [
+      "water%1:27:00::"
+     ],
+     "subcat": [
+      "vtai"
+     ],
+     "synset": "02362872-v",
+     "uses": [
+      "water%1:27:00::"
+     ]
+    },
+    {
+     "id": "water%2:29:00::",
+     "subcat": [
+      "vii"
+     ],
+     "synset": "00069341-v"
+    },
+    {
+     "derivation": [
+      "watering%1:22:00::"
+     ],
+     "id": "water%2:30:04::",
+     "subcat": [
+      "vii"
+     ],
+     "synset": "00453053-v"
+    }
+   ]
+  }
+ }
+}

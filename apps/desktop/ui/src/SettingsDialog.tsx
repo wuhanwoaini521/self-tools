@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
-import { X } from "@phosphor-icons/react";
-import { useState } from "react";
-import type { TravelSearchBackend, TravelSettings } from "./types";
+import { Database, X } from "@phosphor-icons/react";
+import { useCallback, useEffect, useState } from "react";
+import type { SourceInfo, StarterReport, TravelSearchBackend, TravelSettings } from "./types";
 import { allThemes, getTheme } from "./theme/ThemeManager";
 import { errorMessage, isTauriRuntime } from "./utils";
 
@@ -112,7 +112,64 @@ export function SettingsDialog({ themeId, onThemeChange, rssRefreshMinutes, onRe
         <input className="settings-select" type="password" placeholder="百度地图 BAIDU_MAP_API_KEY（预留）" value={travel.baidu_map_api_key ?? ""} onChange={(event) => updateTravel({ baidu_map_api_key: event.target.value || null })} style={{ marginTop: 6 }} />
         {testResults.qweather ? <p className={testResults.qweather.startsWith("连接失败") ? "settings-test-result failed" : "settings-test-result"}>{testResults.qweather}</p> : null}
       </section>
+      <section className="settings-section">
+        <label className="settings-label">Language · 语言数据（#90）</label>
+        <p className="settings-hint">所有词条均可追溯来源；许可能力位（署名/商用/再分发/相同方式共享）在下方展示。内置 Starter Pack 为真实数据子集，完整数据包用 <code>language-data import …</code> 导入（docs/language/DATA_SOURCES.md）。</p>
+        <LanguageDataSection />
+      </section>
       </div>
     </section>
+  </div>;
+}
+
+/** Language Data（#90）：来源/版本/许可/导入条目数 + 安装内置 Starter Pack。 */
+function LanguageDataSection() {
+  const [sources, setSources] = useState<SourceInfo[]>([]);
+  const [installNotice, setInstallNotice] = useState("");
+  const [installing, setInstalling] = useState(false);
+
+  const reload = useCallback(async () => {
+    if (!isTauriRuntime()) return;
+    try {
+      setSources(await invoke<SourceInfo[]>("language_sources"));
+    } catch {
+      // 设置面板静默失败
+    }
+  }, []);
+
+  useEffect(() => { void reload(); }, [reload]);
+
+  const install = async () => {
+    if (!isTauriRuntime() || installing) return;
+    setInstalling(true);
+    setInstallNotice("");
+    try {
+      const report = await invoke<StarterReport>("language_install_starter", { only: null });
+      setInstallNotice(`已安装：+${report.total_inserted} 条，更新 ${report.total_updated} 条`);
+      void reload();
+    } catch (error) {
+      setInstallNotice(`安装失败：${errorMessage(error)}`);
+    } finally {
+      setInstalling(false);
+    }
+  };
+
+  return <div className="lang-sources-settings">
+    <button className="settings-test-button" onClick={() => void install()} disabled={installing}>
+      <Database size={14} />{installing ? "安装中…" : "安装 Starter Pack（内置真实数据子集）"}
+    </button>
+    {installNotice ? <p className="settings-test-result">{installNotice}</p> : null}
+    {sources.length === 0
+      ? <p className="settings-hint">尚未导入数据源（可点击上方按钮安装内置包）。</p>
+      : <ul className="lang-sources-list">
+          {sources.map((item) => <li key={item.source.id}>
+            <div className="lang-source-row">
+              <b>{item.source.name}</b>
+              <span>{item.source.license.kind}{item.source.license.attribution_required ? " · 需署名" : ""}</span>
+              <small>{item.source.dataset_version} · {item.item_count} 条</small>
+            </div>
+            <p className="lang-muted">{item.source.attribution || item.source.homepage}</p>
+          </li>)}
+        </ul>}
   </div>;
 }

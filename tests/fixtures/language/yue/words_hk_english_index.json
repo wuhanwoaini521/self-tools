@@ -1,0 +1,2206 @@
+{
+ "food": [
+  [
+   "衣食:ji1 sik6",
+   50
+  ],
+  [
+   "做飯:zou6 faan6",
+   46
+  ],
+  [
+   "狗糧:gau2 loeng4",
+   41
+  ],
+  [
+   "嘢食:je5 sik6",
+   100
+  ],
+  [
+   "糧:loeng4",
+   100
+  ],
+  [
+   "美食:mei5 sik6",
+   51
+  ],
+  [
+   "食物:sik6 mat6",
+   100
+  ],
+  [
+   "熟食:suk6 sik6",
+   67
+  ],
+  [
+   "甜食:tim4 sik6",
+   41
+  ],
+  [
+   "餐:caan1",
+   100
+  ],
+  [
+   "上髀:soeng6 bei2",
+   46
+  ],
+  [
+   "熟食中心:suk6 sik6 zung1 sam1",
+   47
+  ],
+  [
+   "衣食:ji1 sik6",
+   50
+  ],
+  [
+   "做飯:zou6 faan6",
+   46
+  ],
+  [
+   "狗糧:gau2 loeng4",
+   41
+  ],
+  [
+   "嘢食:je5 sik6",
+   100
+  ],
+  [
+   "糧:loeng4",
+   100
+  ],
+  [
+   "美食:mei5 sik6",
+   51
+  ],
+  [
+   "食物:sik6 mat6",
+   100
+  ],
+  [
+   "熟食:suk6 sik6",
+   68
+  ],
+  [
+   "甜食:tim4 sik6",
+   41
+  ],
+  [
+   "餐:caan1",
+   100
+  ],
+  [
+   "上髀:soeng6 bei2",
+   46
+  ]
+ ],
+ "dinner": [
+  [
+   "餐包:caan1 baau1",
+   57
+  ],
+  [
+   "餐會:caan1 wui2",
+   63
+  ],
+  [
+   "宴會:jin3 wui6",
+   63
+  ],
+  [
+   "晚餐:maan5 caan1",
+   100
+  ],
+  [
+   "晚飯:maan5 faan6",
+   100
+  ],
+  [
+   "晚宴:maan5 jin3",
+   67
+  ],
+  [
+   "謝師宴:ze6 si1 jin3",
+   41
+  ],
+  [
+   "晚市:maan5 si5",
+   44
+  ],
+  [
+   "餐包:caan1 baau1",
+   57
+  ],
+  [
+   "餐會:caan1 wui2",
+   63
+  ],
+  [
+   "宴會:jin3 wui6",
+   63
+  ],
+  [
+   "晚餐:maan5 caan1",
+   100
+  ],
+  [
+   "晚飯:maan5 faan6",
+   100
+  ],
+  [
+   "晚宴:maan5 jin3",
+   67
+  ],
+  [
+   "謝師宴:ze6 si1 jin3",
+   41
+  ],
+  [
+   "晚市:maan5 si5",
+   44
+  ]
+ ],
+ "travel": [
+  [
+   "坐:co5",
+   85
+  ],
+  [
+   "旅行:leoi5 hang4",
+   81
+  ],
+  [
+   "同行:tung4 hang4",
+   52
+  ],
+  [
+   "穿越時空:cyun1 jyut6 si4 hung1",
+   41
+  ],
+  [
+   "行駛:hang4 sai2",
+   81
+  ],
+  [
+   "遊:jau4",
+   81
+  ],
+  [
+   "遊歷:jau4 lik6",
+   81
+  ],
+  [
+   "旅:leoi5",
+   100
+  ],
+  [
+   "旅費:leoi5 fai3",
+   48
+  ],
+  [
+   "旅行社:leoi5 hang4 se5",
+   73
+  ],
+  [
+   "路程:lou6 cing4",
+   47
+  ],
+  [
+   "遨游:ngou6 jau4",
+   81
+  ],
+  [
+   "環遊:waan4 jau4",
+   51
+  ],
+  [
+   "環繞:waan4 jiu2:waan4 jiu5",
+   42
+  ],
+  [
+   "周遊:zau1 jau4",
+   51
+  ],
+  [
+   "走遍:zau2 pin3",
+   51
+  ],
+  [
+   "穿越:cyun1 jyut6",
+   65
+  ],
+  [
+   "旅行家:leoi5 haang4 gaa1",
+   100
+  ],
+  [
+   "旅遊業:leoi5 jau4 jip6",
+   49
+  ],
+  [
+   "坐:co5",
+   85
+  ],
+  [
+   "旅行:leoi5 hang4",
+   81
+  ],
+  [
+   "同行:tung4 hang4",
+   52
+  ],
+  [
+   "穿越時空:cyun1 jyut6 si4 hung1",
+   41
+  ],
+  [
+   "行駛:hang4 sai2",
+   81
+  ],
+  [
+   "遊:jau4",
+   81
+  ],
+  [
+   "遊歷:jau4 lik6",
+   81
+  ],
+  [
+   "旅:leoi5",
+   100
+  ],
+  [
+   "旅費:leoi5 fai3",
+   48
+  ],
+  [
+   "旅行社:leoi5 hang4 se5",
+   73
+  ],
+  [
+   "路程:lou6 cing4",
+   47
+  ],
+  [
+   "遨游:ngou6 jau4",
+   81
+  ],
+  [
+   "環遊:waan4 jau4",
+   51
+  ],
+  [
+   "環繞:waan4 jiu2:waan4 jiu5",
+   42
+  ],
+  [
+   "周遊:zau1 jau4",
+   51
+  ],
+  [
+   "走遍:zau2 pin3",
+   51
+  ],
+  [
+   "穿越:cyun1 jyut6",
+   65
+  ],
+  [
+   "旅行家:leoi5 haang4 gaa1",
+   100
+  ],
+  [
+   "旅遊業:leoi5 jau4 jip6",
+   49
+  ]
+ ],
+ "hello": [
+  [
+   "打招呼:daa2 ziu1 fu1",
+   79
+  ],
+  [
+   "hello:haa1 lou3:haa1 lou2,哈佬:haa1 lou3:haa1 lou2",
+   100
+  ],
+  [
+   "打招呼:daa2 ziu1 fu1",
+   79
+  ],
+  [
+   "hello:haa1 lou3:haa1 lou2,哈佬:haa1 lou3:haa1 lou2",
+   100
+  ]
+ ],
+ "thank": [
+  [
+   "謝謝:ze6 ze6",
+   66
+  ],
+  [
+   "多謝:do1 ze6",
+   83
+  ],
+  [
+   "多謝:do1 ze6",
+   65
+  ],
+  [
+   "酬神:cau4 san4",
+   42
+  ],
+  [
+   "答謝:daap3 ze6",
+   83
+  ],
+  [
+   "多得:do1 dak1",
+   44
+  ],
+  [
+   "道謝:dou6 ze6",
+   83
+  ],
+  [
+   "感謝:gam2 ze6",
+   83
+  ],
+  [
+   "唔該:m4 goi1",
+   66
+  ],
+  [
+   "致謝:zi3 ze6",
+   83
+  ],
+  [
+   "謝:ze6",
+   83
+  ],
+  [
+   "thank you:feng1 kiu4:fen1 kiu4",
+   66
+  ],
+  [
+   "謝天謝地:ze6 tin1 ze6 dei6",
+   90
+  ],
+  [
+   "謝謝:ze6 ze6",
+   66
+  ],
+  [
+   "多謝:do1 ze6",
+   83
+  ],
+  [
+   "多謝:do1 ze6",
+   65
+  ],
+  [
+   "酬神:cau4 san4",
+   42
+  ],
+  [
+   "答謝:daap3 ze6",
+   83
+  ],
+  [
+   "多得:do1 dak1",
+   44
+  ],
+  [
+   "道謝:dou6 ze6",
+   83
+  ],
+  [
+   "感謝:gam2 ze6",
+   83
+  ],
+  [
+   "唔該:m4 goi1",
+   66
+  ],
+  [
+   "致謝:zi3 ze6",
+   83
+  ],
+  [
+   "謝:ze6",
+   83
+  ],
+  [
+   "thank you:feng1 kiu4:fen1 kiu4",
+   66
+  ],
+  [
+   "謝天謝地:ze6 tin1 ze6 dei6",
+   90
+  ]
+ ],
+ "water": [
+  [
+   "水質:seoi2 zat1",
+   41
+  ],
+  [
+   "水滴:seoi2 dik6",
+   41
+  ],
+  [
+   "水源:seoi2 jyun4",
+   42
+  ],
+  [
+   "下水:haa6 seoi2",
+   59
+  ],
+  [
+   "澄:cing4",
+   42
+  ],
+  [
+   "滾水:gwan2 seoi2",
+   74
+  ],
+  [
+   "鹹水:haam4 seoi2",
+   59
+  ],
+  [
+   "淋:lam4",
+   76
+  ],
+  [
+   "水上:seoi2 soeng6",
+   79
+  ],
+  [
+   "水位:seoi2 wai2",
+   42
+  ],
+  [
+   "食水:sik6 seoi2",
+   46
+  ],
+  [
+   "梳打水:so1 daa2 seoi2",
+   47
+  ],
+  [
+   "自來水:zi6 loi4 seoi2",
+   53
+  ],
+  [
+   "落水:lok6 seoi2",
+   54
+  ],
+  [
+   "荷蘭水:ho4 laan1 seoi2",
+   52
+  ],
+  [
+   "餿水:saau3 seoi2,潲水:saau3 seoi2",
+   58
+  ],
+  [
+   "水警:seoi2 ging2",
+   59
+  ],
+  [
+   "防水:fong4 seoi2",
+   43
+  ],
+  [
+   "水戰:seoi2 zin3",
+   49
+  ],
+  [
+   "硬水:ngaang6 seoi2",
+   47
+  ],
+  [
+   "水質:seoi2 zat1",
+   41
+  ],
+  [
+   "水滴:seoi2 dik6",
+   41
+  ],
+  [
+   "水源:seoi2 jyun4",
+   42
+  ],
+  [
+   "下水:haa6 seoi2",
+   59
+  ],
+  [
+   "澄:cing4",
+   42
+  ],
+  [
+   "滾水:gwan2 seoi2",
+   74
+  ],
+  [
+   "鹹水:haam4 seoi2",
+   59
+  ],
+  [
+   "淋:lam4",
+   76
+  ],
+  [
+   "水上:seoi2 soeng6",
+   79
+  ],
+  [
+   "水位:seoi2 wai2",
+   42
+  ],
+  [
+   "食水:sik6 seoi2",
+   46
+  ],
+  [
+   "梳打水:so1 daa2 seoi2",
+   47
+  ],
+  [
+   "自來水:zi6 loi4 seoi2",
+   53
+  ],
+  [
+   "落水:lok6 seoi2",
+   54
+  ],
+  [
+   "荷蘭水:ho4 laan1 seoi2",
+   52
+  ],
+  [
+   "餿水:saau3 seoi2,潲水:saau3 seoi2",
+   58
+  ],
+  [
+   "水警:seoi2 ging2",
+   59
+  ],
+  [
+   "防水:fong4 seoi2",
+   43
+  ],
+  [
+   "水戰:seoi2 zin3",
+   49
+  ],
+  [
+   "硬水:ngaang6 seoi2",
+   47
+  ]
+ ],
+ "school": [
+  [
+   "唸書:nim6 syu1,念書:nim6 syu1",
+   41
+  ],
+  [
+   "辦學:baan6 hok6",
+   46
+  ],
+  [
+   "學:hok6",
+   100
+  ],
+  [
+   "齋:zaai1",
+   49
+  ],
+  [
+   "返學:faan1 hok6",
+   78
+  ],
+  [
+   "課餘:fo3 jyu4",
+   56
+  ],
+  [
+   "課外:fo3 ngoi6",
+   55
+  ],
+  [
+   "放學:fong3 hok6",
+   64
+  ],
+  [
+   "高中:gou1 zung1",
+   61
+  ],
+  [
+   "官校:gun1 haau6",
+   47
+  ],
+  [
+   "下課:haa6 fo3",
+   53
+  ],
+  [
+   "校花:haau6 faa1",
+   49
+  ],
+  [
+   "校風:haau6 fung1",
+   58
+  ],
+  [
+   "校規:haau6 kwai1",
+   65
+  ],
+  [
+   "校舍:haau6 se3:haau6 se5",
+   49
+  ],
+  [
+   "開學:hoi1 hok6",
+   52
+  ],
+  [
+   "學校:hok6 haau6",
+   100
+  ],
+  [
+   "學業:hok6 jip6",
+   56
+  ],
+  [
+   "學位:hok6 wai2",
+   57
+  ],
+  [
+   "入學:jap6 hok6",
+   64
+  ],
+  [
+   "日校:jat6 haau6",
+   52
+  ],
+  [
+   "師範:si1 faan6",
+   41
+  ],
+  [
+   "小學:siu2 hok6",
+   48
+  ],
+  [
+   "上學:soeng5 hok6",
+   61
+  ],
+  [
+   "男校:naam4 haau6",
+   43
+  ],
+  [
+   "女校:neoi5 haau6",
+   46
+  ],
+  [
+   "名校:ming4 haau6",
+   44
+  ],
+  [
+   "校務處:haau6 mou6 cyu5",
+   48
+  ],
+  [
+   "全校:cyun4 haau6",
+   56
+  ],
+  [
+   "國際學校:gwok3 zai3 hok6 haau6",
+   41
+  ],
+  [
+   "學生妹:hok6 saang1 mui1",
+   46
+  ],
+  [
+   "ischool:aai1 !sgu1",
+   41
+  ],
+  [
+   "校色:haau6 sik1",
+   45
+  ],
+  [
+   "成績表:sing4 zik1 biu2",
+   41
+  ],
+  [
+   "小:siu2",
+   48
+  ],
+  [
+   "特殊學校:dak6 syu4 hok6 haau6",
+   46
+  ],
+  [
+   "校隊:haau6 deoi2",
+   41
+  ],
+  [
+   "義學:ji6 hok6:ji6 hok2",
+   64
+  ],
+  [
+   "唸書:nim6 syu1,念書:nim6 syu1",
+   41
+  ],
+  [
+   "辦學:baan6 hok6",
+   46
+  ],
+  [
+   "學:hok6",
+   100
+  ],
+  [
+   "齋:zaai1",
+   49
+  ],
+  [
+   "返學:faan1 hok6",
+   78
+  ],
+  [
+   "課餘:fo3 jyu4",
+   56
+  ],
+  [
+   "課外:fo3 ngoi6",
+   55
+  ],
+  [
+   "放學:fong3 hok6",
+   64
+  ],
+  [
+   "高中:gou1 zung1",
+   61
+  ],
+  [
+   "官校:gun1 haau6",
+   47
+  ],
+  [
+   "下課:haa6 fo3",
+   53
+  ],
+  [
+   "校花:haau6 faa1",
+   49
+  ],
+  [
+   "校風:haau6 fung1",
+   58
+  ],
+  [
+   "校規:haau6 kwai1",
+   65
+  ],
+  [
+   "校舍:haau6 se3:haau6 se5",
+   49
+  ],
+  [
+   "開學:hoi1 hok6",
+   52
+  ],
+  [
+   "學校:hok6 haau6",
+   100
+  ],
+  [
+   "學業:hok6 jip6",
+   56
+  ],
+  [
+   "學位:hok6 wai2",
+   57
+  ],
+  [
+   "入學:jap6 hok6",
+   64
+  ],
+  [
+   "日校:jat6 haau6",
+   52
+  ],
+  [
+   "師範:si1 faan6",
+   41
+  ],
+  [
+   "小學:siu2 hok6",
+   48
+  ],
+  [
+   "上學:soeng5 hok6",
+   61
+  ],
+  [
+   "男校:naam4 haau6",
+   43
+  ],
+  [
+   "女校:neoi5 haau6",
+   46
+  ],
+  [
+   "名校:ming4 haau6",
+   44
+  ],
+  [
+   "校務處:haau6 mou6 cyu5",
+   48
+  ],
+  [
+   "全校:cyun4 haau6",
+   56
+  ],
+  [
+   "國際學校:gwok3 zai3 hok6 haau6",
+   41
+  ],
+  [
+   "學生妹:hok6 saang1 mui1",
+   46
+  ],
+  [
+   "ischool:aai1 !sgu1",
+   41
+  ],
+  [
+   "校色:haau6 sik1",
+   45
+  ],
+  [
+   "成績表:sing4 zik1 biu2",
+   41
+  ],
+  [
+   "小:siu2",
+   48
+  ],
+  [
+   "特殊學校:dak6 syu4 hok6 haau6",
+   46
+  ],
+  [
+   "校隊:haau6 deoi2",
+   41
+  ],
+  [
+   "義學:ji6 hok6:ji6 hok2",
+   64
+  ]
+ ],
+ "money": [
+  [
+   "水:seoi2",
+   100
+  ],
+  [
+   "磅水:bong6 seoi2",
+   41
+  ],
+  [
+   "錢財:cin4 coi4",
+   100
+  ],
+  [
+   "財:coi4",
+   100
+  ],
+  [
+   "金額:gam1 ngaak2",
+   53
+  ],
+  [
+   "鏹:koeng5",
+   100
+  ],
+  [
+   "銀紙:ngan4 zi2",
+   100
+  ],
+  [
+   "生財:sang1 coi4",
+   44
+  ],
+  [
+   "手緊:sau2 gan2",
+   55
+  ],
+  [
+   "水頭:seoi2 tau4",
+   100
+  ],
+  [
+   "賺錢:zaan6 cin2",
+   44
+  ],
+  [
+   "資:zi1",
+   100
+  ],
+  [
+   "紙幣:zi2 bai6",
+   41
+  ],
+  [
+   "揾銀:wan2 ngan2",
+   44
+  ],
+  [
+   "揾水:wan2 seoi2",
+   44
+  ],
+  [
+   "有錢使得鬼推磨:jau5 cin2 sai2 dak1 gwai2 teoi1 mo4,有錢駛得鬼推磨:jau5 cin2 sai2 dak1 gwai2 teoi1 mo4",
+   63
+  ],
+  [
+   "揾銀紙:wan2 ngan4 zi2",
+   60
+  ],
+  [
+   "手頭緊:sau2 tau4 gan2",
+   55
+  ],
+  [
+   "等錢使:dang2 cin2 sai2",
+   63
+  ],
+  [
+   "銀彈:ngan4 daan2",
+   100
+  ],
+  [
+   "燒錢:siu1 cin2",
+   41
+  ],
+  [
+   "收錢:sau1 cin2",
+   56
+  ],
+  [
+   "燒銀紙:siu1 ngan4 zi2",
+   41
+  ],
+  [
+   "水:seoi2",
+   100
+  ],
+  [
+   "磅水:bong6 seoi2",
+   41
+  ],
+  [
+   "錢財:cin4 coi4",
+   100
+  ],
+  [
+   "財:coi4",
+   100
+  ],
+  [
+   "金額:gam1 ngaak2",
+   53
+  ],
+  [
+   "鏹:koeng5",
+   100
+  ],
+  [
+   "銀紙:ngan4 zi2",
+   100
+  ],
+  [
+   "生財:sang1 coi4",
+   44
+  ],
+  [
+   "手緊:sau2 gan2",
+   55
+  ],
+  [
+   "水頭:seoi2 tau4",
+   100
+  ],
+  [
+   "賺錢:zaan6 cin2",
+   44
+  ],
+  [
+   "資:zi1",
+   100
+  ],
+  [
+   "紙幣:zi2 bai6",
+   41
+  ],
+  [
+   "揾銀:wan2 ngan2",
+   44
+  ],
+  [
+   "揾水:wan2 seoi2",
+   44
+  ],
+  [
+   "有錢使得鬼推磨:jau5 cin2 sai2 dak1 gwai2 teoi1 mo4,有錢駛得鬼推磨:jau5 cin2 sai2 dak1 gwai2 teoi1 mo4",
+   63
+  ],
+  [
+   "揾銀紙:wan2 ngan4 zi2",
+   60
+  ],
+  [
+   "手頭緊:sau2 tau4 gan2",
+   55
+  ],
+  [
+   "等錢使:dang2 cin2 sai2",
+   63
+  ],
+  [
+   "銀彈:ngan4 daan2",
+   100
+  ],
+  [
+   "燒錢:siu1 cin2",
+   41
+  ],
+  [
+   "收錢:sau1 cin2",
+   56
+  ],
+  [
+   "燒銀紙:siu1 ngan4 zi2",
+   41
+  ]
+ ],
+ "car": [
+  [
+   "卡:kaa1",
+   100
+  ],
+  [
+   "撻:taat1:taak1",
+   42
+  ],
+  [
+   "賽車:coi3 ce1",
+   71
+  ],
+  [
+   "吊車:diu3 ce1",
+   53
+  ],
+  [
+   "花車:faa1 ce1",
+   45
+  ],
+  [
+   "警車:ging2 ce1",
+   54
+  ],
+  [
+   "開篷車:hoi1 pung4 ce1:hoi1 fung4 ce1,開蓬車:hoi1 pung4 ce1:hoi1 fung4 ce1",
+   55
+  ],
+  [
+   "跑車:paau2 ce1",
+   45
+  ],
+  [
+   "剎車:saat3 ce1,煞車:saat3 ce1",
+   41
+  ],
+  [
+   "褪車:tan3 ce1",
+   47
+  ],
+  [
+   "停車場:ting4 ce1 coeng4",
+   41
+  ],
+  [
+   "坐車:co5 ce1",
+   42
+  ],
+  [
+   "士的車:si6 dik1 ce1",
+   44
+  ],
+  [
+   "白車:baak6 ce1",
+   44
+  ],
+  [
+   "老爺車:lou5 je4 ce1",
+   68
+  ],
+  [
+   "撻車:taat1 ce1",
+   42
+  ],
+  [
+   "車齡:ce1 ling4",
+   44
+  ],
+  [
+   "46:sei3 luk1,四六:sei3 luk1,四轆:sei3 luk1",
+   100
+  ],
+  [
+   "車廠:ce1 cong2",
+   59
+  ],
+  [
+   "卡:kaa1",
+   100
+  ],
+  [
+   "撻:taat1:taak1",
+   42
+  ],
+  [
+   "賽車:coi3 ce1",
+   71
+  ],
+  [
+   "吊車:diu3 ce1",
+   53
+  ],
+  [
+   "花車:faa1 ce1",
+   45
+  ],
+  [
+   "警車:ging2 ce1",
+   54
+  ],
+  [
+   "開篷車:hoi1 pung4 ce1:hoi1 fung4 ce1,開蓬車:hoi1 pung4 ce1:hoi1 fung4 ce1",
+   55
+  ],
+  [
+   "跑車:paau2 ce1",
+   45
+  ],
+  [
+   "剎車:saat3 ce1,煞車:saat3 ce1",
+   41
+  ],
+  [
+   "褪車:tan3 ce1",
+   47
+  ],
+  [
+   "停車場:ting4 ce1 coeng4",
+   41
+  ],
+  [
+   "坐車:co5 ce1",
+   42
+  ],
+  [
+   "士的車:si6 dik1 ce1",
+   44
+  ],
+  [
+   "白車:baak6 ce1",
+   44
+  ],
+  [
+   "老爺車:lou5 je4 ce1",
+   68
+  ],
+  [
+   "撻車:taat1 ce1",
+   42
+  ],
+  [
+   "車齡:ce1 ling4",
+   44
+  ],
+  [
+   "46:sei3 luk1,四六:sei3 luk1,四轆:sei3 luk1",
+   100
+  ],
+  [
+   "車廠:ce1 cong2",
+   59
+  ]
+ ],
+ "book": [
+  [
+   "訂:deng6:ding6",
+   77
+  ],
+  [
+   "參考書:caam1 haau2 syu1",
+   65
+  ],
+  [
+   "循例:ceon4 lai6",
+   53
+  ],
+  [
+   "電話簿:din6 waa2 bou2",
+   42
+  ],
+  [
+   "工具書:gung1 geoi6 syu1",
+   42
+  ],
+  [
+   "公仔書:gung1 zai2 syu1",
+   41
+  ],
+  [
+   "預訂:jyu6 ding6:jyu6 deng6",
+   77
+  ],
+  [
+   "書:syu1",
+   100
+  ],
+  [
+   "書:syu1",
+   100
+  ],
+  [
+   "書本:syu1 bun2",
+   100
+  ],
+  [
+   "天書:tin1 syu1",
+   55
+  ],
+  [
+   "圖書:tou4 syu1",
+   100
+  ],
+  [
+   "賬簿:zoeng3 bou2,帳簿:zoeng3 bou2",
+   44
+  ],
+  [
+   "著作:zyu3 zok3",
+   100
+  ],
+  [
+   "book:buk1,卜:buk1",
+   77
+  ],
+  [
+   "讀書會:duk6 syu1 wui2",
+   46
+  ],
+  [
+   "街簿:gaai1 bou2,楷簿:gaai1 bou2",
+   50
+  ],
+  [
+   "歌書:go1 syu1",
+   45
+  ],
+  [
+   "童書:tung4 syu1",
+   47
+  ],
+  [
+   "古籍:gu2 zik6",
+   51
+  ],
+  [
+   "漂書:piu1 syu1,飄書:piu1 syu1",
+   43
+  ],
+  [
+   "藏書:cong4 syu1",
+   50
+  ],
+  [
+   "醫書:ji1 syu1",
+   42
+  ],
+  [
+   "裝幀:zong1 zing3",
+   43
+  ],
+  [
+   "還書箱:waan4 syu1 soeng1",
+   44
+  ],
+  [
+   "繪本:kui2 bun2",
+   41
+  ],
+  [
+   "訂:deng6:ding6",
+   77
+  ],
+  [
+   "參考書:caam1 haau2 syu1",
+   65
+  ],
+  [
+   "循例:ceon4 lai6",
+   53
+  ],
+  [
+   "電話簿:din6 waa2 bou2",
+   42
+  ],
+  [
+   "工具書:gung1 geoi6 syu1",
+   42
+  ],
+  [
+   "公仔書:gung1 zai2 syu1",
+   41
+  ],
+  [
+   "預訂:jyu6 ding6:jyu6 deng6",
+   77
+  ],
+  [
+   "書:syu1",
+   100
+  ],
+  [
+   "書:syu1",
+   100
+  ],
+  [
+   "書本:syu1 bun2",
+   100
+  ],
+  [
+   "天書:tin1 syu1",
+   55
+  ],
+  [
+   "圖書:tou4 syu1",
+   100
+  ],
+  [
+   "賬簿:zoeng3 bou2,帳簿:zoeng3 bou2",
+   44
+  ],
+  [
+   "著作:zyu3 zok3",
+   100
+  ],
+  [
+   "book:buk1,卜:buk1",
+   77
+  ],
+  [
+   "讀書會:duk6 syu1 wui2",
+   46
+  ],
+  [
+   "街簿:gaai1 bou2,楷簿:gaai1 bou2",
+   50
+  ],
+  [
+   "歌書:go1 syu1",
+   45
+  ],
+  [
+   "童書:tung4 syu1",
+   47
+  ],
+  [
+   "古籍:gu2 zik6",
+   51
+  ],
+  [
+   "漂書:piu1 syu1,飄書:piu1 syu1",
+   43
+  ],
+  [
+   "藏書:cong4 syu1",
+   50
+  ],
+  [
+   "醫書:ji1 syu1",
+   42
+  ],
+  [
+   "裝幀:zong1 zing3",
+   43
+  ],
+  [
+   "還書箱:waan4 syu1 soeng1",
+   44
+  ],
+  [
+   "繪本:kui2 bun2",
+   41
+  ]
+ ],
+ "eat": [
+  [
+   "吃:hek3,喫:hek3",
+   74
+  ],
+  [
+   "啪:paak1",
+   74
+  ],
+  [
+   "食:sik6",
+   74
+  ],
+  [
+   "嗑:hap6",
+   74
+  ],
+  [
+   "吃飯:hek3 faan6",
+   74
+  ],
+  [
+   "好食:hou2 sik6",
+   47
+  ],
+  [
+   "嘢食:je5 sik6",
+   47
+  ],
+  [
+   "難食:naan4 sik6",
+   58
+  ],
+  [
+   "食用:sik6 jung6",
+   74
+  ],
+  [
+   "進食:zeon3 sik6",
+   74
+  ],
+  [
+   "蛀:zyu3",
+   74
+  ],
+  [
+   "吔:jaak3,喫:jaak3",
+   74
+  ],
+  [
+   "咬飯:ngaau5 faan6",
+   74
+  ],
+  [
+   "細食:sai3 sik6",
+   49
+  ],
+  [
+   "食風:sik6 fung1",
+   51
+  ],
+  [
+   "食 mum mum:sik6 mam1 mam1,食𩜠𩜠:sik6 mam1 mam1,食檬檬:sik6 mung1 mung1",
+   74
+  ],
+  [
+   "食糖:sik6 tong2",
+   52
+  ],
+  [
+   "啅:coek1,啅:coek3",
+   74
+  ],
+  [
+   "大飲大食:daai6 jam2 daai6 sik6",
+   64
+  ],
+  [
+   "哨:saau4",
+   74
+  ],
+  [
+   "食嘢:sik6 je5",
+   74
+  ],
+  [
+   "吃:hek3,喫:hek3",
+   74
+  ],
+  [
+   "啪:paak1",
+   74
+  ],
+  [
+   "食:sik6",
+   74
+  ],
+  [
+   "嗑:hap6",
+   74
+  ],
+  [
+   "吃飯:hek3 faan6",
+   74
+  ],
+  [
+   "好食:hou2 sik6",
+   47
+  ],
+  [
+   "嘢食:je5 sik6",
+   47
+  ],
+  [
+   "難食:naan4 sik6",
+   58
+  ],
+  [
+   "食用:sik6 jung6",
+   74
+  ],
+  [
+   "進食:zeon3 sik6",
+   74
+  ],
+  [
+   "蛀:zyu3",
+   74
+  ],
+  [
+   "吔:jaak3,喫:jaak3",
+   74
+  ],
+  [
+   "咬飯:ngaau5 faan6",
+   74
+  ],
+  [
+   "細食:sai3 sik6",
+   49
+  ],
+  [
+   "食風:sik6 fung1",
+   51
+  ],
+  [
+   "食 mum mum:sik6 mam1 mam1,食𩜠𩜠:sik6 mam1 mam1,食檬檬:sik6 mung1 mung1",
+   74
+  ],
+  [
+   "食糖:sik6 tong2",
+   52
+  ],
+  [
+   "啅:coek1,啅:coek3",
+   74
+  ],
+  [
+   "大飲大食:daai6 jam2 daai6 sik6",
+   64
+  ],
+  [
+   "哨:saau4",
+   74
+  ],
+  [
+   "食嘢:sik6 je5",
+   74
+  ]
+ ],
+ "tasty": [
+  [
+   "好吃:hou2 hek3",
+   100
+  ],
+  [
+   "可口:ho2 hau2",
+   78
+  ],
+  [
+   "好味:hou2 mei6",
+   81
+  ],
+  [
+   "好食:hou2 sik6",
+   81
+  ],
+  [
+   "美味:mei5 mei6",
+   100
+  ],
+  [
+   "好飲:hou2 jam2",
+   100
+  ],
+  [
+   "好吃:hou2 hek3",
+   100
+  ],
+  [
+   "可口:ho2 hau2",
+   78
+  ],
+  [
+   "好味:hou2 mei6",
+   81
+  ],
+  [
+   "好食:hou2 sik6",
+   81
+  ],
+  [
+   "美味:mei5 mei6",
+   100
+  ],
+  [
+   "好飲:hou2 jam2",
+   100
+  ]
+ ],
+ "today": [
+  [
+   "今天:gam1 tin1",
+   100
+  ],
+  [
+   "後日:hau6 jat6",
+   60
+  ],
+  [
+   "有今日:jau5 gam1 jat6",
+   73
+  ],
+  [
+   "後天:hau6 tin1",
+   60
+  ],
+  [
+   "時至今日:si4 zi3 gam1 jat6",
+   77
+  ],
+  [
+   "今天:gam1 tin1",
+   100
+  ],
+  [
+   "後日:hau6 jat6",
+   60
+  ],
+  [
+   "有今日:jau5 gam1 jat6",
+   73
+  ],
+  [
+   "後天:hau6 tin1",
+   60
+  ],
+  [
+   "時至今日:si4 zi3 gam1 jat6",
+   77
+  ]
+ ],
+ "tomorrow": [
+  [
+   "聽晚:ting1 maan1:ting1 maan5",
+   70
+  ],
+  [
+   "大後日:daai6 hau6 jat6",
+   50
+  ],
+  [
+   "隔日:gaak3 jat6",
+   100
+  ],
+  [
+   "後日:hau6 jat6",
+   56
+  ],
+  [
+   "明日:ming4 jat6",
+   100
+  ],
+  [
+   "明天:ming4 tin1",
+   100
+  ],
+  [
+   "明早:ming4 zou2",
+   64
+  ],
+  [
+   "聽日:ting1 jat6",
+   100
+  ],
+  [
+   "聽朝:ting1 ziu1",
+   64
+  ],
+  [
+   "後天:hau6 tin1",
+   56
+  ],
+  [
+   "聽朝早:ting1 ziu1 zou2",
+   64
+  ],
+  [
+   "第二朝:dai6 ji6 ziu1",
+   64
+  ],
+  [
+   "聽早:ting1 zou2",
+   64
+  ],
+  [
+   "聽:ting1",
+   100
+  ],
+  [
+   "聽晚:ting1 maan1:ting1 maan5",
+   70
+  ],
+  [
+   "大後日:daai6 hau6 jat6",
+   50
+  ],
+  [
+   "隔日:gaak3 jat6",
+   100
+  ],
+  [
+   "後日:hau6 jat6",
+   56
+  ],
+  [
+   "明日:ming4 jat6",
+   100
+  ],
+  [
+   "明天:ming4 tin1",
+   100
+  ],
+  [
+   "明早:ming4 zou2",
+   64
+  ],
+  [
+   "聽日:ting1 jat6",
+   100
+  ],
+  [
+   "聽朝:ting1 ziu1",
+   64
+  ],
+  [
+   "後天:hau6 tin1",
+   56
+  ],
+  [
+   "聽朝早:ting1 ziu1 zou2",
+   64
+  ],
+  [
+   "第二朝:dai6 ji6 ziu1",
+   64
+  ],
+  [
+   "聽早:ting1 zou2",
+   64
+  ],
+  [
+   "聽:ting1",
+   100
+  ]
+ ],
+ "yesterday": [
+  [
+   "前日:cin4 jat6",
+   71
+  ],
+  [
+   "昨:zok3:zok6",
+   100
+  ],
+  [
+   "昨日:zok3 jat6:zok6 jat6",
+   100
+  ],
+  [
+   "前日:cin4 jat6",
+   71
+  ],
+  [
+   "昨:zok3:zok6",
+   100
+  ],
+  [
+   "昨日:zok3 jat6:zok6 jat6",
+   100
+  ]
+ ],
+ "please": [
+  [
+   "早抖:zou2 tau2,早唞:zou2 tau2",
+   56
+  ],
+  [
+   "保⋯大:bou2 daai6",
+   100
+  ],
+  [
+   "取悦:ceoi2 jyut6",
+   82
+  ],
+  [
+   "奄尖聲悶:jim1 zim1 seng1 mun6,淹尖聲悶:jim1 zim1 seng1 mun6,腌尖聲悶:jim1 zim1 seng1 mun6,腌尖腥悶:jim1 zim1 seng1 mun6",
+   53
+  ],
+  [
+   "唔該:m4 goi1",
+   100
+  ],
+  [
+   "博紅顏一笑:bok3 hung4 ngaan4 jat1 siu3,搏紅顏一笑:bok3 hung4 ngaan4 jat1 siu3",
+   48
+  ],
+  [
+   "奄尖:jim1 zim1,腌臢:jim1 zim1,腌尖:jim1 zim1",
+   53
+  ],
+  [
+   "chur:coe2",
+   53
+  ],
+  [
+   "惠存:wai6 cyun4",
+   61
+  ],
+  [
+   "有慢:jau5 maan6",
+   58
+  ],
+  [
+   "請勿:cing2 mat6",
+   54
+  ],
+  [
+   "早抖:zou2 tau2,早唞:zou2 tau2",
+   56
+  ],
+  [
+   "保⋯大:bou2 daai6",
+   100
+  ],
+  [
+   "取悦:ceoi2 jyut6",
+   82
+  ],
+  [
+   "奄尖聲悶:jim1 zim1 seng1 mun6,淹尖聲悶:jim1 zim1 seng1 mun6,腌尖聲悶:jim1 zim1 seng1 mun6,腌尖腥悶:jim1 zim1 seng1 mun6",
+   53
+  ],
+  [
+   "唔該:m4 goi1",
+   100
+  ],
+  [
+   "博紅顏一笑:bok3 hung4 ngaan4 jat1 siu3,搏紅顏一笑:bok3 hung4 ngaan4 jat1 siu3",
+   48
+  ],
+  [
+   "奄尖:jim1 zim1,腌臢:jim1 zim1,腌尖:jim1 zim1",
+   53
+  ],
+  [
+   "chur:coe2",
+   53
+  ],
+  [
+   "惠存:wai6 cyun4",
+   61
+  ],
+  [
+   "有慢:jau5 maan6",
+   58
+  ],
+  [
+   "請勿:cing2 mat6",
+   54
+  ]
+ ],
+ "aboriginal": [
+  [
+   "生番:saang1 faan1,生蕃:saang1 faan1",
+   89
+  ],
+  [
+   "生番:saang1 faan1,生蕃:saang1 faan1",
+   89
+  ]
+ ],
+ "academic": [
+  [
+   "學位:hok6 wai2",
+   58
+  ],
+  [
+   "學位:hok6 wai2",
+   58
+  ]
+ ],
+ "according": [
+  [
+   "聽:teng1",
+   79
+  ],
+  [
+   "聽:teng1",
+   79
+  ]
+ ],
+ "account": [
+  [
+   "賬簿:zoeng3 bou2,帳簿:zoeng3 bou2",
+   55
+  ],
+  [
+   "賬簿:zoeng3 bou2,帳簿:zoeng3 bou2",
+   55
+  ]
+ ],
+ "achievements": [
+  [
+   "有今日:jau5 gam1 jat6",
+   54
+  ],
+  [
+   "有今日:jau5 gam1 jat6",
+   54
+  ]
+ ],
+ "acknowledge": [
+  [
+   "答謝:daap3 ze6",
+   89
+  ],
+  [
+   "道謝:dou6 ze6",
+   89
+  ],
+  [
+   "答謝:daap3 ze6",
+   89
+  ],
+  [
+   "道謝:dou6 ze6",
+   89
+  ]
+ ],
+ "acquired": [
+  [
+   "後天:hau6 tin1",
+   100
+  ],
+  [
+   "後天:hau6 tin1",
+   100
+  ]
+ ],
+ "across": [
+  [
+   "穿越:cyun1 jyut6",
+   59
+  ],
+  [
+   "穿越:cyun1 jyut6",
+   59
+  ]
+ ],
+ "action": [
+  [
+   "行:hang4",
+   100
+  ],
+  [
+   "行:hang4",
+   100
+  ]
+ ],
+ "adopt": [
+  [
+   "行:haang4",
+   83
+  ],
+  [
+   "行:haang4",
+   83
+  ]
+ ],
+ "advice": [
+  [
+   "聽:teng1",
+   46
+  ],
+  [
+   "聽:teng1",
+   46
+  ]
+ ],
+ "after": [
+  [
+   "課餘:fo3 jyu4",
+   64
+  ],
+  [
+   "課外:fo3 ngoi6",
+   44
+  ],
+  [
+   "課餘:fo3 jyu4",
+   64
+  ],
+  [
+   "課外:fo3 ngoi6",
+   44
+  ]
+ ],
+ "again": [
+  [
+   "再見:zoi3 gin3",
+   45
+  ],
+  [
+   "再見:zoi3 gin3",
+   45
+  ]
+ ],
+ "agent": [
+  [
+   "旅行社:leoi5 hang4 se5",
+   60
+  ],
+  [
+   "旅行社:leoi5 hang4 se5",
+   60
+  ]
+ ],
+ "alive": [
+  [
+   "生壅:saang1 ngung1",
+   46
+  ],
+  [
+   "生壅:saang1 ngung1",
+   46
+  ]
+ ],
+ "aloud": [
+  [
+   "唸書:nim6 syu1,念書:nim6 syu1",
+   67
+  ],
+  [
+   "唸書:nim6 syu1,念書:nim6 syu1",
+   67
+  ]
+ ],
+ "ambulance": [
+  [
+   "白車:baak6 ce1",
+   90
+  ],
+  [
+   "白車:baak6 ce1",
+   90
+  ]
+ ],
+ "amount": [
+  [
+   "金額:gam1 ngaak2",
+   48
+  ],
+  [
+   "金額:gam1 ngaak2",
+   48
+  ]
+ ],
+ "ancient": [
+  [
+   "古籍:gu2 zik6",
+   48
+  ],
+  [
+   "古籍:gu2 zik6",
+   48
+  ]
+ ],
+ "angue": [
+  [
+   "下課:haa6 fo3",
+   68
+  ],
+  [
+   "下課:haa6 fo3",
+   68
+  ]
+ ],
+ "antique": [
+  [
+   "老爺車:lou5 je4 ce1",
+   68
+  ],
+  [
+   "老爺車:lou5 je4 ce1",
+   68
+  ]
+ ],
+ "apologize": [
+  [
+   "謝:ze6",
+   89
+  ],
+  [
+   "謝:ze6",
+   89
+  ]
+ ],
+ "appetite": [
+  [
+   "細食:sai3 sik6",
+   58
+  ],
+  [
+   "細食:sai3 sik6",
+   58
+  ]
+ ],
+ "appointment": [
+  [
+   "book:buk1,卜:buk1",
+   57
+  ],
+  [
+   "book:buk1,卜:buk1",
+   57
+  ]
+ ]
+}

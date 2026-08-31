@@ -10,11 +10,13 @@ description = "DevToolbox document workflows and application DTOs."
 [dependencies]
 devtoolbox-core = { path = "../core" }
 devtoolbox-infrastructure = { path = "../infrastructure" }
+flate2.workspace = true
 futures-util.workspace = true
 reqwest.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
+zip = { workspace = true }
 
 [dev-dependencies]
 async-trait = "0.1"

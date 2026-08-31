@@ -1,11 +1,12 @@
 import { invoke } from "@tauri-apps/api/core";
-import { Compass, Gear, House, Notebook, Rss, Scroll, Wrench, X } from "@phosphor-icons/react";
+import { Compass, Gear, House, Notebook, Rss, Scroll, Translate, Wrench, X } from "@phosphor-icons/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { SettingsDialog } from "./SettingsDialog";
 import { HomePage } from "./features/home/HomePage";
 import { MarkdownPage, type MarkdownIntent } from "./features/markdown/MarkdownPage";
 import { RssPage, type RssIntent } from "./features/rss/RssPage";
 import { HistoryPage } from "./features/history/HistoryPage";
+import { LanguagePage } from "./features/language/LanguagePage";
 import { TravelPage } from "./features/travel/TravelPage";
 import { applyTheme, getTheme, storeThemeId } from "./theme/ThemeManager";
 import "./theme/themes";
@@ -19,7 +20,7 @@ import { errorMessage, isTauriRuntime } from "./utils";
  * - 新增模块 = 新增一个 feature 目录 + 注册一个导航项,外壳不需要感知模块内部。
  */
 
-type PageId = "home" | "markdown" | "rss" | "travel" | "history" | "tools";
+type PageId = "home" | "markdown" | "rss" | "travel" | "history" | "language" | "tools";
 
 interface NavItem {
   id: PageId;
@@ -35,6 +36,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: "rss", label: "RSS", icon: Rss },
   { id: "travel", label: "Travel", icon: Compass },
   { id: "history", label: "History", icon: Scroll },
+  { id: "language", label: "Language", icon: Translate },
   { id: "tools", label: "Tools", icon: Wrench, disabled: true },
 ];
 
@@ -159,6 +161,7 @@ export default function App() {
         <section className={"page-pane" + (page === "rss" ? "" : " page-hidden")}><RssPage active={page === "rss"} version={rssVersion} refreshing={rssRefreshing} onRefresh={() => void refreshFeeds()} onFeedsChanged={handleFeedsChanged} setNotice={setNotice} intent={rssIntent} /></section>
         <section className={"page-pane" + (page === "travel" ? "" : " page-hidden")}><TravelPage active={page === "travel"} setNotice={setNotice} amapApiKey={settings.travel.amap_api_key} /></section>
         <section className={"page-pane history-pane" + (page === "history" ? "" : " page-hidden")}><HistoryPage active={page === "history"} setNotice={setNotice} /></section>
+        <section className={"page-pane language-pane" + (page === "language" ? "" : " page-hidden")}><LanguagePage active={page === "language"} setNotice={setNotice} /></section>
       </main>
     </div>
     {notice ? <button className="toast" onClick={() => setNotice("")}>{notice}<X size={16} /></button> : null}

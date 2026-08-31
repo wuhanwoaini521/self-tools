@@ -8,6 +8,7 @@
 - **Markdown** — 笔记与任务管理，核心特色是**多状态 Checkbox**（Pending / In Progress / Done）与键盘优先的专注写作流
 - **RSS** — 订阅阅读器：添加 / 删除订阅、未读计数、定时后台刷新、SQLite 持久化
 - **Travel** — 旅行研究 Agent：输入城市 → 自动规划搜索任务 → 搜索国内互联网（Bing 中国 / 百度 / 本地 SearXNG，均可配置）→ 抓取网页 → 事实提取 → 来源可信度排序 → 多源验证与冲突检测 → 生成结构化攻略（含 Sources）并本地缓存（24h/7d）。未配置 LLM / API Key 时仍可运行（降级为“来源 + 基础信息”模式，绝不编造）
+- **Language** — 多语言学习中心（English / Japanese 完整闭环 + Mandarin / Cantonese 统一架构）：离线优先的词典/搜索/例句/收藏/学习状态/间隔复习/听力/口语，数据全部来自**可追溯的开放数据集**（Open English WordNet + CMUdict、JMdict + KANJIDIC2、CC-CEDICT、words.hk + CC-Canto、Tatoeba），许可与 attribution 在 Settings → Language Data 完整展示；内置 Starter Pack（真实数据子集）首次运行即可安装，完整数据包用 `language-data import …` 导入（见 `docs/language/DATA_SOURCES.md`）
 
 技术栈：Rust + Tauri 2 + React 19 + CodeMirror 6。
 
@@ -29,6 +30,10 @@
 ## 开发环境
 
 前置要求：Rust 1.95+（`rust-toolchain.toml` 自动固定）、Node.js 20+、GNU Make（可选；Windows 可用 `scoop install make` 或 `choco install make`）。
+
+语言数据工具（可选）：`cargo run -p devtoolbox-application --bin language_data -- help`，
+可用于从官方文件导入完整数据包（English / Japanese / Mandarin / Cantonese / Sentences）。
+内置 Starter Pack 覆盖开箱即用的真实子集；许可/来源见 `docs/language/DATA_SOURCES.md`。
 
 ### 快捷命令（推荐，见仓库根目录 `Makefile`）
 
@@ -73,32 +78,32 @@ npm --prefix apps/desktop/ui exec -- tauri build
 底层保持纯 Markdown 任务列表，其他编辑器打开完全可读：
 
 | 状态 | Markdown | 符号 | 颜色 |
-|------|----------|------|------|
+| ------ | ---------- | ------ | ------ |
 | Pending | `- [ ] US` | ○ | 灰 |
 | In Progress | `- [~] JP` | ◐ | 蓝 |
 | Done | `- [x] CA` | ● | 绿 |
 
-* 点击编辑器中的 `[ ]` 标记即可切换状态；
-* 编辑器内任务标记按状态着色（`[ ]` 灰 / `[~]` 蓝 / `[x]` 绿），已完成行自动删除线变暗，
+- 点击编辑器中的 `[ ]` 标记即可切换状态；
+- 编辑器内任务标记按状态着色（`[ ]` 灰 / `[~]` 蓝 / `[x]` 绿），已完成行自动删除线变暗，
   与右侧任务大纲面板视觉统一；
-* 状态定义集中在 `crates/core/src/task_state.rs` 的注册表中，
+- 状态定义集中在 `crates/core/src/task_state.rs` 的注册表中，
   新增 Blocked / Failed 等状态只需 `register()` 一条；
-* 解析规则由 `tests/fixtures/task_rules.json` 固化，Rust 单元测试直接消费该文件。
+- 解析规则由 `tests/fixtures/task_rules.json` 固化，Rust 单元测试直接消费该文件。
 
 ## 编辑器美化
 
 装饰逻辑位于 `apps/desktop/ui/src/markdown-decorations.ts`（CodeMirror ViewPlugin）：
 
-* **任务标记状态着色**：`[x]` 绿色 + 删除线，`[~]` 蓝色，`[ ]` 灰色；
-* **标题分级配色**：H1–H6 由亮到暗的蓝色阶，`#` 记号弱化，H1/H2 字号微调；
-* **围栏代码块**：整块背景色 + 左侧色条，围栏记号弱化；
-* **引用块**：左侧蓝色条 + 微背景 + 斜体；
-* **列表自动延续**：在列表项末尾回车，自动补全 `- `/序号前缀。
+- **任务标记状态着色**：`[x]` 绿色 + 删除线，`[~]` 蓝色，`[ ]` 灰色；
+- **标题分级配色**：H1–H6 由亮到暗的蓝色阶，`#` 记号弱化，H1/H2 字号微调；
+- **围栏代码块**：整块背景色 + 左侧色条，围栏记号弱化；
+- **引用块**：左侧蓝色条 + 微背景 + 斜体；
+- **列表自动延续**：在列表项末尾回车，自动补全 `-`/序号前缀。
 
 ## 快捷键
 
 | 动作 | Windows / Linux | macOS |
-|------|-----------------|-------|
+| ------ | ----------------- | ------- |
 | 打开命令面板 | Ctrl+F | Cmd+F |
 | 切换 Focus Mode | F11 | F11 |
 | 切换侧栏 | Ctrl+B | Cmd+B |
@@ -124,10 +129,13 @@ npm --prefix apps/desktop/ui exec -- tauri build
 │                            #   Travel 的搜索 Provider / 网页抓取 / LLM(OpenAI-Compatible) / 数据源预留
 ├── apps/
 │   └── desktop/             # Tauri 桌面适配器（命令层 + AppState）
-│       ├── src/             # Tauri 命令 / 事件边界（文档 / RSS / Travel 各自独立）
-│       └── ui/              # React 19 前端：外壳(导航) + features(home/markdown/rss/travel)
+│       ├── src/             # Tauri 命令 / 事件边界（文档 / RSS / Travel / History / Language 各自独立）
+│       └── ui/              # React 19 前端：外壳(导航) + features(home/markdown/rss/travel/history/language)
 ├── tests/fixtures/          # 跨实现共享的 Markdown 行为样例
+├── data/                   # 原始数据集（gitignored）+ 生成数据
+├── tests/fixtures/language/ # Language 真实数据子集（Starter Pack，attribution 完整）
 └── docs/
+    ├── language/            # Language 架构分析 + 数据源/许可登记（DATA_SOURCES.md）
     ├── migration/           # PySide6 → Rust 迁移历史档案
     ├── travel/              # Travel 模块设计档案
     └── screenshots/

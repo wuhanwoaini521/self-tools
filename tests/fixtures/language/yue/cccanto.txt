@@ -1,0 +1,78 @@
+# CC-Canto
+# A Cantonese dictionary for everyone
+# Version 2017-02-02
+# 
+# Copyright (c) 2015-17 Pleco Inc.
+# Distributed under a Creative Commons Attribution-Share Alike 3.0 license (http://creativecommons.org/licenses/by-sa/3.0/)
+#
+# For more information + to submit feedback, see our website at cccanto.org
+#
+# This dictionary is intended to be used in conjunction with the (also open-source) Chinese dictionary CC-CEDICT
+# See mdbg.net to download CC-CEDICT, see cccanto.org to download an open-source list of Cantonese readings for CC-CEDICT
+#
+食粥食飯 食粥食饭 [shi2 zhou1 shi2 fan4] {sik6 zuk1 zi6 faan6} /(literally: whether one eats porridge or rice); whether good or bad; whether success or failure/
+睇餸食飯 睇餸食饭 [di4 song4 shi2 fan4] {tai2 sung3 sik6 faan6} /describes when one is required to be aware of the current situation and react in a careful manner; to live within one's means; to act according to circumstances; to adapt oneself to circumstances/
+撞板多過食飯 撞板多过食饭 [zhuang4 ban3 duo1 guo4 shi2 fan4] {zong6 baan2 do1 gwo3 sik6 faan6} /verb; literally: someone hit the wooden plank more than having a meal, it means failing more than succeeding (be rebuffed)/
+你好嗎 你好吗 [ni3 hao3 ma5] {nei5 hou2 maa1} /how are you?/
+多謝夾盛惠 多谢夹盛惠 [duo1 xie4 jia1 sheng4 hui4] {do1 ze6 gaap3 sing6 wai6} /thank you very much; thank you, but I am not interested/
+食飯 食饭 [shi2 fan4] {sik6 faan6} /to have dinner;to have a meal/
+海 海 [hai3] {hoi2} /ocean/sea M: 个gè [个] / 片piàn [片]/great number of people or things/(dialect) numerous/aimlessly/overseas/Shanghai/a surname/ # adapted from cc-cedict
+登 登 [deng1] {dang1} /to scale (a height)/to ascend/to mount/to publish or record/to enter (e.g. in a register)/to press down with the foot/to step or tread on/to put on (shoes or trousers) (dialect)/to be gathered and taken to the threshing ground (old)/to board/to climb/toi harvest/ # adapted from cc-cedict
+泱 泱 [yang1] {joeng1} /agitated (wind, cloud)/boundless/ # adapted from cc-cedict
+鈴 铃 [ling2] {ling4} /(small) bell M: 只zhī [只]/ # adapted from cc-cedict
+牀鋪被蓆 床铺被席 [chuang2 pu4 bei4 xi2] {cong4 pou1 pei5 zek6} /bedding sets/
+無線電報 无线电报 [wu2 xian4 dian4 bao4] {mou4 sin3 din6 bou3} /radiotelegraph; radiotelegram/
+陂 陂 [bei1] {po1} /uneven/with ups and downs/steps/ # adapted from cc-cedict
+紓 纾 [shu1] {syu1} /abundant/ample/at ease/relaxed/to free from/to relieve/to procrastinate/to delay/to be well off/ # adapted from cc-cedict
+煲水 煲水 [bao1 shui3] {bou1 seoi2} /to boil water; fabricated (false)/
+定計劃 定计划 [ding4 ji4 hua4] {ding6 gai3 waak6} /to make plans/
+樣 样 [yang4] {joeng6} /manner/pattern/way/appearance/shape/classifier: kind, type/sample/variety/style/type/ # adapted from cc-cedict
+頸渴 颈渴 [jing3 ke3] {geng2 hot3} /(adjective) thirsty/
+攻擊 攻击 [gong1 ji1] {gung1 gik1} /to assault/
+婚書 婚书 [hun1 shu1] {fan1 syu1} /Marriage certificate/
+劏死牛 劏死牛 [dang1 si3 niu2] {tong1 sei2 ngau4} /mugging; armed robbery; robbery at gunpoint/
+凵 凵 [kan3] {ham1} /receptacle/Kangxi radical 17/open box / open mouth/ # adapted from cc-cedict
+淦 淦 [gan4] {gam3} /water leaking into a boat/name of a river/a surname/ # adapted from cc-cedict
+核數師 核数师 [he2 shu4 shi1] {hat6 sou3 si1} /an auditor/
+五時花六時變 五时花六时变 [wu3 shi2 hua1 liu4 shi2 bian4] {ng5 si4 faa1 luk6 si4 bin3} /indecisive (slang)/
+啲多 啲多 [di1 duo1] {di1 doe1} /more/
+唔夠瞓 唔够瞓 [n2 gou4 fen4] {m4 gau3 fan3} /not enough sleep/
+最多唔係 最多唔系 [zui4 duo1 n2 xi4] {zeoi3 do1 m4 hai6} /at the worst; worse comes to worst; at most, it will just be/
+牙斬斬 牙斩斩 [ya2 zhan3 zhan3] {ngaa4 zaam2 zaam2} /(slang) (for ability to speak, with a negative connotation) boastful; eloquent; persuasive; sharp-tongued/
+花臣 花臣 [hua1 chen2] {faa1 san2} /tricks; gimmicks; fashion (a loanword)/
+光頭佬 光头佬 [guang1 tou2 lao3] {gwong1 tau4 lou2} /bald man/
+疙 疙 [ge1] {gat1} /pimple/wart/sore/pustule/ # adapted from cc-cedict
+幹線 干线 [gan4 xian4] {gon3 sin3} /(noun) 1. Route 1/2/3/
+旭 旭 [xu4] {juk1} /dawn/rising sun/brilliance/radiant/ # adapted from cc-cedict
+現鈔 现钞 [xian4 chao1] {jin6 caau1} /cash; banknotes/
+鬩 阋 [xi4] {jik1} /to argue/to quarrel/feud/ # adapted from cc-cedict
+聯絡 联络 [lian2 luo4] {lyun4 lok3} /contact methods/
+隻揪隻 只揪只 [zhi1 jiu1 zhi1] {zek3 cau1 zek3} /to fight a duel/
+趣 趣 [qu4] {cuk1} /an alternative form for 促, to hurry/ # adapted from cc-cedict
+七嘴八舌 七嘴八舌 [qi1 zui3 ba1 she2] {cat1 zeoi2 baat3 sit3} /spreading rumours (idiom)/
+夭桃穠李 夭桃秾李 [yao1 tao2 nong2 li3] {jiu1 tou4 nung4 lei5} /nice young ladies are like beautiful peaches and plum blossoms/
+炙 炙 [zhi4] {zek3} /to broil/to roast/to toast/to cauterize/roasted meat/to study directly under someone/ # adapted from cc-cedict
+過口癮 过口瘾 [guo4 kou3 yin3] {gwo3 hau2 jan2} /cravings for snack or nibble/
+喫 喫 [chi1] {hat1} /to eat/to consume/to eat at (a cafeteria etc)/to eradicate/to destroy/to absorb/to suffer/to stammer (Taiwan pr. for this sense is [jí])/to endure/to bear/ # adapted from cc-cedict
+天下為公 天下为公 [tian1 xia4 wei2 gong1] {tin1 haa6 wai4 gung1} /the whole world as one community/
+裝身 装身 [zhuang1 shen1] {zong1 san1} /dressed up/
+鮑魚刷 鲍鱼刷 [bao4 yu2 shua1] {baau1 jyu4 caat2} /a brush that is shaped like an abalone, normally used to clean toilet/
+羊咩屎 羊咩屎 [yang2 mie1 shi3] {joeng4 me1 si2} /(slang) shit; constipation; feces/
+隘 隘 [ai4] {ak1} /an alternative form for 阨, in distress/ # adapted from cc-cedict
+開枱 开枱 [kai1 si4] {hoi1 toi2} /to start a Mahjong game/
+光孝寺 光孝寺 [guang1 xiao4 si4] {gwong1 haau3 zi6} /Guangxiao Temple (A place in Guangzhou)/
+圓揼朵 圆揼朵 [yuan2 beng5 duo3] {jyun4 dam4 doe2} /roundish/
+建築公司 建筑公司 [jian4 zhu4 gong1 si1] {gin3 zuk1 gung1 si1} /Construction company/
+叨 叨 [dao1] {tou1} /to get the benefit of/be favoured with/ # adapted from cc-cedict
+廣東歌 广东歌 [Guang3 dong1 ge1] {gwong2 dung1 go1} /noun; canto-pop (popular music)/
+阻定 阻定 [zu3 ding4] {zo2 deng3} /obstruction; in one's way (spoken)/
+頂艇 顶艇 [ding3 ting3] {ding2 teng5} /congested traffic [colloquial]/
+噈 噈 [cu4] {zaap3 / hap6 / zuk1} /about to/
+人工受精 人工受精 [ren2 gong1 shou4 jing1] {jan4 gung1 sau6 zing1} /Artificial Insemination/
+一個餅印噉 一个饼印啖 [yi1 ge5 bing3 yin4 dan4] {jat1 go3 beng2 jan3 gam2} /lit. look identical as from the same mold, meaning one share the same looks as another/
+磁流體 磁流体 [ci2 liu2 ti3] {ci4 lau4 tai2} /hydromagnetic fluid/
+睇起上嚟 睇起上嚟 [di4 qi3 shang4 li2] {tai2 hei2 soeng5 lei4} /seems; appears/
+合手合腳 合手合脚 [he2 shou3 he2 jiao3] {hap6 sau2 hap6 goek3} /co-operate or work together/
+礫 砾 [li4] {lik1} /gravel/small stone/pebbles/ # adapted from cc-cedict
+私幫 私帮 [si1 bang1] {si1 bong1} /to secretly traffick goods from one's company to set up a private side business [written and colloquial]/
+副 副 [fu4] {pik1} /split/ # adapted from cc-cedict

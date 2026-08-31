@@ -7,6 +7,10 @@ use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
+use devtoolbox_application::language::{
+    LanguageInfo, LanguageSearchHit, LanguageService, ManifestInfo, ProgressView, ReviewCard,
+    SourceInfo, TodayView, WordDetail, starter,
+};
 use devtoolbox_application::{
     ApplicationError, ArticleDto, DocumentDto, FeedDto, HistoryHome, HistoryService, RefreshReport,
     TravelResearchRequest, TravelResearchService, commit_new_feed, commit_refresh,
@@ -16,12 +20,14 @@ use devtoolbox_application::{
 };
 use devtoolbox_core::{
     history::{HistoryDetailView, HistorySearchGroup},
+    language::{LearningStateKind, ReviewRating, SpeakingScore},
     travel::{CityGuide, GuideSummary, TravelResearchEvent},
 };
 use devtoolbox_infrastructure::{
-    AmapPoiProvider, AppSettings, FeedRepository, HistoryStore, HttpWebFetcher, LlmConfig,
-    LlmProvider, OpenAiCompatibleLlmProvider, QWeatherProvider, SettingsStore, TravelDataProvider,
-    TravelDataRequest, TravelStore, WorkspaceFile, build_providers, feed_client, providers_for,
+    AmapPoiProvider, AppSettings, FeedRepository, HistoryStore, HttpWebFetcher, LanguageStore,
+    LlmConfig, LlmProvider, OpenAiCompatibleLlmProvider, QWeatherProvider, SettingsStore,
+    TravelDataProvider, TravelDataRequest, TravelStore, WorkspaceFile, build_providers,
+    feed_client, providers_for,
 };
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager, State};
@@ -42,6 +48,8 @@ impl From<ApplicationError> for CommandError {
             ApplicationError::FeedNotFound(_) => "rss_feed_not_found",
             ApplicationError::EmptyCity => "travel_empty_city",
             ApplicationError::TravelFailed(_) => "travel_failed",
+            ApplicationError::Language { .. } => "language_error",
+            ApplicationError::License(_) => "language_license",
             ApplicationError::History { .. } | ApplicationError::HistoryData(_) => "history_error",
             ApplicationError::Travel { source } => match source {
                 devtoolbox_infrastructure::InfrastructureError::TravelSearch(_) => {
@@ -76,6 +84,7 @@ pub struct AppState {
     pub travel_store: Arc<Mutex<TravelStore>>,
     pub travel_sessions: Arc<Mutex<HashMap<String, Arc<Mutex<TravelSession>>>>>,
     pub history_store: Arc<Mutex<HistoryStore>>,
+    pub language_store: Arc<Mutex<LanguageStore>>,
     pub client: reqwest::Client,
 }
 
@@ -485,6 +494,182 @@ fn travel_load_guide(
     Ok(guide)
 }
 
+// ---------- Language 模块（离线优先；数据包安装不联网） ----------
+
+fn language_service(state: &State<'_, AppState>) -> LanguageService {
+    LanguageService::new(Arc::clone(&state.language_store))
+}
+
+#[tauri::command]
+fn language_languages(state: State<'_, AppState>) -> Result<Vec<LanguageInfo>, CommandError> {
+    language_service(&state)
+        .languages()
+        .map_err(CommandError::from)
+}
+
+#[tauri::command]
+fn language_search(
+    state: State<'_, AppState>,
+    language: Option<String>,
+    query: String,
+    limit: Option<usize>,
+) -> Result<Vec<LanguageSearchHit>, CommandError> {
+    language_service(&state)
+        .search(language.as_deref(), &query, limit.unwrap_or(30))
+        .map_err(CommandError::from)
+}
+
+#[tauri::command]
+fn language_item(
+    state: State<'_, AppState>,
+    id: String,
+) -> Result<Option<WordDetail>, CommandError> {
+    language_service(&state)
+        .detail(&id)
+        .map_err(CommandError::from)
+}
+
+#[tauri::command]
+fn language_sentences(
+    state: State<'_, AppState>,
+    language: String,
+    limit: Option<usize>,
+) -> Result<Vec<devtoolbox_core::language::SentenceRecord>, CommandError> {
+    language_service(&state)
+        .sentences(&language, limit.unwrap_or(20))
+        .map_err(CommandError::from)
+}
+
+#[tauri::command]
+fn language_today(state: State<'_, AppState>, language: String) -> Result<TodayView, CommandError> {
+    language_service(&state)
+        .today(&language)
+        .map_err(CommandError::from)
+}
+
+#[tauri::command]
+fn language_review_next(
+    state: State<'_, AppState>,
+    language: String,
+) -> Result<Option<ReviewCard>, CommandError> {
+    language_service(&state)
+        .review_next(&language)
+        .map_err(CommandError::from)
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+struct RateRequest {
+    item_id: String,
+    rating: ReviewRating,
+}
+
+#[tauri::command]
+fn language_review_rate(
+    state: State<'_, AppState>,
+    request: RateRequest,
+) -> Result<devtoolbox_core::language::ReviewOutcome, CommandError> {
+    language_service(&state)
+        .rate(&request.item_id, request.rating)
+        .map_err(CommandError::from)
+}
+
+#[tauri::command]
+fn language_toggle_favorite(
+    state: State<'_, AppState>,
+    item_id: String,
+) -> Result<bool, CommandError> {
+    language_service(&state)
+        .toggle_favorite(&item_id)
+        .map_err(CommandError::from)
+}
+
+#[tauri::command]
+fn language_favorites(
+    state: State<'_, AppState>,
+    limit: Option<usize>,
+) -> Result<Vec<devtoolbox_core::language::LanguageItem>, CommandError> {
+    language_service(&state)
+        .favorites(limit.unwrap_or(200))
+        .map_err(CommandError::from)
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+struct SetStateRequest {
+    item_id: String,
+    state: LearningStateKind,
+}
+
+#[tauri::command]
+fn language_set_state(
+    state: State<'_, AppState>,
+    request: SetStateRequest,
+) -> Result<(), CommandError> {
+    language_service(&state)
+        .set_state(&request.item_id, request.state)
+        .map_err(CommandError::from)
+}
+
+#[tauri::command]
+fn language_progress(state: State<'_, AppState>) -> Result<ProgressView, CommandError> {
+    language_service(&state)
+        .progress()
+        .map_err(CommandError::from)
+}
+
+#[tauri::command]
+fn language_sources(state: State<'_, AppState>) -> Result<Vec<SourceInfo>, CommandError> {
+    language_service(&state)
+        .sources()
+        .map_err(CommandError::from)
+}
+
+#[tauri::command]
+fn language_manifests(state: State<'_, AppState>) -> Result<Vec<ManifestInfo>, CommandError> {
+    language_service(&state)
+        .manifests()
+        .map_err(CommandError::from)
+}
+
+/// 安装内置 Starter Pack（离线；真实数据子集 + attribution）。
+#[tauri::command]
+fn language_install_starter(
+    state: State<'_, AppState>,
+    only: Option<String>,
+) -> Result<starter::StarterReport, CommandError> {
+    let mut store = state
+        .language_store
+        .lock()
+        .expect("language store poisoned");
+    starter::install_starter(&mut store, only.as_deref()).map_err(CommandError::from)
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SpeakingScoreRequest {
+    target: String,
+    transcript: String,
+    duration_ms: u64,
+    target_ms: u64,
+    long_pauses_ms: Vec<u64>,
+}
+
+#[tauri::command]
+fn language_speaking_feedback(
+    state: State<'_, AppState>,
+    request: SpeakingScoreRequest,
+) -> Result<SpeakingScore, CommandError> {
+    let service = language_service(&state);
+    Ok(service.speaking_feedback(
+        &request.target,
+        &request.transcript,
+        request.duration_ms,
+        request.target_ms,
+        &request.long_pauses_ms,
+    ))
+}
+
 // ---------- History 模块（离线优先） ----------
 
 #[tauri::command]
@@ -535,12 +720,15 @@ pub fn run() {
                 .expect("open travel database");
             let history_store = HistoryStore::open(config_directory.join("history.db"))
                 .expect("open history database");
+            let language_store = LanguageStore::open(config_directory.join("language.db"))
+                .expect("open language database");
             let client = feed_client().expect("build http client");
             app.manage(AppState {
                 store: Mutex::new(store),
                 travel_store: Arc::new(Mutex::new(travel_store)),
                 travel_sessions: Arc::new(Mutex::new(HashMap::new())),
                 history_store: Arc::new(Mutex::new(history_store)),
+                language_store: Arc::new(Mutex::new(language_store)),
                 client,
             });
             Ok(())
@@ -571,7 +759,22 @@ pub fn run() {
             history_home,
             history_search,
             history_detail,
-            history_toggle_favorite
+            history_toggle_favorite,
+            language_languages,
+            language_search,
+            language_item,
+            language_today,
+            language_sentences,
+            language_review_next,
+            language_review_rate,
+            language_toggle_favorite,
+            language_favorites,
+            language_set_state,
+            language_progress,
+            language_sources,
+            language_manifests,
+            language_install_starter,
+            language_speaking_feedback
         ])
         .run(tauri::generate_context!())
         .expect("Tauri application event loop failed");

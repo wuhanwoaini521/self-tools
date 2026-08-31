@@ -1,0 +1,58 @@
+# CC-CEDICT
+# Community maintained free Chinese-English dictionary.
+# 
+# Published by MDBG
+# 
+# License:
+# Creative Commons Attribution-ShareAlike 4.0 International License
+# https://creativecommons.org/licenses/by-sa/4.0/
+# 
+# Referenced works:
+# CEDICT - Copyright (C) 1997, 1998 Paul Andrew Denisowski
+# 
+# CC-CEDICT can be downloaded from:
+# https://www.mdbg.net/chinese/dictionary?page=cc-cedict
+# 
+# Additions and corrections can be sent through:
+# https://cc-cedict.org/editor/editor.php
+# 
+# For more information about CC-CEDICT see:
+# https://cc-cedict.org/wiki/
+# 
+#! version=1
+#! subversion=0
+#! format=ts
+#! charset=UTF-8
+#! entries=124948
+#! publisher=MDBG
+#! license=https://creativecommons.org/licenses/by-sa/4.0/
+#! date=2026-08-31T08:09:35Z
+#! time=1788163775
+旅行 旅行 [lu:3 xing2] /to travel/journey; trip/CL:趟[tang4],次[ci4]/
+你好 你好 [ni3 hao3] /hello; hi/
+謝謝 谢谢 [xie4 xie5] /to thank/thanks/thank you/
+學習 学习 [xue2 xi2] /to learn; to study/
+老師 老师 [lao3 shi1] /teacher/
+學生 学生 [xue2 sheng5] /student/schoolchild/
+圖書館 图书馆 [tu2 shu1 guan3] /library/CL:家[jia1],個|个[ge4]/
+學校 学校 [xue2 xiao4] /school/CL:所[suo3]/
+水 水 [Shui3] /surname Shui/Shui ethnic group/
+吃飯 吃饭 [chi1 fan4] /to have a meal/to eat/to make a living/
+好吃 好吃 [hao3 chi1] /tasty; delicious/
+飯店 饭店 [fan4 dian4] /restaurant/hotel/CL:家[jia1]/
+預約 预约 [yu4 yue1] /booking/reservation/to book/to make an appointment/
+預訂 预订 [yu4 ding4] /to place an order/to book ahead/
+喜歡 喜欢 [xi3 huan5] /to like; to be fond of/
+中國 中国 [Zhong1 guo2] /China/
+北京 北京 [Bei3 jing1] /Beijing municipality, capital of the People's Republic of China (short name 京[Jing1])/
+火車 火车 [huo3 che1] /train/CL:列[lie4],節|节[jie2],班[ban1],趟[tang4]/
+車站 车站 [che1 zhan4] /rail station/bus stop/CL:處|处[chu4],個|个[ge4]/
+地鐵 地铁 [di4 tie3] /underground railway; subway/subway train/
+再見 再见 [zai4 jian4] /goodbye/see you again later/
+早上好 早上好 [zao3 shang5 hao3] /Good morning!/
+晚上好 晚上好 [wan3 shang4 hao3] /Good evening!/
+一個人 一个人 [yi1 ge4 ren2] /by oneself (without assistance)/alone (without company)/
+菜單 菜单 [cai4 dan1] /menu/CL:份[fen4],張|张[zhang1]/
+天氣 天气 [tian1 qi4] /weather/
+今天 今天 [jin1 tian1] /today/the present time; now/
+明天 明天 [ming2 tian1] /tomorrow/

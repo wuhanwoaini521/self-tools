@@ -29,6 +29,10 @@ pub enum ApplicationError {
         #[source]
         source: InfrastructureError,
     },
+    #[error("language error: {source}")]
+    Language { source: InfrastructureError },
+    #[error("language license gate: {0}")]
+    License(String),
     #[error("rss error: {source}")]
     Rss {
         #[from]

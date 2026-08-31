@@ -1,0 +1,1405 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Rev 1.09
+        Added the g_type attribute
+-->
+<!-- Rev 1.08
+        Delete <info> and <example> elements. (The <example> element was
+        later restored.)
+-->
+<!-- Rev 1.07
+        Revised POS tags for the adjectives
+-->
+<!-- Rev 1.06
+        Dropped the "*" from the end of the entry element.
+        Dropped the g_lang attribute in favour of xml:lang
+        Dropped the <lang> element and replaced it with <lsource> at the
+        sense level.
+        Moved <dial> from the entry level to the sense level.
+        Changed "info*" to "info?".
+-->
+<!-- Rev 1.05
+        Changed the <gram> element name to <pos>
+        Added the g_gend attribute
+        moved the s_inf element
+-->
+<!-- Rev 1.04
+        Changes:
+        Rename the project  "JMdict" and add the g_lang attribute to the
+        <gloss> entity - 08 May 1999
+        Moved the <gram>, <field> and <misc> elements down to be in the
+        <sense> region, as suggested by Chris Czeyka. I have also tidied up
+        some of the "*" as he suggested.  - 27 May 2000
+        Added the re_nokanji element - Sep 2003.
+     -->
+<!DOCTYPE JMdict SYSTEM "JMdict.dtd">
+<JMdict xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.edrdg.org/jmdict/jmdict.xsd">
+<entry>
+<ent_seq>1358280</ent_seq>
+<k_ele>
+<keb>食べる</keb>
+<ke_pri>ichi1</ke_pri>
+<ke_pri>news2</ke_pri>
+<ke_pri>nf25</ke_pri>
+</k_ele>
+<k_ele>
+<keb>喰べる</keb>
+<ke_inf>&sK;</ke_inf>
+</k_ele>
+<r_ele>
+<reb>たべる</reb>
+<re_pri>ichi1</re_pri>
+<re_pri>news2</re_pri>
+<re_pri>nf25</re_pri>
+</r_ele>
+<sense>
+<pos>&v1;</pos>
+<pos>&vt;</pos>
+<gloss>to eat</gloss>
+</sense>
+<sense>
+<pos>&v1;</pos>
+<pos>&vt;</pos>
+<gloss>to live on (e.g. a salary)</gloss>
+<gloss>to live off</gloss>
+<gloss>to subsist on</gloss>
+</sense>
+</entry>
+
+<entry>
+<ent_seq>1578850</ent_seq>
+<k_ele>
+<keb>行く</keb>
+<ke_pri>ichi1</ke_pri>
+</k_ele>
+<k_ele>
+<keb>往く</keb>
+<ke_inf>&rK;</ke_inf>
+</k_ele>
+<r_ele>
+<reb>いく</reb>
+<re_pri>ichi1</re_pri>
+</r_ele>
+<r_ele>
+<reb>ゆく</reb>
+<re_pri>ichi1</re_pri>
+</r_ele>
+<r_ele>
+<reb>イク</reb>
+<re_inf>&sk;</re_inf>
+</r_ele>
+<sense>
+<pos>&v5k-s;</pos>
+<pos>&vi;</pos>
+<xref>来る・1</xref>
+<gloss>to go</gloss>
+<gloss>to move (towards)</gloss>
+<gloss>to head (towards)</gloss>
+<gloss>to leave (for)</gloss>
+</sense>
+<sense>
+<pos>&v5k-s;</pos>
+<pos>&vi;</pos>
+<gloss>to move through</gloss>
+<gloss>to travel across</gloss>
+<gloss>to walk along (e.g. a road)</gloss>
+</sense>
+<sense>
+<pos>&v5k-s;</pos>
+<pos>&vi;</pos>
+<gloss>to go (well, badly, etc.)</gloss>
+<gloss>to proceed</gloss>
+<gloss>to turn out</gloss>
+<gloss>to get along</gloss>
+</sense>
+<sense>
+<pos>&v5k-s;</pos>
+<pos>&vi;</pos>
+<s_inf>oft. as で〜</s_inf>
+<gloss>to do (in a particular way)</gloss>
+<gloss>to go (with; a choice)</gloss>
+<gloss>to try</gloss>
+</sense>
+<sense>
+<pos>&v5k-s;</pos>
+<pos>&vi;</pos>
+<gloss>to pass (of time, seasons, etc.)</gloss>
+<gloss>to go by</gloss>
+</sense>
+<sense>
+<pos>&v5k-s;</pos>
+<pos>&vi;</pos>
+<gloss>to stream</gloss>
+<gloss>to flow</gloss>
+</sense>
+<sense>
+<pos>&v5k-s;</pos>
+<pos>&vi;</pos>
+<s_inf>usu. written as 逝く</s_inf>
+<gloss>to die</gloss>
+<gloss>to pass away</gloss>
+</sense>
+<sense>
+<pos>&v5k-s;</pos>
+<pos>&vi;</pos>
+<gloss>to reach (a stage, extent, age, etc.)</gloss>
+<gloss>to get to</gloss>
+<gloss>to go (so far as ...)</gloss>
+</sense>
+<sense>
+<pos>&v5k-s;</pos>
+<pos>&vi;</pos>
+<gloss>to reach (of information, instructions, wind, etc.)</gloss>
+<gloss>to arrive</gloss>
+</sense>
+<sense>
+<pos>&aux-v;</pos>
+<pos>&v5k-s;</pos>
+<misc>&uk;</misc>
+<s_inf>after the -te form of a verb; い sometimes omitted in casual speech</s_inf>
+<gloss>to continue ...</gloss>
+<gloss>to go on ...</gloss>
+<gloss>to (progress) steadily</gloss>
+<gloss>to gradually ...</gloss>
+<gloss>to progressively ...</gloss>
+</sense>
+<sense>
+<pos>&v5k-s;</pos>
+<pos>&vi;</pos>
+<misc>&uk;</misc>
+<misc>&col;</misc>
+<s_inf>oft. written as イク</s_inf>
+<gloss>to have an orgasm</gloss>
+<gloss>to come</gloss>
+<gloss>to cum</gloss>
+</sense>
+<sense>
+<pos>&v5k-s;</pos>
+<pos>&vi;</pos>
+<misc>&uk;</misc>
+<misc>&sl;</misc>
+<gloss>to trip</gloss>
+<gloss>to get high</gloss>
+<gloss>to have a drug-induced hallucination</gloss>
+</sense>
+</entry>
+
+<entry>
+<ent_seq>1547720</ent_seq>
+<k_ele>
+<keb>来る</keb>
+<ke_pri>ichi1</ke_pri>
+<ke_pri>news1</ke_pri>
+<ke_pri>nf16</ke_pri>
+</k_ele>
+<k_ele>
+<keb>來る</keb>
+<ke_inf>&sK;</ke_inf>
+</k_ele>
+<r_ele>
+<reb>くる</reb>
+<re_pri>ichi1</re_pri>
+<re_pri>news1</re_pri>
+<re_pri>nf16</re_pri>
+</r_ele>
+<r_ele>
+<reb>クる</reb>
+<re_inf>&sk;</re_inf>
+</r_ele>
+<sense>
+<pos>&vk;</pos>
+<pos>&vi;</pos>
+<gloss>to come (spatially or temporally)</gloss>
+<gloss>to approach</gloss>
+<gloss>to arrive</gloss>
+</sense>
+<sense>
+<pos>&vk;</pos>
+<pos>&vi;</pos>
+<pos>&aux-v;</pos>
+<xref>行ってくる・2</xref>
+<misc>&uk;</misc>
+<s_inf>after the -te form of a verb</s_inf>
+<gloss>to come back</gloss>
+<gloss>to do ... and come back</gloss>
+</sense>
+<sense>
+<pos>&vk;</pos>
+<pos>&vi;</pos>
+<pos>&aux-v;</pos>
+<misc>&uk;</misc>
+<s_inf>after the -te form of a verb</s_inf>
+<gloss>to come to be</gloss>
+<gloss>to become</gloss>
+<gloss>to get</gloss>
+<gloss>to grow</gloss>
+<gloss>to continue</gloss>
+</sense>
+<sense>
+<pos>&vk;</pos>
+<pos>&vi;</pos>
+<gloss>to come from</gloss>
+<gloss>to be caused by</gloss>
+<gloss>to derive from</gloss>
+</sense>
+<sense>
+<pos>&vk;</pos>
+<pos>&vi;</pos>
+<xref>と来たら</xref>
+<gloss>to come to (e.g. "when it comes to spinach ...")</gloss>
+</sense>
+</entry>
+
+<entry>
+<ent_seq>1582710</ent_seq>
+<k_ele>
+<keb>日本</keb>
+<ke_pri>news2</ke_pri>
+<ke_pri>nf25</ke_pri>
+<ke_pri>spec1</ke_pri>
+</k_ele>
+<r_ele>
+<reb>にほん</reb>
+<re_pri>news2</re_pri>
+<re_pri>nf25</re_pri>
+<re_pri>spec1</re_pri>
+</r_ele>
+<r_ele>
+<reb>にっぽん</reb>
+<re_pri>spec1</re_pri>
+</r_ele>
+<sense>
+<pos>&n;</pos>
+<gloss>Japan</gloss>
+</sense>
+</entry>
+
+<entry>
+<ent_seq>1270590</ent_seq>
+<k_ele>
+<keb>ご飯</keb>
+<ke_pri>ichi1</ke_pri>
+</k_ele>
+<k_ele>
+<keb>御飯</keb>
+<ke_pri>ichi1</ke_pri>
+<ke_pri>news2</ke_pri>
+<ke_pri>nf47</ke_pri>
+</k_ele>
+<r_ele>
+<reb>ごはん</reb>
+<re_pri>ichi1</re_pri>
+<re_pri>news2</re_pri>
+<re_pri>nf47</re_pri>
+</r_ele>
+<sense>
+<pos>&n;</pos>
+<gloss>cooked rice</gloss>
+</sense>
+<sense>
+<pos>&n;</pos>
+<gloss>meal</gloss>
+</sense>
+</entry>
+
+<entry>
+<ent_seq>1371260</ent_seq>
+<k_ele>
+<keb>水</keb>
+<ke_pri>ichi1</ke_pri>
+<ke_pri>news1</ke_pri>
+<ke_pri>nf01</ke_pri>
+</k_ele>
+<r_ele>
+<reb>みず</reb>
+<re_pri>ichi1</re_pri>
+<re_pri>news1</re_pri>
+<re_pri>nf01</re_pri>
+</r_ele>
+<sense>
+<pos>&n;</pos>
+<xref>湯・ゆ・1</xref>
+<gloss>water (esp. cool or cold)</gloss>
+</sense>
+<sense>
+<pos>&n;</pos>
+<gloss>fluid (esp. in an animal tissue)</gloss>
+<gloss>liquid</gloss>
+</sense>
+<sense>
+<pos>&n;</pos>
+<gloss>flood</gloss>
+<gloss>floodwaters</gloss>
+</sense>
+<sense>
+<pos>&n;</pos>
+<xref>力水</xref>
+<field>&sumo;</field>
+<gloss>water offered to wrestlers just prior to a bout</gloss>
+</sense>
+<sense>
+<pos>&n;</pos>
+<xref>水入り</xref>
+<field>&sumo;</field>
+<gloss>break granted to wrestlers engaged in a prolonged bout</gloss>
+</sense>
+</entry>
+
+<entry>
+<ent_seq>1283190</ent_seq>
+<k_ele>
+<keb>高い</keb>
+<ke_pri>ichi1</ke_pri>
+<ke_pri>news1</ke_pri>
+<ke_pri>nf08</ke_pri>
+</k_ele>
+<k_ele>
+<keb>高価い</keb>
+<ke_inf>&sK;</ke_inf>
+</k_ele>
+<k_ele>
+<keb>高ーい</keb>
+<ke_inf>&sK;</ke_inf>
+</k_ele>
+<r_ele>
+<reb>たかい</reb>
+<re_pri>ichi1</re_pri>
+<re_pri>news1</re_pri>
+<re_pri>nf08</re_pri>
+</r_ele>
+<r_ele>
+<reb>たかーい</reb>
+<re_inf>&sk;</re_inf>
+</r_ele>
+<r_ele>
+<reb>たっけー</reb>
+<re_inf>&sk;</re_inf>
+</r_ele>
+<r_ele>
+<reb>たっかーい</reb>
+<re_inf>&sk;</re_inf>
+</r_ele>
+<sense>
+<pos>&adj-i;</pos>
+<ant>低い・1</ant>
+<gloss>high</gloss>
+<gloss>tall</gloss>
+</sense>
+<sense>
+<pos>&adj-i;</pos>
+<gloss>expensive</gloss>
+<gloss>high-priced</gloss>
+</sense>
+<sense>
+<pos>&adj-i;</pos>
+<gloss>high (level)</gloss>
+<gloss>above average (in degree, quality, etc.)</gloss>
+</sense>
+<sense>
+<pos>&adj-i;</pos>
+<gloss>loud</gloss>
+</sense>
+<sense>
+<pos>&adj-i;</pos>
+<gloss>high-pitched</gloss>
+<gloss>shrill</gloss>
+</sense>
+</entry>
+
+<entry>
+<ent_seq>1588880</ent_seq>
+<k_ele>
+<keb>大きい</keb>
+<ke_pri>ichi1</ke_pri>
+<ke_pri>news1</ke_pri>
+<ke_pri>nf07</ke_pri>
+</k_ele>
+<k_ele>
+<keb>巨きい</keb>
+<ke_inf>&sK;</ke_inf>
+</k_ele>
+<r_ele>
+<reb>おおきい</reb>
+<re_pri>ichi1</re_pri>
+<re_pri>news1</re_pri>
+<re_pri>nf07</re_pri>
+</r_ele>
+<sense>
+<pos>&adj-i;</pos>
+<gloss>big</gloss>
+<gloss>large</gloss>
+<gloss>great</gloss>
+</sense>
+<sense>
+<pos>&adj-i;</pos>
+<gloss>loud</gloss>
+</sense>
+<sense>
+<pos>&adj-i;</pos>
+<gloss>extensive</gloss>
+<gloss>spacious</gloss>
+</sense>
+<sense>
+<pos>&adj-i;</pos>
+<gloss>important</gloss>
+<gloss>decisive</gloss>
+<gloss>valuable</gloss>
+</sense>
+<sense>
+<pos>&adj-i;</pos>
+<gloss>older</gloss>
+<gloss>grown-up</gloss>
+</sense>
+</entry>
+
+<entry>
+<ent_seq>1260670</ent_seq>
+<k_ele>
+<keb>元</keb>
+<ke_pri>ichi1</ke_pri>
+<ke_pri>news1</ke_pri>
+<ke_pri>nf05</ke_pri>
+</k_ele>
+<k_ele>
+<keb>本</keb>
+<ke_pri>ichi1</ke_pri>
+</k_ele>
+<k_ele>
+<keb>素</keb>
+</k_ele>
+<k_ele>
+<keb>基</keb>
+</k_ele>
+<k_ele>
+<keb>因</keb>
+<ke_inf>&sK;</ke_inf>
+</k_ele>
+<r_ele>
+<reb>もと</reb>
+<re_pri>ichi1</re_pri>
+<re_pri>news1</re_pri>
+<re_pri>nf05</re_pri>
+</r_ele>
+<sense>
+<pos>&n;</pos>
+<s_inf>esp. 元</s_inf>
+<gloss>origin</gloss>
+<gloss>source</gloss>
+<gloss>beginning</gloss>
+</sense>
+<sense>
+<pos>&n;</pos>
+<s_inf>oft. 基</s_inf>
+<gloss>basis</gloss>
+<gloss>base</gloss>
+<gloss>foundation</gloss>
+<gloss>root</gloss>
+</sense>
+<sense>
+<pos>&n;</pos>
+<s_inf>also written as 因, 原</s_inf>
+<gloss>cause</gloss>
+</sense>
+<sense>
+<pos>&n;</pos>
+<s_inf>esp. 素</s_inf>
+<gloss>(raw) material</gloss>
+<gloss>ingredient</gloss>
+<gloss>base</gloss>
+<gloss>mix (e.g. for a cake)</gloss>
+<gloss>(soup) stock</gloss>
+</sense>
+<sense>
+<stagk>元</stagk>
+<pos>&n;</pos>
+<gloss>(one's) side</gloss>
+</sense>
+<sense>
+<stagk>元</stagk>
+<pos>&n;</pos>
+<gloss>capital</gloss>
+<gloss>principal</gloss>
+<gloss>cost price</gloss>
+</sense>
+<sense>
+<pos>&n;</pos>
+<gloss>root (of a plant)</gloss>
+<gloss>(tree) trunk</gloss>
+</sense>
+<sense>
+<pos>&n;</pos>
+<gloss>part (of a brush, chopsticks, etc.) one holds (with the hand)</gloss>
+</sense>
+<sense>
+<pos>&n;</pos>
+<xref>和歌</xref>
+<gloss>first three lines of a waka</gloss>
+</sense>
+<sense>
+<stagk>本</stagk>
+<pos>&ctr;</pos>
+<gloss>counter for plants or trees</gloss>
+</sense>
+<sense>
+<stagk>本</stagk>
+<pos>&ctr;</pos>
+<gloss>counter for falcons (in falconry)</gloss>
+</sense>
+</entry>
+
+<entry>
+<ent_seq>1366410</ent_seq>
+<k_ele>
+<keb>人</keb>
+<ke_pri>ichi1</ke_pri>
+</k_ele>
+<r_ele>
+<reb>じん</reb>
+<re_pri>ichi1</re_pri>
+</r_ele>
+<sense>
+<pos>&suf;</pos>
+<s_inf>indicates nationality, race, origin, etc.</s_inf>
+<gloss>-ian (e.g. Italian)</gloss>
+<gloss>-ite (e.g. Tokyoite)</gloss>
+</sense>
+<sense>
+<pos>&suf;</pos>
+<s_inf>indicates expertise (in a certain field)</s_inf>
+<gloss>-er (e.g. performer, etc.)</gloss>
+<gloss>person working with ...</gloss>
+</sense>
+<sense>
+<pos>&suf;</pos>
+<s_inf>usu. in compound words</s_inf>
+<gloss>man</gloss>
+<gloss>person</gloss>
+<gloss>people</gloss>
+</sense>
+</entry>
+
+<entry>
+<ent_seq>1577100</ent_seq>
+<k_ele>
+<keb>何</keb>
+<ke_pri>ichi1</ke_pri>
+<ke_pri>news1</ke_pri>
+<ke_pri>nf02</ke_pri>
+</k_ele>
+<r_ele>
+<reb>なに</reb>
+<re_pri>ichi1</re_pri>
+<re_pri>news1</re_pri>
+<re_pri>nf02</re_pri>
+</r_ele>
+<r_ele>
+<reb>ナニ</reb>
+<re_nokanji/>
+</r_ele>
+<sense>
+<pos>&pn;</pos>
+<gloss>what</gloss>
+</sense>
+<sense>
+<pos>&pn;</pos>
+<gloss>you-know-what</gloss>
+<gloss>that thing</gloss>
+</sense>
+<sense>
+<pos>&pn;</pos>
+<gloss>whatsit</gloss>
+<gloss>whachamacallit</gloss>
+<gloss>what's-his-name</gloss>
+<gloss>what's-her-name</gloss>
+</sense>
+<sense>
+<pos>&n;</pos>
+<misc>&col;</misc>
+<misc>&uk;</misc>
+<s_inf>esp. ナニ</s_inf>
+<gloss>penis</gloss>
+<gloss>(one's) thing</gloss>
+<gloss>dick</gloss>
+</sense>
+<sense>
+<pos>&adv;</pos>
+<s_inf>with neg. sentence</s_inf>
+<gloss>(not) at all</gloss>
+<gloss>(not) in the slightest</gloss>
+</sense>
+<sense>
+<pos>&int;</pos>
+<s_inf>indicates surprise</s_inf>
+<gloss>what?</gloss>
+<gloss>huh?</gloss>
+</sense>
+<sense>
+<pos>&int;</pos>
+<s_inf>indicates anger or irritability</s_inf>
+<gloss>hey!</gloss>
+<gloss>come on!</gloss>
+</sense>
+<sense>
+<pos>&int;</pos>
+<s_inf>used to dismiss someone's worries, concerns, etc.</s_inf>
+<gloss>oh, no (it's fine)</gloss>
+<gloss>why (it's nothing)</gloss>
+<gloss>oh (certainly not)</gloss>
+</sense>
+</entry>
+
+<entry>
+<ent_seq>1512670</ent_seq>
+<k_ele>
+<keb>勉強</keb>
+<ke_pri>ichi1</ke_pri>
+<ke_pri>news1</ke_pri>
+<ke_pri>nf03</ke_pri>
+</k_ele>
+<r_ele>
+<reb>べんきょう</reb>
+<re_pri>ichi1</re_pri>
+<re_pri>news1</re_pri>
+<re_pri>nf03</re_pri>
+</r_ele>
+<sense>
+<pos>&n;</pos>
+<pos>&vs;</pos>
+<pos>&vt;</pos>
+<gloss>study</gloss>
+</sense>
+<sense>
+<pos>&n;</pos>
+<pos>&vs;</pos>
+<pos>&vi;</pos>
+<gloss>diligence</gloss>
+<gloss>working hard</gloss>
+</sense>
+<sense>
+<pos>&n;</pos>
+<gloss>experience</gloss>
+<gloss>knowledge</gloss>
+<gloss>lesson (for the future)</gloss>
+</sense>
+<sense>
+<pos>&n;</pos>
+<pos>&vs;</pos>
+<pos>&vt;</pos>
+<pos>&vi;</pos>
+<gloss>discount</gloss>
+<gloss>price reduction</gloss>
+</sense>
+</entry>
+
+<entry>
+<ent_seq>1206730</ent_seq>
+<k_ele>
+<keb>学校</keb>
+<ke_pri>ichi1</ke_pri>
+<ke_pri>news1</ke_pri>
+<ke_pri>nf01</ke_pri>
+</k_ele>
+<k_ele>
+<keb>學校</keb>
+<ke_inf>&sK;</ke_inf>
+</k_ele>
+<r_ele>
+<reb>がっこう</reb>
+<re_pri>ichi1</re_pri>
+<re_pri>news1</re_pri>
+<re_pri>nf01</re_pri>
+</r_ele>
+<sense>
+<pos>&n;</pos>
+<gloss>school</gloss>
+</sense>
+</entry>
+
+<entry>
+<ent_seq>1387990</ent_seq>
+<k_ele>
+<keb>先生</keb>
+<ke_pri>ichi1</ke_pri>
+<ke_pri>news1</ke_pri>
+<ke_pri>nf02</ke_pri>
+</k_ele>
+<r_ele>
+<reb>せんせい</reb>
+<re_pri>ichi1</re_pri>
+<re_pri>news1</re_pri>
+<re_pri>nf02</re_pri>
+</r_ele>
+<sense>
+<pos>&n;</pos>
+<gloss>teacher</gloss>
+<gloss>instructor</gloss>
+<gloss>master</gloss>
+</sense>
+<sense>
+<pos>&n;</pos>
+<pos>&n-suf;</pos>
+<misc>&hon;</misc>
+<gloss>sensei</gloss>
+<gloss g_type="expl">title or form of address for a teacher, master, doctor, lawyer, etc.</gloss>
+</sense>
+<sense>
+<pos>&n;</pos>
+<misc>&fam;</misc>
+<misc>&joc;</misc>
+<gloss g_type="expl">intimate or teasing form of address</gloss>
+</sense>
+<sense>
+<pos>&n;</pos>
+<misc>&arch;</misc>
+<s_inf>orig. meaning</s_inf>
+<gloss>one's elder</gloss>
+</sense>
+</entry>
+
+<entry>
+<ent_seq>1206900</ent_seq>
+<k_ele>
+<keb>学生</keb>
+<ke_pri>ichi1</ke_pri>
+<ke_pri>news1</ke_pri>
+<ke_pri>nf01</ke_pri>
+</k_ele>
+<k_ele>
+<keb>學生</keb>
+<ke_inf>&sK;</ke_inf>
+</k_ele>
+<r_ele>
+<reb>がくせい</reb>
+<re_pri>ichi1</re_pri>
+<re_pri>news1</re_pri>
+<re_pri>nf01</re_pri>
+</r_ele>
+<sense>
+<pos>&n;</pos>
+<gloss>student (esp. a university student)</gloss>
+</sense>
+</entry>
+
+<entry>
+<ent_seq>1370420</ent_seq>
+<k_ele>
+<keb>図書館</keb>
+<ke_pri>ichi1</ke_pri>
+<ke_pri>news1</ke_pri>
+<ke_pri>nf05</ke_pri>
+</k_ele>
+<r_ele>
+<reb>としょかん</reb>
+<re_pri>ichi1</re_pri>
+<re_pri>news1</re_pri>
+<re_pri>nf05</re_pri>
+</r_ele>
+<r_ele>
+<reb>ずしょかん</reb>
+<re_inf>&ok;</re_inf>
+</r_ele>
+<sense>
+<pos>&n;</pos>
+<gloss>library</gloss>
+</sense>
+</entry>
+
+<entry>
+<ent_seq>1553170</ent_seq>
+<k_ele>
+<keb>旅行</keb>
+<ke_pri>ichi1</ke_pri>
+<ke_pri>news1</ke_pri>
+<ke_pri>nf02</ke_pri>
+</k_ele>
+<r_ele>
+<reb>りょこう</reb>
+<re_pri>ichi1</re_pri>
+<re_pri>news1</re_pri>
+<re_pri>nf02</re_pri>
+</r_ele>
+<sense>
+<pos>&n;</pos>
+<pos>&vs;</pos>
+<pos>&vi;</pos>
+<gloss>travel</gloss>
+<gloss>trip</gloss>
+<gloss>journey</gloss>
+<gloss>excursion</gloss>
+<gloss>tour</gloss>
+</sense>
+</entry>
+
+<entry>
+<ent_seq>1543750</ent_seq>
+<k_ele>
+<keb>予約</keb>
+<ke_pri>ichi1</ke_pri>
+<ke_pri>news1</ke_pri>
+<ke_pri>nf06</ke_pri>
+</k_ele>
+<r_ele>
+<reb>よやく</reb>
+<re_pri>ichi1</re_pri>
+<re_pri>news1</re_pri>
+<re_pri>nf06</re_pri>
+</r_ele>
+<sense>
+<pos>&n;</pos>
+<pos>&vs;</pos>
+<pos>&vt;</pos>
+<gloss>reservation</gloss>
+<gloss>appointment</gloss>
+<gloss>booking</gloss>
+<gloss>advance order</gloss>
+</sense>
+<sense>
+<pos>&n;</pos>
+<pos>&vs;</pos>
+<pos>&vt;</pos>
+<gloss>contract</gloss>
+<gloss>subscription</gloss>
+<gloss>pledge</gloss>
+</sense>
+<sense>
+<pos>&n;</pos>
+<pos>&vs;</pos>
+<pos>&vt;</pos>
+<gloss>programming (e.g. a device)</gloss>
+<gloss>setting (e.g. a timer)</gloss>
+</sense>
+</entry>
+
+<entry>
+<ent_seq>1486650</ent_seq>
+<k_ele>
+<keb>美味しい</keb>
+<ke_pri>ichi1</ke_pri>
+</k_ele>
+<k_ele>
+<keb>旨味しい</keb>
+<ke_inf>&sK;</ke_inf>
+</k_ele>
+<r_ele>
+<reb>おいしい</reb>
+<re_inf>&gikun;</re_inf>
+<re_pri>ichi1</re_pri>
+</r_ele>
+<r_ele>
+<reb>オイシイ</reb>
+<re_inf>&sk;</re_inf>
+</r_ele>
+<sense>
+<pos>&adj-i;</pos>
+<misc>&uk;</misc>
+<gloss>good(-tasting)</gloss>
+<gloss>nice</gloss>
+<gloss>delicious</gloss>
+<gloss>tasty</gloss>
+</sense>
+<sense>
+<pos>&adj-i;</pos>
+<misc>&uk;</misc>
+<gloss>attractive (offer, opportunity, etc.)</gloss>
+<gloss>appealing</gloss>
+<gloss>convenient</gloss>
+<gloss>favorable</gloss>
+<gloss>desirable</gloss>
+<gloss>profitable</gloss>
+</sense>
+</entry>
+
+<entry>
+<ent_seq>1586820</ent_seq>
+<k_ele>
+<keb>有難う</keb>
+</k_ele>
+<k_ele>
+<keb>有り難う</keb>
+</k_ele>
+<k_ele>
+<keb>有りがとう</keb>
+<ke_inf>&sK;</ke_inf>
+</k_ele>
+<r_ele>
+<reb>ありがとう</reb>
+<re_pri>ichi1</re_pri>
+</r_ele>
+<sense>
+<pos>&int;</pos>
+<misc>&uk;</misc>
+<gloss>thank you</gloss>
+<gloss>thanks</gloss>
+</sense>
+</entry>
+
+<entry>
+<ent_seq>1358340</ent_seq>
+<k_ele>
+<keb>食べ物</keb>
+<ke_pri>ichi1</ke_pri>
+<ke_pri>news1</ke_pri>
+<ke_pri>nf08</ke_pri>
+</k_ele>
+<k_ele>
+<keb>食べもの</keb>
+<ke_inf>&sK;</ke_inf>
+</k_ele>
+<r_ele>
+<reb>たべもの</reb>
+<re_pri>ichi1</re_pri>
+<re_pri>news1</re_pri>
+<re_pri>nf08</re_pri>
+</r_ele>
+<sense>
+<pos>&n;</pos>
+<gloss>food</gloss>
+</sense>
+</entry>
+
+<entry>
+<ent_seq>1443530</ent_seq>
+<k_ele>
+<keb>電車</keb>
+<ke_pri>ichi1</ke_pri>
+<ke_pri>news1</ke_pri>
+<ke_pri>nf04</ke_pri>
+</k_ele>
+<r_ele>
+<reb>でんしゃ</reb>
+<re_pri>ichi1</re_pri>
+<re_pri>news1</re_pri>
+<re_pri>nf04</re_pri>
+</r_ele>
+<sense>
+<pos>&n;</pos>
+<gloss>train</gloss>
+<gloss>electric train</gloss>
+</sense>
+</entry>
+
+<entry>
+<ent_seq>1175140</ent_seq>
+<k_ele>
+<keb>駅</keb>
+<ke_pri>ichi1</ke_pri>
+<ke_pri>news1</ke_pri>
+<ke_pri>nf05</ke_pri>
+</k_ele>
+<k_ele>
+<keb>驛</keb>
+<ke_inf>&oK;</ke_inf>
+</k_ele>
+<r_ele>
+<reb>えき</reb>
+<re_pri>ichi1</re_pri>
+<re_pri>news1</re_pri>
+<re_pri>nf05</re_pri>
+</r_ele>
+<sense>
+<pos>&n;</pos>
+<gloss>railway station</gloss>
+<gloss>train station</gloss>
+</sense>
+<sense>
+<pos>&n;</pos>
+<misc>&hist;</misc>
+<gloss>staging post on a highway (in pre-modern Japan)</gloss>
+</sense>
+<sense>
+<pos>&ctr;</pos>
+<gloss>counter for railway stations and bus stations</gloss>
+</sense>
+</entry>
+
+<entry>
+<ent_seq>1260720</ent_seq>
+<k_ele>
+<keb>元気</keb>
+<ke_pri>ichi1</ke_pri>
+<ke_pri>news1</ke_pri>
+<ke_pri>nf06</ke_pri>
+</k_ele>
+<k_ele>
+<keb>元氣</keb>
+<ke_inf>&sK;</ke_inf>
+</k_ele>
+<r_ele>
+<reb>げんき</reb>
+<re_pri>ichi1</re_pri>
+<re_pri>news1</re_pri>
+<re_pri>nf06</re_pri>
+</r_ele>
+<sense>
+<pos>&adj-na;</pos>
+<pos>&n;</pos>
+<gloss>lively</gloss>
+<gloss>full of spirit</gloss>
+<gloss>energetic</gloss>
+<gloss>vigorous</gloss>
+<gloss>vital</gloss>
+<gloss>spirited</gloss>
+</sense>
+<sense>
+<pos>&adj-na;</pos>
+<pos>&n;</pos>
+<gloss>healthy</gloss>
+<gloss>well</gloss>
+<gloss>fit</gloss>
+<gloss>in good health</gloss>
+</sense>
+</entry>
+
+<entry>
+<ent_seq>1277450</ent_seq>
+<k_ele>
+<keb>好き</keb>
+<ke_pri>ichi1</ke_pri>
+</k_ele>
+<r_ele>
+<reb>すき</reb>
+<re_pri>ichi1</re_pri>
+</r_ele>
+<sense>
+<pos>&adj-na;</pos>
+<pos>&n;</pos>
+<ant>嫌い・1</ant>
+<gloss>liking</gloss>
+<gloss>being fond of</gloss>
+<gloss>to one's liking</gloss>
+<gloss>to one's taste</gloss>
+<gloss>preferred</gloss>
+<gloss>favourite</gloss>
+</sense>
+<sense>
+<pos>&adj-na;</pos>
+<pos>&n;</pos>
+<gloss>liking (romantically)</gloss>
+<gloss>being in love with</gloss>
+<gloss>beloved</gloss>
+</sense>
+<sense>
+<pos>&n;</pos>
+<pos>&adj-na;</pos>
+<gloss>faddism</gloss>
+<gloss>eccentricity</gloss>
+</sense>
+<sense>
+<pos>&adj-na;</pos>
+<pos>&n;</pos>
+<gloss>as one likes</gloss>
+<gloss>as it suits one</gloss>
+</sense>
+<sense>
+<pos>&adj-na;</pos>
+<pos>&n;</pos>
+<gloss>lecherous</gloss>
+<gloss>lustful</gloss>
+<gloss>salacious</gloss>
+</sense>
+</entry>
+
+<entry>
+<ent_seq>1259290</ent_seq>
+<k_ele>
+<keb>見る</keb>
+<ke_pri>ichi1</ke_pri>
+<ke_pri>news1</ke_pri>
+<ke_pri>nf14</ke_pri>
+</k_ele>
+<k_ele>
+<keb>観る</keb>
+<ke_pri>spec1</ke_pri>
+</k_ele>
+<k_ele>
+<keb>視る</keb>
+</k_ele>
+<k_ele>
+<keb>覧る</keb>
+<ke_inf>&sK;</ke_inf>
+</k_ele>
+<r_ele>
+<reb>みる</reb>
+<re_pri>ichi1</re_pri>
+<re_pri>news1</re_pri>
+<re_pri>nf14</re_pri>
+<re_pri>spec1</re_pri>
+</r_ele>
+<sense>
+<pos>&v1;</pos>
+<pos>&vt;</pos>
+<gloss>to see</gloss>
+<gloss>to look</gloss>
+<gloss>to watch</gloss>
+<gloss>to view</gloss>
+<gloss>to observe</gloss>
+</sense>
+<sense>
+<pos>&v1;</pos>
+<pos>&vt;</pos>
+<gloss>to examine</gloss>
+<gloss>to look over</gloss>
+<gloss>to assess</gloss>
+<gloss>to check</gloss>
+<gloss>to judge</gloss>
+</sense>
+<sense>
+<pos>&v1;</pos>
+<pos>&vt;</pos>
+<xref>看る</xref>
+<gloss>to look after</gloss>
+<gloss>to attend to</gloss>
+<gloss>to take care of</gloss>
+<gloss>to keep an eye on</gloss>
+</sense>
+<sense>
+<pos>&v1;</pos>
+<pos>&vt;</pos>
+<gloss>to experience</gloss>
+<gloss>to meet with (misfortune, success, etc.)</gloss>
+</sense>
+<sense>
+<pos>&aux-v;</pos>
+<pos>&v1;</pos>
+<misc>&uk;</misc>
+<s_inf>after the -te form of a verb</s_inf>
+<gloss>to try ...</gloss>
+<gloss>to have a go at ...</gloss>
+<gloss>to give ... a try</gloss>
+</sense>
+<sense>
+<pos>&aux-v;</pos>
+<pos>&v1;</pos>
+<misc>&uk;</misc>
+<s_inf>as 〜てみると, 〜てみたら, 〜てみれば, etc.</s_inf>
+<gloss>to see (that) ...</gloss>
+<gloss>to find (that) ...</gloss>
+</sense>
+</entry>
+
+<entry>
+<ent_seq>1591110</ent_seq>
+<k_ele>
+<keb>聞く</keb>
+<ke_pri>ichi1</ke_pri>
+</k_ele>
+<k_ele>
+<keb>聴く</keb>
+<ke_pri>spec1</ke_pri>
+</k_ele>
+<r_ele>
+<reb>きく</reb>
+<re_pri>ichi1</re_pri>
+<re_pri>spec1</re_pri>
+</r_ele>
+<sense>
+<pos>&v5k;</pos>
+<pos>&vt;</pos>
+<gloss>to hear</gloss>
+</sense>
+<sense>
+<pos>&v5k;</pos>
+<pos>&vt;</pos>
+<s_inf>esp. 聴く</s_inf>
+<gloss>to listen (e.g. to music)</gloss>
+</sense>
+<sense>
+<pos>&v5k;</pos>
+<pos>&vt;</pos>
+<s_inf>聴く is used in legal and official contexts</s_inf>
+<gloss>to ask</gloss>
+<gloss>to enquire</gloss>
+<gloss>to query</gloss>
+</sense>
+<sense>
+<pos>&v5k;</pos>
+<pos>&vt;</pos>
+<gloss>to hear about</gloss>
+<gloss>to hear of</gloss>
+<gloss>to learn of</gloss>
+</sense>
+<sense>
+<pos>&v5k;</pos>
+<pos>&vt;</pos>
+<gloss>to follow (advice, order, etc.)</gloss>
+<gloss>to obey</gloss>
+<gloss>to listen to</gloss>
+<gloss>to comply with</gloss>
+</sense>
+<sense>
+<pos>&v5k;</pos>
+<pos>&vt;</pos>
+<gloss>to hear (e.g. a plea)</gloss>
+<gloss>to grant (a request)</gloss>
+<gloss>to accept (e.g. an argument)</gloss>
+<gloss>to give consideration to</gloss>
+</sense>
+<sense>
+<pos>&v5k;</pos>
+<pos>&vt;</pos>
+<xref>香を聞く</xref>
+<gloss>to smell (esp. incense)</gloss>
+<gloss>to sample (a fragrance)</gloss>
+</sense>
+<sense>
+<pos>&v5k;</pos>
+<pos>&vt;</pos>
+<s_inf>also 利く</s_inf>
+<gloss>to taste (alcohol)</gloss>
+<gloss>to try</gloss>
+</sense>
+</entry>
+
+<entry>
+<ent_seq>1169870</ent_seq>
+<k_ele>
+<keb>飲む</keb>
+<ke_pri>ichi1</ke_pri>
+<ke_pri>news2</ke_pri>
+<ke_pri>nf35</ke_pri>
+</k_ele>
+<k_ele>
+<keb>呑む</keb>
+<ke_pri>news2</ke_pri>
+<ke_pri>nf40</ke_pri>
+<ke_pri>spec1</ke_pri>
+</k_ele>
+<k_ele>
+<keb>飮む</keb>
+<ke_inf>&sK;</ke_inf>
+</k_ele>
+<k_ele>
+<keb>吞む</keb>
+<ke_inf>&sK;</ke_inf>
+</k_ele>
+<r_ele>
+<reb>のむ</reb>
+<re_pri>ichi1</re_pri>
+<re_pri>news2</re_pri>
+<re_pri>nf35</re_pri>
+<re_pri>nf40</re_pri>
+<re_pri>spec1</re_pri>
+</r_ele>
+<sense>
+<pos>&v5m;</pos>
+<pos>&vt;</pos>
+<s_inf>呑む refers to swallowing whole or gulping down</s_inf>
+<gloss>to drink</gloss>
+<gloss>to swallow</gloss>
+<gloss>to take (medicine)</gloss>
+</sense>
+<sense>
+<pos>&v5m;</pos>
+<pos>&vt;</pos>
+<gloss>to smoke (tobacco)</gloss>
+</sense>
+<sense>
+<pos>&v5m;</pos>
+<pos>&vt;</pos>
+<s_inf>usu. in the passive</s_inf>
+<gloss>to swallow up</gloss>
+<gloss>to engulf</gloss>
+</sense>
+<sense>
+<pos>&v5m;</pos>
+<pos>&vt;</pos>
+<gloss>to suppress (one's anger, bitter feelings, etc.)</gloss>
+<gloss>to keep down</gloss>
+<gloss>to hold back</gloss>
+<gloss>to swallow (one's tears)</gloss>
+<gloss>to catch (one's breath)</gloss>
+</sense>
+<sense>
+<pos>&v5m;</pos>
+<pos>&vt;</pos>
+<gloss>to accept (a demand, conditions, etc.)</gloss>
+<gloss>to agree to</gloss>
+</sense>
+<sense>
+<pos>&v5m;</pos>
+<pos>&vt;</pos>
+<gloss>to make light of (someone)</gloss>
+<gloss>to think nothing of</gloss>
+<gloss>to overwhelm</gloss>
+<gloss>to overawe</gloss>
+</sense>
+<sense>
+<pos>&v5m;</pos>
+<pos>&vt;</pos>
+<gloss>to carry (a concealed dagger, etc.)</gloss>
+<gloss>to conceal (up one's sleeve, etc.)</gloss>
+</sense>
+</entry>
+
+<entry>
+<ent_seq>1163400</ent_seq>
+<k_ele>
+<keb>一緒</keb>
+<ke_pri>ichi1</ke_pri>
+<ke_pri>news1</ke_pri>
+<ke_pri>nf02</ke_pri>
+</k_ele>
+<k_ele>
+<keb>一しょ</keb>
+<ke_inf>&sK;</ke_inf>
+</k_ele>
+<r_ele>
+<reb>いっしょ</reb>
+<re_pri>ichi1</re_pri>
+<re_pri>news1</re_pri>
+<re_pri>nf02</re_pri>
+</r_ele>
+<sense>
+<pos>&n;</pos>
+<s_inf>usu. adverbially as 〜に</s_inf>
+<gloss>(doing) together</gloss>
+</sense>
+<sense>
+<pos>&n;</pos>
+<gloss>one lump</gloss>
+<gloss>one mixture</gloss>
+<gloss>the same category</gloss>
+</sense>
+<sense>
+<pos>&adj-no;</pos>
+<pos>&n;</pos>
+<gloss>the same</gloss>
+<gloss>identical</gloss>
+</sense>
+<sense>
+<pos>&n;</pos>
+<s_inf>usu. adverbially as 〜に</s_inf>
+<gloss>(at) the same time</gloss>
+</sense>
+</entry>
+
+<entry>
+<ent_seq>1288850</ent_seq>
+<k_ele>
+<keb>今</keb>
+<ke_pri>ichi1</ke_pri>
+<ke_pri>news1</ke_pri>
+<ke_pri>nf07</ke_pri>
+</k_ele>
+<r_ele>
+<reb>いま</reb>
+<re_pri>ichi1</re_pri>
+<re_pri>news1</re_pri>
+<re_pri>nf07</re_pri>
+</r_ele>
+<sense>
+<pos>&n;</pos>
+<pos>&adj-no;</pos>
+<pos>&adv;</pos>
+<gloss>now</gloss>
+<gloss>the present time</gloss>
+<gloss>just now</gloss>
+<gloss>soon</gloss>
+<gloss>immediately</gloss>
+</sense>
+<sense>
+<pos>&adv;</pos>
+<gloss>another</gloss>
+<gloss>more</gloss>
+</sense>
+</entry>
+</JMdict>

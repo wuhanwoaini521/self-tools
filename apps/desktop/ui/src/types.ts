@@ -296,3 +296,58 @@ export type HistoryDetail = DynastyDetail | PersonDetail | EventDetail | PlaceDe
 export interface HistoryDocument { node: HistoryNode; detail: HistoryDetail; }
 export interface HistoryDetailView { document: HistoryDocument; relations: HistoryRelationView[]; sources: HistorySource[]; }
 export interface HistoryHome { timeline: HistoryPeriod[]; recommendation: HistoryNode; discoveries: HistoryNode[]; recent: HistoryNode[]; favorite_ids: string[]; }
+
+// ---------- Language ----------
+
+export type LanguageCode = "eng" | "jpn" | "cmn" | "yue";
+export type LanguageItemType = "WORD" | "PHRASE" | "SENTENCE" | "DIALOGUE" | "PASSAGE" | "GRAMMAR" | "PRONUNCIATION";
+export type LearningStateKind = "new" | "learning" | "review" | "mastered";
+export type ReviewRating = "again" | "hard" | "good" | "easy";
+export type PronunciationScheme = "ARPABET" | "IPA" | "PINYIN" | "JYUTPING" | "KANA" | "ROMAJI";
+
+export interface LanguageItem {
+  id: string;
+  language: LanguageCode;
+  item_type: LanguageItemType;
+  text: string;
+  reading: string | null;
+  romanization: string | null;
+  meta: unknown;
+  source: string;
+}
+
+export interface LanguageSearchHit { item: LanguageItem; matched: string; }
+export interface LanguageInfo { code: string; name: string; native_name: string; words: number; phrases: number; sentences: number; total: number; }
+export interface Meaning { id: string; item_id: string; pos: string | null; gloss: string | null; raw: string | null; sense_key: string | null; lang: string | null; rank: number; source: string; }
+export interface Pronunciation { id: string; item_id: string; scheme: PronunciationScheme; phonemes: string; tone: number | null; variant: string | null; source: string; }
+export interface LanguageRelation { id: string; from_item_id: string; to_item_id: string; kind: string; note: string | null; source: string; }
+export interface RelationView { relation: LanguageRelation; item: LanguageItem; label: string; }
+export interface ExampleView { text: string; translation: string | null; source: string; }
+export interface SentenceRecord { sentence_id: string; language: LanguageCode; text: string; author: string | null; license: string; source: string; }
+export interface KanjiView { stroke_count: number | null; grade: number | null; radical: number | null; jlpt: string | null; }
+export interface LicenseKindUnion { kind: string; attribution_required: boolean; commercial_use_allowed: boolean; redistribution_allowed: boolean; share_alike_required: boolean; }
+export interface LanguageSource { id: string; name: string; homepage: string; download_source: string; dataset_version: string; downloaded_at: number | null; license: LicenseKindUnion; license_url: string | null; attribution: string; commercial_use: boolean; redistribution: boolean; notes: string | null; }
+export interface LearningState { item_id: string; state: LearningStateKind; interval_days: number; ease: number; due_at: number; review_count: number; lapses: number; started_at: number; updated_at: number; }
+export interface WordDetail {
+  item: LanguageItem;
+  meanings: Meaning[];
+  pronunciations: Pronunciation[];
+  relations: RelationView[];
+  examples: ExampleView[];
+  sentences: SentenceRecord[];
+  state: LearningState | null;
+  favorite: boolean;
+  source: LanguageSource | null;
+  kanji: KanjiView | null;
+}
+export interface TodayPlan { due_reviews: number; new_words: number; sentences: number; listening: number; speaking: number; total: number; }
+export interface TodayView { language: string; plan: TodayPlan; languages: LanguageInfo[]; }
+export interface ReviewCard { item: LanguageItem; state: LearningStateKind; }
+export interface ReviewOutcome { state: LearningStateKind; interval_days: number; ease: number; due_at: number; lapses: number; }
+export interface ProgressView { total: number; mastered: number; learning: number; reviews: number; favorites: number; }
+export interface DatasetManifest { id: string; name: string; language: string; version: string; downloaded_at: number | null; source_id: string; checksum: string | null; raw_file: string | null; record_count: number; importer_version: number; imported_at: number; }
+export interface SourceInfo { source: LanguageSource; item_count: number; manifest: DatasetManifest | null; }
+export interface ManifestInfo { manifest: DatasetManifest; item_count: number; }
+export interface DatasetReport { id: string; name: string; inserted: number; updated: number; }
+export interface StarterReport { datasets: DatasetReport[]; total_inserted: number; total_updated: number; }
+export interface SpeakingScore { accuracy: number; completeness: number; fluency: number; }

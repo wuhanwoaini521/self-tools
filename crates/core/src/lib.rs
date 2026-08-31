@@ -4,10 +4,16 @@
 //! 桌面应用和回归测试共同复用。
 
 pub mod history;
+pub mod language;
 pub mod parser;
 pub mod task_state;
 pub mod travel;
 
+pub use language::{
+    LanguageCode, LanguageItem, LanguageItemType, LanguageMetadata, LearningState,
+    LearningStateKind, ReviewRating, ReviewScheduler, SourceLicense, kana_to_romaji,
+    normalize_roman, score as speaking_score, tones_from_syllables,
+};
 pub use parser::{
     TaskLineInfo, cycle_task_mark, is_task_line, iter_task_lines, make_task_line, match_task,
     set_task_mark,

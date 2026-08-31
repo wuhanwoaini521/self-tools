@@ -1,0 +1,9415 @@
+{
+ "00001740-a": {
+  "attribute": [
+   "05207437-n",
+   "05624029-n"
+  ],
+  "definition": [
+   "(usually followed by ‘to’) having the necessary means or skill or know-how or authority to do something"
+  ],
+  "example": [
+   "able to swim",
+   "she was able to program her computer",
+   "we were at last able to buy a car",
+   "able to get a grant for the project"
+  ],
+  "ili": "i1",
+  "members": [
+   "able"
+  ],
+  "partOfSpeech": "a"
+ },
+ "00512273-s": {
+  "definition": [
+   "have the skills and qualifications to do things well"
+  ],
+  "example": [
+   "able teachers",
+   "a capable administrator",
+   "children as young as 14 can be extremely capable and dependable"
+  ],
+  "ili": "i2869",
+  "members": [
+   "able",
+   "capable"
+  ],
+  "partOfSpeech": "s",
+  "similar": [
+   "00511975-a"
+  ]
+ },
+ "00307461-s": {
+  "definition": [
+   "having inherent physical or mental ability or capacity"
+  ],
+  "example": [
+   "able to learn",
+   "human beings are able to walk on two feet",
+   "Superman is able to leap tall buildings"
+  ],
+  "ili": "i1695",
+  "members": [
+   "able"
+  ],
+  "partOfSpeech": "s",
+  "similar": [
+   "00307112-a"
+  ]
+ },
+ "01021031-s": {
+  "definition": [
+   "having a strong healthy body"
+  ],
+  "example": [
+   "an able seaman",
+   "every able-bodied young man served in the army"
+  ],
+  "ili": "i5566",
+  "members": [
+   "able",
+   "able-bodied"
+  ],
+  "partOfSpeech": "s",
+  "similar": [
+   "01020753-a"
+  ]
+ },
+ "06422547-n": {
+  "definition": [
+   "a written work or composition that has been published (printed on pages bound together)"
+  ],
+  "example": [
+   "I am reading a good book on economics"
+  ],
+  "hypernym": [
+   "06601855-n"
+  ],
+  "ili": "i70180",
+  "members": [
+   "book"
+  ],
+  "mero_part": [
+   "06266618-n",
+   "06356501-n"
+  ],
+  "partOfSpeech": "n"
+ },
+ "02873453-n": {
+  "definition": [
+   "physical objects consisting of a number of pages bound together"
+  ],
+  "example": [
+   "he used a large book as a doorstop"
+  ],
+  "hypernym": [
+   "04014270-n"
+  ],
+  "ili": "i50953",
+  "members": [
+   "book",
+   "volume"
+  ],
+  "mero_part": [
+   "02843848-n",
+   "03387379-n",
+   "04285118-n",
+   "92459167-n",
+   "92459164-n"
+  ],
+  "partOfSpeech": "n"
+ },
+ "06649049-n": {
+  "definition": [
+   "a compilation of the known facts regarding something or someone"
+  ],
+  "example": [
+   "Al Smith used to say, ‘Let's look at the record’",
+   "his name is in all the record books"
+  ],
+  "hypernym": [
+   "06648784-n"
+  ],
+  "ili": "i71357",
+  "members": [
+   "record",
+   "record book",
+   "book"
+  ],
+  "partOfSpeech": "n"
+ },
+ "07023062-n": {
+  "definition": [
+   "a written version of a play or other dramatic composition; used in preparing for a performance"
+  ],
+  "hypernym": [
+   "07020800-n"
+  ],
+  "ili": "i73498",
+  "members": [
+   "script",
+   "book",
+   "playscript"
+  ],
+  "partOfSpeech": "n"
+ },
+ "13425421-n": {
+  "definition": [
+   "a record in which commercial accounts are recorded"
+  ],
+  "example": [
+   "they got a subpoena to examine our books"
+  ],
+  "hypernym": [
+   "13424816-n"
+  ],
+  "ili": "i107179",
+  "members": [
+   "ledger",
+   "leger",
+   "account book",
+   "book of account",
+   "book"
+  ],
+  "mero_member": [
+   "13427135-n"
+  ],
+  "partOfSpeech": "n"
+ },
+ "07971027-n": {
+  "definition": [
+   "a collection of playing cards satisfying the rules of a card game"
+  ],
+  "domain_topic": [
+   "00489236-n"
+  ],
+  "hypernym": [
+   "07968050-n"
+  ],
+  "ili": "i79111",
+  "members": [
+   "book"
+  ],
+  "partOfSpeech": "n"
+ },
+ "07970797-n": {
+  "definition": [
+   "a collection of rules or prescribed standards on the basis of which decisions are made"
+  ],
+  "example": [
+   "they run things by the book around here"
+  ],
+  "hypernym": [
+   "07968050-n"
+  ],
+  "ili": "i79110",
+  "members": [
+   "book",
+   "rule book"
+  ],
+  "mero_part": [
+   "06664987-n",
+   "06801754-n"
+  ],
+  "partOfSpeech": "n"
+ },
+ "06406508-n": {
+  "definition": [
+   "a major division of a long written composition"
+  ],
+  "example": [
+   "the book of Isaiah"
+  ],
+  "hypernym": [
+   "06403644-n"
+  ],
+  "ili": "i70092",
+  "members": [
+   "book"
+  ],
+  "partOfSpeech": "n"
+ },
+ "02873887-n": {
+  "definition": [
+   "a number of sheets (ticket or stamps etc.) bound together on one edge"
+  ],
+  "example": [
+   "he bought a book of stamps"
+  ],
+  "hypernym": [
+   "04014270-n"
+  ],
+  "ili": "i50954",
+  "members": [
+   "book"
+  ],
+  "partOfSpeech": "n"
+ },
+ "00680696-v": {
+  "definition": [
+   "engage for a performance"
+  ],
+  "example": [
+   "Her agent had booked her for several concerts in Tokyo"
+  ],
+  "hypernym": [
+   "00680201-v"
+  ],
+  "ili": "i25111",
+  "members": [
+   "book"
+  ],
+  "partOfSpeech": "v"
+ },
+ "02503969-v": {
+  "definition": [
+   "arrange for and reserve (something for someone else) in advance"
+  ],
+  "entails": [
+   "02243552-v"
+  ],
+  "example": [
+   "reserve me a seat on a flight",
+   "The agent booked tickets to the show for the whole family",
+   "please hold a table at Maxim's"
+  ],
+  "hypernym": [
+   "00754770-v"
+  ],
+  "ili": "i34211",
+  "members": [
+   "reserve",
+   "hold",
+   "book"
+  ],
+  "partOfSpeech": "v",
+  "similar": [
+   "00797294-v"
+  ]
+ },
+ "02503785-v": {
+  "definition": [
+   "record a charge in a police register"
+  ],
+  "example": [
+   "The policeman booked her when she tried to solicit a man"
+  ],
+  "hypernym": [
+   "01002259-v"
+  ],
+  "ili": "i34210",
+  "members": [
+   "book"
+  ],
+  "partOfSpeech": "v"
+ },
+ "02605751-v": {
+  "definition": [
+   "register in a hotel booker"
+  ],
+  "hypernym": [
+   "02477113-v"
+  ],
+  "ili": "i34688",
+  "members": [
+   "book"
+  ],
+  "partOfSpeech": "v"
+ },
+ "00271763-n": {
+  "definition": [
+   "employment for performers or performing groups that lasts for a limited period of time"
+  ],
+  "example": [
+   "the play had bookings throughout the summer"
+  ],
+  "hypernym": [
+   "00585404-n"
+  ],
+  "ili": "i36823",
+  "members": [
+   "engagement",
+   "booking"
+  ],
+  "partOfSpeech": "n"
+ },
+ "01220817-n": {
+  "definition": [
+   "the act of reserving (a place or passage) or engaging the services of (a person or group)"
+  ],
+  "example": [
+   "wondered who had made the booking"
+  ],
+  "hypernym": [
+   "01220349-n"
+  ],
+  "ili": "i41768",
+  "members": [
+   "booking",
+   "reservation"
+  ],
+  "partOfSpeech": "n"
+ },
+ "08542298-n": {
+  "definition": [
+   "a large and densely populated urban area; may include several independent administrative districts"
+  ],
+  "example": [
+   "Ancient Troy was a great city"
+  ],
+  "hypernym": [
+   "08643858-n"
+  ],
+  "ili": "i81847",
+  "members": [
+   "city",
+   "metropolis",
+   "urban center"
+  ],
+  "mero_part": [
+   "08526272-n",
+   "08541617-n",
+   "08560644-n",
+   "08561059-n",
+   "08561188-n",
+   "08588686-n"
+  ],
+  "partOfSpeech": "n",
+  "wikidata": "Q200250"
+ },
+ "08558466-n": {
+  "definition": [
+   "an incorporated administrative district established by state charter"
+  ],
+  "example": [
+   "the city raised the tax rate"
+  ],
+  "hypernym": [
+   "08508836-n"
+  ],
+  "ili": "i81866",
+  "members": [
+   "city"
+  ],
+  "mero_part": [
+   "08555400-n",
+   "08558693-n",
+   "08571743-n",
+   "08637195-n"
+  ],
+  "partOfSpeech": "n"
+ },
+ "08243256-n": {
+  "definition": [
+   "people living in a large densely populated municipality"
+  ],
+  "example": [
+   "the city voted for Republicans in 1994"
+  ],
+  "hypernym": [
+   "08242502-n"
+  ],
+  "ili": "i80341",
+  "members": [
+   "city",
+   "metropolis"
+  ],
+  "partOfSpeech": "n",
+  "wikidata": "Q515"
+ },
+ "01813229-s": {
+  "definition": [
+   "greatly pleasing or entertaining"
+  ],
+  "example": [
+   "a delightful surprise",
+   "the comedy was delightful",
+   "a delicious joke"
+  ],
+  "ili": "i9927",
+  "members": [
+   "delightful",
+   "delicious"
+  ],
+  "partOfSpeech": "s",
+  "similar": [
+   "01812521-a"
+  ]
+ },
+ "02405305-s": {
+  "definition": [
+   "extremely pleasing to the sense of taste"
+  ],
+  "ili": "i13264",
+  "members": [
+   "delectable",
+   "delicious",
+   "luscious",
+   "pleasant-tasting",
+   "scrumptious",
+   "toothsome",
+   "yummy"
+  ],
+  "partOfSpeech": "s",
+  "similar": [
+   "02403682-a"
+  ]
+ },
+ "01170802-v": {
+  "definition": [
+   "take in solid food"
+  ],
+  "entails": [
+   "01203727-v",
+   "01204494-v"
+  ],
+  "example": [
+   "She was eating a banana",
+   "What did you eat for dinner last night?"
+  ],
+  "hypernym": [
+   "01159300-v"
+  ],
+  "ili": "i27459",
+  "members": [
+   "eat"
+  ],
+  "partOfSpeech": "v",
+  "similar": [
+   "01182162-v"
+  ]
+ },
+ "01168667-v": {
+  "definition": [
+   "eat a meal; take a meal"
+  ],
+  "example": [
+   "We did not eat until 10 P.M. because there were so many phone calls",
+   "I didn't eat yet, so I gladly accept your invitation"
+  ],
+  "hypernym": [
+   "01159300-v"
+  ],
+  "ili": "i27450",
+  "members": [
+   "eat"
+  ],
+  "partOfSpeech": "v"
+ },
+ "01182162-v": {
+  "definition": [
+   "take in food; used of animals only"
+  ],
+  "example": [
+   "This dog doesn't eat certain kinds of meat",
+   "What do whales eat?"
+  ],
+  "hypernym": [
+   "01159300-v"
+  ],
+  "ili": "i27518",
+  "members": [
+   "feed",
+   "eat"
+  ],
+  "partOfSpeech": "v",
+  "similar": [
+   "01170802-v"
+  ]
+ },
+ "01770125-v": {
+  "definition": [
+   "worry or cause anxiety in a persistent way"
+  ],
+  "example": [
+   "What's eating you?"
+  ],
+  "hypernym": [
+   "01769760-v"
+  ],
+  "ili": "i30568",
+  "members": [
+   "eat",
+   "eat on"
+  ],
+  "partOfSpeech": "v"
+ },
+ "01159815-v": {
+  "definition": [
+   "use up (resources or materials)"
+  ],
+  "example": [
+   "this car consumes a lot of gas",
+   "We exhausted our savings",
+   "They run through 20 bottles of wine a week"
+  ],
+  "hypernym": [
+   "02271905-v"
+  ],
+  "ili": "i27412",
+  "members": [
+   "consume",
+   "eat up",
+   "use up",
+   "eat",
+   "deplete",
+   "exhaust",
+   "run through",
+   "wipe out",
+   "use",
+   "expend"
+  ],
+  "partOfSpeech": "v"
+ },
+ "00275082-v": {
+  "definition": [
+   "cause to deteriorate due to the action of water, air, or an acid"
+  ],
+  "example": [
+   "The acid corroded the metal",
+   "The steady dripping of water rusted the metal stopper in the sink"
+  ],
+  "hypernym": [
+   "00259743-v"
+  ],
+  "ili": "i23089",
+  "members": [
+   "corrode",
+   "eat",
+   "rust"
+  ],
+  "partOfSpeech": "v",
+  "similar": [
+   "00274762-v"
+  ]
+ },
+ "00021445-n": {
+  "definition": [
+   "any substance that can be metabolized by an animal to give energy and build tissue"
+  ],
+  "hypernym": [
+   "00020270-n"
+  ],
+  "ili": "i35570",
+  "members": [
+   "food",
+   "nutrient"
+  ],
+  "partOfSpeech": "n"
+ },
+ "05819240-n": {
+  "definition": [
+   "anything that provides mental stimulus for thinking"
+  ],
+  "hypernym": [
+   "05817200-n"
+  ],
+  "ili": "i67418",
+  "members": [
+   "food",
+   "food for thought",
+   "intellectual nourishment"
+  ],
+  "partOfSpeech": "n"
+ },
+ "03547513-n": {
+  "definition": [
+   "a building where travelers can pay for lodging and meals and other services"
+  ],
+  "hypernym": [
+   "02916498-n"
+  ],
+  "ili": "i54946",
+  "members": [
+   "hotel"
+  ],
+  "mero_part": [
+   "03548040-n"
+  ],
+  "partOfSpeech": "n"
+ },
+ "03549540-n": {
+  "definition": [
+   "a dwelling that serves as living quarters for one or more families"
+  ],
+  "example": [
+   "he has a house on Cape Cod",
+   "she felt she had to get out of the house"
+  ],
+  "hypernym": [
+   "03264208-n",
+   "02916498-n"
+  ],
+  "ili": "i54960",
+  "members": [
+   "house"
+  ],
+  "mero_part": [
+   "03666235-n",
+   "03691456-n",
+   "03990739-n",
+   "04352106-n"
+  ],
+  "partOfSpeech": "n"
+ },
+ "08076706-n": {
+  "definition": [
+   "the members of a business organization that owns or operates one or more establishments"
+  ],
+  "example": [
+   "he worked for a brokerage house"
+  ],
+  "hypernym": [
+   "08077878-n"
+  ],
+  "ili": "i79561",
+  "members": [
+   "firm",
+   "house",
+   "business firm"
+  ],
+  "partOfSpeech": "n"
+ },
+ "08241501-n": {
+  "definition": [
+   "the members of a religious community living together"
+  ],
+  "hypernym": [
+   "08240723-n"
+  ],
+  "ili": "i80330",
+  "members": [
+   "house"
+  ],
+  "partOfSpeech": "n"
+ },
+ "08239887-n": {
+  "definition": [
+   "the audience gathered together in a theatre or cinema"
+  ],
+  "example": [
+   "the house applauded",
+   "he counted the house"
+  ],
+  "hypernym": [
+   "08238818-n"
+  ],
+  "ili": "i80321",
+  "members": [
+   "house"
+  ],
+  "mero_part": [
+   "08240058-n"
+  ],
+  "partOfSpeech": "n"
+ },
+ "08179924-n": {
+  "definition": [
+   "an official assembly having legislative powers"
+  ],
+  "example": [
+   "a bicameral legislature has two houses"
+  ],
+  "hypernym": [
+   "08180172-n"
+  ],
+  "ili": "i80049",
+  "members": [
+   "house"
+  ],
+  "partOfSpeech": "n"
+ },
+ "07987896-n": {
+  "definition": [
+   "aristocratic family line"
+  ],
+  "example": [
+   "the House of York"
+  ],
+  "hypernym": [
+   "07987168-n"
+  ],
+  "ili": "i79204",
+  "members": [
+   "house"
+  ],
+  "partOfSpeech": "n"
+ },
+ "00433104-n": {
+  "definition": [
+   "play in which children take the roles of father or mother or children and pretend to interact like adults"
+  ],
+  "example": [
+   "the children were playing house"
+  ],
+  "hypernym": [
+   "00432833-n"
+  ],
+  "ili": "i37666",
+  "members": [
+   "house"
+  ],
+  "partOfSpeech": "n"
+ },
+ "08703415-n": {
+  "definition": [
+   "(astrology) one of 12 equal areas into which the zodiac is divided"
+  ],
+  "domain_topic": [
+   "05786128-n"
+  ],
+  "hypernym": [
+   "08647614-n"
+  ],
+  "ili": "i82586",
+  "members": [
+   "sign of the zodiac",
+   "star sign",
+   "sign",
+   "mansion",
+   "house",
+   "planetary house"
+  ],
+  "partOfSpeech": "n"
+ },
+ "08398027-n": {
+  "definition": [
+   "the management of a gambling house or casino"
+  ],
+  "example": [
+   "the house gets a percentage of every bet"
+  ],
+  "hypernym": [
+   "08397896-n"
+  ],
+  "ili": "i81150",
+  "members": [
+   "house"
+  ],
+  "partOfSpeech": "n"
+ },
+ "08094856-n": {
+  "definition": [
+   "a social unit living together"
+  ],
+  "example": [
+   "he moved his family to Virginia",
+   "It was a good Christian household",
+   "I waited until the whole house was asleep",
+   "the teacher asked how many people made up his home",
+   "the family refused to accept his will"
+  ],
+  "hypernym": [
+   "08206589-n"
+  ],
+  "ili": "i79671",
+  "members": [
+   "family",
+   "household",
+   "house",
+   "home",
+   "menage"
+  ],
+  "partOfSpeech": "n"
+ },
+ "04424944-n": {
+  "definition": [
+   "a building where theatrical performances or motion-picture shows can be presented"
+  ],
+  "domain_topic": [
+   "07019235-n"
+  ],
+  "example": [
+   "the house was full"
+  ],
+  "hypernym": [
+   "02916498-n"
+  ],
+  "ili": "i60163",
+  "members": [
+   "theater",
+   "theatre",
+   "house"
+  ],
+  "mero_part": [
+   "02889123-n",
+   "03037004-n",
+   "03242834-n",
+   "03463060-n",
+   "03858698-n",
+   "03858811-n",
+   "03897732-n",
+   "03897970-n",
+   "04303700-n",
+   "04309472-n",
+   "04425953-n",
+   "04441419-n"
+  ],
+  "partOfSpeech": "n"
+ },
+ "03550330-n": {
+  "definition": [
+   "a building in which something is sheltered or located"
+  ],
+  "example": [
+   "they had a large carriage house"
+  ],
+  "hypernym": [
+   "02916498-n"
+  ],
+  "ili": "i54961",
+  "members": [
+   "house"
+  ],
+  "partOfSpeech": "n"
+ },
+ "02707688-v": {
+  "definition": [
+   "contain or cover"
+  ],
+  "example": [
+   "This box houses the gears"
+  ],
+  "hypernym": [
+   "02738673-v"
+  ],
+  "ili": "i35163",
+  "members": [
+   "house"
+  ],
+  "partOfSpeech": "v"
+ },
+ "02464596-v": {
+  "definition": [
+   "provide someone with accommodation"
+  ],
+  "example": [
+   "The immigrants were housed in a new development outside the town"
+  ],
+  "hypernym": [
+   "02662486-v"
+  ],
+  "ili": "i34015",
+  "members": [
+   "house",
+   "put up",
+   "domiciliate"
+  ],
+  "partOfSpeech": "v"
+ },
+ "00307252-n": {
+  "definition": [
+   "the act of traveling from one place to another"
+  ],
+  "hypernym": [
+   "00296527-n"
+  ],
+  "ili": "i37014",
+  "members": [
+   "journey",
+   "journeying"
+  ],
+  "mero_part": [
+   "00307726-n"
+  ],
+  "partOfSpeech": "n"
+ },
+ "01849662-v": {
+  "definition": [
+   "undertake a journey or trip"
+  ],
+  "hypernym": [
+   "01846997-v"
+  ],
+  "ili": "i30940",
+  "members": [
+   "travel",
+   "journey"
+  ],
+  "partOfSpeech": "v",
+  "similar": [
+   "01850858-v"
+  ]
+ },
+ "01850858-v": {
+  "definition": [
+   "travel upon or across"
+  ],
+  "example": [
+   "travel the oceans"
+  ],
+  "hypernym": [
+   "01839438-v"
+  ],
+  "ili": "i30944",
+  "members": [
+   "travel",
+   "journey"
+  ],
+  "partOfSpeech": "v",
+  "similar": [
+   "01849662-v"
+  ]
+ },
+ "06293304-n": {
+  "definition": [
+   "a systematic means of communicating by the use of sounds or conventional symbols"
+  ],
+  "example": [
+   "he taught foreign languages",
+   "the language introduced is standard throughout the text",
+   "the speed with which a program can be executed depends on the language in which it is written"
+  ],
+  "hypernym": [
+   "00033319-n"
+  ],
+  "ili": "i69527",
+  "members": [
+   "language",
+   "linguistic communication"
+  ],
+  "partOfSpeech": "n"
+ },
+ "07123904-n": {
+  "definition": [
+   "(language) communication by word of mouth"
+  ],
+  "domain_topic": [
+   "06293304-n"
+  ],
+  "example": [
+   "his speech was garbled",
+   "he uttered harsh language",
+   "he recorded the spoken language of the streets"
+  ],
+  "hypernym": [
+   "07123727-n"
+  ],
+  "ili": "i74022",
+  "members": [
+   "speech",
+   "speech communication",
+   "spoken communication",
+   "spoken language",
+   "language",
+   "voice communication",
+   "oral communication"
+  ],
+  "partOfSpeech": "n"
+ },
+ "07066015-n": {
+  "definition": [
+   "the text of a popular song or musical-comedy number"
+  ],
+  "example": [
+   "his compositions always started with the lyrics",
+   "he wrote both words and music",
+   "the song uses colloquial language"
+  ],
+  "hypernym": [
+   "06399623-n"
+  ],
+  "ili": "i73732",
+  "members": [
+   "lyric",
+   "words",
+   "language"
+  ],
+  "partOfSpeech": "n"
+ },
+ "05816565-n": {
+  "definition": [
+   "the cognitive processes involved in producing and understanding linguistic communication"
+  ],
+  "example": [
+   "he didn't have the language to express his feelings"
+  ],
+  "hypernym": [
+   "05778661-n"
+  ],
+  "ili": "i67406",
+  "members": [
+   "linguistic process",
+   "language"
+  ],
+  "partOfSpeech": "n"
+ },
+ "05658665-n": {
+  "definition": [
+   "the mental faculty or power of vocal communication"
+  ],
+  "example": [
+   "language sets homo sapiens apart from all other animals"
+  ],
+  "hypernym": [
+   "05658174-n"
+  ],
+  "ili": "i66617",
+  "members": [
+   "language",
+   "speech"
+  ],
+  "mero_part": [
+   "05658913-n",
+   "05659087-n"
+  ],
+  "partOfSpeech": "n"
+ },
+ "06315049-n": {
+  "definition": [
+   "a system of words used to name things in a particular discipline"
+  ],
+  "example": [
+   "legal terminology",
+   "biological nomenclature",
+   "the language of sociology"
+  ],
+  "hypernym": [
+   "06297048-n"
+  ],
+  "ili": "i69609",
+  "members": [
+   "terminology",
+   "nomenclature",
+   "language"
+  ],
+  "partOfSpeech": "n"
+ },
+ "00599310-v": {
+  "definition": [
+   "gain knowledge or skills"
+  ],
+  "example": [
+   "She learned dancing from her sister",
+   "I learned Sanskrit",
+   "Children acquire language at an amazing rate"
+  ],
+  "hypernym": [
+   "02293158-v"
+  ],
+  "ili": "i24750",
+  "members": [
+   "learn",
+   "larn",
+   "acquire"
+  ],
+  "partOfSpeech": "v"
+ },
+ "00600349-v": {
+  "definition": [
+   "get to know or become aware of, usually accidentally"
+  ],
+  "example": [
+   "I learned that she has two grown-up children",
+   "I see that you have been promoted"
+  ],
+  "hypernym": [
+   "02372362-v"
+  ],
+  "ili": "i24755",
+  "members": [
+   "learn",
+   "hear",
+   "get word",
+   "get wind",
+   "pick up",
+   "find out",
+   "get a line",
+   "discover",
+   "see"
+  ],
+  "partOfSpeech": "v",
+  "similar": [
+   "02133338-v"
+  ]
+ },
+ "00605971-v": {
+  "definition": [
+   "commit to memory; learn by heart"
+  ],
+  "example": [
+   "Have you memorized your lines for the play yet?"
+  ],
+  "hypernym": [
+   "00608509-v"
+  ],
+  "ili": "i24783",
+  "members": [
+   "memorize",
+   "memorise",
+   "con",
+   "learn"
+  ],
+  "partOfSpeech": "v"
+ },
+ "00601387-v": {
+  "definition": [
+   "be a student of a certain subject"
+  ],
+  "example": [
+   "She is reading for the bar exam"
+  ],
+  "hypernym": [
+   "02372362-v"
+  ],
+  "ili": "i24760",
+  "members": [
+   "learn",
+   "study",
+   "read",
+   "take"
+  ],
+  "partOfSpeech": "v"
+ },
+ "00830768-v": {
+  "causes": [
+   "00599310-v"
+  ],
+  "definition": [
+   "impart skills or knowledge to"
+  ],
+  "example": [
+   "I taught them French",
+   "He instructed me in building a boat"
+  ],
+  "hypernym": [
+   "00833312-v"
+  ],
+  "ili": "i25800",
+  "members": [
+   "teach",
+   "learn",
+   "instruct"
+  ],
+  "partOfSpeech": "v"
+ },
+ "00922307-v": {
+  "definition": [
+   "find out, learn, or determine with certainty, usually by making an inquiry or other effort"
+  ],
+  "example": [
+   "I want to see whether she speaks French",
+   "See whether it works",
+   "find out if he speaks Russian",
+   "Check whether the train leaves on time"
+  ],
+  "hypernym": [
+   "02372362-v"
+  ],
+  "ili": "i26213",
+  "members": [
+   "determine",
+   "check",
+   "find out",
+   "see",
+   "ascertain",
+   "watch",
+   "learn"
+  ],
+  "partOfSpeech": "v",
+  "similar": [
+   "00664507-v",
+   "00920843-v"
+  ]
+ },
+ "03666235-n": {
+  "definition": [
+   "a room where books are kept"
+  ],
+  "example": [
+   "they had brandy in the library"
+  ],
+  "hypernym": [
+   "04112987-n"
+  ],
+  "ili": "i55651",
+  "members": [
+   "library"
+  ],
+  "partOfSpeech": "n"
+ },
+ "07994293-n": {
+  "definition": [
+   "a collection of literary documents or records kept for reference or borrowing"
+  ],
+  "hypernym": [
+   "07968050-n"
+  ],
+  "ili": "i79233",
+  "members": [
+   "library"
+  ],
+  "partOfSpeech": "n"
+ },
+ "03665990-n": {
+  "definition": [
+   "a depository built to contain books and other materials for reading and study"
+  ],
+  "hypernym": [
+   "03182015-n"
+  ],
+  "ili": "i55650",
+  "members": [
+   "library",
+   "depository library"
+  ],
+  "mero_part": [
+   "02971792-n",
+   "04065208-n",
+   "04302709-n"
+  ],
+  "partOfSpeech": "n"
+ },
+ "07994015-n": {
+  "definition": [
+   "(computing) a collection of standard programs and subroutines that are stored and available for immediate use"
+  ],
+  "domain_topic": [
+   "00930762-n"
+  ],
+  "hypernym": [
+   "07968050-n"
+  ],
+  "ili": "i79232",
+  "members": [
+   "library",
+   "program library",
+   "subroutine library"
+  ],
+  "mero_part": [
+   "06588441-n",
+   "06595354-n",
+   "06595966-n"
+  ],
+  "partOfSpeech": "n"
+ },
+ "03666369-n": {
+  "definition": [
+   "a building that houses a collection of books and other materials"
+  ],
+  "hypernym": [
+   "02916498-n"
+  ],
+  "ili": "i55652",
+  "members": [
+   "library"
+  ],
+  "partOfSpeech": "n"
+ },
+ "05853667-n": {
+  "definition": [
+   "a recognizable kind"
+  ],
+  "example": [
+   "there's a new brand of hero in the movies now",
+   "what make of car is that?"
+  ],
+  "hypernym": [
+   "05847533-n"
+  ],
+  "ili": "i67590",
+  "members": [
+   "brand",
+   "make"
+  ],
+  "partOfSpeech": "n"
+ },
+ "00341289-n": {
+  "definition": [
+   "the act of mixing cards haphazardly"
+  ],
+  "hypernym": [
+   "00340289-n"
+  ],
+  "ili": "i37198",
+  "members": [
+   "shuffle",
+   "shuffling",
+   "make"
+  ],
+  "partOfSpeech": "n"
+ },
+ "02566500-v": {
+  "definition": [
+   "engage in"
+  ],
+  "example": [
+   "make love, not war",
+   "make an effort",
+   "do research",
+   "do nothing",
+   "make revolution"
+  ],
+  "hypernym": [
+   "02372362-v"
+  ],
+  "ili": "i34493",
+  "members": [
+   "make",
+   "do"
+  ],
+  "partOfSpeech": "v",
+  "similar": [
+   "01759660-v"
+  ]
+ },
+ "00120124-v": {
+  "definition": [
+   "give certain properties to something"
+  ],
+  "example": [
+   "get someone mad",
+   "She made us look silly",
+   "He made a fool of himself at the meeting",
+   "Don't make this into a big deal",
+   "This invention will make you a millionaire",
+   "Make yourself clear"
+  ],
+  "hypernym": [
+   "00126072-v"
+  ],
+  "ili": "i22361",
+  "members": [
+   "make",
+   "get"
+  ],
+  "partOfSpeech": "v"
+ },
+ "01620211-v": {
+  "definition": [
+   "make or cause to be or to become"
+  ],
+  "example": [
+   "make a mess in one's office",
+   "create a furor"
+  ],
+  "hypernym": [
+   "00772482-v"
+  ],
+  "ili": "i29849",
+  "members": [
+   "make",
+   "create"
+  ],
+  "partOfSpeech": "v"
+ },
+ "00772482-v": {
+  "definition": [
+   "cause to do; cause to act in a specified manner"
+  ],
+  "example": [
+   "The ads induced me to buy a VCR",
+   "My children finally got me to buy a computer",
+   "My wife made me buy a new sofa"
+  ],
+  "hypernym": [
+   "02372362-v"
+  ],
+  "ili": "i25546",
+  "members": [
+   "induce",
+   "stimulate",
+   "cause",
+   "have",
+   "get",
+   "make"
+  ],
+  "partOfSpeech": "v"
+ },
+ "01649143-v": {
+  "definition": [
+   "give rise to; cause to happen or occur, not always intentionally"
+  ],
+  "example": [
+   "cause a commotion",
+   "make a stir",
+   "cause an accident"
+  ],
+  "hypernym": [
+   "01620211-v"
+  ],
+  "ili": "i29966",
+  "members": [
+   "cause",
+   "do",
+   "make"
+  ],
+  "partOfSpeech": "v"
+ },
+ "01624592-v": {
+  "definition": [
+   "create or manufacture a man-made product"
+  ],
+  "example": [
+   "We produce more cars than we can sell",
+   "The company has been making toys for two centuries"
+  ],
+  "hypernym": [
+   "01620211-v"
+  ],
+  "ili": "i29865",
+  "members": [
+   "produce",
+   "make",
+   "create"
+  ],
+  "partOfSpeech": "v",
+  "similar": [
+   "01643749-v"
+  ]
+ },
+ "00732743-v": {
+  "definition": [
+   "make, formulate, or derive in the mind"
+  ],
+  "example": [
+   "I draw a line here",
+   "draw a conclusion",
+   "draw parallels",
+   "make an estimate",
+   "What do you make of his remarks?"
+  ],
+  "hypernym": [
+   "01635076-v"
+  ],
+  "ili": "i25353",
+  "members": [
+   "draw",
+   "make"
+  ],
+  "partOfSpeech": "v",
+  "similar": [
+   "00699870-v"
+  ]
+ },
+ "01649617-v": {
+  "definition": [
+   "compel or make somebody or something to act in a certain way"
+  ],
+  "example": [
+   "People cannot be made to integrate just by passing a law!",
+   "Heat makes you sweat"
+  ],
+  "hypernym": [
+   "01649143-v"
+  ],
+  "ili": "i29967",
+  "members": [
+   "make"
+  ],
+  "partOfSpeech": "v"
+ },
+ "01643749-v": {
+  "definition": [
+   "create by artistic means"
+  ],
+  "example": [
+   "create a poem",
+   "Schoenberg created twelve-tone music",
+   "Picasso created Cubism",
+   "Auden made verses"
+  ],
+  "hypernym": [
+   "01620211-v"
+  ],
+  "ili": "i29942",
+  "members": [
+   "create",
+   "make"
+  ],
+  "partOfSpeech": "v",
+  "similar": [
+   "01624592-v"
+  ]
+ },
+ "02294200-v": {
+  "definition": [
+   "earn on some commercial or business transaction; earn as salary or wages"
+  ],
+  "example": [
+   "How much do you make a month in your new job?",
+   "She earns a lot in her new job",
+   "this merger brought in lots of money",
+   "He clears $5,000 each month"
+  ],
+  "hypernym": [
+   "02215637-v"
+  ],
+  "ili": "i33178",
+  "members": [
+   "gain",
+   "take in",
+   "clear",
+   "make",
+   "earn",
+   "realize",
+   "realise",
+   "pull in",
+   "bring in"
+  ],
+  "partOfSpeech": "v",
+  "similar": [
+   "02296219-v",
+   "00012260-v"
+  ]
+ },
+ "01622033-v": {
+  "definition": [
+   "create or design, often in a certain way"
+  ],
+  "example": [
+   "Do my room in blue",
+   "I did this piece in wood to express my love for the forest"
+  ],
+  "hypernym": [
+   "01643749-v"
+  ],
+  "ili": "i29854",
+  "members": [
+   "do",
+   "make"
+  ],
+  "partOfSpeech": "v"
+ },
+ "02627475-v": {
+  "definition": [
+   "to compose or represent"
+  ],
+  "example": [
+   "This wall forms the background of the stage setting",
+   "The branches made a roof",
+   "This makes a fine introduction"
+  ],
+  "hypernym": [
+   "02626667-v"
+  ],
+  "ili": "i34780",
+  "members": [
+   "form",
+   "constitute",
+   "make"
+  ],
+  "partOfSpeech": "v"
+ },
+ "02026014-v": {
+  "definition": [
+   "reach a goal"
+  ],
+  "example": [
+   "make the first team",
+   "We made it!",
+   "She may not make the grade"
+  ],
+  "hypernym": [
+   "02531751-v"
+  ],
+  "ili": "i31850",
+  "members": [
+   "reach",
+   "make",
+   "get to",
+   "progress to"
+  ],
+  "partOfSpeech": "v"
+ },
+ "02680519-v": {
+  "definition": [
+   "be or be capable of being changed or made into"
+  ],
+  "example": [
+   "He makes a great host",
+   "He will make a fine father"
+  ],
+  "hypernym": [
+   "02629610-v"
+  ],
+  "ili": "i35035",
+  "members": [
+   "make"
+  ],
+  "partOfSpeech": "v"
+ },
+ "01657416-v": {
+  "definition": [
+   "make by shaping or bringing together constituents"
+  ],
+  "example": [
+   "make a dress",
+   "make a cake",
+   "make a wall of stones"
+  ],
+  "hypernym": [
+   "01656555-v"
+  ],
+  "ili": "i30005",
+  "members": [
+   "make"
+  ],
+  "partOfSpeech": "v"
+ },
+ "01759660-v": {
+  "definition": [
+   "perform, produce, or carry out"
+  ],
+  "example": [
+   "make a decision",
+   "make a move",
+   "make advances",
+   "make a phone call"
+  ],
+  "hypernym": [
+   "01716563-v"
+  ],
+  "ili": "i30520",
+  "members": [
+   "make"
+  ],
+  "partOfSpeech": "v",
+  "similar": [
+   "02566500-v"
+  ]
+ },
+ "01658171-v": {
+  "definition": [
+   "make by combining materials and parts"
+  ],
+  "example": [
+   "this little pig made his house out of straw",
+   "Some eccentric constructed an electric brassiere warmer"
+  ],
+  "hypernym": [
+   "01620211-v"
+  ],
+  "ili": "i30008",
+  "members": [
+   "construct",
+   "build",
+   "make"
+  ],
+  "partOfSpeech": "v",
+  "similar": [
+   "01689496-v"
+  ]
+ },
+ "00557932-v": {
+  "definition": [
+   "change from one form into another"
+  ],
+  "example": [
+   "make water into wine",
+   "make lead into gold",
+   "make clay into bricks"
+  ],
+  "hypernym": [
+   "00126072-v"
+  ],
+  "ili": "i24528",
+  "members": [
+   "make"
+  ],
+  "partOfSpeech": "v"
+ },
+ "00012260-v": {
+  "definition": [
+   "act in a certain way so as to acquire"
+  ],
+  "example": [
+   "make friends",
+   "make enemies"
+  ],
+  "hypernym": [
+   "00010428-v"
+  ],
+  "ili": "i21826",
+  "members": [
+   "make"
+  ],
+  "partOfSpeech": "v",
+  "similar": [
+   "02294200-v",
+   "02360592-v"
+  ]
+ },
+ "02401858-v": {
+  "definition": [
+   "charge with a function; charge to be"
+  ],
+  "example": [
+   "She was named Head of the Committee",
+   "She was made president of the club"
+  ],
+  "hypernym": [
+   "02481345-v"
+  ],
+  "ili": "i33730",
+  "members": [
+   "name",
+   "nominate",
+   "make"
+  ],
+  "partOfSpeech": "v"
+ },
+ "02360592-v": {
+  "definition": [
+   "achieve a point or goal"
+  ],
+  "example": [
+   "Nicklaus had a 70",
+   "The Brazilian team got 4 goals",
+   "She made 29 points that day"
+  ],
+  "hypernym": [
+   "01114241-v"
+  ],
+  "ili": "i33526",
+  "members": [
+   "have",
+   "get",
+   "make"
+  ],
+  "partOfSpeech": "v",
+  "similar": [
+   "00012260-v"
+  ]
+ },
+ "02024442-v": {
+  "definition": [
+   "reach a destination, either real or abstract"
+  ],
+  "entails": [
+   "01839438-v"
+  ],
+  "example": [
+   "We hit Detroit by noon",
+   "The water reached the doorstep",
+   "We barely made it to the finish line",
+   "I have to hit the MAC machine before the weekend starts"
+  ],
+  "hypernym": [
+   "02372362-v"
+  ],
+  "ili": "i31843",
+  "members": [
+   "reach",
+   "make",
+   "attain",
+   "hit",
+   "arrive at",
+   "gain"
+  ],
+  "partOfSpeech": "v"
+ },
+ "00667394-v": {
+  "definition": [
+   "institute, enact, or establish"
+  ],
+  "example": [
+   "make laws"
+  ],
+  "hypernym": [
+   "01620211-v"
+  ],
+  "ili": "i25052",
+  "members": [
+   "lay down",
+   "establish",
+   "make"
+  ],
+  "partOfSpeech": "v"
+ },
+ "02589006-v": {
+  "definition": [
+   "carry out or commit"
+  ],
+  "example": [
+   "make a mistake",
+   "commit a faux-pas"
+  ],
+  "hypernym": [
+   "02588700-v"
+  ],
+  "ili": "i34596",
+  "members": [
+   "make"
+  ],
+  "partOfSpeech": "v"
+ },
+ "02604480-v": {
+  "definition": [
+   "form by assembling individuals or constituents"
+  ],
+  "example": [
+   "Make a quorum"
+  ],
+  "hypernym": [
+   "02604140-v"
+  ],
+  "ili": "i34680",
+  "members": [
+   "make"
+  ],
+  "partOfSpeech": "v",
+  "similar": [
+   "02751207-v"
+  ]
+ },
+ "01737358-v": {
+  "definition": [
+   "organize or be responsible for"
+  ],
+  "example": [
+   "hold a reception",
+   "have, throw, or make a party",
+   "give a course"
+  ],
+  "hypernym": [
+   "02444366-v"
+  ],
+  "ili": "i30405",
+  "members": [
+   "hold",
+   "throw",
+   "have",
+   "make",
+   "give"
+  ],
+  "partOfSpeech": "v"
+ },
+ "00276867-v": {
+  "definition": [
+   "put in order or neaten"
+  ],
+  "example": [
+   "make the bed",
+   "make up a room"
+  ],
+  "hypernym": [
+   "00276642-v"
+  ],
+  "ili": "i23098",
+  "members": [
+   "make",
+   "make up"
+  ],
+  "partOfSpeech": "v",
+  "similar": [
+   "01759348-v"
+  ]
+ },
+ "02080104-v": {
+  "definition": [
+   "head into a specified direction"
+  ],
+  "example": [
+   "The escaped convict took to the hills",
+   "We made for the mountains"
+  ],
+  "hypernym": [
+   "01939092-v"
+  ],
+  "ili": "i32124",
+  "members": [
+   "take",
+   "make"
+  ],
+  "partOfSpeech": "v"
+ },
+ "00073791-v": {
+  "definition": [
+   "have a bowel movement"
+  ],
+  "example": [
+   "The dog had made in the flower beds"
+  ],
+  "hypernym": [
+   "00072742-v"
+  ],
+  "ili": "i22143",
+  "members": [
+   "stool",
+   "defecate",
+   "shit",
+   "take a shit",
+   "take a crap",
+   "ca-ca",
+   "crap",
+   "make"
+  ],
+  "partOfSpeech": "v",
+  "similar": [
+   "00071765-v"
+  ]
+ },
+ "02754634-v": {
+  "definition": [
+   "undergo fabrication or creation"
+  ],
+  "example": [
+   "This wool makes into a nice sweater"
+  ],
+  "hypernym": [
+   "00109468-v"
+  ],
+  "ili": "i35419",
+  "members": [
+   "make"
+  ],
+  "partOfSpeech": "v"
+ },
+ "02754502-v": {
+  "definition": [
+   "be suitable for"
+  ],
+  "example": [
+   "Wood makes good furniture"
+  ],
+  "hypernym": [
+   "02626667-v"
+  ],
+  "ili": "i35418",
+  "members": [
+   "make"
+  ],
+  "partOfSpeech": "v"
+ },
+ "02751207-v": {
+  "definition": [
+   "add up to"
+  ],
+  "domain_topic": [
+   "06013397-n"
+  ],
+  "example": [
+   "four and four make eight"
+  ],
+  "hypernym": [
+   "02651091-v"
+  ],
+  "ili": "i35400",
+  "members": [
+   "make"
+  ],
+  "partOfSpeech": "v",
+  "similar": [
+   "02604480-v",
+   "02671201-v"
+  ]
+ },
+ "02671201-v": {
+  "definition": [
+   "amount to"
+  ],
+  "example": [
+   "This salary increase makes no difference to my standard of living"
+  ],
+  "hypernym": [
+   "02671069-v"
+  ],
+  "ili": "i34991",
+  "members": [
+   "make"
+  ],
+  "partOfSpeech": "v",
+  "similar": [
+   "02751207-v"
+  ]
+ },
+ "02627213-v": {
+  "definition": [
+   "constitute the essence of"
+  ],
+  "example": [
+   "Clothes make the man"
+  ],
+  "hypernym": [
+   "02626667-v"
+  ],
+  "ili": "i34778",
+  "members": [
+   "make"
+  ],
+  "partOfSpeech": "v"
+ },
+ "02138515-v": {
+  "definition": [
+   "appear to begin an activity"
+  ],
+  "example": [
+   "He made to speak but said nothing in the end",
+   "She made as if to say hello to us"
+  ],
+  "hypernym": [
+   "02137900-v"
+  ],
+  "ili": "i32421",
+  "members": [
+   "make"
+  ],
+  "partOfSpeech": "v"
+ },
+ "02054955-v": {
+  "definition": [
+   "proceed along a path"
+  ],
+  "example": [
+   "work one's way through the crowd",
+   "make one's way into the forest"
+  ],
+  "hypernym": [
+   "02054081-v"
+  ],
+  "ili": "i31998",
+  "members": [
+   "make",
+   "work"
+  ],
+  "partOfSpeech": "v",
+  "similar": [
+   "02378106-v"
+  ]
+ },
+ "01759348-v": {
+  "definition": [
+   "gather and light the materials for"
+  ],
+  "example": [
+   "make a fire"
+  ],
+  "hypernym": [
+   "01656555-v"
+  ],
+  "ili": "i30518",
+  "members": [
+   "make"
+  ],
+  "partOfSpeech": "v",
+  "similar": [
+   "01668067-v",
+   "00276867-v"
+  ]
+ },
+ "01668067-v": {
+  "definition": [
+   "prepare for eating by applying heat"
+  ],
+  "example": [
+   "Cook me dinner, please",
+   "can you make me an omelette?",
+   "fix breakfast for the guests, please"
+  ],
+  "hypernym": [
+   "01656555-v"
+  ],
+  "ili": "i30054",
+  "members": [
+   "cook",
+   "fix",
+   "ready",
+   "make",
+   "prepare"
+  ],
+  "partOfSpeech": "v",
+  "similar": [
+   "01759348-v"
+  ]
+ },
+ "01431211-v": {
+  "definition": [
+   "induce to have sex"
+  ],
+  "entails": [
+   "01429048-v"
+  ],
+  "example": [
+   "Harry finally seduced Sally",
+   "Did you score last night?",
+   "Harry made Sally"
+  ],
+  "hypernym": [
+   "00768463-v"
+  ],
+  "ili": "i28873",
+  "members": [
+   "seduce",
+   "score",
+   "make"
+  ],
+  "partOfSpeech": "v",
+  "similar": [
+   "00785293-v"
+  ]
+ },
+ "00892559-v": {
+  "definition": [
+   "assure the success of"
+  ],
+  "example": [
+   "A good review by this critic will make your play!"
+  ],
+  "hypernym": [
+   "00892111-v"
+  ],
+  "ili": "i26074",
+  "members": [
+   "make"
+  ],
+  "partOfSpeech": "v"
+ },
+ "00840203-v": {
+  "definition": [
+   "represent fictitiously, as in a play, or pretend to be or act like"
+  ],
+  "example": [
+   "She makes like an actress"
+  ],
+  "hypernym": [
+   "01723161-v"
+  ],
+  "ili": "i25837",
+  "members": [
+   "make",
+   "pretend",
+   "make believe"
+  ],
+  "partOfSpeech": "v",
+  "similar": [
+   "00839722-v"
+  ]
+ },
+ "00700022-v": {
+  "definition": [
+   "consider as being"
+  ],
+  "example": [
+   "It wasn't the problem some people made it"
+  ],
+  "hypernym": [
+   "00692380-v"
+  ],
+  "ili": "i25198",
+  "members": [
+   "make"
+  ],
+  "partOfSpeech": "v",
+  "similar": [
+   "00699870-v"
+  ]
+ },
+ "00699870-v": {
+  "definition": [
+   "calculate as being"
+  ],
+  "example": [
+   "I make the height about 100 feet"
+  ],
+  "hypernym": [
+   "00674352-v"
+  ],
+  "ili": "i25197",
+  "members": [
+   "make"
+  ],
+  "partOfSpeech": "v",
+  "similar": [
+   "00732743-v",
+   "00700022-v"
+  ]
+ },
+ "00563259-v": {
+  "definition": [
+   "cause to be enjoyable or pleasurable"
+  ],
+  "example": [
+   "make my day"
+  ],
+  "hypernym": [
+   "00126072-v"
+  ],
+  "ili": "i24558",
+  "members": [
+   "make"
+  ],
+  "partOfSpeech": "v"
+ },
+ "00563144-v": {
+  "definition": [
+   "favor the development of"
+  ],
+  "example": [
+   "Practice makes the winner"
+  ],
+  "hypernym": [
+   "01630984-v"
+  ],
+  "ili": "i24557",
+  "members": [
+   "make"
+  ],
+  "partOfSpeech": "v"
+ },
+ "00547033-v": {
+  "definition": [
+   "develop into"
+  ],
+  "example": [
+   "He will make a splendid father!"
+  ],
+  "hypernym": [
+   "00544490-v"
+  ],
+  "ili": "i24466",
+  "members": [
+   "make"
+  ],
+  "partOfSpeech": "v"
+ },
+ "00107173-v": {
+  "definition": [
+   "behave in a certain manner"
+  ],
+  "example": [
+   "make merry"
+  ],
+  "hypernym": [
+   "00010428-v"
+  ],
+  "ili": "i22311",
+  "members": [
+   "make"
+  ],
+  "partOfSpeech": "v"
+ },
+ "00071765-v": {
+  "definition": [
+   "eliminate urine"
+  ],
+  "example": [
+   "Again, the cat had made on the expensive rug"
+  ],
+  "hypernym": [
+   "00072742-v"
+  ],
+  "ili": "i22135",
+  "members": [
+   "make",
+   "urinate",
+   "piddle",
+   "puddle",
+   "micturate",
+   "piss",
+   "pee",
+   "pee-pee",
+   "make water",
+   "relieve oneself",
+   "take a leak",
+   "spend a penny",
+   "wee",
+   "wee-wee",
+   "pass water"
+  ],
+  "partOfSpeech": "v",
+  "similar": [
+   "00073791-v",
+   "00072339-v"
+  ]
+ },
+ "02022224-v": {
+  "definition": [
+   "reach in time"
+  ],
+  "example": [
+   "I have to catch a train at 7 o'clock",
+   "We barely made the plane"
+  ],
+  "hypernym": [
+   "02021901-v"
+  ],
+  "ili": "i31831",
+  "members": [
+   "catch",
+   "make"
+  ],
+  "partOfSpeech": "v",
+  "similar": [
+   "01157556-v"
+  ]
+ },
+ "08324519-n": {
+  "definition": [
+   "a formally arranged gathering"
+  ],
+  "example": [
+   "next year the meeting will be in Chicago",
+   "the meeting elected a chairperson"
+  ],
+  "hypernym": [
+   "01232427-n"
+  ],
+  "ili": "i80791",
+  "members": [
+   "meeting",
+   "group meeting"
+  ],
+  "partOfSpeech": "n"
+ },
+ "08327319-n": {
+  "definition": [
+   "a small informal social gathering"
+  ],
+  "example": [
+   "there was an informal meeting in my living room"
+  ],
+  "hypernym": [
+   "07461861-n"
+  ],
+  "ili": "i80808",
+  "members": [
+   "meeting",
+   "get together"
+  ],
+  "partOfSpeech": "n"
+ },
+ "07429522-n": {
+  "definition": [
+   "a casual or unexpected convergence"
+  ],
+  "example": [
+   "he still remembers their meeting in Paris",
+   "there was a brief encounter in the hallway"
+  ],
+  "hypernym": [
+   "07429340-n"
+  ],
+  "ili": "i75679",
+  "members": [
+   "meeting",
+   "encounter"
+  ],
+  "partOfSpeech": "n"
+ },
+ "01233454-n": {
+  "definition": [
+   "the social act of assembling for some common purpose"
+  ],
+  "example": [
+   "his meeting with the salesmen was the high point of his day",
+   "the lovers met discreetly for the purposes of sexual congress"
+  ],
+  "hypernym": [
+   "01232427-n"
+  ],
+  "ili": "i41841",
+  "members": [
+   "meeting",
+   "coming together",
+   "congress"
+  ],
+  "partOfSpeech": "n"
+ },
+ "00147676-n": {
+  "definition": [
+   "the act of joining together as one"
+  ],
+  "example": [
+   "the merging of the two groups occurred quickly",
+   "there was no meeting of minds"
+  ],
+  "hypernym": [
+   "00147392-n"
+  ],
+  "ili": "i36182",
+  "members": [
+   "merging",
+   "meeting",
+   "coming together"
+  ],
+  "partOfSpeech": "n"
+ },
+ "08560197-n": {
+  "definition": [
+   "a place where things merge or flow together (especially rivers)"
+  ],
+  "domain_topic": [
+   "09434308-n"
+  ],
+  "example": [
+   "Pittsburgh is located at the confluence of the Allegheny and Monongahela rivers"
+  ],
+  "hypernym": [
+   "08596234-n"
+  ],
+  "ili": "i81875",
+  "members": [
+   "confluence",
+   "meeting"
+  ],
+  "partOfSpeech": "n"
+ },
+ "06525357-n": {
+  "definition": [
+   "a formal message requesting something that is submitted to an authority"
+  ],
+  "hypernym": [
+   "06611268-n"
+  ],
+  "ili": "i70690",
+  "members": [
+   "request",
+   "petition",
+   "postulation"
+  ],
+  "partOfSpeech": "n"
+ },
+ "07199985-n": {
+  "definition": [
+   "the verbal act of requesting"
+  ],
+  "hypernym": [
+   "07175534-n"
+  ],
+  "ili": "i74414",
+  "members": [
+   "request",
+   "asking"
+  ],
+  "partOfSpeech": "n"
+ },
+ "00754770-v": {
+  "definition": [
+   "express the need or desire for"
+  ],
+  "example": [
+   "She requested an extra bed in her room",
+   "She called for room service",
+   "when you call, always ask for Mary"
+  ],
+  "hypernym": [
+   "00744289-v"
+  ],
+  "ili": "i25463",
+  "members": [
+   "request",
+   "ask for",
+   "bespeak",
+   "call for",
+   "quest"
+  ],
+  "partOfSpeech": "v",
+  "similar": [
+   "01065717-v"
+  ]
+ },
+ "00755473-v": {
+  "definition": [
+   "ask (a person) to do something"
+  ],
+  "example": [
+   "I requested that she type the entire manuscript"
+  ],
+  "hypernym": [
+   "00754499-v"
+  ],
+  "ili": "i25464",
+  "members": [
+   "request"
+  ],
+  "partOfSpeech": "v"
+ },
+ "01071831-v": {
+  "definition": [
+   "inquire for (information)"
+  ],
+  "example": [
+   "I requested information from the secretary"
+  ],
+  "hypernym": [
+   "00731363-v"
+  ],
+  "ili": "i26938",
+  "members": [
+   "request"
+  ],
+  "partOfSpeech": "v"
+ },
+ "08604729-n": {
+  "definition": [
+   "a district that is reserved for particular purpose"
+  ],
+  "hypernym": [
+   "08508836-n"
+  ],
+  "ili": "i82102",
+  "members": [
+   "reservation",
+   "reserve"
+  ],
+  "partOfSpeech": "n"
+ },
+ "06775091-n": {
+  "definition": [
+   "a statement that limits or restricts some claim"
+  ],
+  "example": [
+   "he recommended her without any reservations"
+  ],
+  "hypernym": [
+   "06735202-n"
+  ],
+  "ili": "i72029",
+  "members": [
+   "reservation",
+   "qualification"
+  ],
+  "partOfSpeech": "n"
+ },
+ "05706585-n": {
+  "definition": [
+   "an unstated doubt that prevents you from accepting something wholeheartedly"
+  ],
+  "hypernym": [
+   "05706212-n"
+  ],
+  "ili": "i66858",
+  "members": [
+   "mental reservation",
+   "reservation",
+   "arriere pensee"
+  ],
+  "partOfSpeech": "n"
+ },
+ "07192432-n": {
+  "definition": [
+   "the written record or promise of an arrangement by which accommodations are secured in advance"
+  ],
+  "hypernym": [
+   "06783066-n"
+  ],
+  "ili": "i74372",
+  "members": [
+   "reservation"
+  ],
+  "partOfSpeech": "n"
+ },
+ "05803468-n": {
+  "definition": [
+   "something reserved in advance (as a hotel accommodation or a seat on a plane etc.)"
+  ],
+  "hypernym": [
+   "05803342-n"
+  ],
+  "ili": "i67342",
+  "members": [
+   "reservation"
+  ],
+  "partOfSpeech": "n"
+ },
+ "00821752-n": {
+  "definition": [
+   "the act of keeping back or setting aside for some future occasion"
+  ],
+  "hypernym": [
+   "00820685-n"
+  ],
+  "ili": "i39714",
+  "members": [
+   "reservation"
+  ],
+  "partOfSpeech": "n"
+ },
+ "04907298-n": {
+  "definition": [
+   "formality and propriety of manner"
+  ],
+  "hypernym": [
+   "04905614-n"
+  ],
+  "ili": "i62737",
+  "members": [
+   "modesty",
+   "reserve"
+  ],
+  "partOfSpeech": "n"
+ },
+ "13389225-n": {
+  "definition": [
+   "something kept back or saved for future use or a special purpose"
+  ],
+  "hypernym": [
+   "13387866-n"
+  ],
+  "ili": "i106959",
+  "members": [
+   "reserve",
+   "backlog",
+   "stockpile"
+  ],
+  "partOfSpeech": "n"
+ },
+ "10690481-n": {
+  "definition": [
+   "an athlete who plays only when a starter on the team is replaced"
+  ],
+  "hypernym": [
+   "09839665-n"
+  ],
+  "ili": "i93411",
+  "members": [
+   "substitute",
+   "reserve",
+   "second-stringer"
+  ],
+  "partOfSpeech": "n"
+ },
+ "13781913-n": {
+  "definition": [
+   "(medicine) potential capacity to respond in order to maintain vital functions"
+  ],
+  "domain_topic": [
+   "06052606-n"
+  ],
+  "hypernym": [
+   "13597558-n"
+  ],
+  "ili": "i109186",
+  "members": [
+   "reserve"
+  ],
+  "partOfSpeech": "n"
+ },
+ "08223381-n": {
+  "definition": [
+   "armed forces that are not on active duty but can be called in an emergency"
+  ],
+  "domain_topic": [
+   "08215965-n"
+  ],
+  "hypernym": [
+   "08215965-n"
+  ],
+  "ili": "i80226",
+  "members": [
+   "military reserve",
+   "reserve"
+  ],
+  "mero_member": [
+   "10542934-n"
+  ],
+  "partOfSpeech": "n"
+ },
+ "04659795-n": {
+  "definition": [
+   "the trait of being uncommunicative; not volunteering anything more than necessary"
+  ],
+  "hypernym": [
+   "04659141-n"
+  ],
+  "ili": "i61517",
+  "members": [
+   "reserve",
+   "reticence",
+   "taciturnity"
+  ],
+  "partOfSpeech": "n"
+ },
+ "02219267-v": {
+  "definition": [
+   "hold back or set aside, especially for future use or contingency"
+  ],
+  "example": [
+   "they reserved their applause in anticipation"
+  ],
+  "hypernym": [
+   "02218472-v"
+  ],
+  "ili": "i32815",
+  "members": [
+   "reserve"
+  ],
+  "partOfSpeech": "v"
+ },
+ "00726112-v": {
+  "definition": [
+   "give or assign a resource to a particular person or cause"
+  ],
+  "example": [
+   "I will earmark this money for your research",
+   "She sets aside time for meditation every day"
+  ],
+  "hypernym": [
+   "02233480-v"
+  ],
+  "ili": "i25321",
+  "members": [
+   "allow",
+   "appropriate",
+   "earmark",
+   "set aside",
+   "reserve"
+  ],
+  "partOfSpeech": "v"
+ },
+ "00797294-v": {
+  "definition": [
+   "obtain or arrange (for oneself) in advance"
+  ],
+  "example": [
+   "We managed to reserve a table at Maxim's"
+  ],
+  "hypernym": [
+   "00754770-v"
+  ],
+  "ili": "i25657",
+  "members": [
+   "reserve"
+  ],
+  "partOfSpeech": "v",
+  "similar": [
+   "02503969-v"
+  ]
+ },
+ "04088393-n": {
+  "definition": [
+   "a building where people go to eat"
+  ],
+  "hypernym": [
+   "02916498-n"
+  ],
+  "ili": "i58115",
+  "members": [
+   "restaurant",
+   "eating house",
+   "eating place",
+   "eatery"
+  ],
+  "partOfSpeech": "n"
+ },
+ "08293641-n": {
+  "definition": [
+   "an educational institution"
+  ],
+  "example": [
+   "the school was founded in 1900"
+  ],
+  "hypernym": [
+   "08293263-n"
+  ],
+  "ili": "i80636",
+  "members": [
+   "school"
+  ],
+  "mero_member": [
+   "08304507-n",
+   "10579780-n"
+  ],
+  "partOfSpeech": "n"
+ },
+ "04153115-n": {
+  "definition": [
+   "a building where young people receive education"
+  ],
+  "example": [
+   "the school was built in 1932",
+   "he walked to school every morning"
+  ],
+  "hypernym": [
+   "02916498-n"
+  ],
+  "ili": "i58518",
+  "members": [
+   "school",
+   "schoolhouse"
+  ],
+  "mero_part": [
+   "03042670-n"
+  ],
+  "partOfSpeech": "n"
+ },
+ "05765533-n": {
+  "definition": [
+   "the process of being formally educated at a school"
+  ],
+  "example": [
+   "what will you do when you finish school?"
+  ],
+  "hypernym": [
+   "05761561-n"
+  ],
+  "ili": "i67156",
+  "members": [
+   "school",
+   "schooling"
+  ],
+  "partOfSpeech": "n"
+ },
+ "08292106-n": {
+  "definition": [
+   "a body of creative artists or writers or thinkers linked by a similar style or by similar teachers"
+  ],
+  "example": [
+   "the Venetian school of painting"
+  ],
+  "hypernym": [
+   "07981699-n"
+  ],
+  "ili": "i80629",
+  "members": [
+   "school"
+  ],
+  "partOfSpeech": "n"
+ },
+ "15228025-n": {
+  "definition": [
+   "the period of instruction in a school; the time period when school is in session"
+  ],
+  "example": [
+   "stay after school",
+   "he didn't miss a single day of school",
+   "when the school day was done we would walk home together"
+  ],
+  "hypernym": [
+   "15137796-n"
+  ],
+  "ili": "i117114",
+  "members": [
+   "school",
+   "schooltime",
+   "school day"
+  ],
+  "mero_part": [
+   "15324468-n"
+  ],
+  "partOfSpeech": "n"
+ },
+ "08294314-n": {
+  "definition": [
+   "an educational institution's faculty and students"
+  ],
+  "example": [
+   "the school keeps parents informed",
+   "the whole school turned out for the game"
+  ],
+  "hypernym": [
+   "08293263-n"
+  ],
+  "ili": "i80637",
+  "members": [
+   "school"
+  ],
+  "partOfSpeech": "n"
+ },
+ "08011895-n": {
+  "definition": [
+   "a large group of fish"
+  ],
+  "example": [
+   "a school of small glittering fish swam by"
+  ],
+  "hypernym": [
+   "08010371-n"
+  ],
+  "ili": "i79308",
+  "members": [
+   "school",
+   "shoal"
+  ],
+  "mero_member": [
+   "02514684-n"
+  ],
+  "partOfSpeech": "n"
+ },
+ "02393052-v": {
+  "definition": [
+   "educate in or as if in a school"
+  ],
+  "example": [
+   "The children are schooled at great cost to their parents in private institutions"
+  ],
+  "hypernym": [
+   "02392628-v"
+  ],
+  "ili": "i33691",
+  "members": [
+   "school"
+  ],
+  "partOfSpeech": "v"
+ },
+ "02393545-v": {
+  "definition": [
+   "teach or refine to be discriminative in taste or judgment"
+  ],
+  "example": [
+   "Cultivate your musical taste",
+   "Train your tastebuds",
+   "She is well schooled in poetry"
+  ],
+  "hypernym": [
+   "00474948-v"
+  ],
+  "ili": "i33693",
+  "members": [
+   "educate",
+   "school",
+   "train",
+   "cultivate",
+   "civilize",
+   "civilise"
+  ],
+  "partOfSpeech": "v"
+ },
+ "01965341-v": {
+  "definition": [
+   "swim in or form a large group of fish"
+  ],
+  "example": [
+   "A cluster of schooling fish was attracted to the bait"
+  ],
+  "hypernym": [
+   "01964770-v"
+  ],
+  "ili": "i31535",
+  "members": [
+   "school"
+  ],
+  "partOfSpeech": "v"
+ },
+ "04313218-n": {
+  "definition": [
+   "a facility equipped with special equipment and personnel for a particular purpose"
+  ],
+  "example": [
+   "he started looking for a gas station",
+   "the train pulled into the station"
+  ],
+  "hypernym": [
+   "03319968-n"
+  ],
+  "ili": "i59500",
+  "members": [
+   "station"
+  ],
+  "partOfSpeech": "n"
+ },
+ "13970825-n": {
+  "definition": [
+   "proper or designated social situation"
+  ],
+  "example": [
+   "he overstepped his place",
+   "the responsibilities of a man in his station",
+   "married above her station"
+  ],
+  "hypernym": [
+   "13970595-n"
+  ],
+  "ili": "i110233",
+  "members": [
+   "place",
+   "station"
+  ],
+  "partOfSpeech": "n"
+ },
+ "08674221-n": {
+  "definition": [
+   "(nautical) the location to which a ship or fleet is assigned for duty"
+  ],
+  "domain_topic": [
+   "08208631-n"
+  ],
+  "hypernym": [
+   "08639173-n"
+  ],
+  "ili": "i82456",
+  "members": [
+   "station"
+  ],
+  "partOfSpeech": "n"
+ },
+ "08641960-n": {
+  "definition": [
+   "the position where someone (as a guard or sentry) stands or is assigned to stand"
+  ],
+  "example": [
+   "a soldier manned the entrance post",
+   "a sentry station"
+  ],
+  "hypernym": [
+   "08639173-n"
+  ],
+  "ili": "i82308",
+  "members": [
+   "post",
+   "station"
+  ],
+  "partOfSpeech": "n"
+ },
+ "05064212-n": {
+  "definition": [
+   "the frequency assigned to a broadcasting station"
+  ],
+  "hypernym": [
+   "05063641-n"
+  ],
+  "ili": "i63571",
+  "members": [
+   "station"
+  ],
+  "partOfSpeech": "n"
+ },
+ "01091334-v": {
+  "definition": [
+   "assign to a station"
+  ],
+  "hypernym": [
+   "01854282-v"
+  ],
+  "ili": "i27038",
+  "members": [
+   "station",
+   "post",
+   "send",
+   "place"
+  ],
+  "partOfSpeech": "v"
+ },
+ "10685137-n": {
+  "definition": [
+   "a learner who is enrolled in an educational institution"
+  ],
+  "hypernym": [
+   "10078970-n"
+  ],
+  "ili": "i93383",
+  "members": [
+   "student",
+   "pupil",
+   "educatee"
+  ],
+  "partOfSpeech": "n",
+  "wikidata": "Q48282"
+ },
+ "10271476-n": {
+  "definition": [
+   "someone (especially a child) who learns (as from a teacher) or takes up knowledge or beliefs"
+  ],
+  "hypernym": [
+   "09786620-n"
+  ],
+  "ili": "i90958",
+  "members": [
+   "learner",
+   "scholar",
+   "assimilator",
+   "student"
+  ],
+  "partOfSpeech": "n"
+ },
+ "10713754-n": {
+  "definition": [
+   "a person whose occupation is teaching"
+  ],
+  "exemplifies": [
+   "06730109-n"
+  ],
+  "hypernym": [
+   "10065521-n"
+  ],
+  "ili": "i93557",
+  "members": [
+   "teacher",
+   "instructor"
+  ],
+  "partOfSpeech": "n",
+  "wikidata": "Q37226"
+ },
+ "05863377-n": {
+  "definition": [
+   "a personified abstraction that teaches"
+  ],
+  "example": [
+   "books were his teachers",
+   "experience is a demanding teacher"
+  ],
+  "hypernym": [
+   "05862715-n"
+  ],
+  "ili": "i67638",
+  "members": [
+   "teacher"
+  ],
+  "partOfSpeech": "n"
+ },
+ "04475240-n": {
+  "definition": [
+   "public transport provided by a line of railway cars coupled together and drawn by a locomotive"
+  ],
+  "example": [
+   "express trains don't stop at Princeton Junction"
+  ],
+  "hypernym": [
+   "04025495-n"
+  ],
+  "ili": "i60459",
+  "members": [
+   "train",
+   "railroad train"
+  ],
+  "mero_member": [
+   "02963378-n",
+   "03690149-n"
+  ],
+  "partOfSpeech": "n"
+ },
+ "08476659-n": {
+  "definition": [
+   "a sequentially ordered set of things or events or ideas in which each successive member is related to the preceding"
+  ],
+  "example": [
+   "a string of islands",
+   "train of mourners",
+   "a train of thought"
+  ],
+  "hypernym": [
+   "08474987-n"
+  ],
+  "ili": "i81510",
+  "members": [
+   "string",
+   "train"
+  ],
+  "partOfSpeech": "n"
+ },
+ "08444586-n": {
+  "definition": [
+   "a procession (of wagons or mules or camels) traveling together in single file"
+  ],
+  "example": [
+   "we were part of a caravan of almost a thousand camels",
+   "they joined the wagon train for safety"
+  ],
+  "hypernym": [
+   "00297411-n"
+  ],
+  "ili": "i81403",
+  "members": [
+   "caravan",
+   "train",
+   "wagon train"
+  ],
+  "mero_member": [
+   "03126946-n"
+  ],
+  "partOfSpeech": "n"
+ },
+ "07309535-n": {
+  "definition": [
+   "a series of consequences wrought by an event"
+  ],
+  "example": [
+   "it led to a train of disasters"
+  ],
+  "hypernym": [
+   "07308725-n"
+  ],
+  "ili": "i75026",
+  "members": [
+   "train"
+  ],
+  "partOfSpeech": "n"
+ },
+ "04475711-n": {
+  "definition": [
+   "piece of cloth forming the long back section of a gown that is drawn along the floor"
+  ],
+  "example": [
+   "the bride's train was carried by her two young nephews"
+  ],
+  "hypernym": [
+   "03938946-n"
+  ],
+  "ili": "i60460",
+  "members": [
+   "train"
+  ],
+  "partOfSpeech": "n"
+ },
+ "03436655-n": {
+  "definition": [
+   "wheelwork consisting of a connected set of rotating gears by which force is transmitted or motion or torque is changed"
+  ],
+  "example": [
+   "the fool got his tie caught in the geartrain"
+  ],
+  "hypernym": [
+   "04584257-n"
+  ],
+  "ili": "i54260",
+  "members": [
+   "gearing",
+   "gear",
+   "geartrain",
+   "power train",
+   "train"
+  ],
+  "partOfSpeech": "n"
+ },
+ "00604693-v": {
+  "definition": [
+   "create by training and teaching"
+  ],
+  "example": [
+   "The old master is training world-class violinists",
+   "we develop the leaders for the future"
+  ],
+  "hypernym": [
+   "00830768-v"
+  ],
+  "ili": "i24776",
+  "members": [
+   "train",
+   "develop",
+   "prepare",
+   "educate"
+  ],
+  "partOfSpeech": "v",
+  "similar": [
+   "00604200-v",
+   "02392176-v",
+   "00171865-v"
+  ]
+ },
+ "00604200-v": {
+  "definition": [
+   "undergo training or instruction in preparation for a particular role, function, or profession"
+  ],
+  "example": [
+   "She is training to be a teacher",
+   "He trained as a legal aid"
+  ],
+  "hypernym": [
+   "00601387-v"
+  ],
+  "ili": "i24774",
+  "members": [
+   "train",
+   "prepare"
+  ],
+  "partOfSpeech": "v",
+  "similar": [
+   "00604693-v",
+   "02392176-v"
+  ]
+ },
+ "02559394-v": {
+  "definition": [
+   "develop (a child's or animal's) behavior by instruction and practice; especially to teach self-control"
+  ],
+  "example": [
+   "Parents must discipline their children",
+   "Is this dog trained?"
+  ],
+  "hypernym": [
+   "00254647-v"
+  ],
+  "ili": "i34462",
+  "members": [
+   "discipline",
+   "train",
+   "check",
+   "condition"
+  ],
+  "partOfSpeech": "v",
+  "similar": [
+   "02392176-v"
+  ]
+ },
+ "02392176-v": {
+  "definition": [
+   "educate for a future role or function"
+  ],
+  "example": [
+   "He is grooming his son to become his successor",
+   "The prince was prepared to become King one day",
+   "They trained him to be a warrior"
+  ],
+  "hypernym": [
+   "02392628-v"
+  ],
+  "ili": "i33688",
+  "members": [
+   "prepare",
+   "groom",
+   "train"
+  ],
+  "partOfSpeech": "v",
+  "similar": [
+   "00604200-v",
+   "00604693-v",
+   "02559394-v"
+  ]
+ },
+ "01153576-v": {
+  "definition": [
+   "point or cause to go (blows, weapons, or objects such as photographic equipment) towards"
+  ],
+  "example": [
+   "Please don't aim at your little brother!",
+   "He trained his gun on the burglar",
+   "Don't train your camera on the women",
+   "Take a swipe at one's opponent"
+  ],
+  "hypernym": [
+   "01991174-v"
+  ],
+  "ili": "i27379",
+  "members": [
+   "aim",
+   "take",
+   "train",
+   "take aim",
+   "direct"
+  ],
+  "partOfSpeech": "v"
+ },
+ "00835381-v": {
+  "definition": [
+   "teach and supervise (someone); act as a trainer or coach (to), as in sports"
+  ],
+  "example": [
+   "He is training our Olympic team",
+   "She is coaching the crew"
+  ],
+  "hypernym": [
+   "00830768-v"
+  ],
+  "ili": "i25819",
+  "members": [
+   "coach",
+   "train"
+  ],
+  "partOfSpeech": "v",
+  "similar": [
+   "00099798-v"
+  ]
+ },
+ "00099798-v": {
+  "definition": [
+   "exercise in order to prepare for an event or competition"
+  ],
+  "example": [
+   "She is training for the Olympics"
+  ],
+  "hypernym": [
+   "00099475-v"
+  ],
+  "ili": "i22273",
+  "members": [
+   "train"
+  ],
+  "partOfSpeech": "v",
+  "similar": [
+   "00835381-v"
+  ]
+ },
+ "02515254-v": {
+  "definition": [
+   "cause to grow in a certain way by tying and pruning it"
+  ],
+  "example": [
+   "train the vine"
+  ],
+  "hypernym": [
+   "02516039-v"
+  ],
+  "ili": "i34260",
+  "members": [
+   "train"
+  ],
+  "partOfSpeech": "v"
+ },
+ "01940396-v": {
+  "definition": [
+   "travel by rail or train"
+  ],
+  "example": [
+   "They railed from Rome to Venice",
+   "She trained to Hamburg"
+  ],
+  "hypernym": [
+   "01959843-v"
+  ],
+  "ili": "i31402",
+  "members": [
+   "train",
+   "rail"
+  ],
+  "partOfSpeech": "v"
+ },
+ "01456580-v": {
+  "definition": [
+   "drag loosely along a surface; allow to sweep the ground"
+  ],
+  "example": [
+   "The toddler was trailing his pants",
+   "She trained her long scarf behind her"
+  ],
+  "hypernym": [
+   "01456044-v"
+  ],
+  "ili": "i28992",
+  "members": [
+   "trail",
+   "train"
+  ],
+  "partOfSpeech": "v",
+  "similar": [
+   "01545624-v"
+  ]
+ },
+ "00296527-n": {
+  "definition": [
+   "the act of going from one place to another"
+  ],
+  "example": [
+   "he enjoyed selling but he hated the travel"
+  ],
+  "hypernym": [
+   "00280679-n"
+  ],
+  "ili": "i36956",
+  "members": [
+   "travel",
+   "traveling",
+   "travelling"
+  ],
+  "partOfSpeech": "n"
+ },
+ "07325733-n": {
+  "definition": [
+   "a movement through space that changes the location of something"
+  ],
+  "hypernym": [
+   "07324399-n"
+  ],
+  "ili": "i75112",
+  "members": [
+   "change of location",
+   "travel"
+  ],
+  "partOfSpeech": "n"
+ },
+ "00283971-n": {
+  "definition": [
+   "self-propelled movement"
+  ],
+  "hypernym": [
+   "00280679-n"
+  ],
+  "ili": "i36882",
+  "members": [
+   "locomotion",
+   "travel"
+  ],
+  "partOfSpeech": "n"
+ },
+ "01839438-v": {
+  "definition": [
+   "change location; move, travel, or proceed, also metaphorically"
+  ],
+  "example": [
+   "How fast does your new car go?",
+   "We travelled from Rome to Naples by bus",
+   "The policemen went from door to door looking for the suspect",
+   "The soldiers moved towards the city in an attempt to take it before night fell",
+   "news travelled fast"
+  ],
+  "hypernym": [
+   "02372362-v"
+  ],
+  "ili": "i30898",
+  "members": [
+   "travel",
+   "go",
+   "move",
+   "locomote"
+  ],
+  "partOfSpeech": "v",
+  "similar": [
+   "01854282-v"
+  ]
+ },
+ "01846997-v": {
+  "causes": [
+   "01839438-v"
+  ],
+  "definition": [
+   "make a trip for pleasure"
+  ],
+  "hypernym": [
+   "01839438-v"
+  ],
+  "ili": "i30926",
+  "members": [
+   "travel",
+   "trip",
+   "jaunt"
+  ],
+  "partOfSpeech": "v"
+ },
+ "01845021-v": {
+  "definition": [
+   "undergo transportation as in a vehicle"
+  ],
+  "example": [
+   "We travelled North on Rte. 508"
+  ],
+  "hypernym": [
+   "01839438-v"
+  ],
+  "ili": "i30914",
+  "members": [
+   "travel"
+  ],
+  "partOfSpeech": "v"
+ },
+ "02106280-v": {
+  "definition": [
+   "travel from place to place, as for the purpose of finding work, preaching, or acting as a judge"
+  ],
+  "hypernym": [
+   "01839438-v"
+  ],
+  "ili": "i32273",
+  "members": [
+   "travel",
+   "move around"
+  ],
+  "partOfSpeech": "v"
+ },
+ "00309196-n": {
+  "definition": [
+   "a journey for some purpose (usually including the return)"
+  ],
+  "example": [
+   "he took a trip to the shopping center"
+  ],
+  "hypernym": [
+   "00307252-n"
+  ],
+  "ili": "i37024",
+  "members": [
+   "trip"
+  ],
+  "partOfSpeech": "n"
+ },
+ "14401716-n": {
+  "definition": [
+   "a hallucinatory experience induced by drugs"
+  ],
+  "example": [
+   "an acid trip"
+  ],
+  "hypernym": [
+   "14401022-n"
+  ],
+  "ili": "i112560",
+  "members": [
+   "trip"
+  ],
+  "partOfSpeech": "n"
+ },
+ "07332119-n": {
+  "definition": [
+   "an accidental misstep threatening (or causing) a fall"
+  ],
+  "example": [
+   "he blamed his slip on the ice",
+   "the jolt caused many slips and a few spills"
+  ],
+  "hypernym": [
+   "07329027-n"
+  ],
+  "ili": "i75144",
+  "members": [
+   "slip",
+   "trip"
+  ],
+  "partOfSpeech": "n"
+ },
+ "07303090-n": {
+  "definition": [
+   "an exciting or stimulating experience"
+  ],
+  "hypernym": [
+   "07300108-n"
+  ],
+  "ili": "i74991",
+  "members": [
+   "trip",
+   "head trip"
+  ],
+  "partOfSpeech": "n"
+ },
+ "04492482-n": {
+  "definition": [
+   "a catch mechanism that acts as a switch"
+  ],
+  "example": [
+   "the pressure activates the tripper and releases the water"
+  ],
+  "hypernym": [
+   "02986245-n"
+  ],
+  "ili": "i60564",
+  "members": [
+   "tripper",
+   "trip"
+  ],
+  "partOfSpeech": "n"
+ },
+ "00287084-n": {
+  "definition": [
+   "a light or nimble tread"
+  ],
+  "example": [
+   "he heard the trip of women's feet overhead"
+  ],
+  "hypernym": [
+   "00286401-n"
+  ],
+  "ili": "i36896",
+  "members": [
+   "trip"
+  ],
+  "partOfSpeech": "n"
+ },
+ "00077383-n": {
+  "definition": [
+   "an unintentional but embarrassing blunder"
+  ],
+  "example": [
+   "he recited the whole poem without a single trip",
+   "he arranged his robes to avoid a trip-up later",
+   "confusion caused his unfortunate misstep"
+  ],
+  "hypernym": [
+   "00075610-n"
+  ],
+  "ili": "i35811",
+  "members": [
+   "trip",
+   "trip-up",
+   "stumble",
+   "misstep"
+  ],
+  "partOfSpeech": "n"
+ },
+ "01904401-v": {
+  "definition": [
+   "miss a step and fall or nearly fall"
+  ],
+  "entails": [
+   "01908923-v"
+  ],
+  "example": [
+   "She stumbled over the tree root"
+  ],
+  "hypernym": [
+   "01835473-v"
+  ],
+  "ili": "i31220",
+  "members": [
+   "stumble",
+   "trip"
+  ],
+  "partOfSpeech": "v"
+ },
+ "01904753-v": {
+  "causes": [
+   "01904401-v"
+  ],
+  "definition": [
+   "cause to stumble"
+  ],
+  "example": [
+   "The questions on the test tripped him up"
+  ],
+  "hypernym": [
+   "02456614-v"
+  ],
+  "ili": "i31222",
+  "members": [
+   "trip",
+   "trip up"
+  ],
+  "partOfSpeech": "v"
+ },
+ "01647199-v": {
+  "causes": [
+   "00340744-v"
+  ],
+  "definition": [
+   "put in motion or move to act"
+  ],
+  "example": [
+   "trigger a reaction",
+   "actuate the circuits"
+  ],
+  "hypernym": [
+   "01645456-v"
+  ],
+  "ili": "i29957",
+  "members": [
+   "trip",
+   "actuate",
+   "trigger",
+   "activate",
+   "set off",
+   "spark off",
+   "spark",
+   "trigger off",
+   "touch off"
+  ],
+  "partOfSpeech": "v"
+ },
+ "01203572-v": {
+  "definition": [
+   "get high, stoned, or drugged"
+  ],
+  "example": [
+   "He trips every weekend"
+  ],
+  "hypernym": [
+   "01775456-v"
+  ],
+  "ili": "i27628",
+  "members": [
+   "trip",
+   "trip out",
+   "turn on",
+   "get off"
+  ],
+  "partOfSpeech": "v"
+ },
+ "00002098-a": {
+  "attribute": [
+   "05207437-n"
+  ],
+  "definition": [
+   "(usually followed by ‘to’) not having the necessary means or skill or know-how"
+  ],
+  "example": [
+   "unable to get to town without a car",
+   "unable to obtain funds"
+  ],
+  "ili": "i2",
+  "members": [
+   "unable"
+  ],
+  "partOfSpeech": "a"
+ },
+ "00308592-s": {
+  "definition": [
+   "(usually followed by ‘to’) lacking necessary physical or mental ability"
+  ],
+  "example": [
+   "dyslexics are unable to learn to read adequately",
+   "the sun was unable to melt enough snow"
+  ],
+  "ili": "i1699",
+  "members": [
+   "unable"
+  ],
+  "partOfSpeech": "s",
+  "similar": [
+   "00308272-a"
+  ]
+ },
+ "01830798-s": {
+  "definition": [
+   "lacking in power or forcefulness"
+  ],
+  "example": [
+   "an ineffectual ruler",
+   "like an unable phoenix in hot ashes"
+  ],
+  "ili": "i10023",
+  "members": [
+   "ineffective",
+   "ineffectual",
+   "unable"
+  ],
+  "partOfSpeech": "s",
+  "similar": [
+   "01830237-a"
+  ]
+ },
+ "14869913-n": {
+  "definition": [
+   "binary compound that occurs at room temperature as a clear colorless odorless tasteless liquid; freezes into ice below 0 degrees centigrade and boils above 100 degrees centigrade; widely used as a solvent"
+  ],
+  "hypernym": [
+   "14643012-n",
+   "14964238-n"
+  ],
+  "ili": "i115069",
+  "members": [
+   "water",
+   "H2O"
+  ],
+  "mero_substance": [
+   "14664612-n",
+   "14672278-n"
+  ],
+  "partOfSpeech": "n"
+ },
+ "09248053-n": {
+  "definition": [
+   "the part of the earth's surface covered with water (such as a river or lake or ocean)"
+  ],
+  "domain_topic": [
+   "09434308-n",
+   "09351810-n",
+   "09399110-n"
+  ],
+  "example": [
+   "they invaded our territorial waters",
+   "they were sitting by the water's edge"
+  ],
+  "hypernym": [
+   "00002452-n"
+  ],
+  "ili": "i85104",
+  "members": [
+   "body of water",
+   "water"
+  ],
+  "mero_substance": [
+   "14869913-n"
+  ],
+  "partOfSpeech": "n"
+ },
+ "14871527-n": {
+  "definition": [
+   "once thought to be one of four elements composing the universe (Empedocles), associated with the humour phlegm"
+  ],
+  "exemplifies": [
+   "07087487-n"
+  ],
+  "hypernym": [
+   "14864925-n"
+  ],
+  "ili": "i115075",
+  "members": [
+   "water"
+  ],
+  "partOfSpeech": "n"
+ },
+ "04569944-n": {
+  "definition": [
+   "a facility that provides a source of water"
+  ],
+  "example": [
+   "the town debated the purification of the water supply",
+   "first you have to cut off the water"
+  ],
+  "hypernym": [
+   "03319968-n"
+  ],
+  "ili": "i61023",
+  "members": [
+   "water system",
+   "water supply",
+   "water"
+  ],
+  "mero_part": [
+   "04085859-n",
+   "04568453-n"
+  ],
+  "partOfSpeech": "n"
+ },
+ "14879875-n": {
+  "definition": [
+   "liquid excretory product"
+  ],
+  "domain_topic": [
+   "14878134-n"
+  ],
+  "example": [
+   "there was blood in his urine",
+   "the child had to make water"
+  ],
+  "exemplifies": [
+   "07139048-n"
+  ],
+  "hypernym": [
+   "14878134-n"
+  ],
+  "ili": "i115125",
+  "members": [
+   "urine",
+   "piss",
+   "pee",
+   "piddle",
+   "weewee",
+   "water"
+  ],
+  "partOfSpeech": "n",
+  "wikidata": "Q40924"
+ },
+ "07951744-n": {
+  "definition": [
+   "a liquid necessary for the life of most animals and plants"
+  ],
+  "example": [
+   "he asked for a drink of water"
+  ],
+  "hypernym": [
+   "14964524-n",
+   "00021445-n",
+   "00021914-n"
+  ],
+  "ili": "i79021",
+  "members": [
+   "water"
+  ],
+  "partOfSpeech": "n"
+ },
+ "00228662-v": {
+  "definition": [
+   "supply with water, as with channels or ditches or streams"
+  ],
+  "example": [
+   "Water the fields"
+  ],
+  "hypernym": [
+   "00215377-v"
+  ],
+  "ili": "i22863",
+  "members": [
+   "water",
+   "irrigate"
+  ],
+  "partOfSpeech": "v"
+ },
+ "02362872-v": {
+  "definition": [
+   "provide with water"
+  ],
+  "example": [
+   "We watered the buffalo"
+  ],
+  "hypernym": [
+   "02332196-v"
+  ],
+  "ili": "i33539",
+  "members": [
+   "water"
+  ],
+  "partOfSpeech": "v"
+ },
+ "00069341-v": {
+  "definition": [
+   "secrete or form water, as tears or saliva"
+  ],
+  "example": [
+   "My mouth watered at the prospect of a good dinner",
+   "His eyes watered"
+  ],
+  "hypernym": [
+   "00069066-v"
+  ],
+  "ili": "i22123",
+  "members": [
+   "water"
+  ],
+  "partOfSpeech": "v"
+ },
+ "00453053-v": {
+  "definition": [
+   "fill with tears"
+  ],
+  "example": [
+   "His eyes were watering"
+  ],
+  "hypernym": [
+   "00452793-v"
+  ],
+  "ili": "i23981",
+  "members": [
+   "water"
+  ],
+  "partOfSpeech": "v"
+ },
+ "00680201-v": {
+  "definition": [
+   "plan for an activity or event"
+  ],
+  "example": [
+   "I've scheduled a concert next week"
+  ],
+  "hypernym": [
+   "00706456-v"
+  ],
+  "ili": "i25109",
+  "members": [
+   "schedule"
+  ],
+  "partOfSpeech": "v"
+ },
+ "08643858-n": {
+  "definition": [
+   "an urban district having corporate status and powers of self-government"
+  ],
+  "hypernym": [
+   "08693705-n",
+   "08508836-n"
+  ],
+  "ili": "i82317",
+  "members": [
+   "municipality"
+  ],
+  "mero_part": [
+   "08690135-n"
+  ],
+  "partOfSpeech": "n"
+ },
+ "04659141-n": {
+  "definition": [
+   "the trait of being uncommunicative"
+  ],
+  "hypernym": [
+   "04623416-n"
+  ],
+  "ili": "i61513",
+  "members": [
+   "uncommunicativeness"
+  ],
+  "partOfSpeech": "n"
+ },
+ "07329027-n": {
+  "definition": [
+   "an instance of misfortune"
+  ],
+  "hypernym": [
+   "07319470-n"
+  ],
+  "ili": "i75128",
+  "members": [
+   "mishap",
+   "misadventure",
+   "mischance"
+  ],
+  "partOfSpeech": "n"
+ },
+ "10078970-n": {
+  "definition": [
+   "a person who enrolls in (or is enrolled in) a class or course of study"
+  ],
+  "hypernym": [
+   "09786620-n"
+  ],
+  "ili": "i89769",
+  "members": [
+   "enrollee"
+  ],
+  "partOfSpeech": "n"
+ },
+ "08215965-n": {
+  "definition": [
+   "the military forces of a nation"
+  ],
+  "example": [
+   "their military is the largest in the region",
+   "the military machine is the same one we faced in 1991 but now it is weaker"
+  ],
+  "hypernym": [
+   "08224937-n"
+  ],
+  "ili": "i80225",
+  "members": [
+   "military",
+   "armed forces",
+   "armed services",
+   "military machine",
+   "war machine"
+  ],
+  "mero_member": [
+   "08259021-n",
+   "10325302-n"
+  ],
+  "partOfSpeech": "n"
+ },
+ "00276642-v": {
+  "definition": [
+   "put (things or places) in order"
+  ],
+  "example": [
+   "Tidy up your room!"
+  ],
+  "hypernym": [
+   "00278429-v"
+  ],
+  "ili": "i23097",
+  "members": [
+   "tidy",
+   "tidy up",
+   "clean up",
+   "neaten",
+   "straighten",
+   "straighten out",
+   "square away"
+  ],
+  "partOfSpeech": "v"
+ },
+ "02218472-v": {
+  "definition": [
+   "hold back; refuse to hand over or share"
+  ],
+  "example": [
+   "The father is withholding the allowance until the son cleans his room"
+  ],
+  "hypernym": [
+   "02217607-v"
+  ],
+  "ili": "i32812",
+  "members": [
+   "withhold",
+   "keep back"
+  ],
+  "partOfSpeech": "v"
+ },
+ "00833312-v": {
+  "definition": [
+   "impart knowledge of some fact, state of affairs, or event to"
+  ],
+  "example": [
+   "I informed him of his rights"
+  ],
+  "hypernym": [
+   "00742582-v"
+  ],
+  "ili": "i25811",
+  "members": [
+   "inform"
+  ],
+  "partOfSpeech": "v"
+ },
+ "07987168-n": {
+  "definition": [
+   "people descended from a common ancestor"
+  ],
+  "example": [
+   "his family has lived in Massachusetts since the Mayflower"
+  ],
+  "hypernym": [
+   "08118903-n"
+  ],
+  "ili": "i79200",
+  "members": [
+   "family",
+   "family line",
+   "folk",
+   "kinfolk",
+   "kinsfolk",
+   "sept",
+   "phratry"
+  ],
+  "partOfSpeech": "n"
+ },
+ "14643012-n": {
+  "definition": [
+   "chemical compound composed of only two elements"
+  ],
+  "hypernym": [
+   "14842408-n"
+  ],
+  "ili": "i113854",
+  "members": [
+   "binary compound"
+  ],
+  "partOfSpeech": "n",
+  "wikidata": "Q66392"
+ },
+ "05803342-n": {
+  "definition": [
+   "something arranged in advance"
+  ],
+  "hypernym": [
+   "05803052-n"
+  ],
+  "ili": "i67341",
+  "members": [
+   "prearrangement"
+  ],
+  "partOfSpeech": "n"
+ },
+ "00254647-v": {
+  "causes": [
+   "00252905-v",
+   "00231172-v"
+  ],
+  "definition": [
+   "cause to grow and differentiate in ways conforming to its natural development"
+  ],
+  "example": [
+   "The perfect climate here develops the grain",
+   "He developed a new kind of apple"
+  ],
+  "hypernym": [
+   "00126072-v"
+  ],
+  "ili": "i22984",
+  "members": [
+   "develop",
+   "make grow"
+  ],
+  "partOfSpeech": "v",
+  "similar": [
+   "00171865-v"
+  ]
+ },
+ "14964524-n": {
+  "definition": [
+   "a substance that is liquid at room temperature and pressure"
+  ],
+  "hypernym": [
+   "14964038-n"
+  ],
+  "ili": "i115634",
+  "members": [
+   "liquid"
+  ],
+  "partOfSpeech": "n"
+ },
+ "00489236-n": {
+  "definition": [
+   "a game played with playing cards"
+  ],
+  "hypernym": [
+   "00456623-n"
+  ],
+  "ili": "i37953",
+  "members": [
+   "card game",
+   "cards"
+  ],
+  "mero_part": [
+   "00092323-n",
+   "00341289-n",
+   "00490486-n",
+   "00805055-n",
+   "01087261-n",
+   "01258857-n",
+   "01261891-n",
+   "07207171-n"
+  ],
+  "partOfSpeech": "n",
+  "wikidata": "Q142714"
+ },
+ "08010371-n": {
+  "definition": [
+   "a group of animals"
+  ],
+  "hypernym": [
+   "07957410-n"
+  ],
+  "ili": "i79298",
+  "members": [
+   "animal group"
+  ],
+  "partOfSpeech": "n"
+ },
+ "00754499-v": {
+  "definition": [
+   "make a request or demand for something to somebody"
+  ],
+  "example": [
+   "She asked him for a loan"
+  ],
+  "hypernym": [
+   "00754770-v"
+  ],
+  "ili": "i25462",
+  "members": [
+   "ask"
+  ],
+  "partOfSpeech": "v"
+ },
+ "01220349-n": {
+  "definition": [
+   "the act of giving someone a job"
+  ],
+  "hypernym": [
+   "00038116-n"
+  ],
+  "ili": "i41765",
+  "members": [
+   "employment",
+   "engagement"
+  ],
+  "partOfSpeech": "n"
+ },
+ "00820685-n": {
+  "definition": [
+   "the activity of protecting something from loss or danger"
+  ],
+  "hypernym": [
+   "00819341-n"
+  ],
+  "ili": "i39707",
+  "members": [
+   "preservation",
+   "saving"
+  ],
+  "partOfSpeech": "n"
+ },
+ "14401022-n": {
+  "definition": [
+   "illusory perception; a common symptom of severe mental disorder"
+  ],
+  "hypernym": [
+   "14400260-n"
+  ],
+  "ili": "i112555",
+  "members": [
+   "hallucination"
+  ],
+  "partOfSpeech": "n"
+ },
+ "02626667-v": {
+  "definition": [
+   "form or compose"
+  ],
+  "example": [
+   "This money is my only income",
+   "The stone wall was the backdrop for the performance",
+   "These constitute my entire belonging",
+   "The children made up the chorus",
+   "This sum represents my entire income for a year",
+   "These few men comprise his entire army"
+  ],
+  "hypernym": [
+   "02609706-v"
+  ],
+  "ili": "i34777",
+  "members": [
+   "constitute",
+   "represent",
+   "make up",
+   "comprise",
+   "be"
+  ],
+  "partOfSpeech": "v"
+ },
+ "01939092-v": {
+  "definition": [
+   "to go or travel towards"
+  ],
+  "example": [
+   "where is she heading?",
+   "We were headed for the mountains"
+  ],
+  "hypernym": [
+   "01999581-v"
+  ],
+  "ili": "i31395",
+  "members": [
+   "head"
+  ],
+  "partOfSpeech": "v"
+ },
+ "07019235-n": {
+  "definition": [
+   "the art of writing and producing plays"
+  ],
+  "hypernym": [
+   "06262268-n"
+  ],
+  "ili": "i73479",
+  "members": [
+   "dramaturgy",
+   "dramatic art",
+   "dramatics",
+   "theater",
+   "theatre"
+  ],
+  "mero_part": [
+   "07020800-n"
+  ],
+  "partOfSpeech": "n"
+ },
+ "00892111-v": {
+  "definition": [
+   "make certain of"
+  ],
+  "example": [
+   "This nest egg will ensure a nice retirement for us",
+   "Preparation will guarantee success!"
+  ],
+  "hypernym": [
+   "00666401-v"
+  ],
+  "ili": "i26072",
+  "members": [
+   "guarantee",
+   "ensure",
+   "insure",
+   "assure",
+   "secure"
+  ],
+  "partOfSpeech": "v",
+  "similar": [
+   "00891621-v"
+  ]
+ },
+ "00069066-v": {
+  "definition": [
+   "generate and separate from cells or bodily fluids"
+  ],
+  "example": [
+   "secrete digestive juices",
+   "release a hormone into the blood stream"
+  ],
+  "hypernym": [
+   "00067770-v"
+  ],
+  "ili": "i22122",
+  "members": [
+   "secrete",
+   "release"
+  ],
+  "partOfSpeech": "v"
+ },
+ "01114241-v": {
+  "definition": [
+   "gain points in a game"
+  ],
+  "entails": [
+   "01074673-v"
+  ],
+  "example": [
+   "The home team is racking up points"
+  ],
+  "hypernym": [
+   "01113439-v"
+  ],
+  "ili": "i27156",
+  "members": [
+   "score",
+   "tally",
+   "rack up"
+  ],
+  "partOfSpeech": "v"
+ },
+ "06783066-n": {
+  "definition": [
+   "the statement (oral or written) of an exchange of promises"
+  ],
+  "example": [
+   "they had an agreement that they would not interfere in each other's business",
+   "there was an understanding between management and the workers"
+  ],
+  "hypernym": [
+   "06735202-n"
+  ],
+  "ili": "i72068",
+  "members": [
+   "agreement",
+   "understanding"
+  ],
+  "mero_part": [
+   "06783666-n"
+  ],
+  "partOfSpeech": "n"
+ },
+ "07300108-n": {
+  "definition": [
+   "an event as apprehended"
+  ],
+  "example": [
+   "a surprising experience",
+   "that painful experience certainly got our attention"
+  ],
+  "hypernym": [
+   "07298313-n"
+  ],
+  "ili": "i74975",
+  "members": [
+   "experience"
+  ],
+  "mero_part": [
+   "05877401-n"
+  ],
+  "partOfSpeech": "n"
+ },
+ "06297048-n": {
+  "definition": [
+   "a unit of language that native speakers can identify"
+  ],
+  "example": [
+   "words are the blocks from which sentences are made",
+   "he hardly said ten words all morning"
+  ],
+  "hypernym": [
+   "06294878-n"
+  ],
+  "ili": "i69544",
+  "members": [
+   "word"
+  ],
+  "mero_part": [
+   "06315661-n",
+   "06319039-n"
+  ],
+  "partOfSpeech": "n"
+ },
+ "05847533-n": {
+  "definition": [
+   "a category of things distinguished by some common characteristic or quality"
+  ],
+  "example": [
+   "sculpture is a form of art",
+   "what kinds of desserts are there?"
+  ],
+  "hypernym": [
+   "05847274-n"
+  ],
+  "ili": "i67559",
+  "members": [
+   "kind",
+   "sort",
+   "form",
+   "variety"
+  ],
+  "partOfSpeech": "n"
+ },
+ "01159300-v": {
+  "definition": [
+   "serve oneself to, or consume regularly"
+  ],
+  "example": [
+   "Have another bowl of chicken soup!",
+   "I don't take sugar in my coffee"
+  ],
+  "hypernym": [
+   "02372362-v"
+  ],
+  "ili": "i27410",
+  "members": [
+   "consume",
+   "ingest",
+   "take in",
+   "take",
+   "have"
+  ],
+  "partOfSpeech": "v"
+ },
+ "08180172-n": {
+  "definition": [
+   "persons who make or amend or repeal laws"
+  ],
+  "hypernym": [
+   "08180691-n"
+  ],
+  "ili": "i80050",
+  "members": [
+   "legislature",
+   "legislative assembly",
+   "legislative body",
+   "general assembly",
+   "law-makers"
+  ],
+  "partOfSpeech": "n",
+  "wikidata": "Q11204"
+ },
+ "08508836-n": {
+  "definition": [
+   "a district defined for administrative purposes"
+  ],
+  "hypernym": [
+   "08569713-n"
+  ],
+  "ili": "i81682",
+  "members": [
+   "administrative district",
+   "administrative division",
+   "territorial division"
+  ],
+  "partOfSpeech": "n"
+ },
+ "14864925-n": {
+  "definition": [
+   "one of four substances thought in ancient and medieval cosmology to constitute the physical universe"
+  ],
+  "example": [
+   "the alchemists believed that there were four elements"
+  ],
+  "hypernym": [
+   "00019793-n"
+  ],
+  "ili": "i115043",
+  "members": [
+   "element"
+  ],
+  "partOfSpeech": "n"
+ },
+ "08208631-n": {
+  "definition": [
+   "an organization of military vessels belonging to a country and available for sea warfare"
+  ],
+  "domain_topic": [
+   "08215965-n"
+  ],
+  "hypernym": [
+   "08215077-n"
+  ],
+  "ili": "i80195",
+  "members": [
+   "navy",
+   "naval forces"
+  ],
+  "mero_member": [
+   "08208462-n",
+   "08309677-n"
+  ],
+  "partOfSpeech": "n",
+  "wikidata": "Q4508"
+ },
+ "02588700-v": {
+  "definition": [
+   "perform an act, usually with a negative connotation"
+  ],
+  "example": [
+   "perpetrate a crime",
+   "pull a bank robbery"
+  ],
+  "hypernym": [
+   "02372362-v"
+  ],
+  "ili": "i34595",
+  "members": [
+   "perpetrate",
+   "commit",
+   "pull"
+  ],
+  "partOfSpeech": "v"
+ },
+ "06013397-n": {
+  "definition": [
+   "the branch of pure mathematics dealing with the theory of numerical calculations"
+  ],
+  "domain_topic": [
+   "06009822-n"
+  ],
+  "hypernym": [
+   "06013012-n"
+  ],
+  "ili": "i68343",
+  "members": [
+   "arithmetic"
+  ],
+  "partOfSpeech": "n"
+ },
+ "02021901-v": {
+  "definition": [
+   "get on board of (trains, buses, ships, aircraft, etc.)"
+  ],
+  "hypernym": [
+   "02020375-v"
+  ],
+  "ili": "i31829",
+  "members": [
+   "board",
+   "get on"
+  ],
+  "partOfSpeech": "v"
+ },
+ "05658174-n": {
+  "definition": [
+   "one of the inherent cognitive or perceptual powers of the mind"
+  ],
+  "hypernym": [
+   "05624029-n"
+  ],
+  "ili": "i66615",
+  "members": [
+   "faculty",
+   "mental faculty",
+   "module"
+  ],
+  "partOfSpeech": "n"
+ },
+ "01991174-v": {
+  "definition": [
+   "cause to be in an appropriate place, state, or relation"
+  ],
+  "hypernym": [
+   "01496967-v"
+  ],
+  "ili": "i31673",
+  "members": [
+   "position"
+  ],
+  "partOfSpeech": "v"
+ },
+ "00021914-n": {
+  "definition": [
+   "any substance (such as a chemical element or inorganic compound) that can be taken in by a green plant and used in organic synthesis"
+  ],
+  "hypernym": [
+   "00020270-n"
+  ],
+  "ili": "i35571",
+  "members": [
+   "nutrient"
+  ],
+  "partOfSpeech": "n"
+ },
+ "03319968-n": {
+  "definition": [
+   "a building or place that provides a particular service or is used for a particular industry"
+  ],
+  "example": [
+   "the assembly plant is an enormous facility"
+  ],
+  "hypernym": [
+   "00022119-n"
+  ],
+  "ili": "i53558",
+  "members": [
+   "facility",
+   "installation"
+  ],
+  "partOfSpeech": "n"
+ },
+ "02332196-v": {
+  "definition": [
+   "give something useful or necessary to"
+  ],
+  "example": [
+   "We provided the room with an electrical heater",
+   "The conference center offers a health spa",
+   "The hotel offers private meeting rooms"
+  ],
+  "hypernym": [
+   "02204104-v"
+  ],
+  "ili": "i33372",
+  "members": [
+   "supply",
+   "provide",
+   "render",
+   "furnish",
+   "offer"
+  ],
+  "partOfSpeech": "v"
+ },
+ "00109468-v": {
+  "definition": [
+   "undergo a change; become different in essence; losing one's or its original nature"
+  ],
+  "example": [
+   "She changed completely as she grew older",
+   "The weather changed last night"
+  ],
+  "hypernym": [
+   "02372362-v"
+  ],
+  "ili": "i22325",
+  "members": [
+   "change"
+  ],
+  "partOfSpeech": "v"
+ },
+ "00674352-v": {
+  "definition": [
+   "judge tentatively or form an estimate of (quantities or time)"
+  ],
+  "example": [
+   "I estimate this chicken to weigh three pounds"
+  ],
+  "hypernym": [
+   "00638921-v"
+  ],
+  "ili": "i25082",
+  "members": [
+   "estimate",
+   "gauge",
+   "approximate",
+   "guess",
+   "judge"
+  ],
+  "partOfSpeech": "v"
+ },
+ "08077878-n": {
+  "definition": [
+   "a commercial or industrial enterprise and the people who constitute it"
+  ],
+  "domain_topic": [
+   "01096649-n"
+  ],
+  "example": [
+   "he bought his brother's business",
+   "a small mom-and-pop business",
+   "a racially integrated business concern"
+  ],
+  "hypernym": [
+   "08072983-n"
+  ],
+  "ili": "i79566",
+  "members": [
+   "business",
+   "concern",
+   "business concern",
+   "business organization",
+   "business organisation"
+  ],
+  "mero_member": [
+   "08237635-n"
+  ],
+  "partOfSpeech": "n",
+  "wikidata": "Q4830453"
+ },
+ "01964770-v": {
+  "definition": [
+   "travel through water"
+  ],
+  "example": [
+   "We had to swim for 20 minutes to reach the shore",
+   "a big fish was swimming in the tank"
+  ],
+  "hypernym": [
+   "01839438-v"
+  ],
+  "ili": "i31534",
+  "members": [
+   "swim"
+  ],
+  "partOfSpeech": "v"
+ },
+ "00297411-n": {
+  "definition": [
+   "the group action of a collection of people or animals or vehicles moving ahead in more or less regular formation"
+  ],
+  "example": [
+   "processions were forbidden"
+  ],
+  "hypernym": [
+   "01082290-n",
+   "07968050-n"
+  ],
+  "ili": "i36959",
+  "members": [
+   "procession"
+  ],
+  "partOfSpeech": "n"
+ },
+ "13970595-n": {
+  "definition": [
+   "position in a social hierarchy"
+  ],
+  "example": [
+   "the British are more aware of social status than Americans are"
+  ],
+  "hypernym": [
+   "13968971-n"
+  ],
+  "ili": "i110232",
+  "members": [
+   "social station",
+   "social status",
+   "social rank",
+   "rank"
+  ],
+  "partOfSpeech": "n"
+ },
+ "00474948-v": {
+  "definition": [
+   "improve or perfect by pruning or polishing"
+  ],
+  "example": [
+   "refine one's style of writing"
+  ],
+  "hypernym": [
+   "00206293-v"
+  ],
+  "ili": "i24084",
+  "members": [
+   "polish",
+   "refine",
+   "fine-tune",
+   "down"
+  ],
+  "partOfSpeech": "v"
+ },
+ "02671069-v": {
+  "definition": [
+   "be tantamount or equivalent to"
+  ],
+  "example": [
+   "Her action amounted to a rebellion"
+  ],
+  "hypernym": [
+   "02670846-v"
+  ],
+  "ili": "i34990",
+  "members": [
+   "amount"
+  ],
+  "partOfSpeech": "v"
+ },
+ "08397896-n": {
+  "definition": [
+   "those in charge of running a business"
+  ],
+  "hypernym": [
+   "08181484-n"
+  ],
+  "ili": "i81149",
+  "members": [
+   "management"
+  ],
+  "mero_member": [
+   "08397499-n"
+  ],
+  "partOfSpeech": "n"
+ },
+ "00731363-v": {
+  "definition": [
+   "have a wish or desire to know something"
+  ],
+  "example": [
+   "He wondered who had built this beautiful church"
+  ],
+  "hypernym": [
+   "00786670-v"
+  ],
+  "ili": "i25346",
+  "members": [
+   "wonder",
+   "inquire",
+   "enquire"
+  ],
+  "partOfSpeech": "v"
+ },
+ "05706212-n": {
+  "definition": [
+   "the state of being unsure of something"
+  ],
+  "hypernym": [
+   "05677778-n"
+  ],
+  "ili": "i66857",
+  "members": [
+   "doubt",
+   "uncertainty",
+   "incertitude",
+   "dubiety",
+   "doubtfulness",
+   "dubiousness"
+  ],
+  "partOfSpeech": "n"
+ },
+ "01769760-v": {
+  "causes": [
+   "01771015-v"
+  ],
+  "definition": [
+   "disturb the peace of mind of; afflict with mental agitation or distress"
+  ],
+  "example": [
+   "I cannot sleep — my daughter's health is worrying me"
+  ],
+  "hypernym": [
+   "01768023-v"
+  ],
+  "ili": "i30567",
+  "members": [
+   "worry",
+   "vex"
+  ],
+  "partOfSpeech": "v",
+  "similar": [
+   "01771015-v"
+  ]
+ },
+ "05761561-n": {
+  "definition": [
+   "the gradual process of acquiring knowledge"
+  ],
+  "domain_topic": [
+   "00884975-n"
+  ],
+  "example": [
+   "education is a preparation for life",
+   "a girl's education was less important than a boy's"
+  ],
+  "hypernym": [
+   "05760541-n"
+  ],
+  "ili": "i67137",
+  "members": [
+   "education"
+  ],
+  "partOfSpeech": "n",
+  "wikidata": "Q8434"
+ },
+ "01630984-v": {
+  "definition": [
+   "generate gradually"
+  ],
+  "example": [
+   "We must develop more potential customers",
+   "develop a market for the new mobile phone"
+  ],
+  "hypernym": [
+   "01630392-v"
+  ],
+  "ili": "i29896",
+  "members": [
+   "develop"
+  ],
+  "partOfSpeech": "v",
+  "similar": [
+   "00171865-v",
+   "00546637-v"
+  ]
+ },
+ "00692380-v": {
+  "definition": [
+   "deem to be"
+  ],
+  "example": [
+   "She views this quite differently from me",
+   "I consider her to be shallow",
+   "I don't see the situation quite as negatively as you do"
+  ],
+  "hypernym": [
+   "00691086-v"
+  ],
+  "ili": "i25165",
+  "members": [
+   "see",
+   "consider",
+   "reckon",
+   "view",
+   "regard"
+  ],
+  "partOfSpeech": "v",
+  "similar": [
+   "00624823-v"
+  ]
+ },
+ "05786128-n": {
+  "definition": [
+   "a pseudoscience claiming divination by the positions of the planets and sun and moon"
+  ],
+  "hypernym": [
+   "05786951-n"
+  ],
+  "ili": "i67254",
+  "members": [
+   "astrology",
+   "star divination"
+  ],
+  "partOfSpeech": "n"
+ },
+ "08647614-n": {
+  "definition": [
+   "the extended spatial location of something"
+  ],
+  "example": [
+   "the farming regions of France",
+   "religions in all parts of the world",
+   "regions of outer space"
+  ],
+  "hypernym": [
+   "00027365-n"
+  ],
+  "ili": "i82338",
+  "members": [
+   "region",
+   "part"
+  ],
+  "partOfSpeech": "n"
+ },
+ "09399110-n": {
+  "definition": [
+   "a large body of water constituting a principal part of the hydrosphere"
+  ],
+  "hypernym": [
+   "09248053-n"
+  ],
+  "ili": "i85897",
+  "members": [
+   "ocean"
+  ],
+  "partOfSpeech": "n"
+ },
+ "09351810-n": {
+  "definition": [
+   "a body of (usually fresh) water surrounded by land"
+  ],
+  "hypernym": [
+   "09248053-n"
+  ],
+  "ili": "i85647",
+  "members": [
+   "lake"
+  ],
+  "mero_part": [
+   "09304990-n",
+   "09336622-n"
+  ],
+  "partOfSpeech": "n"
+ },
+ "00002452-n": {
+  "definition": [
+   "a separate and self-contained entity"
+  ],
+  "hypernym": [
+   "00001930-n"
+  ],
+  "ili": "i35548",
+  "members": [
+   "thing"
+  ],
+  "partOfSpeech": "n"
+ },
+ "06399623-n": {
+  "definition": [
+   "the words of something written"
+  ],
+  "example": [
+   "there were more than a thousand words of text",
+   "they handed out the printed text of the mayor's speech",
+   "he wants to reconstruct the original text"
+  ],
+  "hypernym": [
+   "06376912-n"
+  ],
+  "ili": "i70058",
+  "members": [
+   "text",
+   "textual matter"
+  ],
+  "mero_part": [
+   "06401590-n",
+   "06406508-n",
+   "06407785-n",
+   "06409546-n",
+   "06411638-n",
+   "06411914-n"
+  ],
+  "partOfSpeech": "n"
+ },
+ "01716563-v": {
+  "definition": [
+   "carry out or perform an action"
+  ],
+  "example": [
+   "John did the painting, the weeding, and he cleaned out the gutters",
+   "the skater executed a triple pirouette",
+   "she did a little dance"
+  ],
+  "hypernym": [
+   "02372362-v"
+  ],
+  "ili": "i30309",
+  "members": [
+   "perform",
+   "execute",
+   "do"
+  ],
+  "partOfSpeech": "v"
+ },
+ "03938946-n": {
+  "definition": [
+   "a separate part consisting of fabric"
+  ],
+  "hypernym": [
+   "03938441-n",
+   "03314753-n"
+  ],
+  "ili": "i57251",
+  "members": [
+   "piece of cloth",
+   "piece of material"
+  ],
+  "partOfSpeech": "n"
+ },
+ "13387866-n": {
+  "definition": [
+   "(finance) profits that are not paid out as dividends but are added to the capital base of the corporation"
+  ],
+  "domain_topic": [
+   "06160103-n"
+  ],
+  "hypernym": [
+   "13279261-n"
+  ],
+  "ili": "i106952",
+  "members": [
+   "accumulation"
+  ],
+  "partOfSpeech": "n"
+ },
+ "06601855-n": {
+  "definition": [
+   "a copy of a printed work offered for distribution"
+  ],
+  "hypernym": [
+   "04606723-n"
+  ],
+  "ili": "i71085",
+  "members": [
+   "publication"
+  ],
+  "mero_part": [
+   "04684742-n",
+   "06268608-n",
+   "06399623-n",
+   "06501650-n",
+   "06793517-n",
+   "07011408-n"
+  ],
+  "partOfSpeech": "n",
+  "wikidata": "Q732577"
+ },
+ "01635076-v": {
+  "definition": [
+   "create mentally and abstractly rather than with one's hands"
+  ],
+  "hypernym": [
+   "01620211-v"
+  ],
+  "ili": "i29908",
+  "members": [
+   "create by mental act",
+   "create mentally"
+  ],
+  "partOfSpeech": "v"
+ },
+ "01002259-v": {
+  "definition": [
+   "make a record of; set down in permanent form"
+  ],
+  "domain_topic": [
+   "00911901-n"
+  ],
+  "hypernym": [
+   "02230274-v"
+  ],
+  "ili": "i26586",
+  "members": [
+   "record",
+   "enter",
+   "put down"
+  ],
+  "partOfSpeech": "v"
+ },
+ "00033319-n": {
+  "definition": [
+   "something that is communicated by or to or between people or groups"
+  ],
+  "hypernym": [
+   "00002137-n"
+  ],
+  "ili": "i35593",
+  "members": [
+   "communication"
+  ],
+  "partOfSpeech": "n"
+ },
+ "07020800-n": {
+  "definition": [
+   "a play for performance on the stage or television or in a movie etc."
+  ],
+  "hypernym": [
+   "06374360-n"
+  ],
+  "ili": "i73486",
+  "members": [
+   "dramatic composition",
+   "dramatic work"
+  ],
+  "mero_part": [
+   "07022537-n"
+  ],
+  "partOfSpeech": "n"
+ },
+ "06735202-n": {
+  "definition": [
+   "a message that is stated or declared; a communication (oral or written) setting forth particulars or facts etc"
+  ],
+  "example": [
+   "according to his statement he was in London on that day"
+  ],
+  "hypernym": [
+   "06611268-n"
+  ],
+  "ili": "i71833",
+  "members": [
+   "statement"
+  ],
+  "partOfSpeech": "n"
+ },
+ "06403644-n": {
+  "definition": [
+   "a self-contained part of a larger composition (written or musical)"
+  ],
+  "domain_topic": [
+   "07034009-n"
+  ],
+  "example": [
+   "he always turns first to the business section",
+   "the history of this work is discussed in the next section"
+  ],
+  "hypernym": [
+   "06374360-n",
+   "07034009-n"
+  ],
+  "ili": "i70080",
+  "members": [
+   "section",
+   "subdivision"
+  ],
+  "partOfSpeech": "n"
+ },
+ "01656555-v": {
+  "definition": [
+   "make from scratch"
+  ],
+  "hypernym": [
+   "01620211-v"
+  ],
+  "ili": "i30003",
+  "members": [
+   "create from raw material",
+   "create from raw stuff"
+  ],
+  "partOfSpeech": "v"
+ },
+ "02604140-v": {
+  "causes": [
+   "02433771-v"
+  ],
+  "definition": [
+   "get people together"
+  ],
+  "example": [
+   "assemble your colleagues",
+   "get together all those who are interested in the project",
+   "gather the close family members"
+  ],
+  "hypernym": [
+   "00158612-v"
+  ],
+  "ili": "i34679",
+  "members": [
+   "assemble",
+   "gather",
+   "get together"
+  ],
+  "partOfSpeech": "v"
+ },
+ "00544490-v": {
+  "definition": [
+   "grow emotionally or mature"
+  ],
+  "example": [
+   "The child developed beautifully in her new kindergarten",
+   "When he spent a summer at camp, the boy grew noticeably and no longer showed some of his old adolescent behavior"
+  ],
+  "hypernym": [
+   "00109468-v"
+  ],
+  "ili": "i24452",
+  "members": [
+   "develop",
+   "grow"
+  ],
+  "partOfSpeech": "v"
+ },
+ "02531751-v": {
+  "definition": [
+   "to gain with effort"
+  ],
+  "example": [
+   "she achieved her goal despite setbacks"
+  ],
+  "hypernym": [
+   "02529837-v"
+  ],
+  "ili": "i34338",
+  "members": [
+   "achieve",
+   "accomplish",
+   "attain",
+   "reach"
+  ],
+  "partOfSpeech": "v"
+ },
+ "00099475-v": {
+  "definition": [
+   "do physical exercise"
+  ],
+  "entails": [
+   "01835473-v"
+  ],
+  "example": [
+   "She works out in the gym every day"
+  ],
+  "hypernym": [
+   "02372362-v"
+  ],
+  "ili": "i22272",
+  "members": [
+   "exercise",
+   "work out"
+  ],
+  "partOfSpeech": "v",
+  "similar": [
+   "00100305-v"
+  ]
+ },
+ "00432833-n": {
+  "definition": [
+   "activity by children that is guided more by imagination than by fixed rules"
+  ],
+  "example": [
+   "Freud believed in the utility of play to a small child"
+  ],
+  "hypernym": [
+   "00427931-n"
+  ],
+  "ili": "i37665",
+  "members": [
+   "play",
+   "child's play"
+  ],
+  "partOfSpeech": "n"
+ },
+ "02651091-v": {
+  "definition": [
+   "add up in number or quantity"
+  ],
+  "example": [
+   "The bills amounted to $2,000",
+   "The bill came to $2,000"
+  ],
+  "hypernym": [
+   "02622439-v"
+  ],
+  "ili": "i34893",
+  "members": [
+   "total",
+   "number",
+   "add up",
+   "come",
+   "amount"
+  ],
+  "partOfSpeech": "v"
+ },
+ "08596234-n": {
+  "definition": [
+   "a point on the surface of the Earth"
+  ],
+  "hypernym": [
+   "08637636-n"
+  ],
+  "ili": "i82050",
+  "members": [
+   "geographic point",
+   "geographical point"
+  ],
+  "partOfSpeech": "n"
+ },
+ "02456614-v": {
+  "definition": [
+   "be a hindrance or obstacle to"
+  ],
+  "example": [
+   "She is impeding the progress of our project"
+  ],
+  "hypernym": [
+   "02455370-v"
+  ],
+  "ili": "i33981",
+  "members": [
+   "impede",
+   "hinder"
+  ],
+  "partOfSpeech": "v"
+ },
+ "07123727-n": {
+  "definition": [
+   "communication that relies on hearing"
+  ],
+  "hypernym": [
+   "00033319-n"
+  ],
+  "ili": "i74021",
+  "members": [
+   "auditory communication"
+  ],
+  "partOfSpeech": "n"
+ },
+ "04112987-n": {
+  "definition": [
+   "an area within a building enclosed by walls and floor and ceiling"
+  ],
+  "example": [
+   "the rooms were very small but they had a nice view"
+  ],
+  "hypernym": [
+   "02738693-n"
+  ],
+  "ili": "i58265",
+  "members": [
+   "room"
+  ],
+  "mero_part": [
+   "02993828-n",
+   "03370438-n",
+   "04114837-n",
+   "04554141-n"
+  ],
+  "partOfSpeech": "n"
+ },
+ "00010428-v": {
+  "definition": [
+   "behave in a certain manner; show a certain behavior; conduct or comport oneself"
+  ],
+  "example": [
+   "You should act like an adult",
+   "Don't behave like a fool",
+   "What makes her do this way?",
+   "The dog acts ferocious, but he is really afraid of people"
+  ],
+  "hypernym": [
+   "02372362-v"
+  ],
+  "ili": "i21819",
+  "members": [
+   "act",
+   "behave",
+   "do",
+   "acquit",
+   "bear",
+   "deport",
+   "conduct",
+   "comport",
+   "carry"
+  ],
+  "partOfSpeech": "v",
+  "similar": [
+   "00013608-v",
+   "01725433-v"
+  ]
+ },
+ "00340289-n": {
+  "definition": [
+   "a rearrangement in a different order"
+  ],
+  "hypernym": [
+   "00339647-n"
+  ],
+  "ili": "i37193",
+  "members": [
+   "reordering"
+  ],
+  "partOfSpeech": "n"
+ },
+ "07981699-n": {
+  "definition": [
+   "a group of persons associated by some common tie or occupation and regarded as an entity"
+  ],
+  "example": [
+   "the whole body filed out of the auditorium",
+   "the student body",
+   "administrative body"
+  ],
+  "hypernym": [
+   "07967506-n"
+  ],
+  "ili": "i79178",
+  "members": [
+   "body"
+  ],
+  "partOfSpeech": "n"
+ },
+ "00215377-v": {
+  "definition": [
+   "cause to become wet"
+  ],
+  "example": [
+   "Wet your face"
+  ],
+  "hypernym": [
+   "00126072-v"
+  ],
+  "ili": "i22794",
+  "members": [
+   "wet"
+  ],
+  "partOfSpeech": "v"
+ },
+ "04025495-n": {
+  "definition": [
+   "conveyance for passengers or mail or freight"
+  ],
+  "hypernym": [
+   "03105141-n"
+  ],
+  "ili": "i57751",
+  "members": [
+   "public transport"
+  ],
+  "partOfSpeech": "n",
+  "wikidata": "Q178512"
+ },
+ "05862715-n": {
+  "definition": [
+   "a concept or idea not associated with any specific instance"
+  ],
+  "example": [
+   "he loved her only in the abstract — not in person"
+  ],
+  "hypernym": [
+   "05844071-n"
+  ],
+  "ili": "i67636",
+  "members": [
+   "abstraction",
+   "abstract"
+  ],
+  "partOfSpeech": "n"
+ },
+ "00072742-v": {
+  "definition": [
+   "eliminate from the body"
+  ],
+  "example": [
+   "Pass a kidney stone"
+  ],
+  "hypernym": [
+   "00104622-v"
+  ],
+  "ili": "i22139",
+  "members": [
+   "excrete",
+   "egest",
+   "eliminate",
+   "pass"
+  ],
+  "partOfSpeech": "v"
+ },
+ "05817200-n": {
+  "definition": [
+   "the sum or range of what has been perceived, discovered, or learned"
+  ],
+  "hypernym": [
+   "00023451-n"
+  ],
+  "ili": "i67409",
+  "members": [
+   "content",
+   "cognitive content",
+   "mental object"
+  ],
+  "partOfSpeech": "n"
+ },
+ "08242502-n": {
+  "definition": [
+   "people living in a town or city having local self-government"
+  ],
+  "hypernym": [
+   "07991473-n"
+  ],
+  "ili": "i80336",
+  "members": [
+   "municipality"
+  ],
+  "partOfSpeech": "n"
+ },
+ "02481345-v": {
+  "definition": [
+   "assign a duty, responsibility or obligation to"
+  ],
+  "example": [
+   "He was appointed deputy manager",
+   "She was charged with supervising the creation of a concordance"
+  ],
+  "hypernym": [
+   "02372362-v"
+  ],
+  "ili": "i34100",
+  "members": [
+   "appoint",
+   "charge"
+  ],
+  "partOfSpeech": "v"
+ },
+ "01775456-v": {
+  "definition": [
+   "undergo an emotional sensation or be in a particular state of mind"
+  ],
+  "example": [
+   "She felt resentful",
+   "He felt regret"
+  ],
+  "hypernym": [
+   "02110960-v"
+  ],
+  "ili": "i30595",
+  "members": [
+   "feel",
+   "experience"
+  ],
+  "partOfSpeech": "v"
+ },
+ "07175534-n": {
+  "definition": [
+   "the use of language to perform some act"
+  ],
+  "hypernym": [
+   "00030657-n"
+  ],
+  "ili": "i74286",
+  "members": [
+   "speech act"
+  ],
+  "partOfSpeech": "n"
+ },
+ "06052606-n": {
+  "definition": [
+   "the branches of medical science that deal with nonsurgical techniques"
+  ],
+  "hypernym": [
+   "06055093-n"
+  ],
+  "ili": "i68504",
+  "members": [
+   "medicine",
+   "medical specialty"
+  ],
+  "partOfSpeech": "n"
+ },
+ "08639173-n": {
+  "attribute": [
+   "02039393-a",
+   "02040360-a"
+  ],
+  "definition": [
+   "the particular portion of space occupied by something"
+  ],
+  "example": [
+   "he put the lamp back in its place"
+  ],
+  "hypernym": [
+   "08637636-n"
+  ],
+  "ili": "i82294",
+  "members": [
+   "position",
+   "place"
+  ],
+  "partOfSpeech": "n"
+ },
+ "06648784-n": {
+  "definition": [
+   "a statement or assertion of verified information about something that is the case or has happened"
+  ],
+  "example": [
+   "he supported his argument with an impressive array of facts"
+  ],
+  "hypernym": [
+   "06646883-n"
+  ],
+  "ili": "i71356",
+  "members": [
+   "fact"
+  ],
+  "partOfSpeech": "n"
+ },
+ "03182015-n": {
+  "definition": [
+   "a facility where things can be deposited for storage or safekeeping"
+  ],
+  "hypernym": [
+   "03319968-n"
+  ],
+  "ili": "i52799",
+  "members": [
+   "depository",
+   "deposit",
+   "depositary",
+   "repository"
+  ],
+  "mero_part": [
+   "04336084-n"
+  ],
+  "partOfSpeech": "n"
+ },
+ "02233480-v": {
+  "definition": [
+   "give out"
+  ],
+  "example": [
+   "We were assigned new uniforms"
+  ],
+  "hypernym": [
+   "02299397-v"
+  ],
+  "ili": "i32888",
+  "members": [
+   "assign",
+   "allot",
+   "portion"
+  ],
+  "partOfSpeech": "v"
+ },
+ "02054081-v": {
+  "definition": [
+   "go across or through"
+  ],
+  "example": [
+   "We passed the point where the police car had parked",
+   "A terrible thought went through his mind"
+  ],
+  "hypernym": [
+   "01839438-v"
+  ],
+  "ili": "i31995",
+  "members": [
+   "pass"
+  ],
+  "partOfSpeech": "v"
+ },
+ "00744289-v": {
+  "definition": [
+   "transmit information"
+  ],
+  "example": [
+   "Please communicate this message to all employees",
+   "pass along the good news"
+  ],
+  "hypernym": [
+   "02236443-v"
+  ],
+  "ili": "i25409",
+  "members": [
+   "communicate",
+   "pass on",
+   "pass",
+   "pass along",
+   "put across"
+  ],
+  "partOfSpeech": "v"
+ },
+ "05063641-n": {
+  "definition": [
+   "an electromagnetic wave frequency between audio and infrared"
+  ],
+  "hypernym": [
+   "15303267-n"
+  ],
+  "ili": "i63569",
+  "members": [
+   "radio frequency"
+  ],
+  "partOfSpeech": "n"
+ },
+ "13424816-n": {
+  "definition": [
+   "a document that can serve as legal evidence of a transaction"
+  ],
+  "domain_topic": [
+   "08458195-n"
+  ],
+  "example": [
+   "they could find no record of the purchase"
+  ],
+  "hypernym": [
+   "13424504-n"
+  ],
+  "ili": "i107176",
+  "members": [
+   "record"
+  ],
+  "partOfSpeech": "n"
+ },
+ "00020270-n": {
+  "definition": [
+   "a particular kind or species of matter with uniform properties"
+  ],
+  "example": [
+   "shigella is one of the most toxic substances known to man"
+  ],
+  "hypernym": [
+   "00021007-n"
+  ],
+  "ili": "i35568",
+  "members": [
+   "substance"
+  ],
+  "partOfSpeech": "n"
+ },
+ "00452793-v": {
+  "definition": [
+   "become full"
+  ],
+  "example": [
+   "The pool slowly filled with water",
+   "The theater filled up slowly"
+  ],
+  "hypernym": [
+   "00145958-v"
+  ],
+  "ili": "i23980",
+  "members": [
+   "fill",
+   "fill up"
+  ],
+  "partOfSpeech": "v"
+ },
+ "07461861-n": {
+  "definition": [
+   "a formal or official social gathering or ceremony of people"
+  ],
+  "example": [
+   "the party was quite an affair",
+   "an occasion arranged to honor the president",
+   "a seemingly endless round of social functions"
+  ],
+  "hypernym": [
+   "07303344-n",
+   "07991473-n"
+  ],
+  "ili": "i75849",
+  "members": [
+   "affair",
+   "occasion",
+   "social occasion",
+   "function",
+   "social function",
+   "social gathering",
+   "social affair"
+  ],
+  "partOfSpeech": "n"
+ },
+ "02662486-v": {
+  "definition": [
+   "provide shelter for"
+  ],
+  "example": [
+   "After the earthquake, the government could not provide shelter for the thousands of homeless people",
+   {
+    "source": "https://en.wikitionary.org/wiki/shelter#verb",
+    "text": "during the rainstorm, we sheltered under a tree"
+   }
+  ],
+  "hypernym": [
+   "02332196-v"
+  ],
+  "ili": "i34948",
+  "members": [
+   "shelter"
+  ],
+  "partOfSpeech": "v"
+ },
+ "02372362-v": {
+  "definition": [
+   "perform an action, or work out or perform (an action)"
+  ],
+  "example": [
+   "think before you act",
+   "We must move quickly",
+   "The governor should act on the new energy bill",
+   "The nanny acted quickly by grabbing the toddler and covering him with a wet towel"
+  ],
+  "ili": "i33603",
+  "members": [
+   "act",
+   "move"
+  ],
+  "partOfSpeech": "v"
+ },
+ "07324399-n": {
+  "definition": [
+   "a natural event that involves a change in the position or location of something"
+  ],
+  "hypernym": [
+   "07298313-n"
+  ],
+  "ili": "i75106",
+  "members": [
+   "movement",
+   "motion"
+  ],
+  "partOfSpeech": "n"
+ },
+ "01854282-v": {
+  "causes": [
+   "01835473-v"
+  ],
+  "definition": [
+   "cause to move or shift into a new position or place, both in a concrete and in an abstract sense"
+  ],
+  "example": [
+   "Move those boxes into the corner, please",
+   "I'm moving my money to another bank",
+   "The director moved more responsibilities onto his new assistant"
+  ],
+  "hypernym": [
+   "00126072-v"
+  ],
+  "ili": "i30960",
+  "members": [
+   "move",
+   "displace"
+  ],
+  "partOfSpeech": "v",
+  "similar": [
+   "01839438-v"
+  ]
+ },
+ "07429340-n": {
+  "definition": [
+   "the occurrence of two or more things coming together"
+  ],
+  "hypernym": [
+   "07298313-n"
+  ],
+  "ili": "i75678",
+  "members": [
+   "convergence"
+  ],
+  "partOfSpeech": "n"
+ },
+ "08474987-n": {
+  "definition": [
+   "similar things placed in order or happening one after another"
+  ],
+  "example": [
+   "they were investigating a series of bank robberies"
+  ],
+  "hypernym": [
+   "08474004-n"
+  ],
+  "ili": "i81504",
+  "members": [
+   "series"
+  ],
+  "partOfSpeech": "n"
+ },
+ "02516039-v": {
+  "definition": [
+   "lessen the intensity of; temper; hold in restraint; hold or keep within limits"
+  ],
+  "example": [
+   "moderate your alcohol intake",
+   "hold your tongue",
+   "hold your temper",
+   "control your anger"
+  ],
+  "hypernym": [
+   "00233707-v"
+  ],
+  "ili": "i34266",
+  "members": [
+   "control",
+   "hold in",
+   "hold",
+   "contain",
+   "check",
+   "curb",
+   "moderate"
+  ],
+  "partOfSpeech": "v"
+ },
+ "00147392-n": {
+  "definition": [
+   "the act of converging (coming closer)"
+  ],
+  "hypernym": [
+   "00146038-n"
+  ],
+  "ili": "i36181",
+  "members": [
+   "convergence",
+   "converging",
+   "convergency"
+  ],
+  "partOfSpeech": "n"
+ },
+ "15137796-n": {
+  "definition": [
+   "an amount of time"
+  ],
+  "example": [
+   "a time period of 30 years",
+   "hastened the period of time of his recovery",
+   "Picasso's blue period"
+  ],
+  "hypernym": [
+   "13597072-n"
+  ],
+  "ili": "i116632",
+  "members": [
+   "time period",
+   "period of time",
+   "period"
+  ],
+  "partOfSpeech": "n"
+ },
+ "01645456-v": {
+  "definition": [
+   "take the lead or initiative in; participate in the development of"
+  ],
+  "example": [
+   "This South African surgeon pioneered heart transplants"
+  ],
+  "hypernym": [
+   "01649143-v"
+  ],
+  "ili": "i29949",
+  "members": [
+   "initiate",
+   "pioneer"
+  ],
+  "partOfSpeech": "v"
+ },
+ "02215637-v": {
+  "definition": [
+   "come into the possession of something concrete or abstract"
+  ],
+  "example": [
+   "She got a lot of paintings from her uncle",
+   "They acquired a new pet",
+   "Get your results the next day",
+   "Get permission to take a few days off from work"
+  ],
+  "hypernym": [
+   "02372362-v"
+  ],
+  "ili": "i32803",
+  "members": [
+   "get",
+   "acquire"
+  ],
+  "partOfSpeech": "v",
+  "similar": [
+   "00523831-v"
+  ]
+ },
+ "01959843-v": {
+  "definition": [
+   "be carried or travel on or in a vehicle"
+  ],
+  "example": [
+   "I ride to work in a bus",
+   "He rides the subway downtown every day"
+  ],
+  "hypernym": [
+   "01845021-v"
+  ],
+  "ili": "i31508",
+  "members": [
+   "ride"
+  ],
+  "partOfSpeech": "v",
+  "similar": [
+   "02748107-v",
+   "01851618-v",
+   "02106676-v"
+  ]
+ },
+ "08206589-n": {
+  "definition": [
+   "an organization regarded as part of a larger social group"
+  ],
+  "example": [
+   "the coach said the offensive unit did a good job",
+   "after the battle the soldier had trouble rejoining his unit"
+  ],
+  "hypernym": [
+   "08024893-n"
+  ],
+  "ili": "i80188",
+  "members": [
+   "unit",
+   "social unit"
+  ],
+  "partOfSpeech": "n"
+ },
+ "08240723-n": {
+  "definition": [
+   "a group of people living in a particular local area"
+  ],
+  "example": [
+   "the team is drawn from all parts of the community"
+  ],
+  "hypernym": [
+   "07991473-n"
+  ],
+  "ili": "i80327",
+  "members": [
+   "community"
+  ],
+  "partOfSpeech": "n"
+ },
+ "01835473-v": {
+  "definition": [
+   "move so as to change position, perform a nontranslational motion"
+  ],
+  "example": [
+   "He moved his hand slightly to the right"
+  ],
+  "hypernym": [
+   "02372362-v"
+  ],
+  "ili": "i30886",
+  "members": [
+   "move"
+  ],
+  "partOfSpeech": "v"
+ },
+ "02916498-n": {
+  "definition": [
+   "a structure that has a roof and walls and stands more or less permanently in one place"
+  ],
+  "example": [
+   "there was a three-story building on the corner",
+   "it was an imposing edifice"
+  ],
+  "hypernym": [
+   "04348764-n"
+  ],
+  "ili": "i51221",
+  "members": [
+   "building",
+   "edifice"
+  ],
+  "mero_part": [
+   "02716453-n",
+   "02718424-n",
+   "03114344-n",
+   "03114532-n",
+   "03114983-n",
+   "03115121-n",
+   "03124849-n",
+   "03151353-n",
+   "03286056-n",
+   "03312219-n",
+   "03370837-n",
+   "03392352-n",
+   "03514169-n",
+   "03584707-n",
+   "04112162-n",
+   "04112987-n",
+   "04150430-n",
+   "04189933-n",
+   "04233599-n",
+   "04305446-n",
+   "04523024-n",
+   "04554141-n",
+   "04594951-n",
+   "08573247-n"
+  ],
+  "partOfSpeech": "n",
+  "wikidata": "Q41176"
+ },
+ "02986245-n": {
+  "definition": [
+   "a restraint that checks the motion of something"
+  ],
+  "example": [
+   "he used a book as a stop to hold the door open"
+  ],
+  "hypernym": [
+   "04088956-n"
+  ],
+  "ili": "i51638",
+  "members": [
+   "catch",
+   "stop"
+  ],
+  "partOfSpeech": "n"
+ },
+ "00075610-n": {
+  "definition": [
+   "an embarrassing mistake"
+  ],
+  "hypernym": [
+   "00071785-n"
+  ],
+  "ili": "i35801",
+  "members": [
+   "blunder",
+   "blooper",
+   "bloomer",
+   "bungle",
+   "pratfall",
+   "foul-up",
+   "fuckup",
+   "flub",
+   "botch",
+   "boner",
+   "boo-boo"
+  ],
+  "partOfSpeech": "n"
+ },
+ "01232427-n": {
+  "definition": [
+   "the social act of assembling"
+  ],
+  "example": [
+   "they demanded the right of assembly"
+  ],
+  "hypernym": [
+   "01082290-n"
+  ],
+  "ili": "i41836",
+  "members": [
+   "assembly",
+   "assemblage",
+   "gathering"
+  ],
+  "partOfSpeech": "n"
+ },
+ "07308725-n": {
+  "definition": [
+   "the outcome of an event especially as relative to an individual"
+  ],
+  "hypernym": [
+   "07307418-n"
+  ],
+  "ili": "i75021",
+  "members": [
+   "consequence",
+   "aftermath"
+  ],
+  "partOfSpeech": "n"
+ },
+ "04584257-n": {
+  "definition": [
+   "mechanical device including an arrangement of wheel in a machine (especially a train of gears)"
+  ],
+  "hypernym": [
+   "03742461-n"
+  ],
+  "ili": "i61102",
+  "members": [
+   "wheelwork"
+  ],
+  "partOfSpeech": "n"
+ },
+ "04905614-n": {
+  "attribute": [
+   "01884565-a",
+   "01886613-a"
+  ],
+  "definition": [
+   "correct or appropriate behavior"
+  ],
+  "hypernym": [
+   "04904939-n"
+  ],
+  "ili": "i62729",
+  "members": [
+   "propriety",
+   "properness",
+   "correctitude"
+  ],
+  "partOfSpeech": "n"
+ },
+ "02137900-v": {
+  "definition": [
+   "give a certain impression of being something or having a certain aspect"
+  ],
+  "example": [
+   "She seems to be sleeping",
+   "This appears to be a very difficult problem",
+   "This project looks fishy",
+   "They appeared like people who had not eaten or slept for a long time"
+  ],
+  "hypernym": [
+   "02139137-v"
+  ],
+  "ili": "i32420",
+  "members": [
+   "look",
+   "appear",
+   "seem"
+  ],
+  "partOfSpeech": "v"
+ },
+ "08238818-n": {
+  "definition": [
+   "a gathering of spectators or listeners at a (usually public) performance"
+  ],
+  "example": [
+   "the audience applauded",
+   "someone in the audience began to cough"
+  ],
+  "hypernym": [
+   "07991473-n"
+  ],
+  "ili": "i80315",
+  "members": [
+   "audience"
+  ],
+  "mero_member": [
+   "10185041-n",
+   "10356124-n",
+   "10460291-n"
+  ],
+  "partOfSpeech": "n"
+ },
+ "06611268-n": {
+  "definition": [
+   "content communicating a message; what something is about"
+  ],
+  "hypernym": [
+   "00033319-n"
+  ],
+  "ili": "i71140",
+  "members": [
+   "message",
+   "content",
+   "subject matter",
+   "substance"
+  ],
+  "partOfSpeech": "n"
+ },
+ "08293263-n": {
+  "definition": [
+   "an institution dedicated to education"
+  ],
+  "hypernym": [
+   "08070328-n"
+  ],
+  "ili": "i80634",
+  "members": [
+   "educational institution"
+  ],
+  "partOfSpeech": "n"
+ },
+ "00768463-v": {
+  "definition": [
+   "cause somebody to adopt a certain position, belief, or course of action; twist somebody's arm"
+  ],
+  "example": [
+   "You can't persuade me to buy this ugly vase!"
+  ],
+  "hypernym": [
+   "00772482-v"
+  ],
+  "ili": "i25525",
+  "members": [
+   "persuade"
+  ],
+  "partOfSpeech": "v"
+ },
+ "05207437-n": {
+  "attribute": [
+   "00001740-a",
+   "00002098-a"
+  ],
+  "definition": [
+   "the quality of being able to perform; a quality that permits or facilitates achievement or accomplishment"
+  ],
+  "hypernym": [
+   "04731092-n"
+  ],
+  "ili": "i64298",
+  "members": [
+   "ability"
+  ],
+  "partOfSpeech": "n"
+ },
+ "00286401-n": {
+  "definition": [
+   "the act of changing location by raising the foot and setting it down"
+  ],
+  "example": [
+   "he walked with unsteady steps"
+  ],
+  "hypernym": [
+   "00283971-n"
+  ],
+  "ili": "i36893",
+  "members": [
+   "step"
+  ],
+  "partOfSpeech": "n"
+ },
+ "02629610-v": {
+  "definition": [
+   "come into existence"
+  ],
+  "example": [
+   "What becomes has duration"
+  ],
+  "hypernym": [
+   "00109468-v"
+  ],
+  "ili": "i34790",
+  "members": [
+   "become"
+  ],
+  "partOfSpeech": "v"
+ },
+ "02293158-v": {
+  "definition": [
+   "win something through one's efforts"
+  ],
+  "example": [
+   "I acquired a passing knowledge of Chinese",
+   "Gain an understanding of international finance",
+   "win someone's confidence and friendship"
+  ],
+  "hypernym": [
+   "02215637-v"
+  ],
+  "ili": "i33174",
+  "members": [
+   "acquire",
+   "win",
+   "gain"
+  ],
+  "partOfSpeech": "v"
+ },
+ "00280679-n": {
+  "definition": [
+   "the act of changing location from one place to another"
+  ],
+  "example": [
+   "police controlled the motion of the crowd",
+   "the movement of people from the farms to the cities",
+   "his move put him directly in my path"
+  ],
+  "hypernym": [
+   "00191991-n"
+  ],
+  "ili": "i36869",
+  "members": [
+   "motion",
+   "movement",
+   "move"
+  ],
+  "partOfSpeech": "n"
+ },
+ "09839665-n": {
+  "definition": [
+   "a person trained to compete in sports"
+  ],
+  "hypernym": [
+   "09636221-n"
+  ],
+  "ili": "i88348",
+  "members": [
+   "athlete",
+   "jock"
+  ],
+  "partOfSpeech": "n",
+  "wikidata": "Q2066131"
+ },
+ "10065521-n": {
+  "definition": [
+   "someone who educates young people"
+  ],
+  "hypernym": [
+   "10499838-n"
+  ],
+  "ili": "i89692",
+  "members": [
+   "educator",
+   "pedagogue",
+   "pedagog"
+  ],
+  "partOfSpeech": "n",
+  "wikidata": "Q974144"
+ },
+ "14878134-n": {
+  "definition": [
+   "waste matter (as urine or sweat but especially feces) discharged from the body"
+  ],
+  "exemplifies": [
+   "06730109-n"
+  ],
+  "hypernym": [
+   "14880414-n"
+  ],
+  "ili": "i115114",
+  "members": [
+   "body waste",
+   "excretion",
+   "excreta",
+   "excrement",
+   "excretory product"
+  ],
+  "partOfSpeech": "n"
+ },
+ "00608509-v": {
+  "definition": [
+   "learn by reading books"
+  ],
+  "entails": [
+   "00626756-v"
+  ],
+  "example": [
+   "He is studying geology in his room",
+   "I have an exam next week: I must hit the books now"
+  ],
+  "hypernym": [
+   "00599310-v"
+  ],
+  "ili": "i24796",
+  "members": [
+   "study",
+   "hit the books"
+  ],
+  "partOfSpeech": "v"
+ },
+ "02738673-v": {
+  "definition": [
+   "have room for; hold without crowding"
+  ],
+  "example": [
+   "This hotel can accommodate 250 guests",
+   "The theater admits 300 people",
+   "The auditorium can't hold more than 500 people"
+  ],
+  "hypernym": [
+   "02208144-v"
+  ],
+  "ili": "i35330",
+  "members": [
+   "accommodate",
+   "hold",
+   "admit"
+  ],
+  "partOfSpeech": "v",
+  "similar": [
+   "02707070-v"
+  ]
+ },
+ "02444366-v": {
+  "causes": [
+   "02372362-v"
+  ],
+  "definition": [
+   "govern or manage"
+  ],
+  "hypernym": [
+   "02441196-v"
+  ],
+  "ili": "i33923",
+  "members": [
+   "direct"
+  ],
+  "partOfSpeech": "v"
+ },
+ "02477113-v": {
+  "definition": [
+   "record in writing; enter into a book of names or events or transactions"
+  ],
+  "hypernym": [
+   "01002259-v"
+  ],
+  "ili": "i34077",
+  "members": [
+   "register"
+  ],
+  "partOfSpeech": "v"
+ },
+ "09434308-n": {
+  "definition": [
+   "a large natural stream of water (larger than a creek)"
+  ],
+  "example": [
+   "the river was navigable for 50 miles"
+  ],
+  "hypernym": [
+   "09471510-n"
+  ],
+  "ili": "i86078",
+  "members": [
+   "river"
+  ],
+  "mero_part": [
+   "09297406-n",
+   "09428274-n",
+   "09498422-n"
+  ],
+  "partOfSpeech": "n"
+ },
+ "03264208-n": {
+  "definition": [
+   "housing that someone is living in"
+  ],
+  "example": [
+   "he built a modest dwelling near the pond",
+   "they raise money to provide homes for the homeless"
+  ],
+  "hypernym": [
+   "03551520-n"
+  ],
+  "ili": "i53274",
+  "members": [
+   "dwelling",
+   "home",
+   "domicile",
+   "abode",
+   "habitation",
+   "dwelling house"
+  ],
+  "mero_part": [
+   "02810916-n",
+   "02824762-n",
+   "03179747-n",
+   "03204459-n",
+   "03205385-n",
+   "03242834-n",
+   "03324690-n",
+   "03625099-n",
+   "03685038-n"
+  ],
+  "partOfSpeech": "n"
+ },
+ "05624029-n": {
+  "attribute": [
+   "00001740-a"
+  ],
+  "definition": [
+   "possession of the qualities (especially mental qualities) required to do something or get something done"
+  ],
+  "example": [
+   "danger heightened his powers of discrimination"
+  ],
+  "hypernym": [
+   "00023451-n"
+  ],
+  "ili": "i66424",
+  "members": [
+   "ability",
+   "power"
+  ],
+  "partOfSpeech": "n"
+ },
+ "13597558-n": {
+  "definition": [
+   "an estimated quantity"
+  ],
+  "hypernym": [
+   "00033914-n"
+  ],
+  "ili": "i108054",
+  "members": [
+   "indefinite quantity"
+  ],
+  "partOfSpeech": "n"
+ },
+ "04014270-n": {
+  "definition": [
+   "an artifact that has been created by someone or some process"
+  ],
+  "example": [
+   "they improve their product every year",
+   "they export most of their agricultural production"
+  ],
+  "hypernym": [
+   "03133774-n"
+  ],
+  "ili": "i57699",
+  "members": [
+   "product",
+   "production"
+  ],
+  "partOfSpeech": "n"
+ },
+ "00585404-n": {
+  "definition": [
+   "the occupation for which you are paid"
+  ],
+  "example": [
+   "he is looking for employment",
+   "a lot of people are out of work"
+  ],
+  "hypernym": [
+   "00583425-n"
+  ],
+  "ili": "i38467",
+  "members": [
+   "employment",
+   "work"
+  ],
+  "partOfSpeech": "n"
+ },
+ "01723161-v": {
+  "definition": [
+   "play a role or part"
+  ],
+  "domain_topic": [
+   "06167042-n"
+  ],
+  "example": [
+   "Gielgud played Hamlet",
+   "She wants to act Lady Macbeth, but she is too young for the role",
+   "She played the servant to her husband's master"
+  ],
+  "hypernym": [
+   "01622373-v"
+  ],
+  "ili": "i30339",
+  "members": [
+   "act",
+   "play",
+   "represent"
+  ],
+  "partOfSpeech": "v",
+  "similar": [
+   "00013608-v",
+   "01725954-v",
+   "01723780-v"
+  ]
+ },
+ "07968050-n": {
+  "definition": [
+   "several things grouped together or considered as a whole"
+  ],
+  "hypernym": [
+   "00031563-n"
+  ],
+  "ili": "i79104",
+  "members": [
+   "collection",
+   "aggregation",
+   "accumulation",
+   "assemblage"
+  ],
+  "partOfSpeech": "n"
+ },
+ "02271905-v": {
+  "definition": [
+   "pay out"
+  ],
+  "example": [
+   "spend money"
+  ],
+  "hypernym": [
+   "02256551-v"
+  ],
+  "ili": "i33072",
+  "members": [
+   "spend",
+   "expend",
+   "drop"
+  ],
+  "partOfSpeech": "v"
+ },
+ "02392628-v": {
+  "definition": [
+   "give an education to"
+  ],
+  "example": [
+   "We must educate our youngsters better"
+  ],
+  "hypernym": [
+   "00206293-v"
+  ],
+  "ili": "i33689",
+  "members": [
+   "educate"
+  ],
+  "partOfSpeech": "v"
+ },
+ "09786620-n": {
+  "definition": [
+   "a person who acts and gets things done"
+  ],
+  "example": [
+   "he's a principal actor in this affair",
+   "when you want something done, get a doer",
+   "he's a miracle worker"
+  ],
+  "hypernym": [
+   "00007347-n"
+  ],
+  "ili": "i88069",
+  "members": [
+   "actor",
+   "doer",
+   "worker"
+  ],
+  "partOfSpeech": "n"
+ },
+ "00259743-v": {
+  "definition": [
+   "inflict damage upon"
+  ],
+  "example": [
+   "The snow damaged the roof",
+   "She damaged the car when she hit the tree"
+  ],
+  "hypernym": [
+   "00126072-v"
+  ],
+  "ili": "i23012",
+  "members": [
+   "damage"
+  ],
+  "partOfSpeech": "v"
+ },
+ "00126072-v": {
+  "causes": [
+   "00109468-v"
+  ],
+  "definition": [
+   "cause to change; make different; cause a transformation"
+  ],
+  "example": [
+   "The advent of the automobile may have altered the growth pattern of the city",
+   "The discussion has changed my thinking about the issue"
+  ],
+  "hypernym": [
+   "00772482-v"
+  ],
+  "ili": "i22389",
+  "members": [
+   "change",
+   "alter",
+   "modify"
+  ],
+  "partOfSpeech": "v"
+ },
+ "01456044-v": {
+  "definition": [
+   "pull, as against a resistance"
+  ],
+  "example": [
+   "He dragged the big suitcase behind him",
+   "These worries were dragging at him"
+  ],
+  "hypernym": [
+   "01450719-v"
+  ],
+  "ili": "i28990",
+  "members": [
+   "drag"
+  ],
+  "partOfSpeech": "v"
+ },
+ "14964238-n": {
+  "definition": [
+   "fluid matter having no fixed shape but a fixed volume"
+  ],
+  "hypernym": [
+   "14963583-n"
+  ],
+  "ili": "i115633",
+  "members": [
+   "liquid"
+  ],
+  "partOfSpeech": "n"
+ },
+ "00930762-n": {
+  "definition": [
+   "creating a sequence of instructions to enable the computer to do something"
+  ],
+  "hypernym": [
+   "00929076-n"
+  ],
+  "ili": "i40292",
+  "members": [
+   "programming",
+   "programing",
+   "computer programming",
+   "computer programing"
+  ],
+  "partOfSpeech": "n"
+ },
+ "05778661-n": {
+  "definition": [
+   "cognitive processes that presuppose the availability of knowledge and put it to use"
+  ],
+  "hypernym": [
+   "05709328-n"
+  ],
+  "ili": "i67219",
+  "members": [
+   "higher cognitive process"
+  ],
+  "partOfSpeech": "n"
+ },
+ "01496967-v": {
+  "definition": [
+   "put into a certain place or abstract location"
+  ],
+  "example": [
+   "Put your things here",
+   "Set the tray down",
+   "Set the dogs on the scent of the missing children",
+   "Place emphasis on a certain point"
+  ],
+  "hypernym": [
+   "01854282-v"
+  ],
+  "ili": "i29197",
+  "members": [
+   "put",
+   "set",
+   "place",
+   "pose",
+   "position",
+   "lay"
+  ],
+  "partOfSpeech": "v"
+ },
+ "15303267-n": {
+  "definition": [
+   "the number of occurrences within a given time period"
+  ],
+  "example": [
+   "the frequency of modulation was 40 cycles per second",
+   "the frequency of his seizures increased as he grew older"
+  ],
+  "hypernym": [
+   "15311467-n"
+  ],
+  "ili": "i117538",
+  "members": [
+   "frequency",
+   "frequence",
+   "oftenness"
+  ],
+  "partOfSpeech": "n"
+ },
+ "00030657-n": {
+  "definition": [
+   "something that people do or cause to happen"
+  ],
+  "hypernym": [
+   "00029677-n"
+  ],
+  "ili": "i35588",
+  "members": [
+   "act",
+   "deed",
+   "human action",
+   "human activity"
+  ],
+  "partOfSpeech": "n"
+ },
+ "00786670-v": {
+  "definition": [
+   "pose a question"
+  ],
+  "hypernym": [
+   "00899241-v"
+  ],
+  "ili": "i25610",
+  "members": [
+   "question",
+   "query"
+  ],
+  "partOfSpeech": "v"
+ },
+ "00206293-v": {
+  "causes": [
+   "00205454-v"
+  ],
+  "definition": [
+   "to make better"
+  ],
+  "example": [
+   "The editor improved the manuscript with his changes"
+  ],
+  "hypernym": [
+   "00126072-v"
+  ],
+  "ili": "i22752",
+  "members": [
+   "better",
+   "improve",
+   "amend",
+   "ameliorate",
+   "meliorate"
+  ],
+  "partOfSpeech": "v",
+  "similar": [
+   "00205454-v"
+  ]
+ },
+ "08180691-n": {
+  "definition": [
+   "a group of persons who are gathered together for a common purpose"
+  ],
+  "hypernym": [
+   "07991473-n"
+  ],
+  "ili": "i80052",
+  "members": [
+   "assembly"
+  ],
+  "partOfSpeech": "n"
+ },
+ "02299397-v": {
+  "definition": [
+   "administer or bestow, as in small portions"
+  ],
+  "example": [
+   "administer critical remarks to everyone present",
+   "dole out some money",
+   "shell out pocket money for the children",
+   "deal a blow to someone",
+   "the machine dispenses soft drinks"
+  ],
+  "hypernym": [
+   "02204104-v"
+  ],
+  "ili": "i33203",
+  "members": [
+   "distribute",
+   "administer",
+   "mete out",
+   "deal",
+   "parcel out",
+   "lot",
+   "dispense",
+   "shell out",
+   "deal out",
+   "dish out",
+   "allot",
+   "dole out"
+  ],
+  "partOfSpeech": "v"
+ },
+ "02256551-v": {
+  "definition": [
+   "give money, usually in exchange for goods or services"
+  ],
+  "example": [
+   "I paid four dollars for this sandwich",
+   "Pay the waitress, please"
+  ],
+  "hypernym": [
+   "02204104-v"
+  ],
+  "ili": "i32996",
+  "members": [
+   "pay"
+  ],
+  "partOfSpeech": "v"
+ },
+ "14400260-n": {
+  "definition": [
+   "(psychology) an erroneous belief that is held in the face of evidence to the contrary"
+  ],
+  "domain_topic": [
+   "06145709-n"
+  ],
+  "hypernym": [
+   "14396987-n"
+  ],
+  "ili": "i112552",
+  "members": [
+   "delusion",
+   "psychotic belief"
+  ],
+  "partOfSpeech": "n"
+ },
+ "00038116-n": {
+  "definition": [
+   "something done (usually as opposed to something said)"
+  ],
+  "example": [
+   "there were stories of murders and other unnatural actions"
+  ],
+  "hypernym": [
+   "00030657-n"
+  ],
+  "ili": "i35610",
+  "members": [
+   "action"
+  ],
+  "partOfSpeech": "n"
+ },
+ "05760541-n": {
+  "definition": [
+   "the cognitive process of acquiring skill or knowledge"
+  ],
+  "example": [
+   "the child's acquisition of language"
+  ],
+  "hypernym": [
+   "05709891-n"
+  ],
+  "ili": "i67133",
+  "members": [
+   "learning",
+   "acquisition"
+  ],
+  "partOfSpeech": "n"
+ },
+ "08181484-n": {
+  "definition": [
+   "the persons (or committees or departments etc.) who make up a body for the purpose of administering something"
+  ],
+  "example": [
+   "he claims that the present administration is corrupt",
+   "the governance of an association is responsible to its members",
+   "he quickly became recognized as a member of the establishment"
+  ],
+  "hypernym": [
+   "07981699-n"
+  ],
+  "ili": "i80056",
+  "members": [
+   "administration",
+   "governance",
+   "governing body",
+   "establishment",
+   "brass",
+   "organization",
+   "organisation"
+  ],
+  "mero_member": [
+   "08398367-n"
+  ],
+  "mero_part": [
+   "08392782-n"
+  ],
+  "partOfSpeech": "n"
+ },
+ "02039393-a": {
+  "also": [
+   "02035990-a"
+  ],
+  "attribute": [
+   "08639173-n"
+  ],
+  "definition": [
+   "being or located on or directed toward the side of the body to the east when facing north"
+  ],
+  "example": [
+   "my right hand",
+   "right center field",
+   "a right-hand turn",
+   "the right bank of a river is the bank on your right side when you are facing downstream"
+  ],
+  "ili": "i11136",
+  "members": [
+   "right"
+  ],
+  "partOfSpeech": "a",
+  "similar": [
+   "02039793-s",
+   "02040024-s",
+   "02040137-s",
+   "02040257-s"
+  ]
+ },
+ "00071785-n": {
+  "definition": [
+   "a wrong action attributable to bad judgment or ignorance or inattention"
+  ],
+  "example": [
+   "he made a bad mistake",
+   "she was quick to point out my errors",
+   "I could understand his English in spite of his grammatical faults"
+  ],
+  "hypernym": [
+   "00067036-n"
+  ],
+  "ili": "i35783",
+  "members": [
+   "mistake",
+   "error",
+   "fault"
+  ],
+  "partOfSpeech": "n"
+ },
+ "05786951-n": {
+  "definition": [
+   "an activity resembling science but based on fallacious assumptions"
+  ],
+  "hypernym": [
+   "05902523-n"
+  ],
+  "ili": "i67257",
+  "members": [
+   "pseudoscience"
+  ],
+  "partOfSpeech": "n"
+ },
+ "00884975-n": {
+  "definition": [
+   "the activities of educating or instructing; activities that impart knowledge or skill"
+  ],
+  "example": [
+   "he received no formal education",
+   "our instruction was carefully programmed",
+   "good classroom teaching is seldom rewarded"
+  ],
+  "hypernym": [
+   "00408356-n"
+  ],
+  "ili": "i40040",
+  "members": [
+   "education",
+   "instruction",
+   "teaching",
+   "pedagogy",
+   "didactics",
+   "educational activity"
+  ],
+  "mero_part": [
+   "00730147-n",
+   "00730273-n",
+   "00730406-n",
+   "00730583-n"
+  ],
+  "partOfSpeech": "n"
+ },
+ "09471510-n": {
+  "definition": [
+   "a natural body of running water flowing on or under the earth"
+  ],
+  "hypernym": [
+   "09248053-n"
+  ],
+  "ili": "i86262",
+  "members": [
+   "stream",
+   "watercourse"
+  ],
+  "mero_part": [
+   "09306529-n",
+   "09372545-n",
+   "09377408-n"
+  ],
+  "partOfSpeech": "n"
+ },
+ "08693705-n": {
+  "definition": [
+   "a geographical area constituting a city or town"
+  ],
+  "hypernym": [
+   "08591861-n"
+  ],
+  "ili": "i82530",
+  "members": [
+   "urban area",
+   "populated area"
+  ],
+  "mero_part": [
+   "08632949-n"
+  ],
+  "partOfSpeech": "n",
+  "wikidata": "Q702492"
+ },
+ "04731092-n": {
+  "attribute": [
+   "01126910-a",
+   "01129296-a",
+   "01823004-a",
+   "01823738-a"
+  ],
+  "definition": [
+   "an essential and distinguishing attribute of something or someone"
+  ],
+  "example": [
+   {
+    "source": "Shakespeare",
+    "text": "the quality of mercy is not strained"
+   }
+  ],
+  "hypernym": [
+   "00024444-n"
+  ],
+  "ili": "i61871",
+  "members": [
+   "quality"
+  ],
+  "partOfSpeech": "n"
+ },
+ "06013012-n": {
+  "definition": [
+   "the branches of mathematics that study and develop the principles of mathematics for their own sake rather than for their immediate usefulness"
+  ],
+  "hypernym": [
+   "06009822-n"
+  ],
+  "ili": "i68342",
+  "members": [
+   "pure mathematics"
+  ],
+  "partOfSpeech": "n"
+ },
+ "00022119-n": {
+  "definition": [
+   "a man-made object taken as a whole"
+  ],
+  "hypernym": [
+   "00003553-n"
+  ],
+  "ili": "i35572",
+  "members": [
+   "artifact",
+   "artefact"
+  ],
+  "partOfSpeech": "n"
+ },
+ "02441196-v": {
+  "definition": [
+   "be in charge of, act on, or dispose of"
+  ],
+  "example": [
+   "I can deal with this crew of workers",
+   "This blender can't handle nuts",
+   "She managed her parents' affairs after they got too old"
+  ],
+  "hypernym": [
+   "02445887-v"
+  ],
+  "ili": "i33908",
+  "members": [
+   "manage",
+   "deal",
+   "care",
+   "handle"
+  ],
+  "partOfSpeech": "v"
+ },
+ "06160103-n": {
+  "definition": [
+   "the branch of economics that studies the management of money and other assets"
+  ],
+  "hypernym": [
+   "06158935-n"
+  ],
+  "ili": "i68895",
+  "members": [
+   "finance"
+  ],
+  "partOfSpeech": "n"
+ },
+ "06646883-n": {
+  "definition": [
+   "a message received and understood"
+  ],
+  "hypernym": [
+   "06611268-n"
+  ],
+  "ili": "i71348",
+  "members": [
+   "information",
+   "info"
+  ],
+  "partOfSpeech": "n"
+ },
+ "02020375-v": {
+  "definition": [
+   "to come or go into"
+  ],
+  "example": [
+   "the boat entered an area of shallow marshes"
+  ],
+  "hypernym": [
+   "01839438-v"
+  ],
+  "ili": "i31821",
+  "members": [
+   "enter",
+   "come in",
+   "get into",
+   "get in",
+   "go into",
+   "go in",
+   "move into"
+  ],
+  "partOfSpeech": "v"
+ },
+ "01622373-v": {
+  "definition": [
+   "produce or make another of"
+  ],
+  "example": [
+   "Re-create the boom of the West on a small scale",
+   "she recreated the feeling of the 1920's with her stage setting"
+  ],
+  "hypernym": [
+   "01620211-v"
+  ],
+  "ili": "i29856",
+  "members": [
+   "re-create",
+   "recreate"
+  ],
+  "partOfSpeech": "v"
+ },
+ "08024893-n": {
+  "definition": [
+   "a group of people who work together"
+  ],
+  "hypernym": [
+   "07967506-n"
+  ],
+  "ili": "i79383",
+  "members": [
+   "organization",
+   "organisation"
+  ],
+  "mero_member": [
+   "08374919-n",
+   "08417922-n"
+  ],
+  "partOfSpeech": "n"
+ },
+ "05709328-n": {
+  "definition": [
+   "(psychology) the performance of some composite cognitive activity; an operation that affects mental contents"
+  ],
+  "domain_topic": [
+   "06145709-n"
+  ],
+  "example": [
+   "the process of thinking",
+   "the cognitive operation of remembering"
+  ],
+  "hypernym": [
+   "00023451-n"
+  ],
+  "ili": "i66873",
+  "members": [
+   "process",
+   "cognitive process",
+   "mental process",
+   "operation",
+   "cognitive operation"
+  ],
+  "partOfSpeech": "n",
+  "wikidata": [
+   "Q781413",
+   "Q2200417"
+  ]
+ },
+ "00158612-v": {
+  "definition": [
+   "increase in amount by collecting or gathering"
+  ],
+  "example": [
+   "Journals are accumulating in my office",
+   "The work keeps piling up"
+  ],
+  "hypernym": [
+   "00156409-v"
+  ],
+  "ili": "i22503",
+  "members": [
+   "accumulate",
+   "cumulate",
+   "conglomerate",
+   "pile up",
+   "gather",
+   "amass"
+  ],
+  "partOfSpeech": "v"
+ },
+ "06009822-n": {
+  "definition": [
+   "a science (or group of related sciences) dealing with the logic of quantity and shape and arrangement"
+  ],
+  "domain_topic": [
+   "06008975-n"
+  ],
+  "hypernym": [
+   "06008975-n"
+  ],
+  "ili": "i68341",
+  "members": [
+   "mathematics",
+   "math",
+   "maths"
+  ],
+  "partOfSpeech": "n",
+  "wikidata": "Q395"
+ },
+ "03105141-n": {
+  "definition": [
+   "something that serves as a means of transportation"
+  ],
+  "hypernym": [
+   "03580409-n"
+  ],
+  "ili": "i52319",
+  "members": [
+   "conveyance",
+   "transport"
+  ],
+  "partOfSpeech": "n"
+ },
+ "04348764-n": {
+  "definition": [
+   "a thing constructed; a complex entity constructed of many parts"
+  ],
+  "example": [
+   "the structure consisted of a series of arches",
+   "she wore her hair in an amazing construction of whirls and ribbons"
+  ],
+  "hypernym": [
+   "00022119-n"
+  ],
+  "ili": "i59707",
+  "members": [
+   "structure",
+   "construction"
+  ],
+  "mero_part": [
+   "03391862-n",
+   "03966784-n",
+   "04348492-n"
+  ],
+  "partOfSpeech": "n"
+ },
+ "04088956-n": {
+  "definition": [
+   "a device that retards something's motion"
+  ],
+  "example": [
+   "the car did not have proper restraints fitted"
+  ],
+  "hypernym": [
+   "03187746-n"
+  ],
+  "ili": "i58117",
+  "members": [
+   "restraint",
+   "constraint"
+  ],
+  "partOfSpeech": "n"
+ },
+ "13279261-n": {
+  "definition": [
+   "the excess of revenues over outlays in a given period of time (including depreciation and other non-cash expenses)"
+  ],
+  "hypernym": [
+   "13276044-n"
+  ],
+  "ili": "i106325",
+  "members": [
+   "net income",
+   "net",
+   "net profit",
+   "lucre",
+   "profit",
+   "profits",
+   "earnings"
+  ],
+  "mero_part": [
+   "13306199-n"
+  ],
+  "partOfSpeech": "n"
+ },
+ "07034009-n": {
+  "definition": [
+   "an artistic form of auditory communication incorporating instrumental or vocal tones in a structured and continuous manner"
+  ],
+  "hypernym": [
+   "07123727-n"
+  ],
+  "ili": "i73566",
+  "members": [
+   "music"
+  ],
+  "partOfSpeech": "n"
+ },
+ "02455370-v": {
+  "definition": [
+   "stop (someone or something) from doing something or being in a certain state"
+  ],
+  "example": [
+   "We must prevent the cancer from spreading",
+   "His snoring kept me from falling asleep",
+   "Keep the child from eating the marbles"
+  ],
+  "hypernym": [
+   "02372362-v"
+  ],
+  "ili": "i33977",
+  "members": [
+   "prevent",
+   "keep"
+  ],
+  "partOfSpeech": "v",
+  "similar": [
+   "01304679-v"
+  ]
+ },
+ "02217607-v": {
+  "definition": [
+   "refuse to let have"
+  ],
+  "example": [
+   "She denies me every pleasure",
+   "he denies her her weekly allowance"
+  ],
+  "hypernym": [
+   "02207166-v"
+  ],
+  "ili": "i32809",
+  "members": [
+   "deny",
+   "refuse"
+  ],
+  "partOfSpeech": "v",
+  "similar": [
+   "02217856-v"
+  ]
+ },
+ "02622439-v": {
+  "definition": [
+   "be identical to; be someone or something"
+  ],
+  "example": [
+   "The president of the company is John Smith",
+   "This is my house"
+  ],
+  "hypernym": [
+   "02681865-v"
+  ],
+  "ili": "i34756",
+  "members": [
+   "be"
+  ],
+  "partOfSpeech": "v"
+ },
+ "08072983-n": {
+  "definition": [
+   "an organization created for business ventures"
+  ],
+  "example": [
+   "a growing enterprise must have a bold leader"
+  ],
+  "hypernym": [
+   "08024893-n"
+  ],
+  "ili": "i79546",
+  "members": [
+   "enterprise"
+  ],
+  "partOfSpeech": "n",
+  "wikidata": "Q6881511"
+ },
+ "06294878-n": {
+  "definition": [
+   "one of the natural units into which linguistic messages can be analyzed"
+  ],
+  "hypernym": [
+   "13831419-n"
+  ],
+  "ili": "i69533",
+  "members": [
+   "language unit",
+   "linguistic unit"
+  ],
+  "partOfSpeech": "n"
+ },
+ "02236443-v": {
+  "definition": [
+   "transfer to another"
+  ],
+  "example": [
+   "communicate a disease"
+  ],
+  "hypernym": [
+   "02236972-v"
+  ],
+  "ili": "i32901",
+  "members": [
+   "convey",
+   "transmit",
+   "communicate"
+  ],
+  "partOfSpeech": "v"
+ },
+ "00819341-n": {
+  "definition": [
+   "the activity of protecting someone or something"
+  ],
+  "example": [
+   "the witnesses demanded police protection"
+  ],
+  "hypernym": [
+   "00408356-n"
+  ],
+  "ili": "i39702",
+  "members": [
+   "protection"
+  ],
+  "partOfSpeech": "n"
+ },
+ "07319470-n": {
+  "definition": [
+   "unnecessary and unforeseen trouble resulting from an unfortunate event"
+  ],
+  "hypernym": [
+   "07303737-n"
+  ],
+  "ili": "i75079",
+  "members": [
+   "misfortune",
+   "bad luck"
+  ],
+  "partOfSpeech": "n"
+ },
+ "13968971-n": {
+  "attribute": [
+   "00260434-a",
+   "00261296-a",
+   "00262111-a",
+   "00794782-a",
+   "00796546-a"
+  ],
+  "definition": [
+   "the relative position or standing of things or especially persons in a society"
+  ],
+  "example": [
+   "he had the status of a minor",
+   "the novel attained the status of a classic",
+   "atheists do not enjoy a favorable position in American life"
+  ],
+  "hypernym": [
+   "00024900-n"
+  ],
+  "ili": "i110227",
+  "members": [
+   "status",
+   "position"
+  ],
+  "partOfSpeech": "n"
+ },
+ "05803052-n": {
+  "definition": [
+   "the thing arranged or agreed to"
+  ],
+  "example": [
+   "they made arrangements to meet in Chicago"
+  ],
+  "hypernym": [
+   "05802702-n"
+  ],
+  "ili": "i67339",
+  "members": [
+   "agreement",
+   "arrangement"
+  ],
+  "partOfSpeech": "n"
+ },
+ "00278429-v": {
+  "definition": [
+   "bring order to or into"
+  ],
+  "example": [
+   "Order these files"
+  ],
+  "hypernym": [
+   "01466592-v"
+  ],
+  "ili": "i23106",
+  "members": [
+   "order"
+  ],
+  "partOfSpeech": "v"
+ },
+ "00104622-v": {
+  "definition": [
+   "eliminate (a substance)"
+  ],
+  "example": [
+   "combustion products are exhausted in the engine",
+   "the plant releases a gas"
+  ],
+  "hypernym": [
+   "02635337-v"
+  ],
+  "ili": "i22298",
+  "members": [
+   "exhaust",
+   "discharge",
+   "expel",
+   "eject",
+   "release"
+  ],
+  "partOfSpeech": "v"
+ },
+ "07307418-n": {
+  "definition": [
+   "something that results"
+  ],
+  "example": [
+   "he listened for the results on the radio"
+  ],
+  "hypernym": [
+   "07306035-n"
+  ],
+  "ili": "i75013",
+  "members": [
+   "result",
+   "resultant",
+   "final result",
+   "outcome",
+   "termination"
+  ],
+  "partOfSpeech": "n"
+ },
+ "01999581-v": {
+  "definition": [
+   "move ahead; travel onward in time or space"
+  ],
+  "example": [
+   "We proceeded towards Washington",
+   "She continued in the direction of the hills",
+   "We are moving ahead in time now"
+  ],
+  "hypernym": [
+   "01839438-v"
+  ],
+  "ili": "i31717",
+  "members": [
+   "proceed",
+   "go forward",
+   "continue",
+   "move ahead"
+  ],
+  "partOfSpeech": "v",
+  "similar": [
+   "02685709-v"
+  ]
+ },
+ "00002137-n": {
+  "definition": [
+   "a general concept formed by extracting common features from specific examples"
+  ],
+  "hypernym": [
+   "00001740-n"
+  ],
+  "ili": "i35547",
+  "members": [
+   "abstraction",
+   "abstract entity"
+  ],
+  "partOfSpeech": "n"
+ },
+ "00583425-n": {
+  "definition": [
+   "the principal activity in your life that you do to earn money"
+  ],
+  "example": [
+   "he's not in my line of business"
+  ],
+  "hypernym": [
+   "00408356-n"
+  ],
+  "ili": "i38458",
+  "members": [
+   "occupation",
+   "business",
+   "job",
+   "line of work",
+   "line"
+  ],
+  "partOfSpeech": "n"
+ },
+ "04623416-n": {
+  "definition": [
+   "a distinguishing feature of your personal nature"
+  ],
+  "hypernym": [
+   "00024444-n"
+  ],
+  "ili": "i61343",
+  "members": [
+   "trait"
+  ],
+  "partOfSpeech": "n"
+ },
+ "04904939-n": {
+  "definition": [
+   "(behavioral attributes) the way a person behaves toward other people"
+  ],
+  "hypernym": [
+   "04623416-n"
+  ],
+  "ili": "i62725",
+  "members": [
+   "demeanor",
+   "demeanour",
+   "behavior",
+   "behaviour",
+   "conduct",
+   "deportment"
+  ],
+  "partOfSpeech": "n"
+ },
+ "08224937-n": {
+  "definition": [
+   "group of people willing to obey orders"
+  ],
+  "example": [
+   "a public force is necessary to give security to the rights of citizens"
+  ],
+  "hypernym": [
+   "08024893-n"
+  ],
+  "ili": "i80234",
+  "members": [
+   "force",
+   "personnel"
+  ],
+  "partOfSpeech": "n"
+ },
+ "14842408-n": {
+  "definition": [
+   "(chemistry) a substance formed by chemical union of two or more elements or ingredients in definite proportion by weight"
+  ],
+  "domain_topic": [
+   "06094057-n"
+  ],
+  "hypernym": [
+   "14831008-n"
+  ],
+  "ili": "i114921",
+  "members": [
+   "compound",
+   "chemical compound"
+  ],
+  "partOfSpeech": "n",
+  "wikidata": "Q11173"
+ },
+ "01768023-v": {
+  "definition": [
+   "disturb in mind or make uneasy or cause to be worried or alarmed"
+  ],
+  "example": [
+   "She was rather perturbed by the news that her father was seriously ill"
+  ],
+  "hypernym": [
+   "01774422-v"
+  ],
+  "ili": "i30562",
+  "members": [
+   "perturb",
+   "unhinge",
+   "disquiet",
+   "trouble",
+   "cark",
+   "distract",
+   "disorder"
+  ],
+  "partOfSpeech": "v"
+ },
+ "07991473-n": {
+  "definition": [
+   "a group of persons together in one place"
+  ],
+  "hypernym": [
+   "07967506-n"
+  ],
+  "ili": "i79220",
+  "members": [
+   "gathering",
+   "assemblage"
+  ],
+  "partOfSpeech": "n"
+ },
+ "03314753-n": {
+  "definition": [
+   "artifact made by weaving or felting or knitting or crocheting natural or synthetic fibers"
+  ],
+  "example": [
+   "the fabric in the curtains was light and semitransparent",
+   "woven cloth originated in Mesopotamia around 5000 BC",
+   "she measured off enough material for a dress"
+  ],
+  "hypernym": [
+   "00022119-n"
+  ],
+  "ili": "i53547",
+  "members": [
+   "fabric",
+   "cloth",
+   "material",
+   "textile"
+  ],
+  "mero_part": [
+   "03270390-n",
+   "03518771-n"
+  ],
+  "mero_substance": [
+   "04559236-n",
+   "04606292-n"
+  ],
+  "partOfSpeech": "n",
+  "wikidata": [
+   "Q5849500",
+   "Q28823"
+  ]
+ },
+ "02110960-v": {
+  "definition": [
+   "to become aware of through the senses"
+  ],
+  "example": [
+   "I could perceive the ship coming over the horizon"
+  ],
+  "hypernym": [
+   "00600349-v"
+  ],
+  "ili": "i32296",
+  "members": [
+   "perceive",
+   "comprehend"
+  ],
+  "partOfSpeech": "v"
+ },
+ "02529837-v": {
+  "definition": [
+   "attain success or reach a desired goal"
+  ],
+  "entails": [
+   "02535833-v"
+  ],
+  "example": [
+   "The enterprise succeeded",
+   "We succeeded in getting tickets to the show",
+   "she struggled to overcome her handicap and won"
+  ],
+  "hypernym": [
+   "02372362-v"
+  ],
+  "ili": "i34330",
+  "members": [
+   "succeed",
+   "win",
+   "come through",
+   "bring home the bacon",
+   "deliver the goods"
+  ],
+  "partOfSpeech": "v"
+ },
+ "02204104-v": {
+  "causes": [
+   "02208144-v"
+  ],
+  "definition": [
+   "transfer possession of something concrete or abstract to somebody"
+  ],
+  "example": [
+   "I gave her my money",
+   "can you give me lessons?",
+   "She gave the children lots of love and tender loving care"
+  ],
+  "hypernym": [
+   "02225243-v"
+  ],
+  "ili": "i32755",
+  "members": [
+   "give"
+  ],
+  "partOfSpeech": "v"
+ },
+ "03938441-n": {
+  "definition": [
+   "a separate part of a whole"
+  ],
+  "example": [
+   "an important piece of the evidence"
+  ],
+  "hypernym": [
+   "03898588-n"
+  ],
+  "ili": "i57249",
+  "members": [
+   "piece"
+  ],
+  "partOfSpeech": "n"
+ },
+ "01886613-a": {
+  "also": [
+   "00136789-a",
+   "00686462-a",
+   "00692748-a",
+   "01024917-a",
+   "02042744-a",
+   "00635278-a"
+  ],
+  "attribute": [
+   "04905614-n"
+  ],
+  "definition": [
+   "not suitable or right or appropriate"
+  ],
+  "domain_topic": [
+   "00845915-n"
+  ],
+  "example": [
+   "slightly improper to dine alone with a married man",
+   "improper medication",
+   "improper attire for the golf course"
+  ],
+  "ili": "i10319",
+  "members": [
+   "improper"
+  ],
+  "partOfSpeech": "a",
+  "similar": [
+   "01887000-s",
+   "01887447-s",
+   "01887577-s"
+  ]
+ },
+ "08474004-n": {
+  "definition": [
+   "logical or comprehensible arrangement of separate elements"
+  ],
+  "example": [
+   "we shall consider these questions in the inverse order of their presentation"
+  ],
+  "hypernym": [
+   "07955013-n"
+  ],
+  "ili": "i81500",
+  "members": [
+   "ordering",
+   "order",
+   "ordination"
+  ],
+  "partOfSpeech": "n"
+ },
+ "00146038-n": {
+  "definition": [
+   "the act of bringing two things into contact (especially for communication)"
+  ],
+  "example": [
+   "the joining of hands around the table",
+   "there was a connection via the internet"
+  ],
+  "hypernym": [
+   "00376871-n"
+  ],
+  "ili": "i36175",
+  "members": [
+   "joining",
+   "connection",
+   "connexion"
+  ],
+  "partOfSpeech": "n",
+  "wikidata": "Q1480529"
+ },
+ "03551520-n": {
+  "definition": [
+   "structures collectively in which people are housed"
+  ],
+  "hypernym": [
+   "04348764-n"
+  ],
+  "ili": "i54968",
+  "members": [
+   "housing",
+   "lodging",
+   "living accommodations"
+  ],
+  "partOfSpeech": "n"
+ },
+ "08215077-n": {
+  "definition": [
+   "a force that is a branch of the armed forces"
+  ],
+  "domain_topic": [
+   "08215965-n"
+  ],
+  "hypernym": [
+   "08224937-n"
+  ],
+  "ili": "i80223",
+  "members": [
+   "military service",
+   "armed service",
+   "service"
+  ],
+  "mero_member": [
+   "08215338-n"
+  ],
+  "partOfSpeech": "n",
+  "wikidata": "Q209572"
+ },
+ "13597072-n": {
+  "definition": [
+   "one of the four quantities that are the basis of systems of measurement"
+  ],
+  "hypernym": [
+   "00033914-n"
+  ],
+  "ili": "i108052",
+  "members": [
+   "fundamental quantity",
+   "fundamental measure"
+  ],
+  "partOfSpeech": "n"
+ },
+ "08569713-n": {
+  "definition": [
+   "a region marked off for administrative or other purposes"
+  ],
+  "hypernym": [
+   "08648560-n"
+  ],
+  "ili": "i81923",
+  "members": [
+   "district",
+   "territory",
+   "territorial dominion",
+   "dominion"
+  ],
+  "partOfSpeech": "n"
+ },
+ "01082290-n": {
+  "definition": [
+   "action taken by a group of people"
+  ],
+  "hypernym": [
+   "00038116-n"
+  ],
+  "ili": "i41070",
+  "members": [
+   "group action"
+  ],
+  "partOfSpeech": "n"
+ },
+ "00911901-n": {
+  "definition": [
+   "the act of making a record (especially an audio record)"
+  ],
+  "example": [
+   "she watched the recording from a sound-proof booth"
+  ],
+  "hypernym": [
+   "00910607-n"
+  ],
+  "ili": "i40192",
+  "members": [
+   "recording",
+   "transcription"
+  ],
+  "partOfSpeech": "n"
+ },
+ "00007347-n": {
+  "definition": [
+   "any entity that produces an effect or is responsible for events or results"
+  ],
+  "hypernym": [
+   "00001930-n"
+  ],
+  "ili": "i35561",
+  "members": [
+   "causal agent",
+   "cause",
+   "causal agency"
+  ],
+  "partOfSpeech": "n"
+ },
+ "00233707-v": {
+  "definition": [
+   "prevent the action or expression of"
+  ],
+  "example": [
+   "hold back your anger",
+   "keep your cool",
+   "she struggled to restrain her impatience at the delays"
+  ],
+  "hypernym": [
+   "02372362-v"
+  ],
+  "ili": "i33848",
+  "members": [
+   "restrain",
+   "keep",
+   "keep back",
+   "hold back"
+  ],
+  "partOfSpeech": "v"
+ },
+ "00742582-v": {
+  "definition": [
+   "transmit thoughts or feelings"
+  ],
+  "example": [
+   "He communicated his anxieties to the psychiatrist"
+  ],
+  "hypernym": [
+   "02382049-v"
+  ],
+  "ili": "i25403",
+  "members": [
+   "communicate",
+   "intercommunicate"
+  ],
+  "partOfSpeech": "v"
+ },
+ "06376912-n": {
+  "definition": [
+   "written works (especially in books or magazines)"
+  ],
+  "example": [
+   "he always took some reading matter with him on the plane"
+  ],
+  "hypernym": [
+   "06374360-n"
+  ],
+  "ili": "i69927",
+  "members": [
+   "matter"
+  ],
+  "partOfSpeech": "n"
+ },
+ "01884565-a": {
+  "also": [
+   "00135772-a",
+   "00634232-a",
+   "00686209-a",
+   "00692224-a",
+   "02042235-a"
+  ],
+  "attribute": [
+   "04905614-n"
+  ],
+  "definition": [
+   "marked by suitability or rightness or appropriateness"
+  ],
+  "example": [
+   "proper medical treatment",
+   "proper manners"
+  ],
+  "ili": "i10311",
+  "members": [
+   "proper"
+  ],
+  "partOfSpeech": "a",
+  "similar": [
+   "01884969-s",
+   "01885314-s",
+   "01885517-s",
+   "01885720-s",
+   "01885994-s",
+   "01886153-s",
+   "01886245-s"
+  ]
+ },
+ "00456623-n": {
+  "definition": [
+   "a contest with rules to determine a winner"
+  ],
+  "example": [
+   "you need four people to play this game"
+  ],
+  "hypernym": [
+   "00408356-n"
+  ],
+  "ili": "i37810",
+  "members": [
+   "game"
+  ],
+  "partOfSpeech": "n"
+ },
+ "02230274-v": {
+  "definition": [
+   "to keep up and reserve for personal or special use"
+  ],
+  "example": [
+   "She saved the old family photographs in a drawer"
+  ],
+  "hypernym": [
+   "02207166-v"
+  ],
+  "ili": "i32870",
+  "members": [
+   "save",
+   "preserve"
+  ],
+  "partOfSpeech": "v"
+ },
+ "08118903-n": {
+  "definition": [
+   "the hereditary derivation of an individual"
+  ],
+  "example": [
+   "his entire lineage has been warriors"
+  ],
+  "hypernym": [
+   "08119368-n"
+  ],
+  "ili": "i79781",
+  "members": [
+   "lineage",
+   "line",
+   "line of descent",
+   "descent",
+   "bloodline",
+   "blood line",
+   "blood",
+   "pedigree",
+   "ancestry",
+   "origin",
+   "parentage",
+   "stemma",
+   "stock"
+  ],
+  "partOfSpeech": "n"
+ },
+ "00027365-n": {
+  "definition": [
+   "a point or extent in space; a point or extent in space"
+  ],
+  "hypernym": [
+   "00002684-n"
+  ],
+  "ili": "i35580",
+  "members": [
+   "location"
+  ],
+  "partOfSpeech": "n"
+ },
+ "00638921-v": {
+  "definition": [
+   "make a mathematical calculation or computation"
+  ],
+  "domain_topic": [
+   "06009822-n"
+  ],
+  "hypernym": [
+   "00634289-v"
+  ],
+  "ili": "i24925",
+  "members": [
+   "calculate",
+   "cipher",
+   "cypher",
+   "compute",
+   "work out",
+   "reckon",
+   "figure"
+  ],
+  "partOfSpeech": "v",
+  "similar": [
+   "00640247-v"
+  ]
+ },
+ "01096649-n": {
+  "definition": [
+   "the activity of providing goods and services involving financial and commercial and industrial aspects"
+  ],
+  "example": [
+   "computers are now widely used in business"
+  ],
+  "hypernym": [
+   "01092370-n"
+  ],
+  "ili": "i41138",
+  "members": [
+   "commercial enterprise",
+   "business enterprise",
+   "business"
+  ],
+  "mero_part": [
+   "01097658-n"
+  ],
+  "partOfSpeech": "n"
+ },
+ "06262268-n": {
+  "definition": [
+   "the activity of communicating; the activity of conveying information"
+  ],
+  "example": [
+   "they could not act without official communication from Moscow"
+  ],
+  "hypernym": [
+   "00030657-n"
+  ],
+  "ili": "i69362",
+  "members": [
+   "communication",
+   "communicating"
+  ],
+  "partOfSpeech": "n"
+ },
+ "05677778-n": {
+  "definition": [
+   "the state of a person's cognitive processes"
+  ],
+  "hypernym": [
+   "14396987-n"
+  ],
+  "ili": "i66713",
+  "members": [
+   "cognitive state",
+   "state of mind"
+  ],
+  "partOfSpeech": "n"
+ },
+ "03133774-n": {
+  "definition": [
+   "an artifact that has been brought into existence by someone"
+  ],
+  "hypernym": [
+   "00022119-n"
+  ],
+  "ili": "i52486",
+  "members": [
+   "creation"
+  ],
+  "partOfSpeech": "n"
+ },
+ "00145958-v": {
+  "definition": [
+   "undergo a transformation or a change of position or action"
+  ],
+  "example": [
+   "We turned from Socialism to Capitalism",
+   "The people turned against the President when he stole the election"
+  ],
+  "hypernym": [
+   "00109468-v"
+  ],
+  "ili": "i22450",
+  "members": [
+   "change state",
+   "turn"
+  ],
+  "partOfSpeech": "v",
+  "similar": [
+   "02632685-v",
+   "00125649-v"
+  ]
+ },
+ "00427931-n": {
+  "definition": [
+   "an activity that diverts or amuses or stimulates"
+  ],
+  "example": [
+   "scuba diving is provided as a diversion for tourists",
+   "for recreation he wrote poetry and solved crossword puzzles",
+   "drug abuse is often regarded as a form of recreation"
+  ],
+  "hypernym": [
+   "00408356-n"
+  ],
+  "ili": "i37650",
+  "members": [
+   "diversion",
+   "recreation"
+  ],
+  "partOfSpeech": "n"
+ },
+ "01113439-v": {
+  "definition": [
+   "obtain advantages, such as points, etc."
+  ],
+  "example": [
+   "The home team was gaining ground",
+   "After defeating the Knicks, the Blazers pulled ahead of the Lakers in the battle for the number-one playoff berth in the Western Conference",
+   "win points"
+  ],
+  "hypernym": [
+   "02242867-v"
+  ],
+  "ili": "i27153",
+  "members": [
+   "gain",
+   "advance",
+   "win",
+   "pull ahead",
+   "make headway",
+   "get ahead",
+   "gain ground"
+  ],
+  "partOfSpeech": "v"
+ },
+ "06167042-n": {
+  "definition": [
+   "arts or skills that require public performance"
+  ],
+  "hypernym": [
+   "06163352-n"
+  ],
+  "ili": "i68925",
+  "members": [
+   "performing arts"
+  ],
+  "partOfSpeech": "n"
+ },
+ "02139137-v": {
+  "definition": [
+   "(of a proposition) seem to be true, probable, or apparent"
+  ],
+  "example": [
+   "It seems that he is very gifted",
+   "It appears that the weather in California is very bad"
+  ],
+  "hypernym": [
+   "02622439-v"
+  ],
+  "ili": "i32425",
+  "members": [
+   "appear",
+   "seem"
+  ],
+  "partOfSpeech": "v"
+ },
+ "01450719-v": {
+  "definition": [
+   "cause to move by pulling"
+  ],
+  "example": [
+   "draw a wagon",
+   "pull a sled"
+  ],
+  "hypernym": [
+   "01854282-v"
+  ],
+  "ili": "i28967",
+  "members": [
+   "pull",
+   "draw"
+  ],
+  "partOfSpeech": "v",
+  "similar": [
+   "01612191-v",
+   "02107440-v"
+  ]
+ },
+ "00033914-n": {
+  "attribute": [
+   "02303673-a",
+   "02304841-a"
+  ],
+  "definition": [
+   "how much there is or how many there are of something that you can quantify"
+  ],
+  "hypernym": [
+   "00002137-n"
+  ],
+  "ili": "i35594",
+  "members": [
+   "measure",
+   "quantity",
+   "amount"
+  ],
+  "partOfSpeech": "n"
+ },
+ "10499838-n": {
+  "definition": [
+   "a person engaged in one of the learned professions"
+  ],
+  "hypernym": [
+   "09786620-n"
+  ],
+  "ili": "i92281",
+  "members": [
+   "professional",
+   "professional person"
+  ],
+  "partOfSpeech": "n",
+  "wikidata": "Q702269"
+ },
+ "03742461-n": {
+  "definition": [
+   "mechanism consisting of a device that works on mechanical principles"
+  ],
+  "hypernym": [
+   "03743963-n"
+  ],
+  "ili": "i56110",
+  "members": [
+   "mechanical device"
+  ],
+  "partOfSpeech": "n"
+ },
+ "13424504-n": {
+  "definition": [
+   "a written account of ownership or obligation"
+  ],
+  "hypernym": [
+   "00033319-n"
+  ],
+  "ili": "i107174",
+  "members": [
+   "document"
+  ],
+  "partOfSpeech": "n"
+ },
+ "00023451-n": {
+  "definition": [
+   "the psychological result of perception and learning and reasoning"
+  ],
+  "hypernym": [
+   "00023280-n"
+  ],
+  "ili": "i35575",
+  "members": [
+   "cognition",
+   "knowledge",
+   "noesis"
+  ],
+  "partOfSpeech": "n"
+ },
+ "06055093-n": {
+  "definition": [
+   "the science of dealing with the maintenance of health and the prevention and treatment of disease"
+  ],
+  "hypernym": [
+   "06046810-n"
+  ],
+  "ili": "i68505",
+  "members": [
+   "medical science"
+  ],
+  "partOfSpeech": "n"
+ },
+ "07298313-n": {
+  "definition": [
+   "an event that happens"
+  ],
+  "hypernym": [
+   "00029677-n"
+  ],
+  "ili": "i74970",
+  "members": [
+   "happening",
+   "occurrence",
+   "occurrent",
+   "natural event"
+  ],
+  "partOfSpeech": "n"
+ },
+ "00191991-n": {
+  "definition": [
+   "the action of changing something"
+  ],
+  "example": [
+   "the change of government had no impact on the economy",
+   "his change on abortion cost him the election"
+  ],
+  "hypernym": [
+   "00038116-n"
+  ],
+  "ili": "i36418",
+  "members": [
+   "change"
+  ],
+  "partOfSpeech": "n"
+ },
+ "02040360-a": {
+  "also": [
+   "02036545-a"
+  ],
+  "attribute": [
+   "08639173-n"
+  ],
+  "definition": [
+   "being or located on or directed toward the side of the body to the west when facing north"
+  ],
+  "example": [
+   "my left hand",
+   "left center field",
+   "the left bank of a river is bank on your left side when you are facing downstream"
+  ],
+  "ili": "i11141",
+  "members": [
+   "left"
+  ],
+  "partOfSpeech": "a",
+  "similar": [
+   "02040730-s",
+   "02040857-s",
+   "02040963-s",
+   "02041149-s"
+  ]
+ },
+ "06374360-n": {
+  "definition": [
+   "the work of a writer; anything expressed in letters of the alphabet (especially when considered from the point of view of style and effect)"
+  ],
+  "example": [
+   "the writing in her novels is excellent",
+   "that editorial was a fine piece of writing"
+  ],
+  "hypernym": [
+   "06360590-n"
+  ],
+  "ili": "i69919",
+  "members": [
+   "writing",
+   "written material",
+   "piece of writing"
+  ],
+  "mero_part": [
+   "06410403-n"
+  ],
+  "partOfSpeech": "n"
+ },
+ "02738693-n": {
+  "definition": [
+   "a part of a structure having some specific characteristic or function"
+  ],
+  "example": [
+   "the spacious cooking area provided plenty of room for servants"
+  ],
+  "hypernym": [
+   "04348764-n"
+  ],
+  "ili": "i50136",
+  "members": [
+   "area"
+  ],
+  "partOfSpeech": "n"
+ },
+ "02208144-v": {
+  "definition": [
+   "have or possess, either in a concrete or an abstract sense"
+  ],
+  "example": [
+   "She has $1,000 in the bank",
+   "He has got two beautiful daughters",
+   "She holds a Master's degree from Harvard",
+   "I have two years left",
+   "I don't have any money left",
+   "They have two more years before they retire"
+  ],
+  "ili": "i32770",
+  "members": [
+   "have",
+   "have got",
+   "hold"
+  ],
+  "partOfSpeech": "v",
+  "similar": [
+   "02636270-v"
+  ]
+ },
+ "08637636-n": {
+  "definition": [
+   "the precise location of something; a spatially limited location"
+  ],
+  "example": [
+   "she walked to a point where she could survey the whole street"
+  ],
+  "hypernym": [
+   "00027365-n"
+  ],
+  "ili": "i82287",
+  "members": [
+   "point"
+  ],
+  "partOfSpeech": "n"
+ },
+ "00001930-n": {
+  "definition": [
+   "an entity that has physical existence"
+  ],
+  "hypernym": [
+   "00001740-n"
+  ],
+  "ili": "i35546",
+  "members": [
+   "physical entity"
+  ],
+  "partOfSpeech": "n"
+ },
+ "00339647-n": {
+  "definition": [
+   "changing an arrangement"
+  ],
+  "hypernym": [
+   "00941444-n"
+  ],
+  "ili": "i37190",
+  "members": [
+   "rearrangement"
+  ],
+  "partOfSpeech": "n"
+ },
+ "07957410-n": {
+  "definition": [
+   "a group of plants or animals"
+  ],
+  "hypernym": [
+   "00031563-n"
+  ],
+  "ili": "i79054",
+  "members": [
+   "biological group"
+  ],
+  "partOfSpeech": "n"
+ },
+ "14880414-n": {
+  "definition": [
+   "any materials unused and rejected as worthless or unwanted"
+  ],
+  "example": [
+   "they collect the waste once a week",
+   "much of the waste material is carried off in the sewers"
+  ],
+  "hypernym": [
+   "14604877-n"
+  ],
+  "ili": "i115128",
+  "members": [
+   "waste",
+   "waste material",
+   "waste matter",
+   "waste product"
+  ],
+  "partOfSpeech": "n"
+ },
+ "14964038-n": {
+  "definition": [
+   "a substance that is fluid at room temperature and pressure"
+  ],
+  "hypernym": [
+   "00019793-n"
+  ],
+  "ili": "i115632",
+  "members": [
+   "fluid"
+  ],
+  "partOfSpeech": "n"
+ },
+ "14963583-n": {
+  "definition": [
+   "continuous amorphous matter that tends to flow and to conform to the outline of its container: a liquid or a gas"
+  ],
+  "hypernym": [
+   "00021007-n"
+  ],
+  "ili": "i115629",
+  "members": [
+   "fluid"
+  ],
+  "partOfSpeech": "n"
+ },
+ "02609706-v": {
+  "definition": [
+   "have an existence, be extant"
+  ],
+  "example": [
+   "Is there a God?"
+  ],
+  "ili": "i34708",
+  "members": [
+   "exist",
+   "be"
+  ],
+  "partOfSpeech": "v"
+ },
+ "00021007-n": {
+  "definition": [
+   "that which has mass and occupies space"
+  ],
+  "example": [
+   "physicists study both the nature of matter and the forces which govern it"
+  ],
+  "hypernym": [
+   "00001930-n"
+  ],
+  "ili": "i35569",
+  "members": [
+   "matter"
+  ],
+  "partOfSpeech": "n"
+ },
+ "07303344-n": {
+  "definition": [
+   "an event characteristic of persons forming groups"
+  ],
+  "hypernym": [
+   "00029677-n"
+  ],
+  "ili": "i74993",
+  "members": [
+   "social event"
+  ],
+  "partOfSpeech": "n"
+ },
+ "00019793-n": {
+  "definition": [
+   "the real physical matter of which a person or thing consists"
+  ],
+  "example": [
+   "DNA is the substance of our genes"
+  ],
+  "hypernym": [
+   "00021007-n",
+   "13831419-n"
+  ],
+  "ili": "i35567",
+  "members": [
+   "substance"
+  ],
+  "partOfSpeech": "n"
+ },
+ "01630392-v": {
+  "definition": [
+   "produce, create"
+  ],
+  "example": [
+   "The new manager generated a lot of problems",
+   "The computer bug generated chaos in the office",
+   "The computer generated this image",
+   "The earthquake generated a tsunami"
+  ],
+  "hypernym": [
+   "01620211-v"
+  ],
+  "ili": "i29894",
+  "members": [
+   "generate",
+   "bring forth"
+  ],
+  "partOfSpeech": "v"
+ },
+ "07967506-n": {
+  "definition": [
+   "people sharing some social relation"
+  ],
+  "hypernym": [
+   "00031563-n"
+  ],
+  "ili": "i79103",
+  "members": [
+   "social group"
+  ],
+  "partOfSpeech": "n",
+  "wikidata": "Q874405"
+ },
+ "00031563-n": {
+  "definition": [
+   "any number of entities (members) considered as a unit"
+  ],
+  "hypernym": [
+   "00002137-n"
+  ],
+  "ili": "i35589",
+  "members": [
+   "group",
+   "grouping"
+  ],
+  "partOfSpeech": "n"
+ },
+ "04606723-n": {
+  "definition": [
+   "a product produced or accomplished through the effort or activity or agency of a person or thing"
+  ],
+  "example": [
+   "it is not regarded as one of his more memorable works",
+   "the symphony was hailed as an ingenious work",
+   "he was indebted to the pioneering work of John Dewey",
+   "the work of an active imagination",
+   "erosion is the work of wind or water over time"
+  ],
+  "hypernym": [
+   "04014270-n"
+  ],
+  "ili": "i61245",
+  "members": [
+   "work",
+   "piece of work"
+  ],
+  "partOfSpeech": "n"
+ },
+ "09636221-n": {
+  "definition": [
+   "a person who participates in competitions"
+  ],
+  "hypernym": [
+   "09786620-n"
+  ],
+  "ili": "i87187",
+  "members": [
+   "contestant"
+  ],
+  "partOfSpeech": "n",
+  "wikidata": "Q5165152"
+ },
+ "00666401-v": {
+  "definition": [
+   "confirm the truth of"
+  ],
+  "example": [
+   "Please verify that the doors are closed",
+   "verify a claim"
+  ],
+  "hypernym": [
+   "00667804-v"
+  ],
+  "ili": "i25048",
+  "members": [
+   "verify"
+  ],
+  "partOfSpeech": "v"
+ },
+ "08070328-n": {
+  "definition": [
+   "an organization founded and united for a specific purpose"
+  ],
+  "hypernym": [
+   "08024893-n"
+  ],
+  "ili": "i79532",
+  "members": [
+   "institution",
+   "establishment"
+  ],
+  "partOfSpeech": "n"
+ },
+ "02670846-v": {
+  "definition": [
+   "be identical or equivalent to"
+  ],
+  "example": [
+   "One dollar equals 1,000 rubles these days!"
+  ],
+  "hypernym": [
+   "02622439-v"
+  ],
+  "ili": "i34989",
+  "members": [
+   "equal",
+   "be"
+  ],
+  "partOfSpeech": "v"
+ },
+ "00067770-v": {
+  "definition": [
+   "release (a liquid) in drops or small quantities"
+  ],
+  "example": [
+   "exude sweat through the pores"
+  ],
+  "hypernym": [
+   "00072742-v"
+  ],
+  "ili": "i22115",
+  "members": [
+   "exude",
+   "exudate",
+   "transude",
+   "ooze out",
+   "ooze"
+  ],
+  "partOfSpeech": "v"
+ },
+ "08458195-n": {
+  "definition": [
+   "the collection of rules imposed by authority"
+  ],
+  "example": [
+   "civilization presupposes respect for the law",
+   "the great problem for jurisprudence to allow freedom while enforcing order"
+  ],
+  "hypernym": [
+   "07968050-n"
+  ],
+  "ili": "i81481",
+  "members": [
+   "law",
+   "jurisprudence"
+  ],
+  "mero_part": [
+   "06544321-n"
+  ],
+  "partOfSpeech": "n"
+ },
+ "00706456-v": {
+  "definition": [
+   "make plans for something"
+  ],
+  "example": [
+   "He is planning a trip with his family"
+  ],
+  "hypernym": [
+   "00630153-v"
+  ],
+  "ili": "i25230",
+  "members": [
+   "plan"
+  ],
+  "partOfSpeech": "v"
+ },
+ "05847274-n": {
+  "definition": [
+   "a general concept that marks divisions or coordinations in a conceptual scheme"
+  ],
+  "hypernym": [
+   "05844071-n"
+  ],
+  "ili": "i67558",
+  "members": [
+   "category"
+  ],
+  "partOfSpeech": "n"
+ },
+ "00929076-n": {
+  "definition": [
+   "the act of creating something by thinking"
+  ],
+  "hypernym": [
+   "00910190-n"
+  ],
+  "ili": "i40283",
+  "members": [
+   "creating by mental acts"
+  ],
+  "partOfSpeech": "n"
+ },
+ "00691086-v": {
+  "definition": [
+   "judge or regard; look upon; judge"
+  ],
+  "example": [
+   "I think he is very smart",
+   "I believe her to be very smart",
+   "I think that he is her boyfriend",
+   "The racist conceives such people to be inferior"
+  ],
+  "hypernym": [
+   "00672179-v"
+  ],
+  "ili": "i25161",
+  "members": [
+   "think",
+   "believe",
+   "consider",
+   "conceive"
+  ],
+  "partOfSpeech": "v"
+ },
+ "05844071-n": {
+  "definition": [
+   "an abstract or general idea inferred or derived from specific instances"
+  ],
+  "hypernym": [
+   "05842164-n"
+  ],
+  "ili": "i67543",
+  "members": [
+   "concept",
+   "conception",
+   "construct"
+  ],
+  "partOfSpeech": "n"
+ }
+}
