@@ -9,6 +9,7 @@ description = "DevToolbox Tauri desktop adapter."
 
 [dependencies]
 devtoolbox-application = { path = "../../crates/application" }
+devtoolbox-core = { path = "../../crates/core" }
 devtoolbox-infrastructure = { path = "../../crates/infrastructure" }
 reqwest.workspace = true
 serde.workspace = true

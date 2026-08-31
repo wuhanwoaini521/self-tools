@@ -5,6 +5,7 @@
 
 pub mod parser;
 pub mod task_state;
+pub mod travel;
 
 pub use parser::{
     TaskLineInfo, cycle_task_mark, is_task_line, iter_task_lines, make_task_line, match_task,

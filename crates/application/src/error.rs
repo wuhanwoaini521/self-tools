@@ -15,6 +15,10 @@ pub enum ApplicationError {
     DuplicateFeed(String),
     #[error("feed not found: {0}")]
     FeedNotFound(i64),
+    #[error("city name is empty")]
+    EmptyCity,
+    #[error("travel research failed: {0}")]
+    TravelFailed(String),
     #[error("operation failed for {path}: {source}")]
     Infrastructure {
         path: PathBuf,
@@ -26,6 +30,8 @@ pub enum ApplicationError {
         #[from]
         source: InfrastructureError,
     },
+    #[error("travel error: {source}")]
+    Travel { source: InfrastructureError },
 }
 
 pub(crate) fn infrastructure(path: PathBuf, source: InfrastructureError) -> ApplicationError {

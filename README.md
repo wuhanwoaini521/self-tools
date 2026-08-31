@@ -7,6 +7,7 @@
 - **Home** — 个人信息总览（最近笔记、最新订阅、快捷入口）
 - **Markdown** — 笔记与任务管理，核心特色是**多状态 Checkbox**（Pending / In Progress / Done）与键盘优先的专注写作流
 - **RSS** — 订阅阅读器：添加 / 删除订阅、未读计数、定时后台刷新、SQLite 持久化
+- **Travel** — 旅行研究 Agent：输入城市 → 自动规划搜索任务 → 搜索国内互联网（Bing 中国 / 百度 / 本地 SearXNG，均可配置）→ 抓取网页 → 事实提取 → 来源可信度排序 → 多源验证与冲突检测 → 生成结构化攻略（含 Sources）并本地缓存（24h/7d）。未配置 LLM / API Key 时仍可运行（降级为“来源 + 基础信息”模式，绝不编造）
 
 技术栈：Rust + Tauri 2 + React 19 + CodeMirror 6。
 
@@ -117,16 +118,18 @@ npm --prefix apps/desktop/ui exec -- tauri build
 ├── Cargo.toml               # workspace 定义（lint、共享依赖）
 ├── rust-toolchain.toml      # 固定 Rust 版本
 ├── crates/
-│   ├── core/                # 纯领域规则：任务行解析、状态注册表（无 UI / 无 I/O）
-│   ├── application/         # 用例编排：文档工作流 + RSS 工作流（抓取/落库两段式）
-│   └── infrastructure/      # 文件 IO、设置存储、SQLite(RSS)、工作区扫描、feed-rs 解析
+│   ├── core/                # 纯领域规则：任务行解析、状态注册表、Travel 领域（无 UI / 无 I/O）
+│   ├── application/         # 用例编排：文档工作流 + RSS 工作流 + Travel 研究服务（抓取/落库两段式）
+│   └── infrastructure/      # 文件 IO、设置存储、SQLite(RSS/Travel 缓存)、工作区扫描、feed-rs、
+│                            #   Travel 的搜索 Provider / 网页抓取 / LLM(OpenAI-Compatible) / 数据源预留
 ├── apps/
 │   └── desktop/             # Tauri 桌面适配器（命令层 + AppState）
-│       ├── src/             # Tauri 命令 / 事件边界
-│       └── ui/              # React 19 前端：外壳(导航) + features(home/markdown/rss)
+│       ├── src/             # Tauri 命令 / 事件边界（文档 / RSS / Travel 各自独立）
+│       └── ui/              # React 19 前端：外壳(导航) + features(home/markdown/rss/travel)
 ├── tests/fixtures/          # 跨实现共享的 Markdown 行为样例
 └── docs/
     ├── migration/           # PySide6 → Rust 迁移历史档案
+    ├── travel/              # Travel 模块设计档案
     └── screenshots/
 ```
 

@@ -10,10 +10,8 @@ description = "DevToolbox UI-independent Markdown task domain rules."
 [dependencies]
 regex.workspace = true
 serde.workspace = true
-thiserror.workspace = true
-
-[dev-dependencies]
 serde_json.workspace = true
+thiserror.workspace = true
 
 [lints]
 workspace = true

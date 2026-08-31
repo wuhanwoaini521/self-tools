@@ -5,7 +5,44 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
+use crate::travel::search::TravelSearchBackend;
 use crate::{InfrastructureError, error::io_error};
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(default)]
+pub struct TravelSettings {
+    /// 搜索后端（Auto / SearXNG / Baidu / Bing）。
+    pub search_backend: TravelSearchBackend,
+    /// 本地 SearXNG 地址（如 http://localhost:8080；未配置则走自动后端）。
+    pub searxng_url: Option<String>,
+    /// LLM API base（OpenAI Compatible；如 https://api.deepseek.com/v1 或 http://localhost:11434/v1）。
+    pub llm_base_url: Option<String>,
+    /// LLM API key（本地 Ollama 可留空）。
+    pub llm_api_key: Option<String>,
+    /// LLM 模型名（如 deepseek-chat / qwen-plus）。
+    pub llm_model: Option<String>,
+    /// 高德开放平台 Key（可选；未配置不影响 Travel 核心功能）。
+    pub amap_api_key: Option<String>,
+    /// 和风天气 Key（可选）。
+    pub qweather_api_key: Option<String>,
+    /// 百度地图开放平台 Key（可选）。
+    pub baidu_map_api_key: Option<String>,
+}
+
+impl Default for TravelSettings {
+    fn default() -> Self {
+        Self {
+            search_backend: TravelSearchBackend::Auto,
+            searxng_url: None,
+            llm_base_url: None,
+            llm_api_key: None,
+            llm_model: None,
+            amap_api_key: None,
+            qweather_api_key: None,
+            baidu_map_api_key: None,
+        }
+    }
+}
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(default)]
@@ -22,6 +59,8 @@ pub struct AppSettings {
     pub editor_font_size: u8,
     pub auto_save: bool,
     pub markdown_default_view: MarkdownView,
+    /// Travel 模块设置（全部 Optional，未配置时模块仍可运行）。
+    pub travel: TravelSettings,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -52,6 +91,7 @@ impl Default for AppSettings {
             editor_font_size: 13,
             auto_save: false,
             markdown_default_view: MarkdownView::Split,
+            travel: TravelSettings::default(),
         }
     }
 }

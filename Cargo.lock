@@ -795,13 +795,16 @@ dependencies = [
 name = "devtoolbox-application"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "devtoolbox-core",
  "devtoolbox-infrastructure",
  "futures-util",
  "reqwest 0.12.28",
  "serde",
+ "serde_json",
  "tempfile",
  "thiserror 2.0.20",
+ "tokio",
 ]
 
 [[package]]
@@ -819,6 +822,7 @@ name = "devtoolbox-desktop"
 version = "0.1.0"
 dependencies = [
  "devtoolbox-application",
+ "devtoolbox-core",
  "devtoolbox-infrastructure",
  "reqwest 0.12.28",
  "serde",
@@ -832,7 +836,11 @@ dependencies = [
 name = "devtoolbox-infrastructure"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
+ "devtoolbox-core",
+ "encoding_rs",
  "feed-rs",
+ "regex",
  "reqwest 0.12.28",
  "rusqlite",
  "serde",
@@ -4245,7 +4253,19 @@ dependencies = [
  "mio",
  "pin-project-lite",
  "socket2",
+ "tokio-macros",
  "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "tokio-macros"
+version = "2.7.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "78773a2a397f451582ce068015985c33193cf6dea8b74d2a639fe457b2f07b0e"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 3.0.4",
 ]
 
 [[package]]

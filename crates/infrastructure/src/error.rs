@@ -21,6 +21,14 @@ pub enum InfrastructureError {
     FeedFetch(String),
     #[error("failed to parse feed: {0}")]
     FeedParse(String),
+    #[error("travel search failed: {0}")]
+    TravelSearch(String),
+    #[error("travel page fetch failed: {0}")]
+    TravelFetch(String),
+    #[error("travel llm request failed: {0}")]
+    TravelLlm(String),
+    #[error("travel data provider failed: {0}")]
+    TravelData(String),
 }
 
 pub(crate) fn io_error(path: impl Into<PathBuf>, source: io::Error) -> InfrastructureError {

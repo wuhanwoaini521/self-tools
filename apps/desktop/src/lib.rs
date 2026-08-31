@@ -1,19 +1,23 @@
 //! `Tauri` command adapter。业务规则位于 workspace 的 application/core crates。
 //!
-//! 全局 `AppState` 持有 RSS 的 SQLite 存储器与共享 HTTP 客户端；
-//! 每个功能模块(文档 / RSS)的命令各自独立，互不依赖。
+//! 全局 `AppState` 持有 RSS 的 SQLite 存储器、Travel 的缓存与共享 HTTP 客户端；
+//! 每个功能模块(文档 / RSS / Travel)的命令各自独立，互不依赖。
 
-use std::sync::Mutex;
+use std::collections::HashMap;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::{Arc, Mutex};
 
 use devtoolbox_application::{
-    ApplicationError, ArticleDto, DocumentDto, FeedDto, RefreshReport, commit_new_feed,
-    commit_refresh, convert_lines_to_tasks, cycle_lines, delete_feed, feed_snapshots,
-    fetch_all_feeds, fetch_new_feed, latest_articles, list_articles, list_feeds, load_document,
-    load_settings, mark_article_read, save_document, save_settings, scan_workspace,
-    validate_feed_url,
+    ApplicationError, ArticleDto, DocumentDto, FeedDto, RefreshReport, TravelResearchRequest,
+    TravelResearchService, commit_new_feed, commit_refresh, convert_lines_to_tasks, cycle_lines,
+    delete_feed, feed_snapshots, fetch_all_feeds, fetch_new_feed, latest_articles, list_articles,
+    list_feeds, load_document, load_settings, mark_article_read, save_document, save_settings,
+    scan_workspace, validate_feed_url,
 };
+use devtoolbox_core::travel::{CityGuide, GuideSummary, TravelResearchEvent};
 use devtoolbox_infrastructure::{
-    AppSettings, FeedRepository, SettingsStore, WorkspaceFile, feed_client,
+    AppSettings, FeedRepository, HttpWebFetcher, LlmConfig, OpenAiCompatibleLlmProvider,
+    SettingsStore, TravelStore, WorkspaceFile, build_providers, feed_client, providers_for,
 };
 use serde::Serialize;
 use tauri::{AppHandle, Manager, State};
@@ -32,6 +36,21 @@ impl From<ApplicationError> for CommandError {
             ApplicationError::InvalidFeedUrl(_) => "rss_invalid_url",
             ApplicationError::DuplicateFeed(_) => "rss_duplicate_feed",
             ApplicationError::FeedNotFound(_) => "rss_feed_not_found",
+            ApplicationError::EmptyCity => "travel_empty_city",
+            ApplicationError::TravelFailed(_) => "travel_failed",
+            ApplicationError::Travel { source } => match source {
+                devtoolbox_infrastructure::InfrastructureError::TravelSearch(_) => {
+                    "travel_search_failed"
+                }
+                devtoolbox_infrastructure::InfrastructureError::TravelFetch(_) => {
+                    "travel_fetch_failed"
+                }
+                devtoolbox_infrastructure::InfrastructureError::TravelLlm(_) => "travel_llm_failed",
+                devtoolbox_infrastructure::InfrastructureError::TravelData(_) => {
+                    "travel_data_failed"
+                }
+                _ => "travel_error",
+            },
             ApplicationError::Rss { source } => match source {
                 devtoolbox_infrastructure::InfrastructureError::FeedFetch(_) => "rss_fetch_failed",
                 devtoolbox_infrastructure::InfrastructureError::FeedParse(_) => "rss_parse_failed",
@@ -46,10 +65,32 @@ impl From<ApplicationError> for CommandError {
     }
 }
 
-/// 应用级共享状态：RSS 存储 + HTTP 客户端。
+/// 应用级共享状态：RSS 存储 + Travel 缓存 + 研究会话 + HTTP 客户端。
 pub struct AppState {
     pub store: Mutex<FeedRepository>,
+    pub travel_store: Arc<Mutex<TravelStore>>,
+    pub travel_sessions: Arc<Mutex<HashMap<String, Arc<Mutex<TravelSession>>>>>,
     pub client: reqwest::Client,
+}
+
+/// 一次旅行研究的后台会话（前端按 session 轮询进度）。
+pub struct TravelSession {
+    pub events: Vec<TravelResearchEvent>,
+    pub done: bool,
+    pub error: Option<String>,
+    pub guide: Option<CityGuide>,
+    pub from_cache: bool,
+}
+
+/// 轮询快照（Serialize 给前端）。
+#[derive(Debug, Serialize)]
+pub struct TravelResearchSnapshot {
+    pub session_id: String,
+    pub done: bool,
+    pub error: Option<String>,
+    pub from_cache: bool,
+    pub events: Vec<TravelResearchEvent>,
+    pub guide: Option<CityGuide>,
 }
 
 fn settings_store(app: &AppHandle) -> Result<SettingsStore, CommandError> {
@@ -204,6 +245,147 @@ fn delete_rss_feed(state: State<'_, AppState>, feed_id: i64) -> Result<(), Comma
     delete_feed(&store, feed_id).map_err(CommandError::from)
 }
 
+// ---------- Travel 模块 ----------
+
+static SESSION_COUNTER: AtomicU64 = AtomicU64::new(0);
+
+fn next_session_id() -> String {
+    let n = SESSION_COUNTER.fetch_add(1, Ordering::Relaxed);
+    format!("t{}", n + 1)
+}
+
+/// 开启一次城市研究（后台任务）。立即返回 session_id，进度由 `travel_research_progress` 轮询。
+#[tauri::command]
+fn travel_research_start(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    request: TravelResearchRequest,
+) -> Result<String, CommandError> {
+    if request.city.trim().is_empty() {
+        return Err(ApplicationError::EmptyCity.into());
+    }
+    let session_id = next_session_id();
+    // 会话登记（克隆进后台任务）
+    let session = Arc::new(Mutex::new(TravelSession {
+        events: Vec::new(),
+        done: false,
+        error: None,
+        guide: None,
+        from_cache: false,
+    }));
+    state
+        .travel_sessions
+        .lock()
+        .expect("travel sessions poisoned")
+        .insert(session_id.clone(), Arc::clone(&session));
+
+    let client = state.client.clone();
+    let store = Arc::clone(&state.travel_store);
+    let from_cache = Arc::new(AtomicBool::new(false));
+    let from_cache_flag = Arc::clone(&from_cache);
+
+    tauri::async_runtime::spawn(async move {
+        // 依赖全部来自设置（未配置项自动降级，保持模块可用）
+        let settings = settings_store(&app)
+            .and_then(|store| load_settings(&store).map_err(CommandError::from));
+        let travel = settings.map_or_else(|_| Default::default(), |settings| settings.travel);
+        let providers = build_providers(
+            travel.search_backend.clone(),
+            travel.searxng_url.clone(),
+            &client,
+        );
+        let fetcher = HttpWebFetcher::new(client.clone());
+        let llm = if travel.llm_base_url.is_some() || travel.llm_model.is_some() {
+            Some(Box::new(OpenAiCompatibleLlmProvider::new(
+                client.clone(),
+                LlmConfig {
+                    base_url: travel.llm_base_url.clone(),
+                    api_key: travel.llm_api_key.clone(),
+                    model: travel.llm_model.clone(),
+                },
+            ))
+                as Box<dyn devtoolbox_infrastructure::LlmProvider>)
+        } else {
+            None
+        };
+        let data_providers = providers_for(
+            travel.amap_api_key.clone(),
+            travel.qweather_api_key.clone(),
+            travel.baidu_map_api_key.clone(),
+            &client,
+        );
+        let service =
+            TravelResearchService::new(providers, Box::new(fetcher), llm, data_providers, store);
+
+        let session_events = Arc::clone(&session);
+        let progress = move |event: TravelResearchEvent| {
+            if event.message.contains("命中缓存攻略") {
+                from_cache_flag.store(true, Ordering::Relaxed);
+            }
+            let mut session = session_events.lock().expect("travel session poisoned");
+            session.events.push(event);
+        };
+        let result = service.research_city(&request, &progress).await;
+
+        let mut session = session.lock().expect("travel session poisoned");
+        session.from_cache = from_cache.load(Ordering::Relaxed);
+        session.done = true;
+        match result {
+            Ok(guide) => session.guide = Some(guide),
+            Err(error) => session.error = Some(error.to_string()),
+        }
+    });
+    Ok(session_id)
+}
+
+/// 轮询一次研究进度。
+#[tauri::command]
+fn travel_research_progress(
+    state: State<'_, AppState>,
+    session_id: String,
+) -> Result<Option<TravelResearchSnapshot>, CommandError> {
+    let sessions = state
+        .travel_sessions
+        .lock()
+        .expect("travel sessions poisoned");
+    let Some(session) = sessions.get(&session_id) else {
+        return Ok(None);
+    };
+    let session = session.lock().expect("travel session poisoned");
+    Ok(Some(TravelResearchSnapshot {
+        session_id,
+        done: session.done,
+        error: session.error.clone(),
+        from_cache: session.from_cache,
+        events: session.events.clone(),
+        guide: session.guide.clone(),
+    }))
+}
+
+/// 最近生成的攻略列表（历史）。
+#[tauri::command]
+fn travel_recent_guides(state: State<'_, AppState>) -> Result<Vec<GuideSummary>, CommandError> {
+    let store = state.travel_store.lock().expect("travel store poisoned");
+    let summaries = store
+        .list_guides(20)
+        .map_err(|source| CommandError::from(ApplicationError::Travel { source }))?;
+    Ok(summaries)
+}
+
+/// 按城市 + 天数读取已保存攻略（不校验缓存有效期，供历史查看）。
+#[tauri::command]
+fn travel_load_guide(
+    state: State<'_, AppState>,
+    city: String,
+    days: u8,
+) -> Result<Option<CityGuide>, CommandError> {
+    let store = state.travel_store.lock().expect("travel store poisoned");
+    let guide = store
+        .load_guide(&city, days)
+        .map_err(|source| CommandError::from(ApplicationError::Travel { source }))?;
+    Ok(guide)
+}
+
 /// 应用入口。前端需要的权限被限制在文件选择器、command API 与打开原文链接；
 /// 不暴露任意 shell 执行能力。
 pub fn run() {
@@ -214,9 +396,13 @@ pub fn run() {
             let config_directory = app.path().app_config_dir()?;
             let store = FeedRepository::open(config_directory.join("dashboard.db"))
                 .expect("open rss database");
+            let travel_store = TravelStore::open(config_directory.join("travel.db"))
+                .expect("open travel database");
             let client = feed_client().expect("build http client");
             app.manage(AppState {
                 store: Mutex::new(store),
+                travel_store: Arc::new(Mutex::new(travel_store)),
+                travel_sessions: Arc::new(Mutex::new(HashMap::new())),
                 client,
             });
             Ok(())
@@ -236,7 +422,11 @@ pub fn run() {
             list_rss_articles,
             latest_rss_articles,
             mark_rss_article_read,
-            delete_rss_feed
+            delete_rss_feed,
+            travel_research_start,
+            travel_research_progress,
+            travel_recent_guides,
+            travel_load_guide
         ])
         .run(tauri::generate_context!())
         .expect("Tauri application event loop failed");

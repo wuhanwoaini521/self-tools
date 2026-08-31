@@ -8,7 +8,11 @@ authors.workspace = true
 description = "DevToolbox local filesystem and settings adapters."
 
 [dependencies]
+async-trait = "0.1"
+devtoolbox-core = { path = "../core" }
+encoding_rs = "0.8"
 feed-rs.workspace = true
+regex.workspace = true
 reqwest.workspace = true
 rusqlite.workspace = true
 serde.workspace = true

@@ -1,10 +1,11 @@
 import { invoke } from "@tauri-apps/api/core";
-import { Gear, House, Notebook, Rss, Wrench, X } from "@phosphor-icons/react";
+import { Compass, Gear, House, Notebook, Rss, Wrench, X } from "@phosphor-icons/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { SettingsDialog } from "./SettingsDialog";
 import { HomePage } from "./features/home/HomePage";
 import { MarkdownPage, type MarkdownIntent } from "./features/markdown/MarkdownPage";
 import { RssPage, type RssIntent } from "./features/rss/RssPage";
+import { TravelPage } from "./features/travel/TravelPage";
 import { applyTheme, getTheme, storeThemeId } from "./theme/ThemeManager";
 import "./theme/themes";
 import type { AppSettings, ArticleDto, FeedDto } from "./types";
@@ -13,11 +14,11 @@ import { errorMessage, isTauriRuntime } from "./utils";
 /**
  * Personal Dashboard 外壳：
  * - 顶栏(品牌 + 全局设置) + 左侧功能导航 + 右侧当前 Feature 页面;
- * - 每个 Feature(Home / Markdown / RSS / …)保持挂载,切换仅显隐,状态自然保留;
+ * - 每个 Feature(Home / Markdown / RSS / Travel / …)保持挂载,切换仅显隐,状态自然保留;
  * - 新增模块 = 新增一个 feature 目录 + 注册一个导航项,外壳不需要感知模块内部。
  */
 
-type PageId = "home" | "markdown" | "rss" | "tools";
+type PageId = "home" | "markdown" | "rss" | "travel" | "tools";
 
 interface NavItem {
   id: PageId;
@@ -31,10 +32,18 @@ const NAV_ITEMS: NavItem[] = [
   { id: "home", label: "Home", icon: House },
   { id: "markdown", label: "Markdown", icon: Notebook },
   { id: "rss", label: "RSS", icon: Rss },
+  { id: "travel", label: "Travel", icon: Compass },
   { id: "tools", label: "Tools", icon: Wrench, disabled: true },
 ];
 
-const defaultSettings: AppSettings = { schema_version: 1, recent_files: [], workspace_path: null, theme_mode: "dark", ui_theme: "default", rss_refresh_minutes: 30, editor_font_size: 14, auto_save: false, markdown_default_view: "split" };
+const defaultSettings: AppSettings = {
+  schema_version: 1, recent_files: [], workspace_path: null, theme_mode: "dark", ui_theme: "default",
+  rss_refresh_minutes: 30, editor_font_size: 14, auto_save: false, markdown_default_view: "split",
+  travel: {
+    search_backend: "auto", searxng_url: null, llm_base_url: null, llm_api_key: null, llm_model: null,
+    amap_api_key: null, qweather_api_key: null, baidu_map_api_key: null,
+  },
+};
 
 export default function App() {
   const [page, setPage] = useState<PageId>("home");
@@ -146,9 +155,10 @@ export default function App() {
         <section className={"page-pane" + (page === "home" ? "" : " page-hidden")}><HomePage recentFiles={settings.recent_files} latestArticles={latestArticles} rssRefreshing={rssRefreshing} onOpenNote={openNote} onOpenArticle={openArticle} onNewNote={newNote} onRefreshRss={() => void refreshFeeds()} /></section>
         <section className={"page-pane" + (page === "markdown" ? "" : " page-hidden")}><MarkdownPage settings={settings} onSettingsChange={(next) => void updateSettings(next)} setNotice={setNotice} active={page === "markdown"} intent={markdownIntent} initialWorkspace={settingsLoaded ? settings.workspace_path : undefined} /></section>
         <section className={"page-pane" + (page === "rss" ? "" : " page-hidden")}><RssPage active={page === "rss"} version={rssVersion} refreshing={rssRefreshing} onRefresh={() => void refreshFeeds()} onFeedsChanged={handleFeedsChanged} setNotice={setNotice} intent={rssIntent} /></section>
+        <section className={"page-pane" + (page === "travel" ? "" : " page-hidden")}><TravelPage active={page === "travel"} setNotice={setNotice} /></section>
       </main>
     </div>
     {notice ? <button className="toast" onClick={() => setNotice("")}>{notice}<X size={16} /></button> : null}
-    {settingsOpen ? <SettingsDialog themeId={themeId} onThemeChange={changeTheme} rssRefreshMinutes={settings.rss_refresh_minutes} onRefreshMinutesChange={changeRefreshMinutes} onClose={() => setSettingsOpen(false)} /> : null}
+    {settingsOpen ? <SettingsDialog themeId={themeId} onThemeChange={changeTheme} rssRefreshMinutes={settings.rss_refresh_minutes} onRefreshMinutesChange={changeRefreshMinutes} travel={settings.travel} onTravelChange={(next) => void updateSettings({ ...settings, travel: next })} onClose={() => setSettingsOpen(false)} /> : null}
   </div>;
 }
