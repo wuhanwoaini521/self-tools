@@ -237,7 +237,8 @@ export function RssPage({ active, version, refreshing, onRefresh, onFeedsChanged
 /**
  * 从文章页 HTML 抽取正文容器(阅读器常用启发式):先去噪音,再找语义容器,
  * 最后回退到最长文本块。返回的是待净化的片段,由 prepareContent 再处理。
- * V2EX 等论坛话题页单独处理:正文 + 楼层回复结构化重组,避免把整帖拍平成一段。
+ * 论坛话题页(V2EX 及同类,特征:.topic_content 或 .reply_content 楼层):
+ * 正文 + 回复楼层结构化重组,避免把整帖拍平成一段。
  */
 function extractArticle(html: string): string {
   const document = new DOMParser().parseFromString(html, "text/html");
@@ -247,9 +248,10 @@ function extractArticle(html: string): string {
     "[class*='related'],[class*='footer'],[class*='nav'],[class*='share'],[class*='meta']," +
     "[id*='comment'],[id*='sidebar'],[id*='advert']",
   ).forEach((node) => node.remove());
-  // V2EX 话题页:优先结构化抽取(主题正文 + 回复楼层),而不是把整个 #Main 拍平。
-  const topicBody = document.querySelector(".topic_content");
-  if (topicBody !== null) return buildV2exThread(topicBody);
+  // 论坛话题页:优先结构化抽取,而不是把整个 #Main 拍平。
+  const topicBody = document.querySelector(".topic_content, [class*='topic_content']");
+  const replyNodes = Array.from(document.querySelectorAll(".reply_content"));
+  if (topicBody !== null || replyNodes.length > 0) return buildForumThread(document, topicBody, replyNodes);
   const candidates = [
     "article", "[role='main']", "main", ".article-content", ".post-content",
     ".entry-content", ".article", ".post", "#article-content", "#content", ".content", "#article",
@@ -268,22 +270,39 @@ function extractArticle(html: string): string {
 }
 
 /**
- * V2EX 话题页结构化抽取:返回「主题正文 + at-replies 回复楼层」的干净 HTML。
- * 每条回复取 .reply_content 原文,作者/时间从所在 .cell 的 .reply_author / .ago 提取,
- * 不再让标题统计行与楼层文本粘连成一段。无回复时仅返回主题正文。
+ * 论坛话题页结构化抽取:返回「主题正文 + at-replies 回复楼层」的干净 HTML。
+ * 按 V2EX 现行 DOM 取数:楼层号 .no、用户名 .cell strong a[href*='/member/'](兼容旧版 .reply_author)、
+ * 时间 span.ago(title 为完整时间)、正文 .reply_content 原文;输出前统一修复非法标签。
  */
-function buildV2exThread(topicBody: Element): string {
-  const page = topicBody.ownerDocument;
-  const replyNodes = Array.from(page?.querySelectorAll(".reply_content") ?? []);
-  if (replyNodes.length === 0) return topicBody.innerHTML;
+function buildForumThread(document: Document, topicBody: Element | null, replyNodes: Element[]): string {
+  const topicHtml = topicBody !== null
+    ? topicBody.innerHTML
+    : (() => {
+      const titleLink = document.querySelector("#Main .header .topic-link, #Main .header a");
+      return titleLink !== null ? `<p class="at-topic-title">${escapeHtml(titleLink.textContent?.trim() || "主题")}</p>` : "";
+    })();
+  if (replyNodes.length === 0) return repairForumMarkup(topicHtml);
   const replies = replyNodes.map((node) => {
     const cell = node.closest(".cell");
-    const author = cell?.querySelector(".reply_author")?.textContent?.trim() ?? "";
+    const floor = cell?.querySelector(".no")?.textContent?.trim() ?? "";
+    const author = (cell?.querySelector("strong a[href*='/member/']") ?? cell?.querySelector(".reply_author"))?.textContent?.trim() ?? "";
     const timeElement = cell?.querySelector("span.ago") ?? cell?.querySelector(".reply_time");
     const when = timeElement?.getAttribute("title") || timeElement?.textContent?.trim() || "";
-    return `<section class="at-reply"><p class="at-reply-head">${escapeHtml(author)}<span>${escapeHtml(when)}</span></p><div class="at-reply-body">${node.innerHTML}</div></section>`;
+    const badges = (cell?.querySelector(".badges")?.textContent ?? "").trim();
+    return `<section class="at-reply"><p class="at-reply-head">${floor ? `<b class="at-reply-floor">${escapeHtml(floor)}</b>` : ""}<span class="at-reply-author">${escapeHtml(author || "匿名")}</span>${badges ? `<i class="at-reply-badge">${escapeHtml(badges)}</i>` : ""}<span class="at-reply-time">${escapeHtml(when)}</span></p><div class="at-reply-body">${node.innerHTML}</div></section>`;
   }).join("");
-  return `${topicBody.innerHTML}<div class="at-replies"><p class="at-replies-title">${replyNodes.length} 条回复</p>${replies}</div>`;
+  return repairForumMarkup(`${topicHtml}<div class="at-replies"><p class="at-replies-title">${replyNodes.length} 条回复</p>${replies}</div>`);
+}
+
+/**
+ * 修复论坛页遗留的非法标记:标签行里的 `<li class="fa fa-tag"></li>` 是不在任何
+ * `<ul>/<ol>` 内的图标占位,浏览器按 HTML 规范重解析时会自动补出 `<ul>` 变成无序列表,
+ * 这里在输出前直接摘掉这些孤儿 `<li>`。
+ */
+function repairForumMarkup(fragment: string): string {
+  return fragment
+    .replace(/<li\b[^>]*class="[^"]*\bfa\b[^"]*"[^>]*>\s*<\/li>/gi, "")
+    .replace(/<li\b[^>]*>\s*<\/li>/gi, "");
 }
 
 /** 简单 HTML 转义(作者/时间等明文拼进 HTML 片段时使用;prepareContent 里的 DOMPurify 会再整体净化一次)。 */
