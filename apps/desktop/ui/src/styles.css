@@ -432,8 +432,16 @@ button { cursor: pointer; }
 .rss-article-item { position: relative; display: grid; gap: 4px; width: 100%; padding: 12px 16px 12px 24px; border: 0; border-bottom: 1px solid var(--line-soft); background: transparent; color: inherit; text-align: left; }
 .rss-article-item:hover { background: var(--panel-hover); }
 .rss-article-item.selected { background: var(--accent-soft); }
-.rss-article-title { display: block; color: var(--text); font-size: 13px; font-weight: 700; }
+.rss-article-title { display: flex; align-items: center; gap: 6px; min-width: 0; color: var(--text); font-size: 13px; font-weight: 700; }
 .rss-article-item.read .rss-article-title { color: var(--muted); font-weight: 500; }
+.rss-article-item.reply { padding-left: 32px; box-shadow: inset 3px 0 0 var(--line-soft); }
+.rss-reply-badge { display: inline-flex; align-items: center; gap: 3px; flex-shrink: 0; padding: 1px 6px; border: 1px solid var(--line-chip); border-radius: 9px; background: var(--surface-chip); color: var(--muted); font-size: 10px; font-weight: 600; white-space: nowrap; }
+.rss-reply-badge svg { flex-shrink: 0; }
+.rss-article-filter { display: flex; align-items: center; gap: 6px; padding: 8px 10px; border-bottom: 1px solid var(--line-soft); background: var(--panel); }
+.rss-article-filter button { display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 9px; border: 1px solid var(--line); border-radius: var(--radius-control); background: var(--surface-chip); color: var(--text-chip-label); font-size: 11px; }
+.rss-article-filter button:hover { border-color: var(--line-hover); color: var(--text-hover); }
+.rss-article-filter button.selected { border-color: var(--accent-selected-border); background: var(--accent-solid); color: var(--text-on-accent); }
+.rss-article-filter b { display: grid; place-items: center; min-width: 16px; height: 16px; padding: 0 3px; border-radius: 8px; background: var(--chip-bg); color: inherit; font-size: 10px; }
 .rss-unread-dot { top: 16px; left: 10px; }
 .rss-article-meta { display: block; color: var(--faint); font-size: 11px; }
 .rss-article-snippet { display: -webkit-box; margin: 0; overflow: hidden; color: var(--muted); font-size: 12px; line-height: 1.5; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
@@ -446,7 +454,8 @@ button { cursor: pointer; }
 .rss-reading-actions button:hover { border-color: var(--line-strong); background: var(--panel-hover); color: var(--text-hover); }
 .rss-read-tag { display: inline-flex; align-items: center; gap: 5px; color: var(--success); font-size: 12px; }
 .rss-fetch-note { margin: -6px 0 0; padding: 5px 9px; border: 1px solid var(--line); border-radius: var(--radius-control); background: var(--accent-soft); color: var(--accent-selected-text); font-size: 11px; }
-.rss-reading-content { padding-top: 4px; color: var(--text); font-size: 14px; line-height: 1.7; }
+/* 阅读正文卡片:给正文一个独立背景,与两侧面板形成层级;所有主题的 token 均已覆盖。 */
+.rss-reading-content { padding: 20px 24px; border: 1px solid var(--line); border-radius: var(--radius-overlay); background: var(--panel); color: var(--text); font-size: 14px; line-height: 1.7; }
 .rss-reading-content img { max-width: 100%; }
 .rss-reading-content a { color: var(--accent-hover); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
 .rss-reading-content h1, .rss-reading-content h2, .rss-reading-content h3 { color: var(--text); line-height: 1.4; }

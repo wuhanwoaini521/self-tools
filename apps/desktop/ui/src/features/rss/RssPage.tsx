@@ -1,7 +1,7 @@
 import DOMPurify from "dompurify";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { ArrowSquareOut, ArrowsClockwise, Check, Plus, Rss, TextT, TrashSimple } from "@phosphor-icons/react";
+import { ArrowBendUpLeft, ArrowSquareOut, ArrowsClockwise, Check, Plus, Rss, TextT, TrashSimple } from "@phosphor-icons/react";
 import { useCallback, useEffect, useState, type MouseEvent } from "react";
 import type { ArticleDto, FeedDto } from "../../types";
 import { errorMessage, formatDateTime, formatRelativeTime, isTauriRuntime } from "../../utils";
@@ -26,6 +26,19 @@ interface RssPageProps {
   intent: RssIntent | null;
 }
 
+/** 按标题前缀识别「回复」类条目(Re:/RE:/回复:/答复: 等,常见于论坛/通知类合并回复流的 Feed)。 */
+function isReplyTitle(title: string): boolean {
+  return /^(?:re|reply|回复|答复|回覆|r)\s*[:：]\s*/i.test(title);
+}
+
+/** 文章列表过滤选项:全部 / 只看主题 / 只看回复。 */
+const ARTICLE_FILTERS = [
+  { key: "all", label: "全部" },
+  { key: "topic", label: "主题" },
+  { key: "reply", label: "回复" },
+] as const;
+type ArticleFilter = typeof ARTICLE_FILTERS[number]["key"];
+
 export function RssPage({ active, version, refreshing, onRefresh, onFeedsChanged, setNotice, intent }: RssPageProps) {
   const [feeds, setFeeds] = useState<FeedDto[]>([]);
   const [selectedFeedId, setSelectedFeedId] = useState<number | null>(null);
@@ -35,6 +48,8 @@ export function RssPage({ active, version, refreshing, onRefresh, onFeedsChanged
   const [adding, setAdding] = useState(false);
   const [fetchedHtml, setFetchedHtml] = useState<string | null>(null);
   const [fetchingArticle, setFetchingArticle] = useState(false);
+  /** 文章列表过滤:全部 / 只看主题 / 只看回复。 */
+  const [articleFilter, setArticleFilter] = useState<ArticleFilter>("all");
 
   const loadFeeds = useCallback(async () => {
     if (!isTauriRuntime()) return;
@@ -180,21 +195,27 @@ export function RssPage({ active, version, refreshing, onRefresh, onFeedsChanged
         ? <p className="rss-empty-pane">选择左侧订阅查看文章列表。</p>
         : articles.length === 0
           ? <p className="rss-empty-pane">这个订阅还没有文章,试试刷新。</p>
-          : <div className="rss-article-list">
-            {articles.map((article) => <button key={article.id} className={"rss-article-item" + (article.is_read ? " read" : "") + (selectedArticle?.id === article.id ? " selected" : "")} onClick={() => void openArticle(article)}>
-              {!article.is_read && <i className="rss-unread-dot" />}
-              <span className="rss-article-title">{article.title}</span>
-              <small className="rss-article-meta">{article.feed_title} · {formatRelativeTime(article.published_at)}</small>
-              {article.summary ? <p className="rss-article-snippet">{stripHtml(article.summary)}</p> : null}
-            </button>)}
-          </div>}
+          : <>
+            <div className="rss-article-filter">{ARTICLE_FILTERS.map(({ key, label }) => <button key={key} className={articleFilter === key ? "selected" : ""} onClick={() => setArticleFilter(key)}>{label}<b>{key === "all" ? articles.length : articles.filter((article) => isReplyTitle(article.title) === (key === "reply")).length}</b></button>)}</div>
+            <div className="rss-article-list">
+              {articles.filter((article) => articleFilter === "all" || isReplyTitle(article.title) === (articleFilter === "reply")).map((article) => {
+                const reply = isReplyTitle(article.title);
+                return <button key={article.id} className={"rss-article-item" + (article.is_read ? " read" : "") + (selectedArticle?.id === article.id ? " selected" : "") + (reply ? " reply" : "")} onClick={() => void openArticle(article)}>
+                  {!article.is_read && <i className="rss-unread-dot" />}
+                  <span className="rss-article-title">{reply ? <span className="rss-reply-badge"><ArrowBendUpLeft size={12} weight="bold" />回复</span> : null}{article.title}</span>
+                  <small className="rss-article-meta">{article.feed_title} · {formatRelativeTime(article.published_at)}</small>
+                  {article.summary ? <p className="rss-article-snippet">{stripHtml(article.summary)}</p> : null}
+                </button>;
+              })}
+            </div>
+          </>}
     </section>
     <section className="rss-reader">
       {selectedArticle === null
         ? <p className="rss-empty-pane">点击文章开始阅读。</p>
         : <article className="rss-reading">
           <h2>{selectedArticle.title}</h2>
-          <p className="rss-reading-meta">{selectedArticle.feed_title} · {formatDateTime(selectedArticle.published_at)}</p>
+          <p className="rss-reading-meta">{isReplyTitle(selectedArticle.title) ? <><span className="rss-reply-badge"><ArrowBendUpLeft size={12} weight="bold" />回复</span> · </> : null}{selectedArticle.feed_title} · {formatDateTime(selectedArticle.published_at)}</p>
           <div className="rss-reading-actions">
             {selectedArticle.url ? <button onClick={() => void openInBrowser(selectedArticle.url)}><ArrowSquareOut size={16} />在浏览器打开</button> : null}
             {selectedArticle.url ? <button onClick={() => void fetchFullText(selectedArticle)} disabled={fetchingArticle} title="RSS 只有摘要时，抓取文章页正文"><TextT size={16} />{fetchingArticle ? "抓取中…" : fetchedHtml ? "重新抓取" : "抓取全文"}</button> : null}
