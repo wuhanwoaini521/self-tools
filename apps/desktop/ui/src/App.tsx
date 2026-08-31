@@ -1,10 +1,11 @@
 import { invoke } from "@tauri-apps/api/core";
-import { Compass, Gear, House, Notebook, Rss, Wrench, X } from "@phosphor-icons/react";
+import { Compass, Gear, House, Notebook, Rss, Scroll, Wrench, X } from "@phosphor-icons/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { SettingsDialog } from "./SettingsDialog";
 import { HomePage } from "./features/home/HomePage";
 import { MarkdownPage, type MarkdownIntent } from "./features/markdown/MarkdownPage";
 import { RssPage, type RssIntent } from "./features/rss/RssPage";
+import { HistoryPage } from "./features/history/HistoryPage";
 import { TravelPage } from "./features/travel/TravelPage";
 import { applyTheme, getTheme, storeThemeId } from "./theme/ThemeManager";
 import "./theme/themes";
@@ -18,7 +19,7 @@ import { errorMessage, isTauriRuntime } from "./utils";
  * - 新增模块 = 新增一个 feature 目录 + 注册一个导航项,外壳不需要感知模块内部。
  */
 
-type PageId = "home" | "markdown" | "rss" | "travel" | "tools";
+type PageId = "home" | "markdown" | "rss" | "travel" | "history" | "tools";
 
 interface NavItem {
   id: PageId;
@@ -33,6 +34,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: "markdown", label: "Markdown", icon: Notebook },
   { id: "rss", label: "RSS", icon: Rss },
   { id: "travel", label: "Travel", icon: Compass },
+  { id: "history", label: "History", icon: Scroll },
   { id: "tools", label: "Tools", icon: Wrench, disabled: true },
 ];
 
@@ -41,7 +43,7 @@ const defaultSettings: AppSettings = {
   rss_refresh_minutes: 30, editor_font_size: 14, auto_save: false, markdown_default_view: "split",
   travel: {
     search_backend: "auto", searxng_url: null, llm_base_url: null, llm_api_key: null, llm_model: null,
-    amap_api_key: null, qweather_api_key: null, baidu_map_api_key: null,
+    amap_api_key: null, qweather_api_key: null, qweather_api_host: null, baidu_map_api_key: null,
   },
 };
 
@@ -156,6 +158,7 @@ export default function App() {
         <section className={"page-pane" + (page === "markdown" ? "" : " page-hidden")}><MarkdownPage settings={settings} onSettingsChange={(next) => void updateSettings(next)} setNotice={setNotice} active={page === "markdown"} intent={markdownIntent} initialWorkspace={settingsLoaded ? settings.workspace_path : undefined} /></section>
         <section className={"page-pane" + (page === "rss" ? "" : " page-hidden")}><RssPage active={page === "rss"} version={rssVersion} refreshing={rssRefreshing} onRefresh={() => void refreshFeeds()} onFeedsChanged={handleFeedsChanged} setNotice={setNotice} intent={rssIntent} /></section>
         <section className={"page-pane" + (page === "travel" ? "" : " page-hidden")}><TravelPage active={page === "travel"} setNotice={setNotice} /></section>
+        <section className={"page-pane history-pane" + (page === "history" ? "" : " page-hidden")}><HistoryPage active={page === "history"} setNotice={setNotice} /></section>
       </main>
     </div>
     {notice ? <button className="toast" onClick={() => setNotice("")}>{notice}<X size={16} /></button> : null}

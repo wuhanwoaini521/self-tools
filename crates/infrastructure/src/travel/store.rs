@@ -298,6 +298,7 @@ mod tests {
                 generated_at: 1_700_000_000,
                 updated_at: 1_700_000_000,
                 days: 3,
+                date_range: None,
                 llm_used: true,
                 notes: vec![],
             },

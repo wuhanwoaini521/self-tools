@@ -3,6 +3,7 @@
 //! 此 crate 不依赖 Tauri、文件系统或 UI 框架，因此 Markdown 任务规则可被
 //! 桌面应用和回归测试共同复用。
 
+pub mod history;
 pub mod parser;
 pub mod task_state;
 pub mod travel;

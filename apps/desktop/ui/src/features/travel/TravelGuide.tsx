@@ -1,7 +1,7 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { ArrowSquareOut, Star, Warning, WarningCircle } from "@phosphor-icons/react";
+import { ArrowSquareOut, Cloud, CloudRain, CloudSun, Snowflake, Star, Sun, Warning, WarningCircle } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
-import type { Attraction, CityGuide, SourceLevel, TravelSource, VerifiedValue } from "../../types";
+import type { Attraction, CityGuide, SourceLevel, TravelDateRange, TravelSource, VerifiedValue, WeatherForecast } from "../../types";
 import { formatDateTime, isTauriRuntime } from "../../utils";
 
 /**
@@ -76,6 +76,33 @@ function SourceRow({ source }: { source: TravelSource }) {
   </div>;
 }
 
+function WeatherIcon({ text }: { text: string }) {
+  if (/雨|雷/.test(text)) return <CloudRain size={23} weight="fill" />;
+  if (/雪|冰雹/.test(text)) return <Snowflake size={23} weight="fill" />;
+  if (/晴/.test(text)) return <Sun size={23} weight="fill" />;
+  if (/多云|阴/.test(text)) return <CloudSun size={23} weight="fill" />;
+  return <Cloud size={23} weight="fill" />;
+}
+
+function weekday(date: string) {
+  const value = new Date(`${date}T00:00:00`);
+  return Number.isNaN(value.getTime()) ? date : new Intl.DateTimeFormat("zh-CN", { weekday: "short" }).format(value);
+}
+
+function WeatherCard({ forecast, dateRange }: { forecast: WeatherForecast; dateRange: TravelDateRange | null }) {
+  const current = forecast.days[0];
+  const selectedDays = dateRange ? forecast.days.filter((day) => day.date >= dateRange.start && day.date <= dateRange.end) : [];
+  return <div className="travel-weather-card">
+    <header><div><small>{forecast.city} · 和风天气近期预报</small><strong>{current.temp_max}°</strong><p>{current.text_day} <span>最低 {current.temp_min}°</span></p></div><WeatherIcon text={current.text_day} /></header>
+    <div className="travel-weather-days" role="list">
+      {forecast.days.map((day) => <div className={dateRange && day.date >= dateRange.start && day.date <= dateRange.end ? "selected" : ""} key={day.date} role="listitem">
+        <small>{weekday(day.date)}</small><WeatherIcon text={day.text_day} /><b>{day.temp_max}°</b><span>{day.temp_min}°</span><em>{day.text_day}</em>
+      </div>)}
+    </div>
+    {dateRange && selectedDays.length === 0 ? <p className="travel-weather-note">所选 {dateRange.start} 至 {dateRange.end} 不在当前 3 天预报窗口；攻略已按日期范围检索活动、客流与季节建议。</p> : null}
+  </div>;
+}
+
 interface TravelGuideProps {
   guide: CityGuide;
   fromCache: boolean;
@@ -93,6 +120,7 @@ export function TravelGuide({ guide, fromCache }: TravelGuideProps) {
       <p>{region}</p>
       <div className="travel-guide-tags">
         <b>{meta.days} 天行程</b>
+        {meta.date_range ? <b>{meta.date_range.start} 至 {meta.date_range.end}</b> : null}
         {meta.llm_used ? <b>AI 整理</b> : <b className="travel-tag-warn">未配置 LLM · 来源列表模式</b>}
         {fromCache ? <b>缓存结果</b> : null}
         <i>更新于 {formatDateTime(meta.updated_at)}</i>
@@ -108,6 +136,8 @@ export function TravelGuide({ guide, fromCache }: TravelGuideProps) {
     <Section title="什么时候去">
       {guide.best_time ? <p>{guide.best_time}</p> : <EmptySection hint="未找到可靠信息" />}
     </Section>
+
+    {guide.weather && guide.weather.days.length > 0 ? <Section title="近期天气"><WeatherCard forecast={guide.weather} dateRange={meta.date_range} /></Section> : null}
 
     <Section title="值得去">
       {guide.attractions.length > 0
@@ -177,10 +207,15 @@ export function TravelGuide({ guide, fromCache }: TravelGuideProps) {
         ? <p className="travel-conflict-note"><WarningCircle size={14} />部分信息存在多个来源版本，已按权威来源优先处理，请以官方渠道为准。</p> : null}
     </Section>
 
-    <Section title="信息来源">
-      {guide.sources.length > 0
-        ? <div className="travel-sources">{guide.sources.map((source, index) => <SourceRow key={index} source={source} />)}</div>
-        : <EmptySection />}
-    </Section>
+    <section className="travel-section travel-section-sources">
+      <details className="travel-sources-details">
+        <summary><h2>信息来源</h2><small>{guide.sources.length} 个来源 · 点击展开</small></summary>
+        <div className="travel-section-body">
+          {guide.sources.length > 0
+            ? <div className="travel-sources">{guide.sources.map((source, index) => <SourceRow key={index} source={source} />)}</div>
+            : <EmptySection />}
+        </div>
+      </details>
+    </section>
   </article>;
 }

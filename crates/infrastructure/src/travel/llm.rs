@@ -84,7 +84,15 @@ impl LlmProvider for OpenAiCompatibleLlmProvider {
             temperature: 0.2,
             response_format: None,
         };
-        let mut builder = self.client.post(&url).timeout(LLM_TIMEOUT).json(&request);
+        // 部分 OpenAI-Compatible 网关声明压缩响应但返回了不可解码的正文。
+        // 明确请求未压缩 JSON，避免 reqwest 在长提示词响应阶段才解码失败。
+        let mut builder = self
+            .client
+            .post(&url)
+            .timeout(LLM_TIMEOUT)
+            .header(reqwest::header::ACCEPT, "application/json")
+            .header(reqwest::header::ACCEPT_ENCODING, "identity")
+            .json(&request);
         if let Some(key) = self.config.api_key.as_deref().filter(|k| !k.is_empty()) {
             builder = builder.bearer_auth(key);
         }

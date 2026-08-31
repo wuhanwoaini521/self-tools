@@ -6,6 +6,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::travel::model::{FactCategory, TravelSource};
+use crate::travel::query_planner::TravelDateRange;
 
 /// 顶层攻略。`serde(default)` 保证 LLM 输出缺字段时也能解析。
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
@@ -15,6 +16,8 @@ pub struct CityGuide {
     pub summary: String,
     pub highlights: Vec<String>,
     pub best_time: Option<String>,
+    /// 来自天气数据源的近期逐日预报；不由 LLM 编造。
+    pub weather: Option<WeatherForecast>,
     pub districts: Vec<DistrictInfo>,
     pub attractions: Vec<Attraction>,
     pub foods: Vec<Food>,
@@ -39,6 +42,24 @@ pub struct CityInfo {
     pub province: Option<String>,
     /// 国家（如 "中国"）。
     pub country: Option<String>,
+}
+
+/// 近期天气预报（当前数据源为和风天气）。
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(default)]
+pub struct WeatherForecast {
+    pub city: String,
+    pub days: Vec<WeatherDay>,
+}
+
+/// 单日预报。温度保留 API 原始文本，避免将未知值伪装成数字。
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(default)]
+pub struct WeatherDay {
+    pub date: String,
+    pub text_day: String,
+    pub temp_min: String,
+    pub temp_max: String,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -179,6 +200,8 @@ pub struct GuideMeta {
     pub updated_at: i64,
     /// 行程天数（用户输入）。
     pub days: u8,
+    /// 用户选择的行程日期范围；缺省时表示仅按天数研究。
+    pub date_range: Option<TravelDateRange>,
     /// 是否使用了 LLM（未配置 / 失败时为 false，攻略为降级版）。
     pub llm_used: bool,
     /// 研究过程提示（如「天气信息获取失败」「某来源仅摘要」）。

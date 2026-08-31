@@ -1,6 +1,9 @@
+import { invoke } from "@tauri-apps/api/core";
 import { X } from "@phosphor-icons/react";
+import { useState } from "react";
 import type { TravelSearchBackend, TravelSettings } from "./types";
 import { allThemes, getTheme } from "./theme/ThemeManager";
+import { errorMessage, isTauriRuntime } from "./utils";
 
 interface SettingsDialogProps {
   themeId: string;
@@ -28,7 +31,21 @@ const SEARCH_BACKENDS: { value: TravelSearchBackend; label: string }[] = [
  */
 export function SettingsDialog({ themeId, onThemeChange, rssRefreshMinutes, onRefreshMinutesChange, travel, onTravelChange, onClose }: SettingsDialogProps) {
   const current = getTheme(themeId);
+  const [testing, setTesting] = useState<"llm" | "amap" | "qweather" | null>(null);
+  const [testResults, setTestResults] = useState<Partial<Record<"llm" | "amap" | "qweather", string>>>({});
   const updateTravel = (patch: Partial<TravelSettings>) => onTravelChange({ ...travel, ...patch });
+  const runTest = async (kind: "llm" | "amap" | "qweather") => {
+    if (!isTauriRuntime()) return;
+    setTesting(kind); setTestResults((current) => ({ ...current, [kind]: "" }));
+    try {
+      const result = kind === "llm"
+        ? await invoke<string>("test_travel_llm", { request: { baseUrl: travel.llm_base_url ?? "", apiKey: travel.llm_api_key, model: travel.llm_model ?? "" } })
+        : kind === "amap"
+          ? await invoke<string>("test_travel_amap", { request: { apiKey: travel.amap_api_key ?? "", apiHost: null } })
+          : await invoke<string>("test_travel_qweather", { request: { apiKey: travel.qweather_api_key ?? "", apiHost: travel.qweather_api_host } });
+      setTestResults((current) => ({ ...current, [kind]: result }));
+    } catch (error) { setTestResults((current) => ({ ...current, [kind]: `连接失败：${errorMessage(error)}` })); } finally { setTesting(null); }
+  };
   return <div className="settings-backdrop" onMouseDown={onClose}>
     <section className="settings-dialog" onMouseDown={(event) => event.stopPropagation()} aria-label="设置">
       <header>
@@ -80,13 +97,20 @@ export function SettingsDialog({ themeId, onThemeChange, rssRefreshMinutes, onRe
         <label className="settings-label" htmlFor="travel-llm-key" style={{ marginTop: 10 }}>API Key（本地 Ollama 可留空）</label>
         <input className="settings-select" id="travel-llm-key" type="password" placeholder="sk-..."
           value={travel.llm_api_key ?? ""} onChange={(event) => updateTravel({ llm_api_key: event.target.value || null })} />
+        <button className="settings-test-button" disabled={testing !== null || !travel.llm_base_url?.trim() || !travel.llm_model?.trim()} onClick={() => void runTest("llm")}>{testing === "llm" ? "正在测试…" : "测试 LLM 连接"}</button>
+        {testResults.llm ? <p className={testResults.llm.startsWith("连接失败") ? "settings-test-result failed" : "settings-test-result"}>{testResults.llm}</p> : null}
       </section>
       <section className="settings-section">
         <label className="settings-label">Travel · 可选数据源 Key</label>
-        <p className="settings-hint">高德 POI 与和风天气已接入；百度地图预留。全部可选：不填时 Travel 核心功能不受影响，研究时该步骤会标记为跳过。</p>
+        <p className="settings-hint">高德 POI 与和风天气已接入；百度地图预留。和风天气请填写控制台“设置”中的专属 API Host（不再使用 devapi.qweather.com）。全部可选：不填时 Travel 核心功能不受影响。</p>
         <input className="settings-select" type="password" placeholder="高德 AMAP_API_KEY（Web服务类型）" value={travel.amap_api_key ?? ""} onChange={(event) => updateTravel({ amap_api_key: event.target.value || null })} style={{ marginTop: 6 }} />
+        <button className="settings-test-button" disabled={testing !== null || !travel.amap_api_key?.trim()} onClick={() => void runTest("amap")}>{testing === "amap" ? "正在测试…" : "测试高德连接"}</button>
+        {testResults.amap ? <p className={testResults.amap.startsWith("连接失败") ? "settings-test-result failed" : "settings-test-result"}>{testResults.amap}</p> : null}
+        <input className="settings-select" type="text" placeholder="和风天气 API Host，例如 abc123.qweatherapi.com" value={travel.qweather_api_host ?? ""} onChange={(event) => updateTravel({ qweather_api_host: event.target.value || null })} style={{ marginTop: 10 }} />
         <input className="settings-select" type="password" placeholder="和风天气 QWEATHER_API_KEY（可选）" value={travel.qweather_api_key ?? ""} onChange={(event) => updateTravel({ qweather_api_key: event.target.value || null })} style={{ marginTop: 6 }} />
+        <button className="settings-test-button" disabled={testing !== null || !travel.qweather_api_key?.trim() || !travel.qweather_api_host?.trim()} onClick={() => void runTest("qweather")}>{testing === "qweather" ? "正在测试…" : "测试和风天气连接"}</button>
         <input className="settings-select" type="password" placeholder="百度地图 BAIDU_MAP_API_KEY（预留）" value={travel.baidu_map_api_key ?? ""} onChange={(event) => updateTravel({ baidu_map_api_key: event.target.value || null })} style={{ marginTop: 6 }} />
+        {testResults.qweather ? <p className={testResults.qweather.startsWith("连接失败") ? "settings-test-result failed" : "settings-test-result"}>{testResults.qweather}</p> : null}
       </section>
       </div>
     </section>

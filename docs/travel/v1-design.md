@@ -76,11 +76,18 @@ Infrastructure (crates/infrastructure/src/travel/)
 | `travel.searxng_url` | 如 `http://localhost:8080` |
 | `travel.llm_base_url / llm_model / llm_api_key` | OpenAI-Compatible；留空 → 降级模式 |
 | `travel.amap_api_key` | **已接入**：高德 POI（地点搜索，景点/美食/住宿）→ 补充 Attraction/Food/Accommodation 事实并进入 Sources |
-| `travel.qweather_api_key` | **已接入**：和风天气 3 天预报 → Weather 事实进入「本地 Tips」 |
+| `travel.qweather_api_host / qweather_api_key` | **已接入**：和风天气专属 API Host + Key，3 天预报 → 逐日天气卡片；仅展示 API 实际预报窗口 |
 | `travel.baidu_map_api_key` | 预留（V2 地点检索） |
 
 Key 只保存在本机 settings.json（个人桌面工具），不硬编码、不提交。
 未配置任何 Key 时「结构化数据源」阶段显示 Skipped，并提示可增强路径。
+
+## 日期范围与天气展示
+
+- Travel 输入区支持一个起止日期范围控件；范围为 1～7 天时自动同步行程天数。
+- 该范围会进入查询规划、LLM 补充查询和攻略生成提示，用于检索对应日期的活动、天气和客流信息。
+- 日期范围攻略不复用“城市 + 天数”的普通 24 小时缓存，避免不同出行日期得到错误推荐。
+- 和风天气当前接入的是近期 3 天预报；若用户所选日期不在预报窗口，界面明确提示，并仍按所选范围生成非实时的季节、活动和客流建议。
 
 ## 测试矩阵（现状：108 项全绿）
 

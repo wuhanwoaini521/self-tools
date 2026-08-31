@@ -44,6 +44,7 @@ pub trait TravelDataProvider: Send + Sync {
 pub fn providers_for(
     amap_key: Option<String>,
     qweather_key: Option<String>,
+    qweather_api_host: Option<String>,
     _baidu_map_key: Option<String>,
     client: &reqwest::Client,
 ) -> Vec<Box<dyn TravelDataProvider>> {
@@ -51,8 +52,15 @@ pub fn providers_for(
     if let Some(key) = amap_key.filter(|k| !k.trim().is_empty()) {
         providers.push(Box::new(AmapPoiProvider::new(client.clone(), key)));
     }
-    if let Some(key) = qweather_key.filter(|k| !k.trim().is_empty()) {
-        providers.push(Box::new(QWeatherProvider::new(client.clone(), key)));
+    if let (Some(key), Some(api_host)) = (
+        qweather_key.filter(|key| !key.trim().is_empty()),
+        qweather_api_host.filter(|host| !host.trim().is_empty()),
+    ) {
+        providers.push(Box::new(QWeatherProvider::new(
+            client.clone(),
+            key,
+            api_host,
+        )));
     }
     // 百度地图开放平台（V2 TODO：baidu_map_key 接入「地点检索」）
     providers
@@ -237,12 +245,17 @@ pub fn parse_amap_pois(
 pub struct QWeatherProvider {
     client: reqwest::Client,
     key: String,
+    api_host: String,
 }
 
 impl QWeatherProvider {
     #[must_use]
-    pub fn new(client: reqwest::Client, key: String) -> Self {
-        Self { client, key }
+    pub fn new(client: reqwest::Client, key: String, api_host: String) -> Self {
+        Self {
+            client,
+            key,
+            api_host: normalize_api_host(&api_host),
+        }
     }
 }
 
@@ -261,7 +274,8 @@ impl TravelDataProvider for QWeatherProvider {
         }
         // 1) 城市定位（取第一个匹配）
         let lookup_url = format!(
-            "https://geoapi.qweather.com/v2/city/lookup?location={location}&key={key}",
+            "{host}/geo/v2/city/lookup?location={location}&key={key}",
+            host = self.api_host,
             location = percent_encode(&request.city),
             key = percent_encode(&self.key),
         );
@@ -274,12 +288,22 @@ impl TravelDataProvider for QWeatherProvider {
         })?;
         // 2) 3 天预报
         let forecast_url = format!(
-            "https://devapi.qweather.com/v7/weather/3d?location={location}&key={key}",
+            "{host}/v7/weather/3d?location={location}&key={key}",
+            host = self.api_host,
             location = location_id,
             key = percent_encode(&self.key),
         );
         let forecast = get_json(&self.client, &forecast_url, "qweather").await?;
         parse_qweather_daily(&forecast, &request.city, now_unix())
+    }
+}
+
+fn normalize_api_host(value: &str) -> String {
+    let value = value.trim().trim_end_matches('/');
+    if value.starts_with("https://") {
+        value.to_string()
+    } else {
+        format!("https://{value}")
     }
 }
 
@@ -352,10 +376,11 @@ mod tests {
     #[test]
     fn providers_for_skips_unconfigured_keys() {
         let client = reqwest::Client::new();
-        assert!(providers_for(None, None, None, &client).is_empty());
+        assert!(providers_for(None, None, None, None, &client).is_empty());
         let providers = providers_for(
             Some("amap-key".to_string()),
             Some("qweather-key".to_string()),
+            Some("example.qweatherapi.com".to_string()),
             None,
             &client,
         );

@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
-import { ArrowsClockwise, Compass, MapPin, Sparkle } from "@phosphor-icons/react";
+import { ArrowsClockwise, CalendarBlank, Compass, MapPin, Sparkle } from "@phosphor-icons/react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { CityGuide, GuideSummary, TravelResearchEvent, TravelResearchSnapshot } from "../../types";
+import type { CityGuide, GuideSummary, TravelDateRange, TravelResearchEvent, TravelResearchSnapshot } from "../../types";
 import { errorMessage, isTauriRuntime } from "../../utils";
 import { TravelGuide } from "./TravelGuide";
 import { TravelProgress } from "./TravelProgress";
@@ -21,9 +21,19 @@ interface TravelPageProps {
 
 type ResearchState = "idle" | "running" | "done" | "error";
 
+function inclusiveDays(start: string, end: string): number | null {
+  if (!start || !end || start > end) return null;
+  const startTime = Date.parse(`${start}T00:00:00Z`);
+  const endTime = Date.parse(`${end}T00:00:00Z`);
+  if (!Number.isFinite(startTime) || !Number.isFinite(endTime)) return null;
+  return Math.floor((endTime - startTime) / 86_400_000) + 1;
+}
+
 export function TravelPage({ active, setNotice }: TravelPageProps) {
   const [city, setCity] = useState("");
   const [days, setDays] = useState(3);
+  const [tripStart, setTripStart] = useState("");
+  const [tripEnd, setTripEnd] = useState("");
   const [preferences, setPreferences] = useState<string[]>([]);
   const [state, setState] = useState<ResearchState>("idle");
   const [events, setEvents] = useState<TravelResearchEvent[]>([]);
@@ -62,6 +72,15 @@ export function TravelPage({ active, setNotice }: TravelPageProps) {
   const startResearch = async (force: boolean) => {
     const cityName = city.trim();
     if (!cityName) { setNotice("请输入要探索的城市，例如「杭州」"); return; }
+    if ((tripStart && !tripEnd) || (!tripStart && tripEnd)) {
+      setNotice("请选择完整的起始和结束日期。"); return;
+    }
+    const rangeDays = inclusiveDays(tripStart, tripEnd);
+    if ((tripStart || tripEnd) && (!rangeDays || rangeDays > 7)) {
+      setNotice("日期范围需有效，且暂时最多支持 7 天行程。"); return;
+    }
+    const dateRange: TravelDateRange | null = rangeDays ? { start: tripStart, end: tripEnd } : null;
+    const requestedDays = rangeDays ?? days;
     stopPolling();
     setState("running");
     setGuide(null);
@@ -69,7 +88,14 @@ export function TravelPage({ active, setNotice }: TravelPageProps) {
     setFromCache(false);
     setError("");
     try {
-      const request = { city: cityName, days, month: null, preferences, force };
+      const request = {
+        city: cityName,
+        days: requestedDays,
+        month: dateRange ? Number(dateRange.start.slice(5, 7)) : null,
+        date_range: dateRange,
+        preferences,
+        force,
+      };
       const id = await invoke<string>("travel_research_start", { request });
       // 轮询进度直至完成
       const poll = async () => {
@@ -102,7 +128,7 @@ export function TravelPage({ active, setNotice }: TravelPageProps) {
     if (!isTauriRuntime()) return;
     try {
       const loaded = await invoke<CityGuide | null>("travel_load_guide", { city: summary.city, days: summary.days });
-      if (loaded) { setCity(summary.city); setDays(summary.days); setGuide(loaded); setEvents([]); setState("done"); setFromCache(false); }
+      if (loaded) { setCity(summary.city); setDays(summary.days); setTripStart(loaded.meta.date_range?.start ?? ""); setTripEnd(loaded.meta.date_range?.end ?? ""); setGuide(loaded); setEvents([]); setState("done"); setFromCache(false); }
       else setNotice("本地没有找到该攻略，可能已被清除。");
     } catch (openError) { setNotice(errorMessage(openError)); }
   };
@@ -129,9 +155,17 @@ export function TravelPage({ active, setNotice }: TravelPageProps) {
       </div>
       <div className="travel-search-meta">
         <label htmlFor="travel-days">天数</label>
-        <select id="travel-days" value={days} disabled={state === "running"} onChange={(event) => setDays(Number(event.target.value))}>
+        <select id="travel-days" value={days} disabled={state === "running" || Boolean(tripStart && tripEnd)} onChange={(event) => setDays(Number(event.target.value))}>
           {[1, 2, 3, 4, 5, 6, 7].map((value) => <option key={value} value={value}>{value} 天</option>)}
         </select>
+        <div className="travel-date-range" role="group" aria-label="行程日期范围">
+          <CalendarBlank size={15} />
+          <input type="date" aria-label="起始日期" value={tripStart} max={tripEnd || undefined} disabled={state === "running"}
+            onChange={(event) => { const value = event.target.value; setTripStart(value); const inferred = inclusiveDays(value, tripEnd); if (inferred && inferred <= 7) setDays(inferred); }} />
+          <span>至</span>
+          <input type="date" aria-label="结束日期" value={tripEnd} min={tripStart || undefined} disabled={state === "running"}
+            onChange={(event) => { const value = event.target.value; setTripEnd(value); const inferred = inclusiveDays(tripStart, value); if (inferred && inferred <= 7) setDays(inferred); }} />
+        </div>
         <span className="travel-prefs-label">偏好</span>
         <div className="travel-prefs">
           {TRAVEL_PREFERENCES.map((preference) =>

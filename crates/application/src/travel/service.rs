@@ -26,9 +26,10 @@ use serde::{Deserialize, Serialize};
 use devtoolbox_core::travel::{
     AccommodationArea, Attraction, CityGuide, CityInfo, ContentState, FactCategory, Food,
     GuideMeta, QueryCategory, QueryTask, ResearchPhase, SearchResult, SourceLevel, StepStatus,
-    TravelDocument, TravelFact, TravelQueryInput, TravelQueryPlanner, TravelResearchEvent,
-    TravelSource, TravelTip, TravelWarning, VerifiedFact, VerifiedValue, dedup_facts,
-    dedup_search_results, host_of, parse_facts_json, parse_guide_json, rate_source, verify_facts,
+    TravelDateRange, TravelDocument, TravelFact, TravelQueryInput, TravelQueryPlanner,
+    TravelResearchEvent, TravelSource, TravelTip, TravelWarning, VerifiedFact, VerifiedValue,
+    WeatherDay, WeatherForecast, dedup_facts, dedup_search_results, host_of, parse_facts_json,
+    parse_guide_json, rate_source, verify_facts,
 };
 use devtoolbox_infrastructure::{
     InfrastructureError, LlmProvider, SearchOptions, SearchProvider, TravelDataProvider,
@@ -50,6 +51,8 @@ pub struct TravelResearchRequest {
     pub city: String,
     pub days: u8,
     pub month: Option<u32>,
+    /// 可选的具体行程日期范围（ISO `YYYY-MM-DD`）。
+    pub date_range: Option<TravelDateRange>,
     pub preferences: Vec<String>,
     /// 跳过攻略缓存，强制重新研究。
     pub force: bool,
@@ -97,6 +100,7 @@ impl TravelResearchService {
         if city.is_empty() {
             return Err(ApplicationError::EmptyCity);
         }
+        validate_date_range(request.date_range.as_ref())?;
         let mut emit = |phase, status, message: String| {
             seq += 1;
             progress(TravelResearchEvent {
@@ -115,7 +119,7 @@ impl TravelResearchService {
         );
 
         // 2. 攻略缓存（24h；force 跳过）。缓存损坏视为 miss，不阻塞研究。
-        if !request.force {
+        if !request.force && request.date_range.is_none() {
             let cached = {
                 let store = self.store.lock().expect("travel store poisoned");
                 store.get_guide(&city, request.days, now).ok().flatten()
@@ -150,6 +154,7 @@ impl TravelResearchService {
             city: city.clone(),
             days: request.days.clamp(1, 7),
             month: request.month,
+            date_range: request.date_range.clone(),
             preferences: request.preferences.clone(),
         };
         let mut tasks = TravelQueryPlanner::plan(&input);
@@ -257,11 +262,20 @@ impl TravelResearchService {
             StepStatus::InProgress,
             String::new(),
         );
-        let llm_used = self.llm.is_some();
+        let mut llm_available = self.llm.is_some();
         let mut facts: Vec<TravelFact> = Vec::new();
         let mut fact_failures = 0_usize;
-        if self.llm.is_some() {
+        let mut llm_failure: Option<String> = None;
+        if llm_available {
             for document in &documents {
+                if llm_failure.is_some() {
+                    emit(
+                        ResearchPhase::ExtractFacts,
+                        StepStatus::Skipped,
+                        format!("{}：LLM 已不可用，跳过", document.title),
+                    );
+                    continue;
+                }
                 emit(
                     ResearchPhase::ExtractFacts,
                     StepStatus::InProgress,
@@ -286,6 +300,9 @@ impl TravelResearchService {
                     }
                     Err(error) => {
                         fact_failures += 1;
+                        if is_llm_transport_error(&error) {
+                            llm_failure = Some(error.clone());
+                        }
                         emit(
                             ResearchPhase::ExtractFacts,
                             StepStatus::Failed,
@@ -304,6 +321,12 @@ impl TravelResearchService {
         }
         if fact_failures > 0 {
             notes.push(format!("{fact_failures} 个文档的事实提取失败，已跳过"));
+        }
+        if let Some(error) = llm_failure {
+            llm_available = false;
+            notes.push(format!(
+                "LLM 事实提取连接失败，已停止本次剩余 LLM 请求并立即降级：{error}"
+            ));
         }
         let mut facts = dedup_facts(facts);
         emit(
@@ -423,7 +446,15 @@ impl TravelResearchService {
             format!("整理攻略（{city}）"),
         );
         let guide = self
-            .generate_guide(request, &city, &sources, &verified, llm_used, now, notes)
+            .generate_guide(
+                request,
+                &city,
+                &sources,
+                &verified,
+                llm_available,
+                now,
+                notes,
+            )
             .await;
         emit(
             ResearchPhase::GenerateGuide,
@@ -437,14 +468,21 @@ impl TravelResearchService {
             StepStatus::InProgress,
             "保存到本地缓存".to_string(),
         );
-        let stored = {
+        // 日期范围会影响推荐结果；旧缓存键仅包含城市与天数，不能复用或覆盖它。
+        let stored = if request.date_range.is_some() {
+            guide
+        } else {
             let store = self.store.lock().expect("travel store poisoned");
             store.upsert_guide(&guide, now).map_err(travel)?
         };
         emit(
             ResearchPhase::SaveGuide,
             StepStatus::Done,
-            format!("已保存（{city}，{} 天）", request.days),
+            if request.date_range.is_some() {
+                "已完成日期范围攻略（为避免与普通攻略缓存混淆，未写入近期列表）".to_string()
+            } else {
+                format!("已保存（{city}，{} 天）", request.days)
+            },
         );
         Ok(stored)
     }
@@ -470,6 +508,7 @@ impl TravelResearchService {
             count: RESULTS_PER_QUERY,
         };
         let mut last_error: Option<InfrastructureError> = None;
+        let mut any_provider_responded = false;
         for provider in &self.search_providers {
             match provider.search(query, options).await {
                 Ok(results) if !results.is_empty() => {
@@ -480,13 +519,14 @@ impl TravelResearchService {
                     return Ok(results);
                 }
                 Ok(_) => {
-                    last_error = Some(InfrastructureError::TravelSearch(format!(
-                        "provider {} returned no results",
-                        provider.name()
-                    )));
+                    any_provider_responded = true;
                 }
                 Err(error) => last_error = Some(error),
             }
+        }
+        if any_provider_responded {
+            // 没有匹配结果是正常搜索结果，不应被前端误报为“搜索失败”。
+            return Ok(Vec::new());
         }
         Err(travel(last_error.unwrap_or_else(|| {
             InfrastructureError::TravelSearch("all providers failed".to_string())
@@ -641,6 +681,7 @@ impl TravelResearchService {
                 generated_at,
                 updated_at: generated_at,
                 days,
+                date_range: request.date_range.clone(),
                 llm_used,
                 notes: Vec::new(),
             },
@@ -648,19 +689,24 @@ impl TravelResearchService {
         };
         guide.sources = sources.to_vec();
 
-        let llm_result = if let Some(llm) = self.llm.as_deref() {
-            let facts_block = format_verified_facts(verified);
-            let docs_block = format_documents(sources);
-            let raw = llm
-                .complete(
-                    GUIDE_SYSTEM_PROMPT,
-                    &guide_user_prompt(city, &input_brief(request), &facts_block, &docs_block),
-                )
-                .await;
-            raw.map_err(|error| GuideGenError::Llm(error.to_string()))
-                .and_then(|raw| {
-                    parse_guide_json(&raw).map_err(|error| GuideGenError::Parse(error.to_string()))
-                })
+        let llm_result = if llm_used {
+            if let Some(llm) = self.llm.as_deref() {
+                let facts_block = format_verified_facts(verified);
+                let docs_block = format_documents(sources);
+                let raw = llm
+                    .complete(
+                        GUIDE_SYSTEM_PROMPT,
+                        &guide_user_prompt(city, &input_brief(request), &facts_block, &docs_block),
+                    )
+                    .await;
+                raw.map_err(|error| GuideGenError::Llm(error.to_string()))
+                    .and_then(|raw| {
+                        parse_guide_json(&raw)
+                            .map_err(|error| GuideGenError::Parse(error.to_string()))
+                    })
+            } else {
+                Err(GuideGenError::Unavailable)
+            }
         } else {
             Err(GuideGenError::Unavailable)
         };
@@ -694,7 +740,7 @@ impl TravelResearchService {
         }
         // 程序层合并已验证事实（LLM 与降级两条路径都执行）：
         // - 高德 POI 的景点/美食/住宿条目补进攻略；
-        // - 和风天气进入「本地 Tips」；
+        // - 和风天气进入独立天气卡片；
         // - 开放时间/门票/预约挂到同名景点。
         merge_external_data(&mut guide, verified);
         guide.meta.llm_used = llm_used && llm_ok;
@@ -716,6 +762,48 @@ enum GuideGenError {
 
 fn travel(source: InfrastructureError) -> ApplicationError {
     ApplicationError::Travel { source }
+}
+
+fn validate_date_range(range: Option<&TravelDateRange>) -> Result<(), ApplicationError> {
+    let Some(range) = range else {
+        return Ok(());
+    };
+    if !is_iso_date(&range.start) || !is_iso_date(&range.end) || range.start > range.end {
+        return Err(ApplicationError::TravelFailed(
+            "行程日期必须是有效的 YYYY-MM-DD，且结束日期不能早于开始日期".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn is_iso_date(value: &str) -> bool {
+    let bytes = value.as_bytes();
+    if bytes.len() != 10 || bytes[4] != b'-' || bytes[7] != b'-' {
+        return false;
+    }
+    let Ok(year) = value[0..4].parse::<u32>() else {
+        return false;
+    };
+    let Ok(month) = value[5..7].parse::<u32>() else {
+        return false;
+    };
+    let Ok(day) = value[8..10].parse::<u32>() else {
+        return false;
+    };
+    let max_day = match month {
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+        4 | 6 | 9 | 11 => 30,
+        2 if year % 400 == 0 || (year % 4 == 0 && year % 100 != 0) => 29,
+        2 => 28,
+        _ => return false,
+    };
+    day > 0 && day <= max_day
+}
+
+/// 只有请求/响应传输层错误才熔断。模型返回的非法 JSON 是单篇内容错误，
+/// 后续文档或最终攻略仍可能成功，不能因此提前放弃。
+fn is_llm_transport_error(error: &str) -> bool {
+    error.contains("travel llm request failed") || error.contains("llm is not configured")
 }
 
 /// 数据源 Provider 名 → 其 Sources 展示地址（同时是事实 source_id，保证权威权重可匹配）。
@@ -760,6 +848,9 @@ pub fn query_user_prompt(city: &str, input: &TravelQueryInput) -> String {
     if let Some(month) = input.month {
         brief.push_str(&format!("；出行月份：{month} 月"));
     }
+    if let Some(range) = &input.date_range {
+        brief.push_str(&format!("；行程日期：{} 至 {}", range.start, range.end));
+    }
     if !input.preferences.is_empty() {
         brief.push_str(&format!("；偏好：{}", input.preferences.join("、")));
     }
@@ -802,6 +893,9 @@ fn input_brief(request: &TravelResearchRequest) -> String {
     );
     if let Some(month) = request.month {
         brief.push_str(&format!("；月份：{month} 月"));
+    }
+    if let Some(range) = &request.date_range {
+        brief.push_str(&format!("；行程日期：{} 至 {}", range.start, range.end));
     }
     if !request.preferences.is_empty() {
         brief.push_str(&format!("；偏好：{}", request.preferences.join("、")));
@@ -912,20 +1006,54 @@ fn merge_external_data(guide: &mut CityGuide, verified: &[VerifiedFact]) {
                     ..AccommodationArea::default()
                 });
             }
-            FactCategory::Weather
-                if !guide
-                    .local_tips
-                    .iter()
-                    .any(|tip| tip.title.contains("天气")) =>
-            {
-                guide.local_tips.push(TravelTip {
-                    title: format!("{}天气", fact.subject),
-                    text: fact.value.clone(),
-                });
+            FactCategory::Weather => {
+                if guide.weather.is_none() {
+                    guide.weather = weather_forecast_from_fact(fact);
+                }
+                // 兼容非和风格式的天气事实：无法展示为卡片时，仍保留原始文字。
+                if guide.weather.is_none()
+                    && !guide
+                        .local_tips
+                        .iter()
+                        .any(|tip| tip.title.contains("天气"))
+                {
+                    guide.local_tips.push(TravelTip {
+                        title: format!("{}天气", fact.subject),
+                        text: fact.value.clone(),
+                    });
+                }
             }
             _ => {}
         }
     }
+}
+
+/// 和风 Provider 将逐日预报作为一条稳定格式的 Weather 事实传入；这里恢复为 UI 可用的卡片数据。
+fn weather_forecast_from_fact(fact: &VerifiedFact) -> Option<WeatherForecast> {
+    let days = fact
+        .value
+        .split('；')
+        .filter_map(|part| {
+            let mut fields = part.split_whitespace();
+            let date = fields.next()?.to_string();
+            let text_day = fields.next()?.to_string();
+            let temperatures = fields.next()?.trim_end_matches("°C");
+            let (temp_min, temp_max) = temperatures.split_once('~')?;
+            Some(WeatherDay {
+                date,
+                text_day,
+                temp_min: temp_min.to_string(),
+                temp_max: temp_max.to_string(),
+            })
+        })
+        .collect::<Vec<_>>();
+    if days.is_empty() {
+        return None;
+    }
+    Some(WeatherForecast {
+        city: fact.subject.trim_end_matches("天气").to_string(),
+        days,
+    })
 }
 
 fn apply_to_attraction(

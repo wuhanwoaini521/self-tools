@@ -17,12 +17,14 @@ pub use dedup::{dedup_facts, dedup_search_results, normalize_url, verify_facts};
 pub use guide::{
     AccommodationArea, Attraction, CityGuide, CityInfo, DistrictInfo, Food, GuideMeta,
     GuideSummary, Itineraries, Itinerary, ItineraryStop, Place, TransportGuide, TravelTip,
-    TravelWarning, VerifiedFact, VerifiedValue,
+    TravelWarning, VerifiedFact, VerifiedValue, WeatherDay, WeatherForecast,
 };
 pub use llm_parse::{TravelParseError, extract_json, parse_facts_json, parse_guide_json};
 pub use model::{
     ContentState, FactCategory, ResearchPhase, SearchResult, SourceLevel, StepStatus,
     TravelDocument, TravelFact, TravelResearchEvent, TravelSource,
 };
-pub use query_planner::{QueryCategory, QueryTask, TravelQueryInput, TravelQueryPlanner};
+pub use query_planner::{
+    QueryCategory, QueryTask, TravelDateRange, TravelQueryInput, TravelQueryPlanner,
+};
 pub use ranking::{classify_source, freshness_score, host_of, rate_source, relevance_score};

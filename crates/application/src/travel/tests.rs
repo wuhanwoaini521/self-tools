@@ -19,6 +19,7 @@ fn request(city: &str) -> TravelResearchRequest {
         city: city.to_string(),
         days: 3,
         month: None,
+        date_range: None,
         preferences: vec![],
         force: false,
     }
@@ -383,6 +384,7 @@ async fn cache_hit_skips_network() {
             generated_at: now,
             updated_at: now,
             days: 3,
+            date_range: None,
             llm_used: true,
             notes: vec!["缓存测试".to_string()],
         },
@@ -472,7 +474,7 @@ async fn data_provider_facts_enrich_guide_and_sources() {
             vec![TravelFact {
                 category: FactCategory::Weather,
                 subject: "杭州天气".to_string(),
-                value: "今天 晴 24~33°C；明天 多云 25~32°C".to_string(),
+                value: "2026-09-01 晴 24~33°C；2026-09-02 多云 25~32°C".to_string(),
                 source_id: "https://devapi.qweather.com".to_string(),
                 confidence: 0.9,
                 fetched_at: 1_700_000_000,
@@ -501,13 +503,10 @@ async fn data_provider_facts_enrich_guide_and_sources() {
         guide.attractions
     );
     assert!(guide.foods.iter().any(|f| f.name.contains("龙井虾仁")));
-    // 和风天气进入本地 Tips
-    assert!(
-        guide
-            .local_tips
-            .iter()
-            .any(|tip| tip.title.contains("天气"))
-    );
+    // 和风天气进入独立天气卡片数据。
+    let weather = guide.weather.expect("weather card data");
+    assert_eq!(weather.days.len(), 2);
+    assert_eq!(weather.days[0].text_day, "晴");
     // 数据源作为可信来源出现在 Sources（A 级）
     let amap_source = guide
         .sources
@@ -586,4 +585,37 @@ async fn without_data_keys_providers_skipped() {
             .iter()
             .any(|e| e.phase == ResearchPhase::DataSources && e.status == StepStatus::Skipped)
     );
+}
+
+#[tokio::test]
+async fn llm_transport_failure_stops_remaining_requests() {
+    // 查询扩展成功后，第一个事实抽取发生传输错误；不应继续对每个文档重试，
+    // 也不应在最后再发一次必然失败的攻略生成请求。
+    let llm = MockLlmProvider::new([
+        "[]".to_string(),
+        "ERR:error decoding response body".to_string(),
+    ]);
+    let calls = llm.calls.clone();
+    let (service, _events, _dir) = harness(
+        vec![Box::new(happy_provider())],
+        Box::new(happy_fetcher()),
+        Some(Box::new(llm)),
+    );
+    let guide = service
+        .research_city(&request("杭州"), &|_| {})
+        .await
+        .expect("fallback guide");
+    assert_eq!(
+        *calls.lock().expect("calls"),
+        2,
+        "stop after first transport failure"
+    );
+    assert!(
+        guide
+            .meta
+            .notes
+            .iter()
+            .any(|note| note.contains("停止本次剩余 LLM 请求"))
+    );
+    assert!(!guide.meta.llm_used);
 }

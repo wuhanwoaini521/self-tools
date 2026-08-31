@@ -50,8 +50,17 @@ pub struct TravelQueryInput {
     pub days: u8,
     /// 出行月份（1 ~ 12），可缺省。
     pub month: Option<u32>,
+    /// 具体出行日期范围，用于检索该时段的天气、活动和客流信息。
+    pub date_range: Option<TravelDateRange>,
     /// 偏好关键词（历史 / 美食 / 自然 / 散步 / 摄影 …），可缺省。
     pub preferences: Vec<String>,
+}
+
+/// 用户选择的出行日期范围（ISO `YYYY-MM-DD`）。
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct TravelDateRange {
+    pub start: String,
+    pub end: String,
 }
 
 /// 偏好 → 追加查询模板。键为偏好关键词（大小写不敏感、包含匹配）。
@@ -180,7 +189,18 @@ impl TravelQueryPlanner {
             push(QueryCategory::Activities, &format!("{city} {month}月 活动"));
         }
 
-        // 4. 偏好扩展
+        // 4. 具体日期：用真实日期查活动、客流与近期天气，供后续推荐避开不适合的安排。
+        if let Some(range) = &input.date_range {
+            let period = format!("{} 至 {}", range.start, range.end);
+            push(QueryCategory::Activities, &format!("{city} {period} 天气"));
+            push(QueryCategory::Activities, &format!("{city} {period} 活动"));
+            push(
+                QueryCategory::Warnings,
+                &format!("{city} {period} 旅游 客流"),
+            );
+        }
+
+        // 5. 偏好扩展
         for preference in &input.preferences {
             let matched = PREFERENCE_TEMPLATES
                 .iter()
@@ -198,13 +218,14 @@ impl TravelQueryPlanner {
 
 #[cfg(test)]
 mod tests {
-    use super::{QueryCategory, TravelQueryInput, TravelQueryPlanner};
+    use super::{QueryCategory, TravelDateRange, TravelQueryInput, TravelQueryPlanner};
 
     fn plan(city: &str, days: u8, month: Option<u32>, preferences: &[&str]) -> Vec<String> {
         TravelQueryPlanner::plan(&TravelQueryInput {
             city: city.to_string(),
             days,
             month,
+            date_range: None,
             preferences: preferences.iter().map(|p| (*p).to_string()).collect(),
         })
         .into_iter()
@@ -276,11 +297,31 @@ mod tests {
     }
 
     #[test]
+    fn date_range_appends_date_specific_queries() {
+        let queries = TravelQueryPlanner::plan(&TravelQueryInput {
+            city: "大连".to_string(),
+            days: 3,
+            month: Some(9),
+            date_range: Some(TravelDateRange {
+                start: "2026-09-05".to_string(),
+                end: "2026-09-07".to_string(),
+            }),
+            preferences: vec![],
+        })
+        .into_iter()
+        .map(|task| task.query)
+        .collect::<Vec<_>>();
+        assert!(queries.contains(&"大连 2026-09-05 至 2026-09-07 天气".to_string()));
+        assert!(queries.contains(&"大连 2026-09-05 至 2026-09-07 旅游 客流".to_string()));
+    }
+
+    #[test]
     fn categories_are_assigned() {
         let tasks = TravelQueryPlanner::plan(&TravelQueryInput {
             city: "杭州".to_string(),
             days: 3,
             month: None,
+            date_range: None,
             preferences: vec![],
         });
         assert!(

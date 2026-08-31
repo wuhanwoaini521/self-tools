@@ -19,6 +19,10 @@ pub enum ApplicationError {
     EmptyCity,
     #[error("travel research failed: {0}")]
     TravelFailed(String),
+    #[error("history error: {source}")]
+    History { source: InfrastructureError },
+    #[error("history data error: {0}")]
+    HistoryData(String),
     #[error("operation failed for {path}: {source}")]
     Infrastructure {
         path: PathBuf,

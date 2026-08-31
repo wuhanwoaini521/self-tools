@@ -12,6 +12,7 @@ export interface TravelSettings {
   llm_model: string | null;
   amap_api_key: string | null;
   qweather_api_key: string | null;
+  qweather_api_host: string | null;
   baidu_map_api_key: string | null;
 }
 
@@ -97,10 +98,16 @@ export interface TravelResearchEvent {
   seq: number;
 }
 
+export interface TravelDateRange {
+  start: string;
+  end: string;
+}
+
 export interface TravelResearchRequest {
   city: string;
   days: number;
   month: number | null;
+  date_range: TravelDateRange | null;
   preferences: string[];
   force: boolean;
 }
@@ -224,8 +231,21 @@ export interface GuideMeta {
   generated_at: number;
   updated_at: number;
   days: number;
+  date_range: TravelDateRange | null;
   llm_used: boolean;
   notes: string[];
+}
+
+export interface WeatherDay {
+  date: string;
+  text_day: string;
+  temp_min: string;
+  temp_max: string;
+}
+
+export interface WeatherForecast {
+  city: string;
+  days: WeatherDay[];
 }
 
 export interface CityGuide {
@@ -233,6 +253,7 @@ export interface CityGuide {
   summary: string;
   highlights: string[];
   best_time: string | null;
+  weather: WeatherForecast | null;
   districts: DistrictInfo[];
   attractions: Attraction[];
   foods: Food[];
@@ -245,3 +266,27 @@ export interface CityGuide {
   sources: TravelSource[];
   meta: GuideMeta;
 }
+
+// ---------- History ----------
+
+export type HistoryNodeKind = "person" | "event" | "dynasty" | "place" | "war" | "institution" | "artifact" | "culture";
+export type HistoryRelationKind = "occurred_in" | "participated_in" | "belongs_to" | "cause" | "consequence" | "related_to" | "family" | "political_ally" | "political_opponent" | "monarch_minister" | "military_opponent" | "predecessor" | "successor";
+export type SourceAuthority = "official" | "museum" | "academic" | "reference" | "general";
+
+export interface HistoryPeriod { id: string; name: string; start_year: number; end_year: number; summary: string; }
+export interface HistoryNode { id: string; kind: HistoryNodeKind; title: string; period_id: string | null; start_year: number | null; end_year: number | null; summary: string; tags: string[]; source_ids: string[]; }
+export interface HistorySearchGroup { kind: HistoryNodeKind; items: HistoryNode[]; }
+export interface HistoryRelation { from_id: string; to_id: string; kind: HistoryRelationKind; note: string | null; }
+export interface HistoryRelationView { relation: HistoryRelation; node: HistoryNode; }
+export interface HistorySource { id: string; title: string; url: string; source_type: string; authority: SourceAuthority; published_at: number | null; fetched_at: number | null; }
+export interface DynastyDetail { detail_type: "dynasty"; name: string; start_year: number; end_year: number; capital: string | null; regime_type: string; overview: string; }
+export interface PersonDetail { detail_type: "person"; name: string; born_year: number | null; died_year: number | null; identities: string[]; biography: string[]; achievements: string[]; controversies: string[]; }
+export interface EventDetail { detail_type: "event"; name: string; start_year: number; end_year: number | null; overview: string; background: string[]; trigger: string | null; course: string[]; results: string[]; impacts: string[]; debates: string[]; }
+export interface PlaceDetail { detail_type: "place"; name: string; modern_name: string | null; latitude: number | null; longitude: number | null; overview: string; historical_names: string[]; }
+export interface InstitutionDetail { detail_type: "institution"; name: string; overview: string; key_points: string[]; }
+export interface ArtifactDetail { detail_type: "artifact"; name: string; overview: string; collection: string | null; }
+export interface TopicDetail { detail_type: "topic"; overview: string; key_points: string[]; }
+export type HistoryDetail = DynastyDetail | PersonDetail | EventDetail | PlaceDetail | InstitutionDetail | ArtifactDetail | TopicDetail;
+export interface HistoryDocument { node: HistoryNode; detail: HistoryDetail; }
+export interface HistoryDetailView { document: HistoryDocument; relations: HistoryRelationView[]; sources: HistorySource[]; }
+export interface HistoryHome { timeline: HistoryPeriod[]; recommendation: HistoryNode; discoveries: HistoryNode[]; recent: HistoryNode[]; favorite_ids: string[]; }

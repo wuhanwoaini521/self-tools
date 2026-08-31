@@ -25,6 +25,8 @@ pub struct TravelSettings {
     pub amap_api_key: Option<String>,
     /// 和风天气 Key（可选）。
     pub qweather_api_key: Option<String>,
+    /// 和风天气控制台分配的专属 API Host（2026 年起不再使用公共域名）。
+    pub qweather_api_host: Option<String>,
     /// 百度地图开放平台 Key（可选）。
     pub baidu_map_api_key: Option<String>,
 }
@@ -39,6 +41,7 @@ impl Default for TravelSettings {
             llm_model: None,
             amap_api_key: None,
             qweather_api_key: None,
+            qweather_api_host: None,
             baidu_map_api_key: None,
         }
     }

@@ -8,18 +8,22 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
 use devtoolbox_application::{
-    ApplicationError, ArticleDto, DocumentDto, FeedDto, RefreshReport, TravelResearchRequest,
-    TravelResearchService, commit_new_feed, commit_refresh, convert_lines_to_tasks, cycle_lines,
-    delete_feed, feed_snapshots, fetch_all_feeds, fetch_new_feed, latest_articles, list_articles,
-    list_feeds, load_document, load_settings, mark_article_read, save_document, save_settings,
-    scan_workspace, validate_feed_url,
+    ApplicationError, ArticleDto, DocumentDto, FeedDto, HistoryHome, HistoryService, RefreshReport,
+    TravelResearchRequest, TravelResearchService, commit_new_feed, commit_refresh,
+    convert_lines_to_tasks, cycle_lines, delete_feed, feed_snapshots, fetch_all_feeds,
+    fetch_new_feed, latest_articles, list_articles, list_feeds, load_document, load_settings,
+    mark_article_read, save_document, save_settings, scan_workspace, validate_feed_url,
 };
-use devtoolbox_core::travel::{CityGuide, GuideSummary, TravelResearchEvent};
+use devtoolbox_core::{
+    history::{HistoryDetailView, HistorySearchGroup},
+    travel::{CityGuide, GuideSummary, TravelResearchEvent},
+};
 use devtoolbox_infrastructure::{
-    AppSettings, FeedRepository, HttpWebFetcher, LlmConfig, OpenAiCompatibleLlmProvider,
-    SettingsStore, TravelStore, WorkspaceFile, build_providers, feed_client, providers_for,
+    AmapPoiProvider, AppSettings, FeedRepository, HistoryStore, HttpWebFetcher, LlmConfig,
+    LlmProvider, OpenAiCompatibleLlmProvider, QWeatherProvider, SettingsStore, TravelDataProvider,
+    TravelDataRequest, TravelStore, WorkspaceFile, build_providers, feed_client, providers_for,
 };
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager, State};
 
 #[derive(Debug, Serialize)]
@@ -38,6 +42,7 @@ impl From<ApplicationError> for CommandError {
             ApplicationError::FeedNotFound(_) => "rss_feed_not_found",
             ApplicationError::EmptyCity => "travel_empty_city",
             ApplicationError::TravelFailed(_) => "travel_failed",
+            ApplicationError::History { .. } | ApplicationError::HistoryData(_) => "history_error",
             ApplicationError::Travel { source } => match source {
                 devtoolbox_infrastructure::InfrastructureError::TravelSearch(_) => {
                     "travel_search_failed"
@@ -70,6 +75,7 @@ pub struct AppState {
     pub store: Mutex<FeedRepository>,
     pub travel_store: Arc<Mutex<TravelStore>>,
     pub travel_sessions: Arc<Mutex<HashMap<String, Arc<Mutex<TravelSession>>>>>,
+    pub history_store: Arc<Mutex<HistoryStore>>,
     pub client: reqwest::Client,
 }
 
@@ -311,6 +317,7 @@ fn travel_research_start(
         let data_providers = providers_for(
             travel.amap_api_key.clone(),
             travel.qweather_api_key.clone(),
+            travel.qweather_api_host.clone(),
             travel.baidu_map_api_key.clone(),
             &client,
         );
@@ -336,6 +343,98 @@ fn travel_research_start(
         }
     });
     Ok(session_id)
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct TravelLlmTestRequest {
+    base_url: String,
+    api_key: Option<String>,
+    model: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct TravelKeyTestRequest {
+    api_key: String,
+    api_host: Option<String>,
+}
+
+fn travel_test_error(code: &'static str, error: impl std::fmt::Display) -> CommandError {
+    CommandError {
+        code,
+        message: error.to_string(),
+    }
+}
+
+/// 用当前输入值测试 OpenAI Compatible 连通性；不读取或写入 settings.json。
+#[tauri::command]
+async fn test_travel_llm(
+    state: State<'_, AppState>,
+    request: TravelLlmTestRequest,
+) -> Result<String, CommandError> {
+    let provider = OpenAiCompatibleLlmProvider::new(
+        state.client.clone(),
+        LlmConfig {
+            base_url: Some(request.base_url),
+            api_key: request.api_key,
+            model: Some(request.model),
+        },
+    );
+    let answer = provider
+        .complete("You are a connectivity test.", "Reply with OK.")
+        .await
+        .map_err(|error| travel_test_error("travel_llm_test_failed", error))?;
+    Ok(format!(
+        "LLM 连接成功（收到 {} 个字符的响应）",
+        answer.trim().chars().count()
+    ))
+}
+
+/// 用当前高德 Key 执行一条北京 POI 查询；不写入 settings.json。
+#[tauri::command]
+async fn test_travel_amap(
+    state: State<'_, AppState>,
+    request: TravelKeyTestRequest,
+) -> Result<String, CommandError> {
+    let provider = AmapPoiProvider::new(state.client.clone(), request.api_key);
+    let facts = provider
+        .fetch(TravelDataRequest {
+            city: "北京".to_string(),
+            kind: "poi",
+        })
+        .await
+        .map_err(|error| travel_test_error("travel_amap_test_failed", error))?;
+    Ok(format!("高德连接成功（北京 POI 返回 {} 条）", facts.len()))
+}
+
+/// 用当前和风 API Host 与 Key 查询北京三日天气；不写入 settings.json。
+#[tauri::command]
+async fn test_travel_qweather(
+    state: State<'_, AppState>,
+    request: TravelKeyTestRequest,
+) -> Result<String, CommandError> {
+    let host = request
+        .api_host
+        .filter(|host| !host.trim().is_empty())
+        .ok_or_else(|| CommandError {
+            code: "travel_qweather_test_failed",
+            message: "请先填写和风天气 API Host".to_string(),
+        })?;
+    let provider = QWeatherProvider::new(state.client.clone(), request.api_key, host);
+    let facts = provider
+        .fetch(TravelDataRequest {
+            city: "北京".to_string(),
+            kind: "weather",
+        })
+        .await
+        .map_err(|error| travel_test_error("travel_qweather_test_failed", error))?;
+    Ok(format!(
+        "和风天气连接成功（{}）",
+        facts
+            .first()
+            .map_or("已返回天气数据", |fact| fact.value.as_str())
+    ))
 }
 
 /// 轮询一次研究进度。
@@ -386,6 +485,42 @@ fn travel_load_guide(
     Ok(guide)
 }
 
+// ---------- History 模块（离线优先） ----------
+
+#[tauri::command]
+fn history_home(state: State<'_, AppState>, cursor: u64) -> Result<HistoryHome, CommandError> {
+    HistoryService::new(Arc::clone(&state.history_store))
+        .home(cursor)
+        .map_err(CommandError::from)
+}
+
+#[tauri::command]
+fn history_search(
+    state: State<'_, AppState>,
+    query: String,
+) -> Result<Vec<HistorySearchGroup>, CommandError> {
+    HistoryService::new(Arc::clone(&state.history_store))
+        .search(&query)
+        .map_err(CommandError::from)
+}
+
+#[tauri::command]
+fn history_detail(
+    state: State<'_, AppState>,
+    id: String,
+) -> Result<Option<HistoryDetailView>, CommandError> {
+    HistoryService::new(Arc::clone(&state.history_store))
+        .detail(&id)
+        .map_err(CommandError::from)
+}
+
+#[tauri::command]
+fn history_toggle_favorite(state: State<'_, AppState>, id: String) -> Result<bool, CommandError> {
+    HistoryService::new(Arc::clone(&state.history_store))
+        .toggle_favorite(&id)
+        .map_err(CommandError::from)
+}
+
 /// 应用入口。前端需要的权限被限制在文件选择器、command API 与打开原文链接；
 /// 不暴露任意 shell 执行能力。
 pub fn run() {
@@ -398,11 +533,14 @@ pub fn run() {
                 .expect("open rss database");
             let travel_store = TravelStore::open(config_directory.join("travel.db"))
                 .expect("open travel database");
+            let history_store = HistoryStore::open(config_directory.join("history.db"))
+                .expect("open history database");
             let client = feed_client().expect("build http client");
             app.manage(AppState {
                 store: Mutex::new(store),
                 travel_store: Arc::new(Mutex::new(travel_store)),
                 travel_sessions: Arc::new(Mutex::new(HashMap::new())),
+                history_store: Arc::new(Mutex::new(history_store)),
                 client,
             });
             Ok(())
@@ -426,7 +564,14 @@ pub fn run() {
             travel_research_start,
             travel_research_progress,
             travel_recent_guides,
-            travel_load_guide
+            travel_load_guide,
+            test_travel_llm,
+            test_travel_amap,
+            test_travel_qweather,
+            history_home,
+            history_search,
+            history_detail,
+            history_toggle_favorite
         ])
         .run(tauri::generate_context!())
         .expect("Tauri application event loop failed");
