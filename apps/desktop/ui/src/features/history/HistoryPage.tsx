@@ -11,34 +11,58 @@ const RELATION_LABELS: Record<HistoryRelationKind, string> = { occurred_in: "发
 function year(value: number | null) { if (value === null) return "时间待考"; return value < 0 ? `公元前 ${Math.abs(value)} 年` : `${value} 年`; }
 function range(start: number | null, end: number | null) { return end === null || end === start ? year(start) : `${year(start)} · ${year(end)}`; }
 
-const TIMELINE_LANES: Record<string, number> = {
-  xia: 0, shang: 0, "western-zhou": 0, "spring-autumn": 1, "warring-states": 1,
-  qin: 2, "western-han": 2, "eastern-han": 2,
-  "three-kingdoms": 3, "western-jin": 4, "eastern-jin": 4, "northern-southern": 5,
-  sui: 6, tang: 6, "five-dynasties": 7,
-  "northern-song": 8, liao: 9, "western-xia": 10, "southern-song": 8, jin: 9,
-  yuan: 11, ming: 11, qing: 11, modern: 11,
-};
-const TIMELINE_LANE_LABELS = ["夏商周", "春秋战国", "秦汉", "三国", "西晋 / 东晋", "南北朝", "隋唐", "五代十国", "宋", "辽 / 金", "西夏", "元明清近现代"];
+const TIMELINE_START = -2100;
+const TIMELINE_END = 2026;
+const TIMELINE_CARD_WIDTH = 114;
+const TIMELINE_PIXELS_PER_YEAR = 0.64;
+const TIMELINE_HORIZONTAL_PADDING = 64;
+
+function compactYear(value: number) { return value < 0 ? `前${Math.abs(value)}` : `${value}`; }
+
+function arrangeTimeline(periods: HistoryHome["timeline"]) {
+  const occupied: Record<"top" | "bottom", number[]> = { top: [-Infinity, -Infinity], bottom: [-Infinity, -Infinity] };
+  return periods.map((period, index) => {
+    const position = TIMELINE_HORIZONTAL_PADDING + (period.start_year - TIMELINE_START) * TIMELINE_PIXELS_PER_YEAR;
+    const preferredSide: "top" | "bottom" = index % 2 === 0 ? "top" : "bottom";
+    const sides: Array<"top" | "bottom"> = [preferredSide, preferredSide === "top" ? "bottom" : "top"];
+    let side = preferredSide;
+    let tier = 0;
+    let placed = false;
+
+    for (const candidate of sides) {
+      const availableTier = occupied[candidate].findIndex((lastRight) => position - TIMELINE_CARD_WIDTH / 2 >= lastRight + 12);
+      if (availableTier !== -1) {
+        side = candidate;
+        tier = availableTier;
+        placed = true;
+        break;
+      }
+    }
+    if (!placed) {
+      side = Math.min(...occupied.top) <= Math.min(...occupied.bottom) ? "top" : "bottom";
+      tier = occupied[side][0] <= occupied[side][1] ? 0 : 1;
+    }
+    occupied[side][tier] = position + TIMELINE_CARD_WIDTH / 2;
+    return { period, position, side, tier };
+  });
+}
 
 function HistoryTimeline({ periods, onOpen }: { periods: HistoryHome["timeline"]; onOpen: (period: HistoryHome["timeline"][number]) => void }) {
-  const start = -2100;
-  const end = 2026;
-  const pixelsPerYear = 0.38;
-  const width = Math.ceil((end - start) * pixelsPerYear);
+  const width = Math.ceil((TIMELINE_END - TIMELINE_START) * TIMELINE_PIXELS_PER_YEAR + TIMELINE_HORIZONTAL_PADDING * 2);
   const ticks = [-2000, -1500, -1000, -500, 0, 500, 1000, 1500, 1900];
+  const placements = arrangeTimeline(periods);
   return <section className="history-timeline">
-    <div className="history-timeline-heading"><div><p>中国历史时间轴</p><h2>从夏商周到近现代</h2></div><span>按实际年代比例排列 · 并存政权分行展示</span></div>
+    <div className="history-timeline-heading"><div><p>中国历史时间轴</p><h2>从夏商周到近现代</h2></div><span>按实际年代比例排列 · 点击朝代查看详情</span></div>
     <div className="history-timeline-scroll"><div className="history-timeline-canvas" style={{ width }}>
       <div className="history-timeline-axis" />
-      {ticks.map((tick) => <span className="history-timeline-tick" key={tick} style={{ left: (tick - start) * pixelsPerYear }}>{year(tick)}</span>)}
-      {TIMELINE_LANE_LABELS.map((label, lane) => label ? <span className="history-timeline-lane" key={label} style={{ top: 50 + lane * 43 }}>{label}</span> : null)}
-      {periods.map((period) => {
-        const lane = TIMELINE_LANES[period.id] ?? 11;
-        const left = (period.start_year - start) * pixelsPerYear;
-        const periodWidth = Math.max((period.end_year - period.start_year) * pixelsPerYear, 52);
-        return <button className="history-timeline-period" key={period.id} style={{ left, top: 41 + lane * 43, width: periodWidth }} title={period.summary} onClick={() => onOpen(period)}><b>{period.name}</b><small>{year(period.start_year)}—{year(period.end_year)}</small></button>;
-      })}
+      {ticks.map((tick) => <span className="history-timeline-tick" key={tick} style={{ left: TIMELINE_HORIZONTAL_PADDING + (tick - TIMELINE_START) * TIMELINE_PIXELS_PER_YEAR }}>{year(tick)}</span>)}
+      {placements.map(({ period, position, side, tier }) => <div className={`history-timeline-item is-${side} is-tier-${tier}`} key={period.id} style={{ left: position }}>
+        <span className="history-timeline-link" aria-hidden="true" />
+        <span className="history-timeline-marker" aria-hidden="true" />
+        <button className="history-timeline-period" title={period.summary} onClick={() => onOpen(period)}>
+          <b>{period.name}</b><small>{compactYear(period.start_year)}—{compactYear(period.end_year)}</small>
+        </button>
+      </div>)}
     </div></div>
   </section>;
 }
