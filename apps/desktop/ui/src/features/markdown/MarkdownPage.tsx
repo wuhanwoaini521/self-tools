@@ -9,7 +9,7 @@ import { markdown } from "@codemirror/lang-markdown";
 import { devtoolboxMarkdown } from "../../markdown-decorations";
 import {
   CaretDown, CaretRight, Check, CheckCircle, CheckSquare, Circle, CloudArrowUp, Code,
-  DotsThree, FloppyDisk, FolderOpen, MagnifyingGlass, Plus,
+  DotsThree, FloppyDisk, FolderOpen, ListChecks, MagnifyingGlass, Plus,
   SidebarSimple, SplitHorizontal, Target, X,
 } from "@phosphor-icons/react";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent, type KeyboardEvent as ReactKeyboardEvent } from "react";
@@ -100,7 +100,12 @@ function TaskOutline({ fileName, tasks, filter, setFilter, onCycle }: { fileName
   const visible = filter === "all" ? tasks : tasks.filter((task) => task.status === filter);
   return <aside className="task-outline">
     <header><div><p>Task Outline</p></div><button title="收起任务大纲"><CaretDown size={17} /></button></header>
-    <nav className="task-tabs" aria-label="任务过滤">{([{ key: "all", label: "All" }, { key: "todo", label: "Todo" }, { key: "progress", label: "In Progress" }, { key: "done", label: "Done" }] as const).map((tab) => <button key={tab.key} className={filter === tab.key ? "selected" : ""} onClick={() => setFilter(tab.key)}>{tab.label}<b>{counts[tab.key]}</b></button>)}</nav>
+    <nav className="task-tabs" aria-label="任务过滤">{([
+      { key: "all", label: "All", icon: <ListChecks size={17} weight="bold" /> },
+      { key: "todo", label: "Todo", icon: <Circle size={17} /> },
+      { key: "progress", label: "In Progress", icon: <Target size={17} weight="fill" /> },
+      { key: "done", label: "Done", icon: <CheckSquare size={17} weight="fill" /> },
+    ] as const).map((tab) => <button key={tab.key} className={filter === tab.key ? "selected" : ""} onClick={() => setFilter(tab.key)} title={`${tab.label}（${counts[tab.key]}）`} aria-label={`${tab.label}（${counts[tab.key]}）`}><span aria-hidden="true">{tab.icon}</span><b>{counts[tab.key]}</b></button>)}</nav>
     <div className="task-file"><Code size={17} weight="bold" />{fileName}</div>
     <section className="task-list"><div className="task-list-title"><CaretDown size={15} />Tasks <b>{tasks.length}</b></div>{visible.map((task) => <button className={"outline-task " + task.status} key={task.line} onClick={() => onCycle(task.line)}>{task.status === "done" ? <CheckSquare size={19} weight="fill" /> : task.status === "progress" ? <Target size={20} weight="bold" /> : <Circle size={19} />}<span>{task.text}</span></button>)}</section>
     <footer><kbd>⌘\\</kbd> Toggle Task Outline <kbd>↵</kbd> Toggle Status</footer>
@@ -127,6 +132,8 @@ export function MarkdownPage({ settings, onSettingsChange, setNotice, active, in
   const [sidebarWidth, setSidebarWidth] = useState(312);
   const [outlineWidth, setOutlineWidth] = useState(373);
   const resizingRef = useRef<{ type: "sidebar" | "outline"; startX: number; startWidth: number } | null>(null);
+  /** 正在拖拽的分隔条(驱动 active 高亮,拖动期间保持可见)。 */
+  const [resizingBar, setResizingBar] = useState<"sidebar" | "outline" | null>(null);
 
   const refreshWorkspace = useCallback(async (folder: string | null) => { if (!folder) { setWorkspaceFiles([]); return; } setWorkspaceFiles(await invoke<WorkspaceFile[]>("list_workspace", { path: folder })); }, []);
 
@@ -145,6 +152,7 @@ export function MarkdownPage({ settings, onSettingsChange, setNotice, active, in
   const startResize = useCallback((type: "sidebar" | "outline") => (event: ReactMouseEvent<HTMLDivElement>) => {
     event.preventDefault();
     resizingRef.current = { type, startX: event.clientX, startWidth: type === "sidebar" ? sidebarWidth : outlineWidth };
+    setResizingBar(type);
     document.body.style.cursor = "col-resize";
     document.body.style.userSelect = "none";
   }, [sidebarWidth, outlineWidth]);
@@ -160,6 +168,7 @@ export function MarkdownPage({ settings, onSettingsChange, setNotice, active, in
     const onUp = () => {
       if (!resizingRef.current) return;
       resizingRef.current = null;
+      setResizingBar(null);
       document.body.style.cursor = "";
       document.body.style.userSelect = "";
     };
@@ -299,14 +308,14 @@ export function MarkdownPage({ settings, onSettingsChange, setNotice, active, in
     </header>
     <section className="focus-workbench" style={workbenchStyle}>
       {sidebarVisible ? <WorkspaceTree files={workspaceFiles} path={path} workspaceName={workspace ? fileName(workspace) : "打开文件夹…"} expanded={expandedFolders} onToggleFolder={toggleFolder} onOpen={(filePath) => void loadPath(filePath)} onChooseWorkspace={() => void chooseWorkspace()} headings={headings} onJump={jumpToLine} /> : null}
-      {!zenMode && sidebarVisible ? <div className="wb-resizer" style={{ left: sidebarWidth - 3 }} title="拖动调整宽度，双击还原" onMouseDown={startResize("sidebar")} onDoubleClick={() => setSidebarWidth(312)} /> : null}
+      {!zenMode && sidebarVisible ? <div className={"wb-resizer" + (resizingBar === "sidebar" ? " active" : "")} style={{ left: sidebarWidth - 3 }} title="拖动调整宽度，双击还原" onMouseDown={startResize("sidebar")} onDoubleClick={() => setSidebarWidth(312)} /> : null}
       <section className="editor-workbench">
         <div className="editor-tabs"><button className="editor-tab active"><Code size={17} weight="bold" />{documentTitle}<span title="关闭文档"><X size={15} onClick={(event) => { event.stopPropagation(); closeDocument(); }} /></span></button><button className="new-tab" onClick={newDocument}><Plus size={17} /></button></div>
         <header className="editor-meta"><div><span>{workspace ? fileName(workspace) : "docs"}</span><CaretRight size={14} /><Code size={15} weight="bold" /><strong>{documentTitle}</strong></div><div><span>{text.trim().split(/\s+/).filter(Boolean).length.toLocaleString()} words</span><i /><span>{dirty ? "Unsaved" : "Live"} <b /></span><button title="More editor actions"><DotsThree size={20} /></button></div></header>
         <CodeMirror ref={editorRef} className="focus-editor" height="100%" extensions={[markdown(), ...devtoolboxMarkdown()]} value={text} onChange={setContent} onKeyDown={(event: ReactKeyboardEvent<HTMLDivElement>) => { if ((event.ctrlKey || event.metaKey) && event.key === "Enter") { event.preventDefault(); const line = editorRef.current?.view?.state.doc.lineAt(editorRef.current.view.state.selection.main.from).number; if (line) void cycleTask(line - 1); } }} basicSetup={{ lineNumbers: true, foldGutter: false, highlightActiveLine: false, highlightActiveLineGutter: false }} indentWithTab aria-label="Focus Mode Markdown editor" />
         <footer className="editor-status"><div><SidebarSimple size={18} />Toggle Sidebar</div><div><span>Ln 1, Col 1</span><span>Spaces: 2</span><span>UTF-8</span><span>LF</span><span>Markdown</span><span><Check size={16} />{tasks.length} tasks</span></div></footer>
       </section>
-      {!zenMode && tasksVisible ? <div className="wb-resizer" style={{ right: outlineWidth - 3 }} title="拖动调整宽度，双击还原" onMouseDown={startResize("outline")} onDoubleClick={() => setOutlineWidth(373)} /> : null}
+      {!zenMode && tasksVisible ? <div className={"wb-resizer" + (resizingBar === "outline" ? " active" : "")} style={{ right: outlineWidth - 3 }} title="拖动调整宽度，双击还原" onMouseDown={startResize("outline")} onDoubleClick={() => setOutlineWidth(373)} /> : null}
       {tasksVisible ? <TaskOutline fileName={documentTitle} tasks={tasks} filter={filter} setFilter={setFilter} onCycle={(line) => void cycleTask(line)} /> : null}
     </section>
     {paletteOpen ? <div className="palette-backdrop" onMouseDown={() => setPaletteOpen(false)}><section className="command-palette" onMouseDown={(event) => event.stopPropagation()}><header><MagnifyingGlass size={20} /><input autoFocus placeholder="Find a command…" value={paletteQuery} onChange={(event) => setPaletteQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Escape") setPaletteOpen(false); }} /></header>{["New document", "Open document", "Save document", "Open folder", "Toggle focus mode", "Toggle task outline"].filter((item) => item.toLowerCase().includes(paletteQuery.toLowerCase())).map((item) => <button key={item} onClick={() => { setPaletteOpen(false); if (item === "New document") newDocument(); else if (item === "Open document") void chooseDocument(); else if (item === "Open folder") void chooseWorkspace(); else if (item === "Save document") void persist(); }}>{item}</button>)}</section></div> : null}
