@@ -459,6 +459,14 @@ button { cursor: pointer; }
 .rss-reading-content img { max-width: 100%; }
 .rss-reading-content a { color: var(--accent-hover); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
 .rss-reading-content h1, .rss-reading-content h2, .rss-reading-content h3 { color: var(--text); line-height: 1.4; }
+/* 抓取正文里的「回复楼层」(V2EX 等论坛页结构化重组后的 at-reply 区块) */
+.rss-reading-content .at-replies-title { margin: 26px 0 0; padding-top: 14px; border-top: 1px solid var(--line-soft); color: var(--text-heading); font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+.rss-reading-content .at-reply { margin-top: 10px; padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--radius-control); background: var(--surface-panel-deep); }
+.rss-reading-content .at-reply-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: 0 0 7px; color: var(--accent-hover); font-size: 12px; font-weight: 600; }
+.rss-reading-content .at-reply-head span { color: var(--faint); font-size: 11px; font-weight: 400; }
+.rss-reading-content .at-reply-body { color: var(--text-soft); font-size: 13px; line-height: 1.65; }
+.rss-reading-content .at-reply-body p { margin: 0 0 6px; }
+.rss-reading-content .at-reply-body p:last-child { margin-bottom: 0; }
 .rss-empty-pane, .rss-empty { display: grid; place-items: center; padding: 40px 20px; color: var(--faint); font-size: 13px; line-height: 1.8; text-align: center; }
 
 @keyframes dtb-spin { to { transform: rotate(360deg); } }

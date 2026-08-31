@@ -237,6 +237,7 @@ export function RssPage({ active, version, refreshing, onRefresh, onFeedsChanged
 /**
  * 从文章页 HTML 抽取正文容器(阅读器常用启发式):先去噪音,再找语义容器,
  * 最后回退到最长文本块。返回的是待净化的片段,由 prepareContent 再处理。
+ * V2EX 等论坛话题页单独处理:正文 + 楼层回复结构化重组,避免把整帖拍平成一段。
  */
 function extractArticle(html: string): string {
   const document = new DOMParser().parseFromString(html, "text/html");
@@ -246,6 +247,9 @@ function extractArticle(html: string): string {
     "[class*='related'],[class*='footer'],[class*='nav'],[class*='share'],[class*='meta']," +
     "[id*='comment'],[id*='sidebar'],[id*='advert']",
   ).forEach((node) => node.remove());
+  // V2EX 话题页:优先结构化抽取(主题正文 + 回复楼层),而不是把整个 #Main 拍平。
+  const topicBody = document.querySelector(".topic_content");
+  if (topicBody !== null) return buildV2exThread(topicBody);
   const candidates = [
     "article", "[role='main']", "main", ".article-content", ".post-content",
     ".entry-content", ".article", ".post", "#article-content", "#content", ".content", "#article",
@@ -261,6 +265,30 @@ function extractArticle(html: string): string {
     if (length > bestLength) { bestLength = length; best = child; }
   }
   return best ? best.innerHTML : document.body ? document.body.innerHTML : "";
+}
+
+/**
+ * V2EX 话题页结构化抽取:返回「主题正文 + at-replies 回复楼层」的干净 HTML。
+ * 每条回复取 .reply_content 原文,作者/时间从所在 .cell 的 .reply_author / .ago 提取,
+ * 不再让标题统计行与楼层文本粘连成一段。无回复时仅返回主题正文。
+ */
+function buildV2exThread(topicBody: Element): string {
+  const page = topicBody.ownerDocument;
+  const replyNodes = Array.from(page?.querySelectorAll(".reply_content") ?? []);
+  if (replyNodes.length === 0) return topicBody.innerHTML;
+  const replies = replyNodes.map((node) => {
+    const cell = node.closest(".cell");
+    const author = cell?.querySelector(".reply_author")?.textContent?.trim() ?? "";
+    const timeElement = cell?.querySelector("span.ago") ?? cell?.querySelector(".reply_time");
+    const when = timeElement?.getAttribute("title") || timeElement?.textContent?.trim() || "";
+    return `<section class="at-reply"><p class="at-reply-head">${escapeHtml(author)}<span>${escapeHtml(when)}</span></p><div class="at-reply-body">${node.innerHTML}</div></section>`;
+  }).join("");
+  return `${topicBody.innerHTML}<div class="at-replies"><p class="at-replies-title">${replyNodes.length} 条回复</p>${replies}</div>`;
+}
+
+/** 简单 HTML 转义(作者/时间等明文拼进 HTML 片段时使用;prepareContent 里的 DOMPurify 会再整体净化一次)。 */
+function escapeHtml(text: string): string {
+  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
 /** 相对链接基于文章原文地址解析为绝对地址。 */
