@@ -27,7 +27,20 @@
 
 ## 开发环境
 
-前置要求：Rust 1.95+（`rust-toolchain.toml` 自动固定）、Node.js 20+。
+前置要求：Rust 1.95+（`rust-toolchain.toml` 自动固定）、Node.js 20+、GNU Make（可选；Windows 可用 `scoop install make` 或 `choco install make`）。
+
+### 快捷命令（推荐，见仓库根目录 `Makefile`）
+
+```bash
+make dev        # 启动桌面应用开发调试（Tauri + Vite，首次自动装依赖）
+make dev-web    # 仅前端开发（浏览器预览，无需 Rust 编译）
+make build      # 构建前端产物（tsc --noEmit + vite build）
+make package    # 发布构建（生成安装包）
+make install    # 安装前端依赖
+make test       # 运行 Rust 工作区测试
+```
+
+### 等价的原生命令
 
 ```bash
 # 前端依赖（首次）
