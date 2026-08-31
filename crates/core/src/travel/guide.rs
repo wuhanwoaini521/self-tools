@@ -5,7 +5,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::travel::model::{FactCategory, TravelSource};
+use crate::travel::model::{FactCategory, MapCoordinates, TravelSource};
 use crate::travel::query_planner::TravelDateRange;
 
 /// 顶层攻略。`serde(default)` 保证 LLM 输出缺字段时也能解析。
@@ -71,7 +71,7 @@ pub struct DistrictInfo {
     pub landmarks: Vec<String>,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 #[serde(default)]
 pub struct Attraction {
     pub name: String,
@@ -91,6 +91,8 @@ pub struct Attraction {
     pub tips: Vec<String>,
     /// 支撑该条目的事实来源 URL。
     pub source_ids: Vec<String>,
+    /// 仅来自地图 POI 的坐标，用于攻略地图展示。
+    pub coordinates: Option<MapCoordinates>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]

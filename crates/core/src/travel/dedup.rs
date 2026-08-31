@@ -266,6 +266,7 @@ mod tests {
             source_id: source.to_string(),
             confidence: conf,
             fetched_at: 1_700_000_000,
+            coordinates: None,
         }
     }
 

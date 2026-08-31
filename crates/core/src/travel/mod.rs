@@ -21,8 +21,8 @@ pub use guide::{
 };
 pub use llm_parse::{TravelParseError, extract_json, parse_facts_json, parse_guide_json};
 pub use model::{
-    ContentState, FactCategory, ResearchPhase, SearchResult, SourceLevel, StepStatus,
-    TravelDocument, TravelFact, TravelResearchEvent, TravelSource,
+    ContentState, FactCategory, MapCoordinates, ResearchPhase, SearchResult, SourceLevel,
+    StepStatus, TravelDocument, TravelFact, TravelResearchEvent, TravelSource,
 };
 pub use query_planner::{
     QueryCategory, QueryTask, TravelDateRange, TravelQueryInput, TravelQueryPlanner,

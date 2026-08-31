@@ -25,8 +25,8 @@ use serde::{Deserialize, Serialize};
 
 use devtoolbox_core::travel::{
     AccommodationArea, Attraction, CityGuide, CityInfo, ContentState, FactCategory, Food,
-    GuideMeta, QueryCategory, QueryTask, ResearchPhase, SearchResult, SourceLevel, StepStatus,
-    TravelDateRange, TravelDocument, TravelFact, TravelQueryInput, TravelQueryPlanner,
+    GuideMeta, MapCoordinates, QueryCategory, QueryTask, ResearchPhase, SearchResult, SourceLevel,
+    StepStatus, TravelDateRange, TravelDocument, TravelFact, TravelQueryInput, TravelQueryPlanner,
     TravelResearchEvent, TravelSource, TravelTip, TravelWarning, VerifiedFact, VerifiedValue,
     WeatherDay, WeatherForecast, dedup_facts, dedup_search_results, host_of, parse_facts_json,
     parse_guide_json, rate_source, verify_facts,
@@ -451,6 +451,7 @@ impl TravelResearchService {
                 &city,
                 &sources,
                 &verified,
+                &facts,
                 llm_available,
                 now,
                 notes,
@@ -667,6 +668,7 @@ impl TravelResearchService {
         city: &str,
         sources: &[TravelSource],
         verified: &[VerifiedFact],
+        facts: &[TravelFact],
         llm_used: bool,
         generated_at: i64,
         mut notes: Vec<String>,
@@ -742,7 +744,7 @@ impl TravelResearchService {
         // - 高德 POI 的景点/美食/住宿条目补进攻略；
         // - 和风天气进入独立天气卡片；
         // - 开放时间/门票/预约挂到同名景点。
-        merge_external_data(&mut guide, verified);
+        merge_external_data(&mut guide, verified, facts);
         guide.meta.llm_used = llm_used && llm_ok;
         guide.meta.notes = notes;
         guide
@@ -968,24 +970,31 @@ fn format_documents(sources: &[TravelSource]) -> String {
 
 /// 把已验证事实合并回攻略（LLM 输出可能遗漏，程序层保证验证结果落地）。
 /// 覆盖：高德 POI（景点/美食/住宿）、和风天气、开放时间/门票/预约挂景点。
-fn merge_external_data(guide: &mut CityGuide, verified: &[VerifiedFact]) {
+fn merge_external_data(guide: &mut CityGuide, verified: &[VerifiedFact], facts: &[TravelFact]) {
     for fact in verified {
         match fact.category {
             FactCategory::OpeningHours | FactCategory::Ticket | FactCategory::Reservation => {
                 // 尝试挂到同名景点；找不到则不强行造条目
                 apply_to_attraction(guide, &fact.subject, fact.category, fact);
             }
-            FactCategory::Attraction
-                if !guide
+            FactCategory::Attraction => {
+                let coordinates = coordinates_for_verified_fact(fact, facts);
+                if let Some(attraction) = guide
                     .attractions
-                    .iter()
-                    .any(|a| contains(&a.name, &fact.subject)) =>
-            {
-                guide.attractions.push(Attraction {
-                    name: fact.subject.clone(),
-                    intro: Some(fact.value.clone()),
-                    ..Attraction::default()
-                });
+                    .iter_mut()
+                    .find(|item| contains(&item.name, &fact.subject))
+                {
+                    if attraction.coordinates.is_none() {
+                        attraction.coordinates = coordinates;
+                    }
+                } else {
+                    guide.attractions.push(Attraction {
+                        name: fact.subject.clone(),
+                        intro: Some(fact.value.clone()),
+                        coordinates,
+                        ..Attraction::default()
+                    });
+                }
             }
             FactCategory::Food if !guide.foods.iter().any(|f| contains(&f.name, &fact.subject)) => {
                 guide.foods.push(Food {
@@ -1026,6 +1035,20 @@ fn merge_external_data(guide: &mut CityGuide, verified: &[VerifiedFact]) {
             _ => {}
         }
     }
+}
+
+fn coordinates_for_verified_fact(
+    verified: &VerifiedFact,
+    facts: &[TravelFact],
+) -> Option<MapCoordinates> {
+    facts
+        .iter()
+        .find(|fact| {
+            fact.category == verified.category
+                && contains(&fact.subject, &verified.subject)
+                && fact.value == verified.value
+        })
+        .and_then(|fact| fact.coordinates.clone())
 }
 
 /// 和风 Provider 将逐日预报作为一条稳定格式的 Weather 事实传入；这里恢复为 UI 可用的卡片数据。

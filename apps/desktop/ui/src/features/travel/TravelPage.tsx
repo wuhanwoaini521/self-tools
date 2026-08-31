@@ -17,6 +17,7 @@ export const TRAVEL_PREFERENCES = ["历史", "美食", "自然", "散步", "摄�
 interface TravelPageProps {
   active: boolean;
   setNotice: (message: string) => void;
+  amapApiKey?: string | null;
 }
 
 type ResearchState = "idle" | "running" | "done" | "error";
@@ -29,7 +30,7 @@ function inclusiveDays(start: string, end: string): number | null {
   return Math.floor((endTime - startTime) / 86_400_000) + 1;
 }
 
-export function TravelPage({ active, setNotice }: TravelPageProps) {
+export function TravelPage({ active, setNotice, amapApiKey }: TravelPageProps) {
   const [city, setCity] = useState("");
   const [days, setDays] = useState(3);
   const [tripStart, setTripStart] = useState("");
@@ -195,7 +196,7 @@ export function TravelPage({ active, setNotice }: TravelPageProps) {
     {state === "done" && guide
       ? <>
         {fromCache ? <p className="travel-cache-note">已命中本地缓存（24 小时内生成），点击「重新研究」可获取最新信息。</p> : null}
-        <TravelGuide guide={guide} fromCache={fromCache} />
+        <TravelGuide guide={guide} fromCache={fromCache} amapApiKey={amapApiKey} />
       </>
       : null}
     {state === "idle" ? <p className="travel-hint"><Sparkle size={14} />输入城市后，系统会规划搜索任务 → 搜索 → 抓取网页 → 提取并验证事实 → 生成攻略。</p> : null}

@@ -3,8 +3,8 @@
 use std::sync::{Arc, Mutex};
 
 use devtoolbox_core::travel::{
-    CityGuide, CityInfo, FactCategory, GuideMeta, ResearchPhase, StepStatus, TravelFact,
-    TravelResearchEvent,
+    CityGuide, CityInfo, FactCategory, GuideMeta, MapCoordinates, ResearchPhase, StepStatus,
+    TravelFact, TravelResearchEvent,
 };
 use devtoolbox_infrastructure::TravelStore;
 
@@ -455,6 +455,10 @@ fn amap_fact(category: FactCategory, subject: &str, value: &str) -> TravelFact {
         source_id: "https://restapi.amap.com".to_string(),
         confidence: 0.8,
         fetched_at: 1_700_000_000,
+        coordinates: (category == FactCategory::Attraction).then_some(MapCoordinates {
+            longitude: 120.134,
+            latitude: 30.211,
+        }),
     }
 }
 
@@ -478,6 +482,7 @@ async fn data_provider_facts_enrich_guide_and_sources() {
                 source_id: "https://devapi.qweather.com".to_string(),
                 confidence: 0.9,
                 fetched_at: 1_700_000_000,
+                coordinates: None,
             }],
         );
     let llm = MockLlmProvider::new([
@@ -503,6 +508,14 @@ async fn data_provider_facts_enrich_guide_and_sources() {
         guide.attractions
     );
     assert!(guide.foods.iter().any(|f| f.name.contains("龙井虾仁")));
+    assert!(
+        guide
+            .attractions
+            .iter()
+            .find(|item| item.name.contains("龙井村"))
+            .and_then(|item| item.coordinates.as_ref())
+            .is_some()
+    );
     // 和风天气进入独立天气卡片数据。
     let weather = guide.weather.expect("weather card data");
     assert_eq!(weather.days.len(), 2);

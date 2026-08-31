@@ -103,12 +103,32 @@ function WeatherCard({ forecast, dateRange }: { forecast: WeatherForecast; dateR
   </div>;
 }
 
+function GuideMap({ attractions, apiKey }: { attractions: Attraction[]; apiKey: string | null | undefined }) {
+  const points = attractions
+    .flatMap((attraction) => attraction.coordinates ? [{ name: attraction.name, coordinates: attraction.coordinates }] : [])
+    .slice(0, 10);
+  if (!apiKey?.trim() || points.length === 0) return null;
+  const staticMarkers = points.map((point, index) => {
+    const label = index < 9 ? String(index + 1) : "A";
+    return `mid,0x4F7DF3,${label}:${point.coordinates.longitude.toFixed(6)},${point.coordinates.latitude.toFixed(6)}`;
+  }).join("|");
+  const mapUrl = `https://restapi.amap.com/v3/staticmap?${new URLSearchParams({ size: "1024*420", scale: "2", traffic: "1", markers: staticMarkers, key: apiKey.trim() })}`;
+  const markerUrl = `https://uri.amap.com/marker?${new URLSearchParams({ markers: points.map((point) => `${point.coordinates.longitude},${point.coordinates.latitude},${point.name}`).join("|"), src: "self-tools", callnative: "0" })}`;
+  return <Section title="景点地图">
+    <div className="travel-map-card">
+      <img src={mapUrl} alt={`${points.map((point) => point.name).join("、")}的地图标记`} />
+      <div className="travel-map-caption"><span>{points.length} 个来自高德 POI 的景点标记</span><button onClick={() => openLink(markerUrl)}><ArrowSquareOut size={14} />在高德地图中查看</button></div>
+    </div>
+  </Section>;
+}
+
 interface TravelGuideProps {
   guide: CityGuide;
   fromCache: boolean;
+  amapApiKey?: string | null;
 }
 
-export function TravelGuide({ guide, fromCache }: TravelGuideProps) {
+export function TravelGuide({ guide, fromCache, amapApiKey }: TravelGuideProps) {
   const { city, meta } = guide;
   const region = [city.province, city.country].filter(Boolean).join(" · ") || "中国";
   const itineraries = [guide.itineraries.one_day, guide.itineraries.two_days, guide.itineraries.three_days]
@@ -144,6 +164,8 @@ export function TravelGuide({ guide, fromCache }: TravelGuideProps) {
         ? <div className="travel-grid">{guide.attractions.map((item, index) => <AttractionBlock key={index} item={item} />)}</div>
         : <EmptySection />}
     </Section>
+
+    <GuideMap attractions={guide.attractions} apiKey={amapApiKey} />
 
     <Section title="城市区域">
       {guide.districts.length > 0

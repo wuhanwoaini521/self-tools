@@ -10,7 +10,7 @@
 use async_trait::async_trait;
 
 use crate::error::InfrastructureError;
-use devtoolbox_core::travel::{FactCategory, TravelFact};
+use devtoolbox_core::travel::{FactCategory, MapCoordinates, TravelFact};
 
 const DATA_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
 const USER_AGENT: &str = concat!("DevToolbox/", env!("CARGO_PKG_VERSION"), " (+travel data)");
@@ -218,6 +218,10 @@ pub fn parse_amap_pois(
             .get("adname")
             .and_then(serde_json::Value::as_str)
             .unwrap_or_default();
+        let coordinates = poi
+            .get("location")
+            .and_then(serde_json::Value::as_str)
+            .and_then(parse_amap_coordinates);
         let value = if address.is_empty() && district.is_empty() {
             "高德地图 POI".to_string()
         } else {
@@ -234,9 +238,18 @@ pub fn parse_amap_pois(
             source_id: AMAP_SOURCE_URL.to_string(),
             confidence: 0.8,
             fetched_at,
+            coordinates,
         });
     }
     Ok(facts)
+}
+
+fn parse_amap_coordinates(value: &str) -> Option<MapCoordinates> {
+    let (longitude, latitude) = value.split_once(',')?;
+    Some(MapCoordinates {
+        longitude: longitude.trim().parse().ok()?,
+        latitude: latitude.trim().parse().ok()?,
+    })
 }
 
 // ---------- 和风天气 ----------
@@ -362,6 +375,7 @@ pub fn parse_qweather_daily(
         source_id: QWEATHER_SOURCE_URL.to_string(),
         confidence: 0.9,
         fetched_at,
+        coordinates: None,
     }])
 }
 
@@ -394,7 +408,7 @@ mod tests {
         let body = serde_json::json!({
             "status": "1",
             "pois": [
-                {"name": "西湖风景名胜区", "adname": "西湖区", "address": "龙井路1号"},
+                {"name": "西湖风景名胜区", "adname": "西湖区", "address": "龙井路1号", "location": "120.129,30.236"},
                 {"name": "楼外楼", "adname": "西湖区", "address": "孤山路30号"}
             ]
         });
@@ -405,6 +419,10 @@ mod tests {
         assert!(facts[0].value.contains("西湖区") && facts[0].value.contains("龙井路1号"));
         assert_eq!(facts[0].source_id, AMAP_SOURCE_URL);
         assert_eq!(facts[0].confidence, 0.8);
+        assert_eq!(
+            facts[0].coordinates.as_ref().map(|point| point.longitude),
+            Some(120.129)
+        );
     }
 
     #[test]

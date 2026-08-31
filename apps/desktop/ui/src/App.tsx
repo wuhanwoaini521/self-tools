@@ -157,7 +157,7 @@ export default function App() {
         <section className={"page-pane" + (page === "home" ? "" : " page-hidden")}><HomePage recentFiles={settings.recent_files} latestArticles={latestArticles} rssRefreshing={rssRefreshing} onOpenNote={openNote} onOpenArticle={openArticle} onNewNote={newNote} onRefreshRss={() => void refreshFeeds()} /></section>
         <section className={"page-pane" + (page === "markdown" ? "" : " page-hidden")}><MarkdownPage settings={settings} onSettingsChange={(next) => void updateSettings(next)} setNotice={setNotice} active={page === "markdown"} intent={markdownIntent} initialWorkspace={settingsLoaded ? settings.workspace_path : undefined} /></section>
         <section className={"page-pane" + (page === "rss" ? "" : " page-hidden")}><RssPage active={page === "rss"} version={rssVersion} refreshing={rssRefreshing} onRefresh={() => void refreshFeeds()} onFeedsChanged={handleFeedsChanged} setNotice={setNotice} intent={rssIntent} /></section>
-        <section className={"page-pane" + (page === "travel" ? "" : " page-hidden")}><TravelPage active={page === "travel"} setNotice={setNotice} /></section>
+        <section className={"page-pane" + (page === "travel" ? "" : " page-hidden")}><TravelPage active={page === "travel"} setNotice={setNotice} amapApiKey={settings.travel.amap_api_key} /></section>
         <section className={"page-pane history-pane" + (page === "history" ? "" : " page-hidden")}><HistoryPage active={page === "history"} setNotice={setNotice} /></section>
       </main>
     </div>

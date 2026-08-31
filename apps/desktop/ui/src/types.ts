@@ -152,6 +152,12 @@ export interface Attraction {
   reservation: VerifiedValue | null;
   tips: string[];
   source_ids: string[];
+  coordinates: MapCoordinates | null;
+}
+
+export interface MapCoordinates {
+  longitude: number;
+  latitude: number;
 }
 
 export interface Food {

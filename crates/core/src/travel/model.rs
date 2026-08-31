@@ -133,6 +133,16 @@ pub struct TravelFact {
     pub confidence: f32,
     /// 事实归属的抓取时间（Unix 秒）。
     pub fetched_at: i64,
+    /// 地图坐标（仅可信 POI 数据源提供；普通网页/LLM 事实保持为空）。
+    #[serde(default)]
+    pub coordinates: Option<MapCoordinates>,
+}
+
+/// WGS-84 / GCJ-02 坐标由数据源语义决定；高德 POI 使用 GCJ-02，可直接供高德地图展示。
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct MapCoordinates {
+    pub longitude: f64,
+    pub latitude: f64,
 }
 
 /// 来源可信度等级（需求 #七）。S > A > B > C。

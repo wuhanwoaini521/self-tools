@@ -109,6 +109,7 @@ pub fn parse_facts_json(
                 source_id: source_id.to_string(),
                 confidence,
                 fetched_at,
+                coordinates: None,
             })
         })
         .collect())
