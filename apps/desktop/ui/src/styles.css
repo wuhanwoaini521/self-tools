@@ -5674,6 +5674,72 @@ kbd {
 .landform-hotspot-detail button:hover {
  background: rgb(114 88 57 / 10%);
 }
+.landform-section-mark {
+ display: inline-block;
+ min-width: 15px;
+ padding: 1px 3px;
+ border: 1px solid #b05a24;
+ border-radius: 3px;
+ background: rgb(252 248 239 / 92%);
+ color: #a84d16;
+ font: 700 10px / 1.4 var(--font-sans, inherit);
+ text-align: center;
+}
+.landform-profile {
+ padding: 10px 12px 12px;
+ border-top: 1px solid var(--line);
+ background: color-mix(in srgb, var(--surface-control) 88%, transparent);
+}
+.landform-profile-head {
+ display: flex;
+ align-items: baseline;
+ justify-content: space-between;
+ gap: 10px;
+ margin-bottom: 6px;
+}
+.landform-profile-head span {
+ color: var(--accent);
+ font:
+  600 10px ui-monospace,
+  SFMono-Regular,
+  Consolas,
+  monospace;
+ letter-spacing: 0.08em;
+}
+.landform-profile-head small {
+ color: var(--muted);
+ font-size: 10px;
+}
+.landform-profile svg {
+ display: block;
+ width: 100%;
+ height: auto;
+ max-height: 150px;
+}
+.landform-profile-line {
+ stroke: #8a5a2e;
+ stroke-width: 1.6;
+ fill: none;
+ vector-effect: non-scaling-stroke;
+}
+.landform-profile-grid {
+ stroke: rgb(85 71 52 / 14%);
+ stroke-width: 1;
+ vector-effect: non-scaling-stroke;
+}
+.landform-profile-axis {
+ fill: var(--muted);
+ font:
+  9px ui-monospace,
+  SFMono-Regular,
+  Consolas,
+  monospace;
+ text-anchor: end;
+}
+.landform-profile-mark {
+ fill: #a84d16;
+ font: 700 11px var(--font-sans, inherit);
+}
 .landform-loading,
 .landform-static-fallback {
  display: grid;
