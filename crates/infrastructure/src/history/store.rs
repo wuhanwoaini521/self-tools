@@ -161,6 +161,19 @@ impl HistoryStore {
             .map_err(sqlite)
     }
 
+    /// 某时代（period_id）下的全部节点，按时间排序，供「认识这个时代」等探索入口使用。
+    pub fn period_nodes(&self, period_id: &str) -> Result<Vec<HistoryNode>, InfrastructureError> {
+        let mut statement = self
+            .connection
+            .prepare("SELECT id, kind, title, period_id, start_year, end_year, summary, tags_json, source_ids_json FROM history_nodes WHERE period_id = ?1 ORDER BY COALESCE(start_year, 0)")
+            .map_err(sqlite)?;
+        statement
+            .query_map([period_id], map_node)
+            .map_err(sqlite)?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(sqlite)
+    }
+
     pub fn search(&self, query: &str) -> Result<Vec<HistoryNode>, InfrastructureError> {
         let needle = query.trim();
         if needle.is_empty() {
@@ -834,6 +847,28 @@ mod tests {
             .sources(&["baike".into(), "academic".into()])
             .expect("sources");
         assert_eq!(sources[0].id, "academic");
+    }
+
+    #[test]
+    fn period_nodes_list_era_entries_in_time_order() {
+        let (_dir, store) = open();
+        let nodes = store.period_nodes("tang").expect("period nodes");
+        let ids: Vec<_> = nodes.iter().map(|node| node.id.as_str()).collect();
+        // 唐朝时代下的真实节点：朝代本体 + 人物 + 事件 + 地点，按时序排序。
+        assert!(ids.contains(&"li-shimin"));
+        assert!(ids.contains(&"xuanwu-gate"));
+        assert!(ids.contains(&"an-lushan-rebellion"));
+        assert!(ids.contains(&"changan"));
+        assert!(ids.contains(&"tang"));
+        assert!(
+            nodes
+                .windows(2)
+                .all(|pair| pair[0].start_year.unwrap_or(0) <= pair[1].start_year.unwrap_or(0))
+        );
+        // 未录入专题节点的时代返回其朝代本体（不会展示在探索网格的专题分类中）。
+        let few = store.period_nodes("three-kingdoms").expect("few");
+        assert_eq!(few.len(), 1);
+        assert_eq!(few[0].id, "three-kingdoms");
     }
 
     #[test]

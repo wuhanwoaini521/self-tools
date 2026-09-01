@@ -21,7 +21,7 @@ use devtoolbox_application::{
 };
 use devtoolbox_core::{
     geography::GeoEntityType as CoreGeoEntityType,
-    history::{HistoryDetailView, HistorySearchGroup},
+    history::{HistoryDetailView, HistoryNode, HistorySearchGroup},
     language::{LearningStateKind, ReviewRating, SpeakingScore},
     travel::{CityGuide, GuideSummary, TravelResearchEvent},
 };
@@ -697,6 +697,16 @@ fn history_search(
 }
 
 #[tauri::command]
+fn history_period_nodes(
+    state: State<'_, AppState>,
+    period_id: String,
+) -> Result<Vec<HistoryNode>, CommandError> {
+    HistoryService::new(Arc::clone(&state.history_store))
+        .period_nodes(&period_id)
+        .map_err(CommandError::from)
+}
+
+#[tauri::command]
 fn history_detail(
     state: State<'_, AppState>,
     id: String,
@@ -837,6 +847,7 @@ pub fn run() {
             test_travel_qweather,
             history_home,
             history_search,
+            history_period_nodes,
             history_detail,
             history_toggle_favorite,
             geography_home,

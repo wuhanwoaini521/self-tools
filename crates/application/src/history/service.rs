@@ -80,6 +80,15 @@ impl HistoryService {
             .collect())
     }
 
+    /// 某时代（period_id）下的全部节点，供给「认识这个时代」「人物 / 关系」等探索视图。
+    pub fn period_nodes(&self, period_id: &str) -> Result<Vec<HistoryNode>, ApplicationError> {
+        self.store
+            .lock()
+            .expect("history store poisoned")
+            .period_nodes(period_id)
+            .map_err(history_error)
+    }
+
     pub fn detail(&self, id: &str) -> Result<Option<HistoryDetailView>, ApplicationError> {
         let store = self.store.lock().expect("history store poisoned");
         let Some(document) = store.document(id).map_err(history_error)? else {

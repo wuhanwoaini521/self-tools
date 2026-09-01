@@ -3003,57 +3003,864 @@ kbd {
  box-shadow: var(--shadow-toast);
 }
 
-/* History Explorer：详情/搜索沿用应用深色界面；首页（.history-home）切换为暖纸数字历史博物馆。 */
+/* ==========================================================================
+ * History Explorer · 中国历史时空探索器
+ *
+ * 设计语言：Modern Editorial + Museum Interface + Digital Archive。
+ * 主题：全局 token 驱动（明暗自适应），仅以局部青铜色 accent 点缀；
+ * 排版：朝代名少量 serif / editorial 感，正文保持 sans-serif；
+ * 交互：出场动效仅 opacity + transform，克制不喧宾。
+ * ========================================================================== */
+
+/* ---- 模块级局部 token（三个主题作用域）；不修改全局主题 ---- */
+.history-page,
+.history-empty {
+ --history-accent: #c9a06a;
+ --history-accent-strong: #e2bd8b;
+ --history-accent-soft: rgb(201 160 106 / 12%);
+ --history-accent-line: rgb(201 160 106 / 38%);
+ --history-accent-faint: rgb(201 160 106 / 9%);
+}
+:root[data-theme="warm-editorial"] .history-page,
+:root[data-theme="warm-editorial"] .history-empty {
+ --history-accent: #a96500;
+ --history-accent-strong: #8f5700;
+ --history-accent-soft: rgb(169 101 0 / 10%);
+ --history-accent-line: rgb(169 101 0 / 35%);
+ --history-accent-faint: rgb(169 101 0 / 7%);
+}
+:root[data-theme="warm-editorial-dark"] .history-page,
+:root[data-theme="warm-editorial-dark"] .history-empty {
+ --history-accent: #cd8b26;
+ --history-accent-strong: #e0a74c;
+ --history-accent-soft: rgb(205 139 38 / 12%);
+ --history-accent-line: rgb(205 139 38 / 38%);
+ --history-accent-faint: rgb(205 139 38 / 9%);
+}
+
+/* ---- 页面框架 ---- */
 .history-page {
- max-width: 1220px;
+ max-width: 1280px;
  min-height: 100%;
  margin: 0 auto;
- padding: 42px 48px 70px;
+ padding: 34px 44px 72px;
  color: var(--text);
 }
-.history-heading {
- margin-bottom: 23px;
+.history-page .history-masthead-row {
+ display: flex;
+ align-items: end;
+ justify-content: space-between;
+ gap: 26px;
+ margin-bottom: 24px;
+ padding-bottom: 20px;
+ border-bottom: 1px solid var(--line);
 }
-.history-heading p {
+.history-masthead-title p {
  margin: 0 0 8px;
- color: var(--accent);
+ color: var(--history-accent);
  font-size: 11px;
  font-weight: 800;
- letter-spacing: 0.12em;
+ letter-spacing: 0.14em;
  text-transform: uppercase;
 }
-.history-heading h1 {
+.history-masthead-title h1 {
  margin: 0;
  color: var(--text-bright);
  font-family: Georgia, "Noto Serif SC", serif;
- font-size: clamp(30px, 4vw, 45px);
+ font-size: clamp(30px, 3.6vw, 46px);
  font-weight: 500;
- letter-spacing: -0.04em;
+ letter-spacing: -0.02em;
 }
-.history-heading span {
+.history-masthead-title span {
  display: block;
  margin-top: 9px;
  color: var(--muted);
  font-size: 14px;
 }
+
+/* ---- View Switcher（时间 / 地图 / 人物 / 关系 / 故事） ---- */
+.history-view-switcher {
+ display: flex;
+ gap: 4px;
+ margin-bottom: 26px;
+ padding: 4px;
+ border: 1px solid var(--line);
+ border-radius: 12px;
+ width: max-content;
+ max-width: 100%;
+ background: var(--surface-sunken);
+}
+.history-view-switcher button {
+ display: inline-flex;
+ align-items: center;
+ gap: 7px;
+ padding: 8px 18px;
+ border: 0;
+ border-radius: 8px;
+ background: transparent;
+ color: var(--muted);
+ font: inherit;
+ font-size: 13px;
+ font-weight: 700;
+ cursor: pointer;
+ transition:
+  color 0.16s ease,
+  background 0.16s ease,
+  box-shadow 0.16s ease;
+}
+.history-view-switcher button:hover {
+ color: var(--text);
+}
+.history-view-switcher button.is-active {
+ background: var(--surface-raised);
+ color: var(--history-accent-strong);
+ box-shadow: 0 1px 0 var(--line-strong), 0 6px 14px rgb(0 0 0 / 10%);
+}
+
+/* ---- 通用分节标题 ---- */
+.history-section-head {
+ display: flex;
+ align-items: baseline;
+ justify-content: space-between;
+ gap: 16px;
+ margin-bottom: 15px;
+}
+.history-section-head span {
+ color: var(--history-accent);
+ font-size: 10px;
+ font-weight: 800;
+ letter-spacing: 0.14em;
+ text-transform: uppercase;
+}
+.history-section-head h2,
+.history-section-head h3 {
+ margin: 4px 0 0;
+ color: var(--text-bright);
+ font-family: Georgia, "Noto Serif SC", serif;
+ font-size: 23px;
+ font-weight: 500;
+ letter-spacing: -0.01em;
+}
+.history-section-head p {
+ margin: 0;
+ color: var(--faint);
+ font-size: 12px;
+}
+
+/* ==========================================================================
+ * ① History Chronology Navigator（顶部中国历史总时间轴）
+ * ========================================================================== */
+.history-chronology {
+ margin-bottom: 30px;
+ padding: 18px 18px 12px;
+ border: 1px solid var(--line);
+ border-radius: 14px;
+ background: var(--surface-sunken);
+}
+.history-chronology-head {
+ display: flex;
+ align-items: baseline;
+ justify-content: space-between;
+ gap: 14px;
+ margin-bottom: 10px;
+}
+.history-chronology-head span {
+ color: var(--history-accent);
+ font-size: 10px;
+ font-weight: 800;
+ letter-spacing: 0.14em;
+ text-transform: uppercase;
+}
+.history-chronology-head h2 {
+ margin: 3px 0 0;
+ color: var(--text-bright);
+ font-family: Georgia, "Noto Serif SC", serif;
+ font-size: 21px;
+ font-weight: 500;
+}
+.history-chronology-head p {
+ margin: 0;
+ color: var(--faint);
+ font-size: 12px;
+}
+.history-chronology-viewport {
+ position: relative;
+ overflow-x: auto;
+ overflow-y: hidden;
+ scrollbar-width: thin;
+ scrollbar-color: var(--line-strong) transparent;
+ cursor: grab;
+ touch-action: pan-y;
+ scroll-snap-type: x proximity;
+ scroll-padding-inline: 1rem;
+ overscroll-behavior-x: contain;
+ outline-offset: 2px;
+}
+.history-chronology-viewport.is-dragging {
+ cursor: grabbing;
+ user-select: none;
+ scroll-snap-type: none;
+}
+.history-chronology-viewport::-webkit-scrollbar {
+ height: 6px;
+}
+.history-chronology-viewport::-webkit-scrollbar-thumb {
+ border-radius: 8px;
+ background: var(--line-strong);
+}
+.history-chronology-track {
+ position: relative;
+ z-index: 1;
+ display: flex;
+ align-items: end;
+ gap: 8px;
+ min-width: max-content;
+ padding: 14px 38%;
+}
+.history-chronology-node {
+ position: relative;
+ display: flex;
+ flex-direction: column;
+ align-items: center;
+ justify-content: end;
+ gap: 5px;
+ padding: 16px 4px 6px;
+ border: 0;
+ border-radius: 8px;
+ background: transparent;
+ color: var(--faint);
+ font: inherit;
+ cursor: pointer;
+ transition:
+  background 0.16s ease,
+  color 0.16s ease;
+}
+.history-chronology-node i {
+ position: absolute;
+ top: 0;
+ left: 50%;
+ width: 9px;
+ height: 9px;
+ border-radius: 50%;
+ background: var(--line-strong);
+ transform: translateX(-50%);
+ transition:
+  background 0.16s ease,
+  box-shadow 0.16s ease,
+  transform 0.16s ease;
+}
+.history-chronology-node b {
+ font-family: Georgia, "Noto Serif SC", serif;
+ font-size: 15px;
+ font-weight: 500;
+ letter-spacing: 0.05em;
+ white-space: nowrap;
+}
+.history-chronology-node small {
+ max-width: 100%;
+ overflow: hidden;
+ font-size: 10px;
+ text-overflow: ellipsis;
+ white-space: nowrap;
+ opacity: 0.85;
+}
+.history-chronology-node:hover {
+ background: var(--history-accent-faint);
+ color: var(--text-medium);
+}
+.history-chronology-node:hover i {
+ background: var(--history-accent);
+}
+.history-chronology-node.is-current {
+ background: var(--history-accent-soft);
+ color: var(--history-accent-strong);
+}
+.history-chronology-node.is-current i {
+ background: var(--history-accent);
+ box-shadow: 0 0 0 4px var(--history-accent-soft);
+ transform: translateX(-50%) scale(1.25);
+}
+.history-chronology-node.is-current small {
+ color: var(--history-accent);
+ font-weight: 600;
+}
+.history-chronology-axis {
+ position: absolute;
+ right: 0;
+ bottom: 10px;
+ left: 0;
+ height: 1px;
+ background: var(--line);
+ pointer-events: none;
+}
+.history-chronology-axis::before {
+ position: absolute;
+ top: -1px;
+ left: 0;
+ width: 0;
+ height: 3px;
+ background: var(--history-accent);
+ content: "";
+ transition: width 0.3s ease;
+}
+.history-chronology-hint {
+ margin: 14px 0 0;
+ color: var(--faint);
+ font-size: 12px;
+}
+
+/* ==========================================================================
+ * ② Era Hero（视觉 | 信息）
+ * ========================================================================== */
+.history-era-stage {
+ animation: history-era-in 300ms ease both;
+}
+@keyframes history-era-in {
+ from {
+  opacity: 0;
+  transform: translateY(12px);
+ }
+ to {
+  opacity: 1;
+  transform: translateY(0);
+ }
+}
+.history-hero {
+ display: grid;
+ grid-template-columns: minmax(300px, 0.9fr) minmax(420px, 1.1fr);
+ gap: clamp(20px, 2.6vw, 40px);
+ align-items: stretch;
+ margin-bottom: 34px;
+}
+/* 视觉板 */
+.history-visual {
+ position: relative;
+ min-height: 320px;
+ overflow: hidden;
+ border: 1px solid var(--history-accent-line);
+ border-radius: 14px;
+ background: linear-gradient(160deg, var(--surface-sunken), var(--panel));
+}
+.history-visual-frame {
+ position: relative;
+ height: 100%;
+ min-height: 320px;
+}
+.history-visual-img {
+ position: absolute;
+ inset: 0;
+ width: 100%;
+ height: 100%;
+ object-fit: cover;
+ opacity: 0.28;
+}
+.history-visual-motif-layer {
+ position: absolute;
+ inset: 0;
+}
+.history-visual-motif-layer svg {
+ width: 100%;
+ height: 100%;
+}
+.history-visual-motif {
+ position: absolute;
+ right: 18px;
+ bottom: 46px;
+ color: var(--history-accent);
+ font-family: Georgia, "Noto Serif SC", serif;
+ font-size: clamp(64px, 9vw, 120px);
+ font-weight: 600;
+ line-height: 1;
+ opacity: 0.85;
+ text-shadow: 0 2px 18px rgb(0 0 0 / 12%);
+}
+.history-visual-caption {
+ position: absolute;
+ top: 18px;
+ left: 20px;
+ display: grid;
+ gap: 2px;
+}
+.history-visual-caption b {
+ color: var(--text-bright);
+ font-family: Georgia, "Noto Serif SC", serif;
+ font-size: 30px;
+ font-weight: 600;
+ letter-spacing: 0.08em;
+}
+.history-visual-caption span {
+ color: var(--muted);
+ font-size: 12px;
+}
+.history-visual-focus {
+ position: absolute;
+ bottom: 14px;
+ left: 20px;
+ padding: 4px 10px;
+ border: 1px solid var(--history-accent-line);
+ border-radius: 12px;
+ background: var(--history-accent-soft);
+ color: var(--history-accent-strong);
+ font-size: 11px;
+ font-weight: 600;
+}
+/* 信息栏 */
+.history-hero-info {
+ display: flex;
+ flex-direction: column;
+ padding: 24px 26px 20px;
+ border: 1px solid var(--line);
+ border-radius: 14px;
+ background: var(--panel-raised);
+}
+.history-hero-head {
+ display: flex;
+ align-items: flex-start;
+ justify-content: space-between;
+ gap: 16px;
+}
+.history-hero-kicker {
+ display: inline-flex;
+ padding: 4px 10px;
+ border-radius: 12px;
+ background: var(--history-accent-soft);
+ color: var(--history-accent-strong);
+ font-size: 11px;
+ font-weight: 700;
+ letter-spacing: 0.08em;
+}
+.history-hero-head h2 {
+ margin: 11px 0 5px;
+ color: var(--text-bright);
+ font-family: Georgia, "Noto Serif SC", serif;
+ font-size: clamp(36px, 3.6vw, 52px);
+ font-weight: 600;
+ letter-spacing: 0.06em;
+ line-height: 1;
+}
+.history-hero-range {
+ margin: 0;
+ color: var(--muted);
+ font-size: 14px;
+}
+.history-hero-open {
+ display: inline-flex;
+ flex: 0 0 auto;
+ align-items: center;
+ gap: 6px;
+ padding: 8px 14px;
+ border: 1px solid var(--history-accent-line);
+ border-radius: 18px;
+ background: transparent;
+ color: var(--history-accent-strong);
+ font: inherit;
+ font-size: 12px;
+ font-weight: 700;
+ cursor: pointer;
+ transition:
+  background 0.16s ease,
+  border-color 0.16s ease;
+}
+.history-hero-open:hover {
+ background: var(--history-accent-soft);
+ border-color: var(--history-accent);
+}
+.history-hero-tagline {
+ margin: 15px 0 0;
+ color: var(--text-medium);
+ font-family: Georgia, "Noto Serif SC", serif;
+ font-size: 16px;
+ line-height: 1.6;
+}
+.history-hero-facts {
+ display: grid;
+ grid-template-columns: repeat(3, 1fr);
+ gap: 10px;
+ margin: 18px 0 0;
+ padding: 14px 0;
+ border-top: 1px solid var(--line);
+ border-bottom: 1px solid var(--line);
+}
+.history-hero-facts > div {
+ display: grid;
+ gap: 3px;
+ min-width: 0;
+ padding-right: 10px;
+ border-right: 1px solid var(--line);
+}
+.history-hero-facts > div:last-child {
+ border-right: 0;
+}
+.history-hero-facts dt {
+ display: flex;
+ align-items: center;
+ gap: 6px;
+ color: var(--history-accent);
+ font-size: 11px;
+ font-weight: 700;
+}
+.history-hero-facts dd {
+ display: grid;
+ gap: 1px;
+ margin: 0;
+ overflow: hidden;
+ color: var(--text);
+ font-size: 14px;
+ font-weight: 600;
+}
+.history-hero-facts dd small {
+ overflow: hidden;
+ color: var(--faint);
+ font-size: 10px;
+ font-weight: 400;
+ text-overflow: ellipsis;
+ white-space: nowrap;
+}
+.history-hero-persons {
+ margin-top: 16px;
+}
+.history-hero-persons-label {
+ display: inline-flex;
+ align-items: center;
+ gap: 6px;
+ margin-bottom: 8px;
+ color: var(--muted);
+ font-size: 11px;
+ font-weight: 700;
+}
+.history-hero-persons-list {
+ display: flex;
+ flex-wrap: wrap;
+ gap: 8px;
+}
+.history-hero-persons-list button {
+ display: grid;
+ gap: 1px;
+ padding: 7px 12px;
+ border: 1px solid var(--line);
+ border-radius: 8px;
+ background: var(--surface-sunken);
+ color: var(--text);
+ font: inherit;
+ font-size: 13px;
+ font-weight: 600;
+ cursor: pointer;
+ transition: border-color 0.16s ease, background 0.16s ease;
+}
+.history-hero-persons-list button:hover {
+ border-color: var(--history-accent);
+ background: var(--history-accent-soft);
+}
+.history-hero-persons-list button small {
+ color: var(--faint);
+ font-size: 10px;
+}
+.history-hero-tags {
+ display: flex;
+ flex-wrap: wrap;
+ gap: 7px;
+ margin-top: 16px;
+}
+.history-hero-tags span {
+ padding: 4px 11px;
+ border: 1px solid var(--line-chip);
+ border-radius: 14px;
+ background: var(--surface-chip);
+ color: var(--text-medium);
+ font-size: 11px;
+}
+.history-hero-actions {
+ margin-top: auto;
+ padding-top: 18px;
+}
+.history-hero-story {
+ display: inline-flex;
+ align-items: center;
+ gap: 7px;
+ padding: 9px 14px;
+ border: 1px solid var(--history-accent-line);
+ border-radius: 8px;
+ background: var(--history-accent-soft);
+ color: var(--history-accent-strong);
+ font: inherit;
+ font-size: 12px;
+ font-weight: 700;
+ cursor: pointer;
+}
+.history-hero-story:hover {
+ border-color: var(--history-accent);
+}
+
+/* ==========================================================================
+ * ③ EraTimeline（这个时代发生了什么？）
+ * ========================================================================== */
+.history-era-timeline {
+ margin-bottom: 34px;
+}
+.history-era-timeline-scroll {
+ overflow-x: auto;
+ scrollbar-width: thin;
+ scrollbar-color: var(--line-strong) transparent;
+ padding-bottom: 6px;
+}
+.history-era-timeline-scroll::-webkit-scrollbar {
+ height: 6px;
+}
+.history-era-timeline-scroll::-webkit-scrollbar-thumb {
+ border-radius: 8px;
+ background: var(--line-strong);
+}
+.history-era-timeline-track {
+ position: relative;
+ display: flex;
+ gap: 28px;
+ min-width: max-content;
+ margin: 0;
+ padding: 22px 4px 8px;
+ list-style: none;
+}
+.history-era-timeline-track::before {
+ position: absolute;
+ top: 22px;
+ right: 0;
+ left: 0;
+ height: 2px;
+ background: var(--line);
+ content: "";
+}
+.history-era-timeline-track li {
+ position: relative;
+ display: grid;
+ justify-items: center;
+ gap: 8px;
+ flex: 0 0 auto;
+ width: 150px;
+}
+.history-era-timeline-track li > i {
+ position: relative;
+ z-index: 1;
+ width: 11px;
+ height: 11px;
+ border-radius: 50%;
+ background: var(--line-strong);
+}
+.history-era-timeline-year {
+ color: var(--faint);
+ font-size: 11px;
+ font-weight: 700;
+}
+.history-era-timeline-track li.is-clickable > i {
+ background: var(--history-accent);
+ box-shadow: 0 0 0 4px var(--history-accent-soft);
+}
+.history-era-timeline-track li.is-clickable .history-era-timeline-year {
+ color: var(--history-accent);
+}
+.history-era-timeline-track li button {
+ display: grid;
+ gap: 4px;
+ justify-items: center;
+ padding: 0;
+ border: 0;
+ background: transparent;
+ color: var(--text);
+ font: inherit;
+ text-align: center;
+ cursor: pointer;
+}
+.history-era-timeline-track li button:disabled {
+ cursor: default;
+}
+.history-era-timeline-track li.is-clickable button:hover b {
+ color: var(--history-accent-strong);
+}
+.history-era-timeline-track li button b {
+ font-family: Georgia, "Noto Serif SC", serif;
+ font-size: 16px;
+ font-weight: 600;
+}
+.history-era-timeline-track li.is-static button b {
+ color: var(--muted);
+}
+.history-era-timeline-track li button span {
+ color: var(--faint);
+ font-size: 11px;
+ line-height: 1.55;
+}
+
+/* ==========================================================================
+ * ④ EraExploreGrid（认识这个时代）
+ * ========================================================================== */
+.history-explore-grid {
+ margin-bottom: 30px;
+}
+.history-explore-cols {
+ display: grid;
+ grid-template-columns: repeat(4, minmax(0, 1fr));
+ gap: 12px;
+}
+.history-explore-col {
+ padding: 14px 0 6px;
+ border-top: 2px solid var(--line);
+}
+.history-explore-col h3 {
+ margin: 0 0 10px;
+ color: var(--history-accent);
+ font-size: 12px;
+ font-weight: 800;
+ letter-spacing: 0.1em;
+}
+.history-explore-col ul {
+ display: grid;
+ gap: 6px;
+ margin: 0;
+ padding: 0;
+ list-style: none;
+}
+.history-explore-col li button {
+ display: grid;
+ grid-template-columns: auto 1fr auto;
+ align-items: baseline;
+ gap: 4px 8px;
+ width: 100%;
+ padding: 8px 6px;
+ border: 0;
+ border-radius: 6px;
+ background: transparent;
+ color: var(--text);
+ font: inherit;
+ text-align: left;
+ cursor: pointer;
+ transition: background 0.14s ease;
+}
+.history-explore-col li button:hover {
+ background: var(--history-accent-faint);
+}
+.history-explore-col li button .history-explore-kind {
+ color: var(--faint);
+ font-size: 10px;
+}
+.history-explore-col li button b {
+ grid-column: 1 / 3;
+ font-family: Georgia, "Noto Serif SC", serif;
+ font-size: 15px;
+ font-weight: 600;
+}
+.history-explore-col li button small {
+ display: -webkit-box;
+ grid-column: 1 / -1;
+ overflow: hidden;
+ color: var(--muted);
+ font-size: 11px;
+ line-height: 1.5;
+ -webkit-box-orient: vertical;
+ -webkit-line-clamp: 2;
+}
+.history-explore-col li button svg {
+ grid-column: 3;
+ grid-row: 1;
+ color: var(--history-accent);
+}
+.history-explore-empty {
+ padding: 26px;
+ border: 1px dashed var(--line-strong);
+ border-radius: 12px;
+ color: var(--muted);
+ font-size: 13px;
+}
+
+/* ==========================================================================
+ * ⑤ Today Explore（今日探索）
+ * ========================================================================== */
+.history-today {
+ display: grid;
+ grid-template-columns: auto 1fr auto;
+ align-items: center;
+ gap: 18px;
+ margin-top: 8px;
+ padding: 16px 20px;
+ border: 1px solid var(--history-accent-line);
+ border-radius: 12px;
+ background: var(--history-accent-faint);
+}
+.history-today-eyebrow {
+ color: var(--history-accent);
+ font-size: 11px;
+ font-weight: 800;
+ letter-spacing: 0.12em;
+ text-transform: uppercase;
+}
+.history-today-body h3 {
+ margin: 0 0 4px;
+ color: var(--text-bright);
+ font-family: Georgia, "Noto Serif SC", serif;
+ font-size: 17px;
+ font-weight: 600;
+}
+.history-today-body p {
+ margin: 0;
+ color: var(--muted);
+ font-size: 12px;
+ line-height: 1.6;
+}
+.history-today-actions {
+ display: flex;
+ align-items: center;
+ gap: 14px;
+}
+.history-today-minutes {
+ display: inline-flex;
+ align-items: center;
+ gap: 5px;
+ color: var(--faint);
+ font-size: 11px;
+ white-space: nowrap;
+}
+.history-today-actions button {
+ display: inline-flex;
+ align-items: center;
+ gap: 6px;
+ padding: 8px 14px;
+ border: 1px solid var(--history-accent);
+ border-radius: 16px;
+ background: var(--history-accent);
+ color: #fff;
+ font: inherit;
+ font-size: 12px;
+ font-weight: 700;
+ cursor: pointer;
+}
+.history-today-actions button:hover {
+ background: var(--history-accent-strong);
+ border-color: var(--history-accent-strong);
+}
+
+/* ==========================================================================
+ * ⑥ Command Search
+ * ========================================================================== */
+.history-masthead-row .history-search {
+ position: relative;
+ width: min(420px, 100%);
+ flex: 0 0 auto;
+}
 .history-search {
  display: flex;
  align-items: center;
- gap: 11px;
- padding: 7px 8px 7px 16px;
+ gap: 10px;
+ padding: 6px 8px 6px 15px;
  border: 1px solid var(--line-strong);
- border-radius: 10px;
+ border-radius: 12px;
  background: var(--surface-raised);
- box-shadow: 0 10px 32px rgba(0, 0, 0, 0.08);
+ box-shadow: 0 10px 30px rgb(0 0 0 / 7%);
 }
 .history-search > svg {
  flex: 0 0 auto;
- color: var(--accent);
+ color: var(--history-accent);
 }
 .history-search input {
  flex: 1;
  min-width: 0;
- height: 38px;
+ height: 37px;
  border: 0;
  outline: 0;
  background: transparent;
@@ -3064,136 +3871,498 @@ kbd {
 .history-search input::placeholder {
  color: var(--faint);
 }
-.history-search button {
- height: 36px;
- padding: 0 15px;
- border: 1px solid var(--accent-border-active);
- border-radius: 7px;
- background: var(--accent-solid);
- color: var(--text-on-accent);
- font: inherit;
- font-size: 13px;
- font-weight: 700;
-}
-.history-search button:disabled {
- opacity: 0.5;
-}
-.history-node-grid {
+.history-search-clear {
  display: grid;
- grid-template-columns: repeat(3, minmax(0, 1fr));
- gap: 10px;
-}
-.history-node-chip {
- display: grid;
- align-content: start;
- gap: 6px;
- min-height: 145px;
- padding: 16px;
- border: 1px solid var(--line);
- border-radius: 9px;
- background: var(--surface-raised);
- color: var(--text);
- text-align: left;
-}
-.history-node-chip:hover {
- border-color: var(--accent);
- background: var(--panel-hover);
- transform: translateY(-1px);
-}
-.history-node-chip small {
- color: var(--accent);
- font-size: 10px;
- font-weight: 800;
- letter-spacing: 0.08em;
-}
-.history-node-chip b {
- color: var(--text-heading);
- font-family: Georgia, "Noto Serif SC", serif;
- font-size: 19px;
- font-weight: 500;
-}
-.history-node-chip span {
- color: var(--muted);
- font-size: 12px;
- line-height: 1.55;
-}
-.history-results {
- padding-top: 29px;
-}
-.history-results > header {
- display: flex;
- align-items: center;
- justify-content: space-between;
-}
-.history-results > header p {
- color: var(--text-heading);
- font-size: 15px;
- font-weight: 700;
-}
-.history-results > header button,
-.history-back {
+ place-items: center;
+ width: 26px;
+ height: 26px;
  padding: 0;
  border: 0;
- background: transparent;
- color: var(--accent-hover);
+ border-radius: 50%;
+ background: var(--surface-chip);
+ color: var(--muted);
+ cursor: pointer;
+}
+.history-search-go {
+ height: 32px;
+ padding: 0 15px;
+ border: 1px solid var(--history-accent);
+ border-radius: 8px;
+ background: var(--history-accent);
+ color: #fff;
  font: inherit;
  font-size: 12px;
  font-weight: 700;
+ cursor: pointer;
 }
-.history-results section {
- margin-top: 25px;
+.history-search-go:disabled {
+ opacity: 0.5;
+ cursor: default;
 }
-.history-results h2 {
- margin: 0 0 10px;
+.history-search-panel {
+ position: absolute;
+ z-index: 30;
+ top: calc(100% + 10px);
+ right: 0;
+ left: 0;
+ max-height: 66vh;
+ overflow-y: auto;
+ padding: 10px;
+ border: 1px solid var(--line-strong);
+ border-radius: 12px;
+ background: var(--surface-overlay);
+ box-shadow: 0 22px 60px rgb(0 0 0 / 28%);
+ scrollbar-width: thin;
+}
+.history-search-locate {
+ display: flex;
+ align-items: center;
+ gap: 8px;
+ width: 100%;
+ margin-bottom: 8px;
+ padding: 10px 12px;
+ border: 1px solid var(--history-accent-line);
+ border-radius: 8px;
+ background: var(--history-accent-soft);
+ color: var(--text);
+ font: inherit;
+ text-align: left;
+ cursor: pointer;
+}
+.history-search-locate span {
+ color: var(--history-accent);
+ font-size: 11px;
+}
+.history-search-locate b {
+ margin-left: 4px;
+ font-family: Georgia, "Noto Serif SC", serif;
+ font-size: 16px;
+}
+.history-search-locate small {
+ margin-left: 2px;
+ color: var(--muted);
+ font-size: 11px;
+}
+.history-search-locate svg {
+ margin-left: auto;
+ color: var(--history-accent);
+}
+.history-search-group h3 {
+ display: flex;
+ align-items: center;
+ gap: 8px;
+ margin: 12px 6px 6px;
  color: var(--text-medium);
+ font-size: 12px;
+ font-weight: 800;
+ text-transform: uppercase;
+ letter-spacing: 0.08em;
+}
+.history-search-group h3 span {
+ padding: 1px 7px;
+ border-radius: 9px;
+ background: var(--surface-chip);
+ color: var(--faint);
+ font-size: 10px;
+}
+.history-search-group ul {
+ display: grid;
+ gap: 2px;
+ margin: 0;
+ padding: 0;
+ list-style: none;
+}
+.history-search-group li button {
+ display: grid;
+ grid-template-columns: 1fr auto;
+ gap: 2px 10px;
+ width: 100%;
+ padding: 9px 12px;
+ border: 0;
+ border-radius: 8px;
+ background: transparent;
+ color: var(--text);
+ font: inherit;
+ text-align: left;
+ cursor: pointer;
+}
+.history-search-group li button:hover,
+.history-search-group li button.is-active {
+ background: var(--history-accent-faint);
+}
+.history-search-group li button b {
+ font-family: Georgia, "Noto Serif SC", serif;
+ font-size: 15px;
+ font-weight: 600;
+}
+.history-search-group li button small {
+ overflow: hidden;
+ grid-column: 1;
+ color: var(--muted);
+ font-size: 11px;
+ text-overflow: ellipsis;
+ white-space: nowrap;
+}
+.history-search-kind {
+ align-self: start;
+ grid-row: 1;
+ grid-column: 2;
+ padding: 2px 8px;
+ border-radius: 10px;
+ background: var(--surface-chip);
+ color: var(--faint);
+ font-size: 10px;
+}
+.history-search-status {
+ margin: 2px 0 0;
+ padding: 10px 2px;
+ color: var(--muted);
  font-size: 13px;
 }
+
+/* 搜索结果（下拉面板形态见 .history-search-panel；整页结果由 SearchStatus 提示） */
+.history-search-empty {
+ padding: 18px 6px;
+ color: var(--muted);
+ font-size: 13px;
+}
+
+/* ==========================================================================
+ * ⑦ 详情页（Detail Shell + 各类型专属布局）
+ * ========================================================================== */
 .history-detail {
- padding-top: 28px;
+ padding-top: 6px;
 }
 .history-back {
  display: inline-flex;
  align-items: center;
- gap: 3px;
- margin-bottom: 23px;
+ gap: 4px;
+ margin-bottom: 20px;
+ padding: 0;
+ border: 0;
+ background: transparent;
+ color: var(--history-accent-strong);
+ font: inherit;
+ font-size: 12px;
+ font-weight: 700;
+ cursor: pointer;
 }
-.history-detail > header {
+.history-back:hover {
+ color: var(--history-accent);
+}
+.history-detail-head {
  display: flex;
  align-items: start;
  justify-content: space-between;
  gap: 20px;
- padding-bottom: 27px;
+ padding-bottom: 24px;
  border-bottom: 1px solid var(--line);
 }
-.history-detail header small {
- color: var(--accent);
+.history-detail-head small {
+ color: var(--history-accent);
  font-size: 11px;
  font-weight: 700;
 }
-.history-detail header h1 {
+.history-detail-head h1 {
  margin: 7px 0;
  color: var(--text-bright);
  font-family: Georgia, "Noto Serif SC", serif;
- font-size: 37px;
+ font-size: clamp(30px, 3.4vw, 40px);
  font-weight: 500;
- letter-spacing: -0.04em;
+ letter-spacing: -0.02em;
 }
-.history-detail header p {
+.history-detail-head p {
  max-width: 720px;
  margin: 0;
  color: var(--muted);
  line-height: 1.65;
 }
-.history-study-guide {
+.history-detail-actions {
+ display: flex;
+ flex: 0 0 auto;
+ align-items: center;
+ gap: 8px;
+}
+.history-map-link {
+ display: inline-flex;
+ align-items: center;
+ gap: 6px;
+ padding: 8px 12px;
+ border: 1px solid var(--history-accent-line);
+ border-radius: 8px;
+ background: var(--history-accent-soft);
+ color: var(--history-accent-strong);
+ font: inherit;
+ font-size: 12px;
+ font-weight: 700;
+ cursor: pointer;
+}
+.history-map-link:hover {
+ border-color: var(--history-accent);
+}
+.history-save {
+ display: inline-flex;
+ align-items: center;
+ gap: 6px;
+ padding: 8px 11px;
+ border: 1px solid var(--line-strong);
+ border-radius: 8px;
+ background: var(--surface-control);
+ color: var(--text-control);
+ font: inherit;
+ font-size: 12px;
+ cursor: pointer;
+}
+.history-save.saved {
+ border-color: var(--history-accent);
+ color: var(--history-accent-strong);
+}
+.history-era-context {
+ display: grid;
+ grid-template-columns: minmax(150px, 0.35fr) minmax(0, 1.65fr);
+ gap: 6px 22px;
+ margin-top: 24px;
+ padding: 16px 18px;
+ border-left: 2px solid var(--history-accent);
+ background: var(--surface-sunken);
+}
+.history-era-context > div:first-child {
+ display: grid;
+ align-content: start;
+ gap: 3px;
+}
+.history-era-context small {
+ color: var(--history-accent);
+ font-size: 10px;
+ font-weight: 800;
+ letter-spacing: 0.08em;
+}
+.history-era-context b {
+ color: var(--text-heading);
+ font-family: Georgia, "Noto Serif SC", serif;
+ font-size: 19px;
+ font-weight: 500;
+}
+.history-era-context > div:first-child span {
+ color: var(--faint);
+ font-size: 11px;
+}
+.history-era-context p {
+ margin: 0;
+ color: var(--text-medium);
+ font-size: 13px;
+ line-height: 1.75;
+}
+.history-era-context-link {
+ display: inline-flex;
+ align-items: center;
+ gap: 4px;
+ padding: 0;
+ border: 0;
+ background: transparent;
+ color: var(--history-accent-strong);
+ font: inherit;
+ font-size: 12px;
+ font-weight: 700;
+ cursor: pointer;
+}
+.history-era-context-tags {
+ grid-column: 2;
+ display: flex;
+ flex-wrap: wrap;
+ gap: 6px;
+}
+.history-era-context-tags span {
+ padding: 4px 9px;
+ border: 1px solid var(--line-chip);
+ border-radius: 14px;
+ background: var(--surface-chip);
+ color: var(--text-medium);
+ font-size: 11px;
+}
+.history-detail-section {
  margin-top: 28px;
- padding: 23px 24px 20px;
+}
+.history-detail-section h2 {
+ margin: 0 0 10px;
+ color: var(--text-bright);
+ font-family: Georgia, "Noto Serif SC", serif;
+ font-size: 17px;
+ font-weight: 500;
+}
+.history-detail-section ul {
+ display: grid;
+ gap: 8px;
+ margin: 0;
+ padding: 0;
+ list-style: none;
+}
+.history-detail-section li {
+ padding-left: 14px;
+ color: var(--text-medium);
+ font-size: 14px;
+ line-height: 1.7;
+}
+.history-detail-section li::before {
+ content: "";
+ display: inline-block;
+ width: 4px;
+ height: 4px;
+ margin: 0 10px 3px -14px;
+ border-radius: 50%;
+ background: var(--history-accent);
+}
+.history-detail-section.subdued li {
+ color: var(--muted);
+}
+.history-relation-chips {
+ display: flex;
+ flex-wrap: wrap;
+ gap: 8px;
+}
+.history-relation-chips > button {
+ display: grid;
+ gap: 2px;
+ max-width: 260px;
+ padding: 9px 13px;
+ border: 1px solid var(--line);
+ border-radius: 8px;
+ background: var(--panel-raised);
+ color: var(--text);
+ font: inherit;
+ text-align: left;
+ cursor: pointer;
+ transition: border-color 0.15s ease;
+}
+.history-relation-chips > button:hover {
+ border-color: var(--history-accent);
+}
+.history-relation-chips small {
+ color: var(--history-accent);
+ font-size: 10px;
+}
+.history-relation-chips b {
+ font-family: Georgia, "Noto Serif SC", serif;
+ font-size: 14px;
+ font-weight: 600;
+}
+.history-sources {
+ display: grid;
+ gap: 8px;
+}
+.history-sources button {
+ display: grid;
+ grid-template-columns: 1fr auto;
+ align-items: center;
+ gap: 3px 12px;
+ padding: 11px 12px;
+ border: 1px solid var(--line);
+ border-radius: 8px;
+ background: var(--panel-raised);
+ color: var(--text);
+ font: inherit;
+ text-align: left;
+ cursor: pointer;
+}
+.history-sources button:hover {
+ border-color: var(--history-accent);
+}
+.history-sources b {
+ font-size: 13px;
+}
+.history-sources span {
+ color: var(--faint);
+ font-size: 11px;
+}
+.history-sources svg {
+ grid-column: 2;
+ grid-row: 1 / span 2;
+ color: var(--history-accent);
+}
+
+/* 关系图 */
+.history-relation-graph {
+ margin-top: 34px;
+}
+.history-relation-graph.is-empty p {
+ color: var(--muted);
+ font-size: 13px;
+}
+.history-relation-graph-canvas {
+ overflow-x: auto;
+ border: 1px solid var(--line);
+ border-radius: 12px;
+ background: var(--surface-sunken);
+}
+.history-relation-graph-canvas svg {
+ display: block;
+ width: 100%;
+ min-width: 560px;
+ height: auto;
+}
+.history-graph-edge {
+ cursor: pointer;
+}
+.history-graph-edge line {
+ stroke: var(--line-strong);
+ stroke-width: 1;
+}
+.history-graph-edge text.history-graph-edge-label {
+ fill: var(--history-accent);
+ font-size: 10px;
+ font-weight: 700;
+}
+.history-graph-edge text.history-graph-edge-note {
+ fill: var(--faint);
+ font-size: 9px;
+}
+.history-graph-center {
+ cursor: pointer;
+}
+.history-graph-center rect {
+ fill: var(--history-accent-soft);
+ stroke: var(--history-accent);
+ stroke-width: 1.5;
+}
+.history-graph-center text.history-graph-center-title {
+ fill: var(--text-bright);
+ font-family: Georgia, "Noto Serif SC", serif;
+ font-size: 15px;
+ font-weight: 700;
+}
+.history-graph-center text.history-graph-center-kind {
+ fill: var(--history-accent);
+ font-size: 9px;
+}
+.history-graph-node {
+ cursor: pointer;
+}
+.history-graph-node rect {
+ fill: var(--panel-raised);
+ stroke: var(--line-strong);
+ stroke-width: 1;
+}
+.history-graph-node:hover rect {
+ stroke: var(--history-accent);
+}
+.history-graph-node text.history-graph-node-title {
+ fill: var(--text);
+ font-family: Georgia, "Noto Serif SC", serif;
+ font-size: 12px;
+ font-weight: 600;
+}
+.history-graph-node text.history-graph-node-kind {
+ fill: var(--muted);
+ font-size: 8px;
+}
+
+/* 朝代详情（时代导读） */
+.history-study-guide {
+ margin-top: 24px;
+ padding: 23px 24px 8px;
  border: 1px solid var(--line-strong);
  border-radius: 12px;
- background: linear-gradient(
-  135deg,
-  var(--surface-raised),
-  var(--surface-sunken)
- );
+ background: linear-gradient(135deg, var(--surface-raised), var(--surface-sunken));
 }
 .history-study-lead {
  display: grid;
@@ -3202,7 +4371,7 @@ kbd {
  align-items: start;
 }
 .history-study-lead small {
- color: var(--accent);
+ color: var(--history-accent);
  font-size: 10px;
  font-weight: 800;
  letter-spacing: 0.12em;
@@ -3226,8 +4395,8 @@ kbd {
  display: grid;
  grid-template-columns: repeat(4, minmax(0, 1fr));
  gap: 10px;
- margin-top: 23px;
- padding-top: 18px;
+ margin-top: 22px;
+ padding: 16px 0;
  border-top: 1px solid var(--line);
 }
 .history-study-facts article {
@@ -3242,7 +4411,7 @@ kbd {
 }
 .history-study-facts article > svg {
  flex: 0 0 auto;
- color: var(--accent);
+ color: var(--history-accent);
 }
 .history-study-facts article > div {
  display: grid;
@@ -3265,8 +4434,8 @@ kbd {
  white-space: nowrap;
 }
 .history-study-highlights {
- margin-top: 24px;
- padding-top: 20px;
+ margin-top: 22px;
+ padding-top: 18px;
  border-top: 1px solid var(--line);
 }
 .history-study-highlights > header {
@@ -3290,25 +4459,37 @@ kbd {
  grid-template-columns: repeat(3, minmax(0, 1fr));
  gap: 10px;
 }
-.history-study-highlights article {
- min-height: 105px;
+.history-study-highlight-card {
+ display: grid;
+ align-content: start;
+ gap: 5px;
+ min-height: 104px;
  padding: 13px 14px;
  border: 1px solid var(--line);
  border-radius: 8px;
  background: var(--surface-control);
+ color: var(--text);
+ font: inherit;
+ text-align: left;
+ cursor: pointer;
+ transition: border-color 0.15s ease;
 }
-.history-study-highlights small {
- color: var(--accent);
+.history-study-highlight-card:hover {
+ border-color: var(--history-accent);
+}
+.history-study-highlight-card small {
+ color: var(--history-accent);
  font-size: 10px;
  font-weight: 700;
 }
-.history-study-highlights b {
- display: block;
+.history-study-highlight-card b {
  margin-top: 6px;
  color: var(--text-heading);
+ font-family: Georgia, "Noto Serif SC", serif;
  font-size: 15px;
+ font-weight: 500;
 }
-.history-study-highlights p {
+.history-study-highlight-card p {
  margin: 5px 0 0;
  color: var(--muted);
  font-size: 12px;
@@ -3319,15 +4500,14 @@ kbd {
  flex-wrap: wrap;
  align-items: center;
  gap: 7px;
- margin-top: 18px;
+ margin: 16px 0 18px;
 }
 .history-study-tags span {
  margin-right: 3px;
  color: var(--faint);
  font-size: 11px;
 }
-.history-study-tags b,
-.history-era-context-tags span {
+.history-study-tags b {
  padding: 4px 9px;
  border: 1px solid var(--line-chip);
  border-radius: 14px;
@@ -3336,148 +4516,708 @@ kbd {
  font-size: 11px;
  font-weight: 500;
 }
-.history-era-context {
+
+/* 人物详情 */
+.history-person-hero {
+ display: flex;
+ align-items: end;
+ justify-content: space-between;
+ gap: 18px;
+ margin-top: 24px;
+ padding: 20px 22px;
+ border: 1px solid var(--line-strong);
+ border-radius: 12px;
+ background: var(--surface-raised);
+}
+.history-person-life {
+ color: var(--history-accent);
+ font-size: 12px;
+ font-weight: 700;
+ letter-spacing: 0.06em;
+}
+.history-person-hero h2 {
+ margin: 6px 0 0;
+ color: var(--text-bright);
+ font-family: Georgia, "Noto Serif SC", serif;
+ font-size: clamp(28px, 3vw, 36px);
+ font-weight: 600;
+}
+.history-person-identities {
+ display: flex;
+ flex-wrap: wrap;
+ gap: 8px;
+}
+.history-person-identities span {
+ padding: 5px 12px;
+ border: 1px solid var(--line-chip);
+ border-radius: 14px;
+ background: var(--surface-chip);
+ color: var(--text-medium);
+ font-size: 11px;
+}
+.history-person-timeline {
+ margin-top: 28px;
+}
+.history-person-timeline ol {
+ position: relative;
  display: grid;
- grid-template-columns: minmax(150px, 0.35fr) minmax(0, 1.65fr);
- gap: 8px 22px;
- margin-top: 25px;
+ gap: 0;
+ margin: 0;
+ padding: 0 0 0 20px;
+ list-style: none;
+}
+.history-person-timeline ol::before {
+ position: absolute;
+ top: 4px;
+ bottom: 4px;
+ left: 5px;
+ width: 2px;
+ background: var(--line);
+ content: "";
+}
+.history-person-timeline li {
+ position: relative;
+ display: grid;
+ grid-template-columns: 56px 1fr;
+ gap: 14px;
+ padding: 9px 0;
+}
+.history-person-timeline li::before {
+ position: absolute;
+ top: 14px;
+ left: -19px;
+ width: 9px;
+ height: 9px;
+ border-radius: 50%;
+ background: var(--history-accent);
+ content: "";
+}
+.history-person-timeline li.is-boundary::before {
+ background: var(--history-accent);
+ box-shadow: 0 0 0 4px var(--history-accent-soft);
+}
+.history-person-timeline time {
+ color: var(--history-accent);
+ font-size: 11px;
+ font-weight: 800;
+}
+.history-person-timeline b {
+ color: var(--text-bright);
+ font-family: Georgia, "Noto Serif SC", serif;
+ font-size: 16px;
+ font-weight: 600;
+}
+.history-person-timeline p {
+ margin: 0;
+ color: var(--text-medium);
+ font-size: 13px;
+ line-height: 1.7;
+}
+
+/* 事件详情 */
+.history-event-meta {
+ display: grid;
+ grid-template-columns: repeat(3, minmax(0, 1fr));
+ gap: 10px;
+ margin-top: 24px;
  padding: 16px 18px;
- border-left: 2px solid var(--accent);
- background: var(--surface-sunken);
+ border: 1px solid var(--line-strong);
+ border-radius: 12px;
+ background: var(--surface-raised);
 }
-.history-era-context > div:first-child {
+.history-event-meta > div {
  display: grid;
- align-content: start;
- gap: 3px;
+ gap: 4px;
+ min-width: 0;
 }
-.history-era-context small {
- color: var(--accent);
+.history-event-meta span {
+ color: var(--faint);
  font-size: 10px;
  font-weight: 800;
  letter-spacing: 0.08em;
 }
-.history-era-context b {
- color: var(--text-heading);
- font-family: Georgia, "Noto Serif SC", serif;
- font-size: 19px;
- font-weight: 500;
-}
-.history-era-context > div:first-child span {
- color: var(--faint);
- font-size: 11px;
-}
-.history-era-context p {
- margin: 0;
- color: var(--text-medium);
+.history-event-meta b {
+ color: var(--text);
  font-size: 13px;
- line-height: 1.75;
 }
-.history-era-context-tags {
- grid-column: 2;
+.history-event-meta-list {
  display: flex;
  flex-wrap: wrap;
  gap: 6px;
 }
-.history-save {
- display: inline-flex;
- align-items: center;
- gap: 6px;
- flex: 0 0 auto;
- padding: 8px 11px;
- border: 1px solid var(--line-strong);
- border-radius: 7px;
- background: var(--surface-control);
- color: var(--text-control);
+.history-event-meta-list button {
+ padding: 4px 10px;
+ border: 1px solid var(--line-chip);
+ border-radius: 12px;
+ background: var(--surface-chip);
+ color: var(--history-accent-strong);
  font: inherit;
  font-size: 12px;
+ font-weight: 600;
+ cursor: pointer;
 }
-.history-save.saved {
- border-color: var(--accent);
- color: var(--accent-hover);
+.history-event-meta-list button:hover {
+ border-color: var(--history-accent);
 }
-.history-detail-section {
+
+/* 战争详情 */
+.history-war-hero {
+ display: grid;
+ grid-template-columns: minmax(0, 1.2fr) minmax(240px, 0.8fr);
+ gap: 16px;
+ margin-top: 24px;
+}
+.history-war-facts {
+ display: grid;
+ gap: 14px;
+ align-content: start;
+ padding: 18px 20px;
+ border: 1px solid var(--line-strong);
+ border-radius: 12px;
+ background: var(--surface-raised);
+}
+.history-war-facts > div {
+ display: grid;
+ gap: 4px;
+}
+.history-war-facts span {
+ color: var(--faint);
+ font-size: 10px;
+ font-weight: 800;
+ letter-spacing: 0.08em;
+}
+.history-war-facts b {
+ color: var(--text);
+ font-size: 14px;
+}
+.history-war-map {
+ display: grid;
+ place-items: center;
+ align-content: center;
+ gap: 8px;
+ min-height: 180px;
+ padding: 20px;
+ border: 1px dashed var(--line-strong);
+ border-radius: 12px;
+ color: var(--faint);
+ text-align: center;
+}
+.history-war-map span {
+ color: var(--muted);
+ font-size: 12px;
+ font-weight: 800;
+ letter-spacing: 0.08em;
+}
+.history-war-map p {
+ margin: 0;
+ font-size: 11px;
+}
+.history-war-phases {
  margin-top: 28px;
 }
-.history-detail-section h2 {
- margin: 0 0 10px;
- color: var(--text-heading);
- font-size: 15px;
-}
-.history-detail-section ul {
+.history-war-phases ol {
+ position: relative;
  display: grid;
- gap: 8px;
+ gap: 0;
  margin: 0;
- padding: 0;
+ padding: 0 0 0 20px;
  list-style: none;
 }
-.history-detail-section li {
- padding-left: 14px;
+.history-war-phases ol::before {
+ position: absolute;
+ top: 4px;
+ bottom: 4px;
+ left: 5px;
+ width: 2px;
+ background: var(--line);
+ content: "";
+}
+.history-war-phases li {
+ position: relative;
+ display: grid;
+ grid-template-columns: 40px 1fr;
+ gap: 12px;
+ padding: 8px 0;
+}
+.history-war-phases li::before {
+ position: absolute;
+ top: 13px;
+ left: -19px;
+ width: 9px;
+ height: 9px;
+ border-radius: 50%;
+ background: var(--history-accent);
+ content: "";
+}
+.history-war-phases time {
+ color: var(--history-accent);
+ font-size: 11px;
+ font-weight: 800;
+}
+.history-war-phases p {
+ margin: 0;
  color: var(--text-medium);
- font-size: 14px;
+ font-size: 13px;
  line-height: 1.7;
 }
-.history-detail-section li::before {
- content: "";
- display: inline-block;
- width: 4px;
- height: 4px;
- margin: 0 10px 3px -14px;
- border-radius: 50%;
- background: var(--accent);
+
+/* 地点 / 制度 / 文物等 */
+.history-place-coords {
+ margin: 18px 0 0;
+ color: var(--faint);
+ font-family: Manrope, monospace;
+ font-size: 12px;
 }
-.history-detail-section.subdued li {
+.history-institution-diagram {
+ margin-top: 26px;
+}
+.history-institution-diagram svg {
+ display: block;
+ width: 100%;
+ height: auto;
+ border: 1px solid var(--line);
+ border-radius: 12px;
+ background: var(--surface-sunken);
+}
+.history-institution-spoke line {
+ stroke: var(--line-strong);
+ stroke-width: 1;
+}
+.history-institution-spoke circle {
+ fill: var(--history-accent-faint);
+ stroke: var(--history-accent-line);
+ stroke-width: 1;
+}
+.history-institution-point {
+ fill: var(--text-medium);
+ font-size: 10px;
+ font-weight: 600;
+}
+.history-institution-core rect {
+ fill: var(--history-accent-soft);
+ stroke: var(--history-accent);
+ stroke-width: 1.5;
+}
+.history-institution-name {
+ fill: var(--history-accent-strong);
+ font-family: Georgia, "Noto Serif SC", serif;
+ font-size: 15px;
+ font-weight: 700;
+}
+
+/* ==========================================================================
+ * ⑧ 各探索视图
+ * ========================================================================== */
+.history-view-empty {
+ padding: 22px;
+ border: 1px dashed var(--line-strong);
+ border-radius: 12px;
  color: var(--muted);
+ font-size: 13px;
+ line-height: 1.8;
 }
-.history-relations {
+.history-view-empty button {
+ padding: 0 4px;
+ border: 0;
+ background: transparent;
+ color: var(--history-accent-strong);
+ font: inherit;
+ font-weight: 700;
+ cursor: pointer;
+}
+
+/* Map View */
+.history-map-view {
+ padding-top: 4px;
+}
+.history-map-controls {
  display: grid;
- grid-template-columns: repeat(2, minmax(0, 1fr));
+ grid-template-columns: minmax(150px, 0.7fr) minmax(220px, 1.3fr);
+ gap: 26px;
+ align-items: center;
+ margin-top: 10px;
+ padding: 22px;
+ border: 1px solid var(--line);
+ border-radius: 12px;
+ background: var(--surface-raised);
+}
+.history-map-year {
+ display: flex;
+ align-items: baseline;
  gap: 8px;
 }
-.history-relations button,
-.history-sources button {
- display: grid;
- grid-template-columns: auto 1fr auto;
- align-items: center;
- gap: 7px;
- padding: 11px 12px;
- border: 1px solid var(--line);
- border-radius: 7px;
- background: var(--surface-raised);
- color: var(--text);
- text-align: left;
+.history-map-year b {
+ color: var(--text-bright);
+ font-family: Georgia, "Noto Serif SC", serif;
+ font-size: 44px;
+ font-weight: 600;
+ line-height: 1;
 }
-.history-relations button:hover,
-.history-sources button:hover {
- border-color: var(--accent);
-}
-.history-relations small {
- color: var(--accent);
- font-size: 10px;
-}
-.history-relations b {
+.history-map-year span {
+ color: var(--faint);
  font-size: 13px;
 }
-.history-relations span {
- grid-column: 2;
+.history-map-year-range {
+ width: 100%;
+ accent-color: var(--history-accent);
+}
+.history-map-era-hit {
+ display: grid;
+ gap: 2px;
+}
+.history-map-era-hit span {
  color: var(--faint);
+ font-size: 10px;
+ font-weight: 800;
+ letter-spacing: 0.08em;
+}
+.history-map-era-hit b {
+ color: var(--history-accent-strong);
+ font-family: Georgia, "Noto Serif SC", serif;
+ font-size: 22px;
+ font-weight: 600;
+}
+.history-map-era-hit small {
+ color: var(--muted);
  font-size: 11px;
 }
-.history-relations svg {
- grid-column: 3;
- grid-row: 1 / span 2;
- color: var(--accent);
+.history-map-era-hit p {
+ margin: 8px 0 0;
+ color: var(--text-medium);
+ font-size: 13px;
+ line-height: 1.7;
 }
-.history-sources {
+.history-map-strip {
+ position: relative;
+ height: 44px;
+ margin-top: 18px;
+ border-radius: 8px;
+ background: var(--surface-sunken);
+ overflow: hidden;
+}
+.history-map-strip i {
+ position: absolute;
+ top: 0;
+ bottom: 0;
+ background: var(--history-accent-faint);
+ transition: background 0.2s ease;
+}
+.history-map-strip i::after {
+ position: absolute;
+ inset: 8px 3px;
+ border-radius: 3px 0 0 3px;
+ background: var(--era-accent, var(--history-accent));
+ opacity: 0.55;
+ content: "";
+}
+.history-map-strip i.is-active {
+ box-shadow: inset 0 0 0 2px var(--history-accent);
+}
+.history-map-strip i.is-active::after {
+ opacity: 1;
+}
+.history-map-marker {
+ position: absolute;
+ z-index: 2;
+ top: 0;
+ bottom: 0;
+ width: 2px;
+ margin-left: -1px;
+ background: var(--text-bright);
+ box-shadow: 0 0 0 3px rgb(0 0 0 / 25%);
+}
+.history-map-coming {
+ margin-top: 18px;
+ padding: 16px 18px;
+ border: 1px dashed var(--line-strong);
+ border-radius: 10px;
+ color: var(--faint);
+ font-size: 12px;
+ line-height: 1.7;
+}
+
+/* People View */
+.history-people-grid {
+ display: grid;
+ grid-template-columns: repeat(4, minmax(0, 1fr));
+ gap: 12px;
+}
+.history-person-card {
+ display: grid;
+ gap: 6px;
+ padding: 18px;
+ border: 1px solid var(--line);
+ border-radius: 12px;
+ background: var(--panel-raised);
+ color: var(--text);
+ font: inherit;
+ text-align: left;
+ cursor: pointer;
+ transition: border-color 0.16s ease, transform 0.16s ease;
+}
+.history-person-card:hover {
+ border-color: var(--history-accent);
+ transform: translateY(-2px);
+}
+.history-person-card-icon {
+ display: grid;
+ place-items: center;
+ width: 36px;
+ height: 36px;
+ border-radius: 50%;
+ background: var(--history-accent-soft);
+ color: var(--history-accent);
+}
+.history-person-card b {
+ margin-top: 6px;
+ font-family: Georgia, "Noto Serif SC", serif;
+ font-size: 19px;
+ font-weight: 600;
+}
+.history-person-card small {
+ color: var(--history-accent);
+ font-size: 11px;
+ font-weight: 700;
+}
+.history-person-card p {
+ margin: 0;
+ color: var(--muted);
+ font-size: 12px;
+ line-height: 1.6;
+}
+
+/* Graph View */
+.history-graph-picker {
+ display: flex;
+ flex-wrap: wrap;
+ gap: 8px;
+ margin-bottom: 18px;
+}
+.history-graph-picker button {
+ display: inline-flex;
+ align-items: baseline;
+ gap: 8px;
+ padding: 8px 13px;
+ border: 1px solid var(--line);
+ border-radius: 8px;
+ background: var(--panel-raised);
+ color: var(--text);
+ font: inherit;
+ cursor: pointer;
+}
+.history-graph-picker button:hover {
+ border-color: var(--history-accent);
+}
+.history-graph-picker button.is-active {
+ border-color: var(--history-accent);
+ background: var(--history-accent-soft);
+}
+.history-graph-picker span {
+ color: var(--faint);
+ font-size: 10px;
+}
+.history-graph-picker b {
+ font-family: Georgia, "Noto Serif SC", serif;
+ font-size: 14px;
+ font-weight: 600;
+}
+
+/* Story View */
+.history-story-list {
+ display: grid;
+ grid-template-columns: repeat(3, minmax(0, 1fr));
+ gap: 12px;
+}
+.history-story-list button {
  display: grid;
  gap: 8px;
+ padding: 18px;
+ border: 1px solid var(--line);
+ border-radius: 12px;
+ background: var(--panel-raised);
+ color: var(--text);
+ font: inherit;
+ text-align: left;
+ cursor: pointer;
+ transition: border-color 0.16s ease, transform 0.16s ease;
 }
-.history-sources button span {
+.history-story-list button:hover,
+.history-story-list button.is-active {
+ border-color: var(--history-accent);
+ transform: translateY(-2px);
+}
+.history-story-list button.is-active {
+ background: var(--history-accent-soft);
+}
+.history-story-list h3 {
+ margin: 0;
+ color: var(--text-bright);
+ font-family: Georgia, "Noto Serif SC", serif;
+ font-size: 18px;
+ font-weight: 600;
+ line-height: 1.5;
+}
+.history-story-list p {
+ margin: 0;
+ color: var(--muted);
+ font-size: 12px;
+ line-height: 1.6;
+}
+.history-story-list span {
+ display: inline-flex;
+ align-items: center;
+ gap: 5px;
+ margin-top: 4px;
  color: var(--faint);
  font-size: 11px;
 }
-.history-sources button svg {
- color: var(--accent);
+.history-story-detail {
+ max-width: 760px;
+ margin-top: 26px;
+ padding: 22px 24px;
+ border: 1px solid var(--line-strong);
+ border-radius: 14px;
+ background: var(--surface-raised);
 }
+.history-story-detail > header {
+ display: flex;
+ align-items: center;
+ justify-content: space-between;
+ gap: 14px;
+}
+.history-story-detail > header span {
+ color: var(--history-accent);
+ font-size: 10px;
+ font-weight: 800;
+ letter-spacing: 0.12em;
+ text-transform: uppercase;
+}
+.history-story-detail > header h3 {
+ margin: 4px 0 0;
+ color: var(--text-bright);
+ font-family: Georgia, "Noto Serif SC", serif;
+ font-size: 24px;
+ font-weight: 600;
+}
+.history-story-locate {
+ display: inline-flex;
+ align-items: center;
+ gap: 5px;
+ padding: 7px 12px;
+ border: 1px solid var(--history-accent-line);
+ border-radius: 14px;
+ background: var(--history-accent-soft);
+ color: var(--history-accent-strong);
+ font: inherit;
+ font-size: 11px;
+ font-weight: 700;
+ cursor: pointer;
+}
+.history-story-description {
+ margin: 14px 0 0;
+ color: var(--text-medium);
+ font-size: 13px;
+ line-height: 1.75;
+}
+.history-story-path {
+ position: relative;
+ display: grid;
+ gap: 0;
+ margin: 20px 0 0;
+ padding: 0 0 0 44px;
+ list-style: none;
+}
+.history-story-path::before {
+ position: absolute;
+ top: 8px;
+ bottom: 8px;
+ left: 19px;
+ width: 2px;
+ background: var(--line-strong);
+ content: "";
+}
+.history-story-path li {
+ position: relative;
+ display: grid;
+ grid-template-columns: 1fr auto;
+ gap: 6px 16px;
+ padding: 12px 0;
+}
+.history-story-path li > i {
+ position: absolute;
+ top: 12px;
+ left: -38px;
+ display: grid;
+ place-items: center;
+ width: 26px;
+ height: 26px;
+ border-radius: 50%;
+ background: var(--surface-chip);
+ color: var(--history-accent);
+ font-size: 10px;
+ font-style: normal;
+ font-weight: 800;
+}
+.history-story-path li.is-clickable > i {
+ background: var(--history-accent-soft);
+ box-shadow: 0 0 0 4px var(--history-accent-faint);
+}
+.history-story-path li.is-clickable::before {
+ position: absolute;
+ top: 12px;
+ left: -24px;
+ width: 8px;
+ height: 8px;
+ border-radius: 50%;
+ background: var(--history-accent);
+ content: "";
+}
+.history-story-path li b {
+ color: var(--text-bright);
+ font-family: Georgia, "Noto Serif SC", serif;
+ font-size: 16px;
+ font-weight: 600;
+}
+.history-story-path li p {
+ margin: 4px 0 0;
+ color: var(--muted);
+ font-size: 12px;
+ line-height: 1.65;
+}
+.history-story-path li button {
+ align-self: center;
+ padding: 6px 12px;
+ border: 1px solid var(--history-accent);
+ border-radius: 14px;
+ background: transparent;
+ color: var(--history-accent-strong);
+ font: inherit;
+ font-size: 11px;
+ font-weight: 700;
+ cursor: pointer;
+}
+.history-story-path li button:hover {
+ background: var(--history-accent-soft);
+}
+.history-story-pending {
+ align-self: center;
+ color: var(--faint);
+ font-size: 11px;
+}
+.history-story-end {
+ display: flex;
+ align-items: center;
+ gap: 8px;
+ margin-top: 16px;
+ padding-top: 14px;
+ border-top: 1px solid var(--line);
+ color: var(--faint);
+ font-size: 12px;
+}
+
+/* ==========================================================================
+ * ⑨ 状态与响应式
+ * ========================================================================== */
 .history-loading,
 .history-empty {
  display: grid;
@@ -3490,11 +5230,13 @@ kbd {
  text-align: center;
 }
 .history-empty svg {
- color: var(--accent);
+ color: var(--history-accent);
 }
 .history-empty h1 {
  margin: 12px 0 4px;
  color: var(--text-heading);
+ font-family: Georgia, "Noto Serif SC", serif;
+ font-weight: 500;
 }
 .history-empty p {
  max-width: 360px;
@@ -3503,19 +5245,87 @@ kbd {
  line-height: 1.6;
 }
 
-@media (max-width: 760px) {
- .history-page {
-  padding: 27px 18px 44px;
- }
- .history-node-grid,
- .history-relations {
+.history-chronology-viewport:focus-visible {
+ outline: 2px solid var(--history-accent);
+ outline-offset: 2px;
+}
+.history-chronology-node:focus-visible,
+.history-search button:focus-visible,
+.history-search input:focus-visible,
+.history-view-switcher button:focus-visible,
+.history-explore-col li button:focus-visible,
+.history-era-timeline-track li button:focus-visible,
+.history-relation-chips > button:focus-visible,
+.history-study-highlight-card:focus-visible,
+.history-story-path li button:focus-visible {
+ outline: 2px solid var(--history-accent);
+ outline-offset: 2px;
+}
+@media (max-width: 1080px) {
+ .history-hero {
   grid-template-columns: 1fr;
  }
- .history-detail > header {
+ .history-visual,
+ .history-visual-frame {
+  min-height: 240px;
+ }
+ .history-explore-cols {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+ }
+ .history-map-controls {
+  grid-template-columns: 1fr;
+  gap: 16px;
+ }
+ .history-story-list {
+  grid-template-columns: 1fr;
+ }
+ .history-people-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+ }
+ .history-hero-persons-list {
+  max-width: 100%;
+ }
+}
+@media (max-width: 820px) {
+ .history-page {
+  padding: 26px 18px 48px;
+ }
+ .history-masthead-row {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 16px;
+ }
+ .history-masthead-row .history-search {
+  width: 100%;
+ }
+ .history-view-switcher {
+  width: 100%;
+  overflow-x: auto;
+ }
+ .history-view-switcher button {
+  flex: 1 0 auto;
+  justify-content: center;
+ }
+ .history-event-meta {
+  grid-template-columns: 1fr;
+ }
+ .history-war-hero {
+  grid-template-columns: 1fr;
+ }
+ .history-detail-head {
   flex-direction: column;
  }
- .history-study-lead,
- .history-era-context {
+ .history-detail-actions {
+  width: 100%;
+ }
+ .history-today {
+  grid-template-columns: 1fr;
+  gap: 10px;
+ }
+ .history-today-actions {
+  justify-content: space-between;
+ }
+ .history-study-lead {
   grid-template-columns: 1fr;
  }
  .history-study-facts {
@@ -3527,637 +5337,17 @@ kbd {
  .history-study-highlights > div {
   grid-template-columns: 1fr;
  }
+ .history-era-context {
+  grid-template-columns: 1fr;
+ }
  .history-era-context-tags {
   grid-column: 1;
  }
-}
-
-/* 历史首页：暖米白纸张、青铜色细线、滚轮式时代选择器 + 时代详情 + 底部总时间轴。 */
-.history-home {
- max-width: none;
- min-height: 100%;
- padding: 22px clamp(28px, 4vw, 64px) 30px;
- background: #f4efe8;
- color: #2b2925;
- font-family: "Noto Serif SC", Georgia, serif;
-}
-.history-home-masthead {
- display: flex;
- align-items: end;
- justify-content: space-between;
- gap: 28px;
- max-width: 1480px;
- margin: 0 auto;
- padding-bottom: 18px;
- border-bottom: 1px solid #e4d9c8;
-}
-.history-home .history-heading {
- margin: 0;
-}
-.history-home .history-heading p {
- color: #b98e55;
-}
-.history-home .history-heading h1 {
- color: #2b2925;
- font-size: clamp(34px, 3.8vw, 54px);
- font-weight: 600;
- letter-spacing: 0.06em;
-}
-.history-home .history-heading span {
- color: #9b8365;
- font-size: 14px;
- letter-spacing: 0.02em;
-}
-.history-home .history-search {
- width: min(360px, 100%);
- flex: 0 0 auto;
- padding: 6px 8px 6px 16px;
- border: 1px solid #e4d9c8;
- border-radius: 24px;
- background: #faf7f2;
- box-shadow: none;
-}
-.history-home .history-search > svg {
- color: #b98e55;
-}
-.history-home .history-search input {
- height: 36px;
- color: #2b2925;
- font-family: Manrope, sans-serif;
-}
-.history-home .history-search input::placeholder {
- color: #b5a48b;
-}
-.history-home .history-search button {
- height: 32px;
- border-color: #b98e55;
- border-radius: 18px;
- background: #b98e55;
- font-family: Manrope, sans-serif;
-}
-
-.history-explorer {
- max-width: 1480px;
- margin: 24px auto 0;
-}
-.history-explorer-main {
- display: grid;
- grid-template-columns: minmax(300px, 0.88fr) minmax(460px, 1.12fr);
- align-items: stretch;
- gap: clamp(20px, 2.6vw, 48px);
-}
-
-/* 滚轮式历史时间选择器 */
-.history-wheel {
- display: flex;
- flex-direction: column;
- align-items: center;
- margin: 0;
- padding: 0;
- border: 0;
- min-inline-size: 0;
-}
-.history-wheel-step {
- display: grid;
- flex: 0 0 auto;
- place-items: center;
- width: 38px;
- height: 38px;
- margin: 4px 0;
- padding: 0;
- border: 1px solid #e0d4c4;
- border-radius: 50%;
- background: #faf7f2;
- color: #a18159;
- transition:
-  border-color 0.16s ease,
-  color 0.16s ease,
-  background 0.16s ease,
-  transform 0.16s ease;
-}
-.history-wheel-step:hover {
- border-color: #b98e55;
- background: #fdfaf5;
- color: #8a6a43;
- transform: translateY(-1px);
-}
-.history-wheel-viewport {
- position: relative;
- width: 100%;
- max-width: 440px;
- height: 440px;
- overflow: hidden;
- border-radius: 18px;
-}
-.history-wheel-viewport::before,
-.history-wheel-viewport::after {
- position: absolute;
- z-index: 2;
- right: 0;
- left: 0;
- height: 92px;
- pointer-events: none;
- content: "";
-}
-.history-wheel-viewport::before {
- top: 0;
- background: linear-gradient(180deg, #f4efe8, rgb(244 239 232 / 0));
-}
-.history-wheel-viewport::after {
- bottom: 0;
- background: linear-gradient(0deg, #f4efe8, rgb(244 239 232 / 0));
-}
-.history-wheel-track {
- position: absolute;
- top: 0;
- right: 0;
- left: 0;
- transition: transform 0.42s cubic-bezier(0.22, 0.61, 0.36, 1);
- will-change: transform;
-}
-.history-wheel-item {
- display: flex;
- flex-direction: column;
- align-items: center;
- justify-content: center;
- gap: 6px;
- padding-left: 34px;
- transition:
-  opacity 0.34s ease,
-  transform 0.34s ease;
- transform-origin: center;
-}
-.history-wheel-name {
- color: #8a7760;
- font-family: Georgia, "Noto Serif SC", serif;
- font-size: 22px;
- font-weight: 500;
- letter-spacing: 0.16em;
-}
-.history-wheel-years {
- color: #a39178;
- font-family: Manrope, sans-serif;
- font-size: 12px;
- letter-spacing: 0.05em;
-}
-.history-wheel-item.is-current .history-wheel-name {
- color: #7d5f33;
- font-size: 46px;
- font-weight: 600;
- letter-spacing: 0.18em;
-}
-.history-wheel-item.is-current .history-wheel-years {
- color: #a1753d;
- font-size: 14px;
- font-weight: 600;
-}
-.history-wheel-window {
- position: absolute;
- z-index: 1;
- top: 50%;
- left: 50%;
- width: calc(100% - 8px);
- height: 88px;
- border-top: 1px solid rgb(185 142 85 / 45%);
- border-bottom: 1px solid rgb(185 142 85 / 45%);
- background: linear-gradient(
-  180deg,
-  rgb(250 247 242 / 30%),
-  rgb(250 247 242 / 56%) 50%,
-  rgb(250 247 242 / 30%)
- );
- box-shadow: inset 0 10px 26px rgb(120 100 70 / 5%);
- pointer-events: none;
- transform: translate(-50%, -50%);
-}
-.history-wheel-notch {
- position: absolute;
- width: 13px;
- height: 13px;
- border: 0 solid #c9a06a;
-}
-.history-wheel-notch.top-left {
- top: -2px;
- left: -2px;
- border-top-width: 2px;
- border-left-width: 2px;
- border-top-left-radius: 4px;
-}
-.history-wheel-notch.top-right {
- top: -2px;
- right: -2px;
- border-top-width: 2px;
- border-right-width: 2px;
- border-top-right-radius: 4px;
-}
-.history-wheel-notch.bottom-left {
- bottom: -2px;
- left: -2px;
- border-bottom-width: 2px;
- border-left-width: 2px;
- border-bottom-left-radius: 4px;
-}
-.history-wheel-notch.bottom-right {
- right: -2px;
- bottom: -2px;
- border-right-width: 2px;
- border-bottom-width: 2px;
- border-bottom-right-radius: 4px;
-}
-.history-wheel-rail {
- position: absolute;
- z-index: 1;
- top: 0;
- bottom: 0;
- left: 16px;
- width: 22px;
- pointer-events: none;
-}
-.history-wheel-rail::before {
- position: absolute;
- top: 0;
- bottom: 0;
- left: 10px;
- width: 1px;
- background: linear-gradient(
-  180deg,
-  rgb(185 142 85 / 8%),
-  rgb(185 142 85 / 42%) 50%,
-  rgb(185 142 85 / 8%)
- );
- content: "";
-}
-.history-wheel-rail::after {
- position: absolute;
- inset: 0;
- background: repeating-linear-gradient(
-  180deg,
-  transparent 0 42px,
-  rgb(185 142 85 / 45%) 42px 44px,
-  transparent 44px 88px
- );
- content: "";
-}
-
-/* 右侧时代详情 */
-.history-era-panel {
- position: relative;
- display: flex;
- flex-direction: column;
- min-height: 520px;
- padding: 26px 26px 22px;
- overflow: hidden;
- border: 1px solid #e7dccd;
- border-radius: 16px;
- background: #faf7f2;
- box-shadow: 0 18px 44px rgb(97 66 26 / 7%);
-}
-.history-era-panel-ink {
- position: absolute;
- inset: 0;
- width: 100%;
- height: 100%;
- object-fit: cover;
- opacity: 0.07;
- pointer-events: none;
-}
-.history-era-panel-head {
- position: relative;
- z-index: 1;
- display: flex;
- align-items: flex-start;
- justify-content: space-between;
- gap: 16px;
-}
-.history-era-kicker {
- display: inline-flex;
- padding: 5px 11px;
- border-radius: 12px;
- background: #f1e7d6;
- color: #a18159;
- font-size: 11px;
- font-weight: 700;
- letter-spacing: 0.1em;
-}
-.history-era-panel h2 {
- margin: 12px 0 6px;
- color: #2b2925;
- font-size: clamp(40px, 3.8vw, 60px);
- font-weight: 600;
- letter-spacing: 0.18em;
- line-height: 1;
-}
-.history-era-range {
- margin: 0;
- color: #9b8365;
- font-family: Manrope, sans-serif;
- font-size: 16px;
-}
-.history-era-open {
- display: inline-flex;
- flex: 0 0 auto;
- align-items: center;
- gap: 5px;
- padding: 7px 12px;
- border: 1px solid #e0d0b8;
- border-radius: 16px;
- background: #fdfaf5;
- color: #a18159;
- font: inherit;
- font-size: 12px;
- font-weight: 700;
-}
-.history-era-open:hover {
- border-color: #b98e55;
- box-shadow: 0 5px 15px rgb(122 82 27 / 8%);
-}
-.history-era-tags {
- position: relative;
- z-index: 1;
- display: flex;
- flex-wrap: wrap;
- gap: 8px;
- margin: 14px 0 12px;
-}
-.history-era-tags span {
- padding: 5px 12px;
- border: 1px solid #e4d4bc;
- border-radius: 16px;
- background: #fdfaf5;
- color: #9b8365;
- font-family: Manrope, sans-serif;
- font-size: 11px;
-}
-.history-era-overview {
- position: relative;
- z-index: 1;
- max-width: 92%;
- margin: 0 0 16px;
- color: #4a443c;
- font-size: 14px;
- line-height: 1.7;
-}
-.history-era-facts {
- position: relative;
- z-index: 1;
- display: grid;
- grid-template-columns: repeat(4, 1fr);
- padding: 11px 0;
- border: 1px solid #e7dccd;
- border-radius: 10px;
- background: #f7f2ea;
-}
-.history-era-facts > div {
- display: flex;
- align-items: center;
- gap: 9px;
- min-width: 0;
- padding: 0 12px;
- border-right: 1px solid #e7dccd;
- color: #b98e55;
-}
-.history-era-facts > div:last-child {
- border-right: 0;
-}
-.history-era-facts p {
- display: grid;
- gap: 1px;
- min-width: 0;
- margin: 0;
-}
-.history-era-facts small {
- color: #9b8365;
- font-family: Manrope, sans-serif;
- font-size: 10px;
-}
-.history-era-facts b {
- overflow: hidden;
- color: #3a352e;
- font-size: 15px;
- text-overflow: ellipsis;
- white-space: nowrap;
-}
-.history-era-facts span {
- overflow: hidden;
- color: #b5a48b;
- font-family: Manrope, sans-serif;
- font-size: 10px;
- text-overflow: ellipsis;
- white-space: nowrap;
-}
-.history-era-highlights {
- position: relative;
- z-index: 1;
- margin-top: 16px;
-}
-.history-era-highlights header {
- display: flex;
- align-items: center;
- justify-content: space-between;
- margin-bottom: 10px;
-}
-.history-era-highlights header > b {
- color: #3a352e;
- font-size: 15px;
-}
-.history-era-highlights header > span {
- color: #b5a48b;
- font-family: Manrope, sans-serif;
- font-size: 11px;
-}
-.history-era-highlights > div {
- display: grid;
- grid-template-columns: repeat(3, 1fr);
- gap: 12px;
-}
-.history-era-highlights > div > button {
- display: grid;
- align-content: start;
- gap: 5px;
- min-height: 100px;
- padding: 12px;
- overflow: hidden;
- border: 1px solid #e7dccd;
- border-radius: 9px;
- background: #f7f2ea;
- color: #3a352e;
- text-align: left;
- transition:
-  border-color 0.16s ease,
-  box-shadow 0.16s ease,
-  transform 0.16s ease;
-}
-.history-era-highlights > div > button:hover {
- border-color: #b98e55;
- box-shadow: 0 5px 15px rgb(122 82 27 / 8%);
- transform: translateY(-1px);
-}
-.history-era-highlights small {
- color: #b98e55;
- font-family: Manrope, sans-serif;
- font-size: 10px;
-}
-.history-era-highlights b {
- color: #3a352e;
- font-size: 16px;
-}
-.history-era-highlights span {
- color: #9b8365;
- font-family: Manrope, sans-serif;
- font-size: 11px;
- line-height: 1.55;
-}
-
-/* 底部中国历史总时间轴 */
-.history-era-rail {
- display: flex;
- align-items: center;
- gap: 12px;
- margin-top: 26px;
- padding: 12px 14px;
- border: 1px solid #e4d9c8;
- border-radius: 18px;
- background: #faf7f2;
-}
-.history-era-rail-label {
- flex: 0 0 auto;
- padding-right: 14px;
- border-right: 1px solid #e4d9c8;
- color: #a18159;
- font-size: 11px;
- font-weight: 700;
- letter-spacing: 0.08em;
- white-space: nowrap;
-}
-.history-era-rail-track {
- display: flex;
- flex: 1;
- gap: 2px;
- min-width: 0;
- overflow-x: auto;
- scrollbar-width: thin;
- scrollbar-color: #e0d4c4 transparent;
-}
-.history-era-rail-track::-webkit-scrollbar {
- height: 6px;
-}
-.history-era-rail-track::-webkit-scrollbar-thumb {
- border-radius: 8px;
- background: #e0d4c4;
-}
-.history-era-rail-track button {
- position: relative;
- display: grid;
- flex: 0 0 auto;
- justify-items: center;
- gap: 3px;
- min-width: 58px;
- padding: 8px 6px 6px;
- border: 0;
- border-radius: 10px;
- background: transparent;
- color: #9b8365;
- font: inherit;
- transition:
-  background 0.15s ease,
-  box-shadow 0.15s ease;
-}
-.history-era-rail-track button i {
- width: 7px;
- height: 7px;
- border-radius: 50%;
- background: #c9a06a;
-}
-.history-era-rail-track b {
- font-size: 13px;
-}
-.history-era-rail-track small {
- color: #b5a48b;
- font-family: Manrope, sans-serif;
- font-size: 9px;
- white-space: nowrap;
-}
-.history-era-rail-track button:hover {
- background: rgb(185 142 85 / 8%);
-}
-.history-era-rail-track button.selected {
- background: #f1e7d6;
- box-shadow: 0 6px 14px rgb(102 64 18 / 12%);
-}
-.history-era-rail-track button.selected i {
- background: #b98e55;
- box-shadow: 0 0 0 1px #c9a06a;
-}
-.history-era-rail-track button.selected b,
-.history-era-rail-track button.selected small {
- color: #a18159;
-}
-.history-chronology-hint {
- margin: 16px 0 0;
- color: #b5a48b;
- font-family: Manrope, sans-serif;
- font-size: 12px;
- text-align: center;
-}
-
-@media (max-width: 1120px) {
- .history-explorer-main {
-  grid-template-columns: 1fr;
-  gap: 18px;
- }
- .history-wheel-viewport {
-  max-width: 560px;
- }
- .history-era-panel {
-  min-height: 0;
- }
- .history-era-panel h2 {
-  font-size: 56px;
- }
-}
-@media (max-width: 760px) {
- .history-home {
-  padding: 28px 17px 36px;
- }
- .history-home-masthead {
-  align-items: stretch;
+ .history-story-detail > header {
+  align-items: flex-start;
   flex-direction: column;
-  gap: 18px;
-  padding-bottom: 22px;
- }
- .history-home .history-heading h1 {
-  font-size: 40px;
- }
- .history-home .history-search {
-  width: 100%;
- }
- .history-era-panel {
-  padding: 24px 16px 18px;
- }
- .history-era-panel h2 {
-  font-size: 44px;
- }
- .history-era-overview {
-  max-width: 100%;
- }
- .history-era-facts {
-  grid-template-columns: repeat(2, 1fr);
-  gap: 12px 0;
- }
- .history-era-facts > div:nth-child(2) {
-  border-right: 0;
- }
- .history-era-facts > div {
-  padding: 0 9px;
- }
- .history-era-highlights > div {
-  grid-template-columns: 1fr;
- }
- .history-era-rail-label {
-  display: none;
  }
 }
-
 /* Markdown 工作台拖拽分隔条：窄命中区 + 悬停/拖动时显示细色线,拖动微调整栏宽。
  * 左侧句柄内联 left、右侧句柄内联 right,transform 居中于分隔线;拖动中加 .active 保持高亮。 */
 .wb-resizer {

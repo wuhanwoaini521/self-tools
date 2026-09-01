@@ -417,6 +417,9 @@ export default function App() {
               active={page === "history"}
               setNotice={setNotice}
               intent={historyIntent}
+              onNavigateToGeography={(request) =>
+                openGeography(request.entityId)
+              }
             />
           </section>
           <section
