@@ -96,7 +96,12 @@ export type ResearchPhase =
   | "validate_facts"
   | "generate_guide"
   | "save_guide";
-export type StepStatus = "pending" | "in_progress" | "done" | "failed" | "skipped";
+export type StepStatus =
+  | "pending"
+  | "in_progress"
+  | "done"
+  | "failed"
+  | "skipped";
 
 export interface TravelResearchEvent {
   phase: ResearchPhase;
@@ -282,28 +287,164 @@ export interface CityGuide {
 
 // ---------- History ----------
 
-export type HistoryNodeKind = "person" | "event" | "dynasty" | "place" | "war" | "institution" | "artifact" | "culture";
-export type HistoryRelationKind = "occurred_in" | "participated_in" | "belongs_to" | "cause" | "consequence" | "related_to" | "family" | "political_ally" | "political_opponent" | "monarch_minister" | "military_opponent" | "predecessor" | "successor";
-export type SourceAuthority = "official" | "museum" | "academic" | "reference" | "general";
+export type HistoryNodeKind =
+  | "person"
+  | "event"
+  | "dynasty"
+  | "place"
+  | "war"
+  | "institution"
+  | "artifact"
+  | "culture";
+export type HistoryRelationKind =
+  | "occurred_in"
+  | "participated_in"
+  | "belongs_to"
+  | "cause"
+  | "consequence"
+  | "related_to"
+  | "family"
+  | "political_ally"
+  | "political_opponent"
+  | "monarch_minister"
+  | "military_opponent"
+  | "predecessor"
+  | "successor";
+export type SourceAuthority =
+  | "official"
+  | "museum"
+  | "academic"
+  | "reference"
+  | "general";
 
-export interface HistoryPeriod { id: string; name: string; start_year: number; end_year: number; summary: string; }
-export interface HistoryNode { id: string; kind: HistoryNodeKind; title: string; period_id: string | null; start_year: number | null; end_year: number | null; summary: string; tags: string[]; source_ids: string[]; }
-export interface HistorySearchGroup { kind: HistoryNodeKind; items: HistoryNode[]; }
-export interface HistoryRelation { from_id: string; to_id: string; kind: HistoryRelationKind; note: string | null; }
-export interface HistoryRelationView { relation: HistoryRelation; node: HistoryNode; }
-export interface HistorySource { id: string; title: string; url: string; source_type: string; authority: SourceAuthority; published_at: number | null; fetched_at: number | null; }
-export interface HistorySection { title: string; items: string[]; }
-export interface DynastyDetail { detail_type: "dynasty"; name: string; start_year: number; end_year: number; capital: string | null; regime_type: string; overview: string; sections: HistorySection[]; }
-export interface PersonDetail { detail_type: "person"; name: string; born_year: number | null; died_year: number | null; identities: string[]; biography: string[]; achievements: string[]; controversies: string[]; }
-export interface EventDetail { detail_type: "event"; name: string; start_year: number; end_year: number | null; overview: string; background: string[]; trigger: string | null; course: string[]; results: string[]; impacts: string[]; debates: string[]; }
-export interface PlaceDetail { detail_type: "place"; name: string; modern_name: string | null; latitude: number | null; longitude: number | null; overview: string; historical_names: string[]; }
-export interface InstitutionDetail { detail_type: "institution"; name: string; overview: string; key_points: string[]; }
-export interface ArtifactDetail { detail_type: "artifact"; name: string; overview: string; collection: string | null; }
-export interface TopicDetail { detail_type: "topic"; overview: string; key_points: string[]; }
-export type HistoryDetail = DynastyDetail | PersonDetail | EventDetail | PlaceDetail | InstitutionDetail | ArtifactDetail | TopicDetail;
-export interface HistoryDocument { node: HistoryNode; detail: HistoryDetail; }
-export interface HistoryDetailView { document: HistoryDocument; relations: HistoryRelationView[]; sources: HistorySource[]; }
-export interface HistoryHome { timeline: HistoryPeriod[]; recommendation: HistoryNode; discoveries: HistoryNode[]; recent: HistoryNode[]; favorite_ids: string[]; }
+export interface HistorySection {
+  title: string;
+  items: string[];
+}
+export interface HistoryPeriod {
+  id: string;
+  name: string;
+  start_year: number;
+  end_year: number;
+  summary: string;
+}
+export interface HistoryNode {
+  id: string;
+  kind: HistoryNodeKind;
+  title: string;
+  period_id: string | null;
+  start_year: number | null;
+  end_year: number | null;
+  summary: string;
+  tags: string[];
+  source_ids: string[];
+}
+export interface HistorySearchGroup {
+  kind: HistoryNodeKind;
+  items: HistoryNode[];
+}
+export interface HistoryRelation {
+  from_id: string;
+  to_id: string;
+  kind: HistoryRelationKind;
+  note: string | null;
+}
+export interface HistoryRelationView {
+  relation: HistoryRelation;
+  node: HistoryNode;
+}
+export interface HistorySource {
+  id: string;
+  title: string;
+  url: string;
+  source_type: string;
+  authority: SourceAuthority;
+  published_at: number | null;
+  fetched_at: number | null;
+}
+export interface DynastyDetail {
+  detail_type: "dynasty";
+  name: string;
+  start_year: number;
+  end_year: number;
+  capital: string | null;
+  regime_type: string;
+  overview: string;
+  sections: HistorySection[];
+}
+export interface PersonDetail {
+  detail_type: "person";
+  name: string;
+  born_year: number | null;
+  died_year: number | null;
+  identities: string[];
+  biography: string[];
+  achievements: string[];
+  controversies: string[];
+}
+export interface EventDetail {
+  detail_type: "event";
+  name: string;
+  start_year: number;
+  end_year: number | null;
+  overview: string;
+  background: string[];
+  trigger: string | null;
+  course: string[];
+  results: string[];
+  impacts: string[];
+  debates: string[];
+}
+export interface PlaceDetail {
+  detail_type: "place";
+  name: string;
+  modern_name: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  overview: string;
+  historical_names: string[];
+}
+export interface InstitutionDetail {
+  detail_type: "institution";
+  name: string;
+  overview: string;
+  key_points: string[];
+}
+export interface ArtifactDetail {
+  detail_type: "artifact";
+  name: string;
+  overview: string;
+  collection: string | null;
+}
+export interface TopicDetail {
+  detail_type: "topic";
+  overview: string;
+  key_points: string[];
+}
+export type HistoryDetail =
+  | DynastyDetail
+  | PersonDetail
+  | EventDetail
+  | PlaceDetail
+  | InstitutionDetail
+  | ArtifactDetail
+  | TopicDetail;
+export interface HistoryDocument {
+  node: HistoryNode;
+  detail: HistoryDetail;
+}
+export interface HistoryDetailView {
+  document: HistoryDocument;
+  relations: HistoryRelationView[];
+  sources: HistorySource[];
+}
+export interface HistoryHome {
+  timeline: HistoryPeriod[];
+  recommendation: HistoryNode;
+  discoveries: HistoryNode[];
+  recent: HistoryNode[];
+  favorite_ids: string[];
+}
 
 // ---------- Geography Explorer ----------
 
@@ -330,10 +471,23 @@ export interface GeoCompareView { left: GeoEntity; right: GeoEntity; metrics: Co
 // ---------- Language ----------
 
 export type LanguageCode = "eng" | "jpn" | "cmn" | "yue";
-export type LanguageItemType = "WORD" | "PHRASE" | "SENTENCE" | "DIALOGUE" | "PASSAGE" | "GRAMMAR" | "PRONUNCIATION";
+export type LanguageItemType =
+  | "WORD"
+  | "PHRASE"
+  | "SENTENCE"
+  | "DIALOGUE"
+  | "PASSAGE"
+  | "GRAMMAR"
+  | "PRONUNCIATION";
 export type LearningStateKind = "new" | "learning" | "review" | "mastered";
 export type ReviewRating = "again" | "hard" | "good" | "easy";
-export type PronunciationScheme = "ARPABET" | "IPA" | "PINYIN" | "JYUTPING" | "KANA" | "ROMAJI";
+export type PronunciationScheme =
+  | "ARPABET"
+  | "IPA"
+  | "PINYIN"
+  | "JYUTPING"
+  | "KANA"
+  | "ROMAJI";
 
 export interface LanguageItem {
   id: string;
@@ -346,18 +500,103 @@ export interface LanguageItem {
   source: string;
 }
 
-export interface LanguageSearchHit { item: LanguageItem; matched: string; }
-export interface LanguageInfo { code: string; name: string; native_name: string; words: number; phrases: number; sentences: number; total: number; }
-export interface Meaning { id: string; item_id: string; pos: string | null; gloss: string | null; raw: string | null; sense_key: string | null; lang: string | null; rank: number; source: string; }
-export interface Pronunciation { id: string; item_id: string; scheme: PronunciationScheme; phonemes: string; tone: number | null; variant: string | null; source: string; }
-export interface LanguageRelation { id: string; from_item_id: string; to_item_id: string; kind: string; note: string | null; source: string; }
-export interface RelationView { relation: LanguageRelation; item: LanguageItem; label: string; }
-export interface ExampleView { text: string; translation: string | null; source: string; }
-export interface SentenceRecord { sentence_id: string; language: LanguageCode; text: string; author: string | null; license: string; source: string; }
-export interface KanjiView { stroke_count: number | null; grade: number | null; radical: number | null; jlpt: string | null; }
-export interface LicenseKindUnion { kind: string; attribution_required: boolean; commercial_use_allowed: boolean; redistribution_allowed: boolean; share_alike_required: boolean; }
-export interface LanguageSource { id: string; name: string; homepage: string; download_source: string; dataset_version: string; downloaded_at: number | null; license: LicenseKindUnion; license_url: string | null; attribution: string; commercial_use: boolean; redistribution: boolean; notes: string | null; }
-export interface LearningState { item_id: string; state: LearningStateKind; interval_days: number; ease: number; due_at: number; review_count: number; lapses: number; started_at: number; updated_at: number; }
+export interface LanguageSearchHit {
+  item: LanguageItem;
+  matched: string;
+}
+export interface LanguageInfo {
+  code: string;
+  name: string;
+  native_name: string;
+  words: number;
+  phrases: number;
+  sentences: number;
+  total: number;
+}
+export interface Meaning {
+  id: string;
+  item_id: string;
+  pos: string | null;
+  gloss: string | null;
+  raw: string | null;
+  sense_key: string | null;
+  lang: string | null;
+  rank: number;
+  source: string;
+}
+export interface Pronunciation {
+  id: string;
+  item_id: string;
+  scheme: PronunciationScheme;
+  phonemes: string;
+  tone: number | null;
+  variant: string | null;
+  source: string;
+}
+export interface LanguageRelation {
+  id: string;
+  from_item_id: string;
+  to_item_id: string;
+  kind: string;
+  note: string | null;
+  source: string;
+}
+export interface RelationView {
+  relation: LanguageRelation;
+  item: LanguageItem;
+  label: string;
+}
+export interface ExampleView {
+  text: string;
+  translation: string | null;
+  source: string;
+}
+export interface SentenceRecord {
+  sentence_id: string;
+  language: LanguageCode;
+  text: string;
+  author: string | null;
+  license: string;
+  source: string;
+}
+export interface KanjiView {
+  stroke_count: number | null;
+  grade: number | null;
+  radical: number | null;
+  jlpt: string | null;
+}
+export interface LicenseKindUnion {
+  kind: string;
+  attribution_required: boolean;
+  commercial_use_allowed: boolean;
+  redistribution_allowed: boolean;
+  share_alike_required: boolean;
+}
+export interface LanguageSource {
+  id: string;
+  name: string;
+  homepage: string;
+  download_source: string;
+  dataset_version: string;
+  downloaded_at: number | null;
+  license: LicenseKindUnion;
+  license_url: string | null;
+  attribution: string;
+  commercial_use: boolean;
+  redistribution: boolean;
+  notes: string | null;
+}
+export interface LearningState {
+  item_id: string;
+  state: LearningStateKind;
+  interval_days: number;
+  ease: number;
+  due_at: number;
+  review_count: number;
+  lapses: number;
+  started_at: number;
+  updated_at: number;
+}
 export interface WordDetail {
   item: LanguageItem;
   meanings: Meaning[];
@@ -370,14 +609,72 @@ export interface WordDetail {
   source: LanguageSource | null;
   kanji: KanjiView | null;
 }
-export interface TodayPlan { due_reviews: number; new_words: number; sentences: number; listening: number; speaking: number; total: number; }
-export interface TodayView { language: string; plan: TodayPlan; languages: LanguageInfo[]; }
-export interface ReviewCard { item: LanguageItem; state: LearningStateKind; }
-export interface ReviewOutcome { state: LearningStateKind; interval_days: number; ease: number; due_at: number; lapses: number; }
-export interface ProgressView { total: number; mastered: number; learning: number; reviews: number; favorites: number; }
-export interface DatasetManifest { id: string; name: string; language: string; version: string; downloaded_at: number | null; source_id: string; checksum: string | null; raw_file: string | null; record_count: number; importer_version: number; imported_at: number; }
-export interface SourceInfo { source: LanguageSource; item_count: number; manifest: DatasetManifest | null; }
-export interface ManifestInfo { manifest: DatasetManifest; item_count: number; }
-export interface DatasetReport { id: string; name: string; inserted: number; updated: number; }
-export interface StarterReport { datasets: DatasetReport[]; total_inserted: number; total_updated: number; }
-export interface SpeakingScore { accuracy: number; completeness: number; fluency: number; }
+export interface TodayPlan {
+  due_reviews: number;
+  new_words: number;
+  sentences: number;
+  listening: number;
+  speaking: number;
+  total: number;
+}
+export interface TodayView {
+  language: string;
+  plan: TodayPlan;
+  languages: LanguageInfo[];
+}
+export interface ReviewCard {
+  item: LanguageItem;
+  state: LearningStateKind;
+}
+export interface ReviewOutcome {
+  state: LearningStateKind;
+  interval_days: number;
+  ease: number;
+  due_at: number;
+  lapses: number;
+}
+export interface ProgressView {
+  total: number;
+  mastered: number;
+  learning: number;
+  reviews: number;
+  favorites: number;
+}
+export interface DatasetManifest {
+  id: string;
+  name: string;
+  language: string;
+  version: string;
+  downloaded_at: number | null;
+  source_id: string;
+  checksum: string | null;
+  raw_file: string | null;
+  record_count: number;
+  importer_version: number;
+  imported_at: number;
+}
+export interface SourceInfo {
+  source: LanguageSource;
+  item_count: number;
+  manifest: DatasetManifest | null;
+}
+export interface ManifestInfo {
+  manifest: DatasetManifest;
+  item_count: number;
+}
+export interface DatasetReport {
+  id: string;
+  name: string;
+  inserted: number;
+  updated: number;
+}
+export interface StarterReport {
+  datasets: DatasetReport[];
+  total_inserted: number;
+  total_updated: number;
+}
+export interface SpeakingScore {
+  accuracy: number;
+  completeness: number;
+  fluency: number;
+}
