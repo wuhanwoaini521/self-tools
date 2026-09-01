@@ -174,7 +174,12 @@ function DetailSections({ detail }: { detail: HistoryDetail }) {
     <HistoryList title="成就与影响" items={detail.achievements} />
     <HistoryList title="争议与评价" items={detail.controversies} muted />
   </>;
-  if (detail.detail_type === "dynasty") return <><HistoryList title="王朝概览" items={[detail.overview]} /><HistoryList title="政权性质" items={[detail.regime_type]} />{detail.capital ? <HistoryList title="都城" items={[detail.capital]} /> : null}</>;
+  if (detail.detail_type === "dynasty") return <>
+    <HistoryList title="王朝概览" items={[detail.overview]} />
+    {detail.sections.map((section) => <HistoryList key={section.title} title={section.title} items={section.items} />)}
+    <HistoryList title="政权性质" items={[detail.regime_type]} />
+    {detail.capital ? <HistoryList title="都城" items={[detail.capital]} /> : null}
+  </>;
   if (detail.detail_type === "place") return <><HistoryList title="地点概览" items={[detail.overview]} />{detail.modern_name ? <HistoryList title="现代名称" items={[detail.modern_name]} /> : null}{detail.historical_names.length ? <HistoryList title="历史名称" items={detail.historical_names} /> : null}</>;
   if (detail.detail_type === "institution") return <><HistoryList title="制度概览" items={[detail.overview]} /><HistoryList title="理解要点" items={detail.key_points} /></>;
   if (detail.detail_type === "artifact") return <><HistoryList title="文物概览" items={[detail.overview]} />{detail.collection ? <HistoryList title="收藏单位" items={[detail.collection]} /> : null}</>;

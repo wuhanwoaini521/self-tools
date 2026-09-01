@@ -7,6 +7,6 @@ pub use model::{
     Dynasty, HistoricalArtifact, HistoricalEvent, HistoricalInstitution, HistoricalPerson,
     HistoricalPlace, HistoryDetail, HistoryDetailView, HistoryDocument, HistoryFact, HistoryNode,
     HistoryNodeKind, HistoryPeriod, HistoryRelation, HistoryRelationKind, HistoryRelationView,
-    HistorySearchGroup, HistorySource, SourceAuthority,
+    HistorySearchGroup, HistorySection, HistorySource, SourceAuthority,
 };
 pub use recommendation::HistoryRecommendationService;

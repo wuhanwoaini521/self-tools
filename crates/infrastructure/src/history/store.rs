@@ -5,7 +5,8 @@ use std::path::Path;
 use devtoolbox_core::history::{
     Dynasty, HistoricalArtifact, HistoricalEvent, HistoricalInstitution, HistoricalPerson,
     HistoricalPlace, HistoryDetail, HistoryDocument, HistoryFact, HistoryNode, HistoryNodeKind,
-    HistoryPeriod, HistoryRelation, HistoryRelationKind, HistorySource, SourceAuthority,
+    HistoryPeriod, HistoryRelation, HistoryRelationKind, HistorySection, HistorySource,
+    SourceAuthority,
 };
 use rusqlite::{Connection, OptionalExtension, params};
 
@@ -28,7 +29,7 @@ impl HistoryStore {
             .map_err(|error| InfrastructureError::Sqlite(error.to_string()))?;
         let mut store = Self { connection };
         store.ensure_schema()?;
-        store.seed_if_empty()?;
+        store.sync_seed_data()?;
         Ok(store)
     }
 
@@ -70,9 +71,9 @@ impl HistoryStore {
         ).map_err(|error| InfrastructureError::Sqlite(error.to_string()))
     }
 
-    fn seed_if_empty(&mut self) -> Result<(), InfrastructureError> {
-        // 种子按稳定 id 幂等补齐，升级时新增时期可进入已有资料库，
-        // 同时不会覆盖用户的收藏和浏览历史。
+    fn sync_seed_data(&mut self) -> Result<(), InfrastructureError> {
+        // 内置资料按稳定 id 升级；收藏、浏览和搜索记录保存在独立表，
+        // 因此资料修订不会影响用户状态。
         let transaction = self
             .connection
             .transaction()
@@ -355,7 +356,17 @@ fn insert_document(
         .map_err(|error| InfrastructureError::Sqlite(error.to_string()))?;
     transaction
         .execute(
-            "INSERT OR IGNORE INTO history_nodes VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+            "INSERT INTO history_nodes VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
+             ON CONFLICT(id) DO UPDATE SET
+                kind = excluded.kind,
+                title = excluded.title,
+                period_id = excluded.period_id,
+                start_year = excluded.start_year,
+                end_year = excluded.end_year,
+                summary = excluded.summary,
+                tags_json = excluded.tags_json,
+                source_ids_json = excluded.source_ids_json,
+                detail_json = excluded.detail_json",
             params![
                 node.id,
                 node_kind_name(node.kind),
@@ -573,7 +584,7 @@ fn seed_documents() -> Vec<HistoryDocument> {
         era_topic("western-zhou", "西周", -1046, -771, "以宗法、分封与礼乐制度为主要特征的王朝。", &["分封与宗法共同维系政治秩序。", "王室东迁后进入东周时期。"]),
         era_topic("spring-autumn", "春秋", -770, -476, "诸侯争霸加剧、旧秩序不断调整的时期。", &["周王室权威下降，诸侯国力量上升。", "外交、战争与礼制均在变化。"]),
         era_topic("warring-states", "战国", -475, -221, "七雄竞争与制度创新并行，为统一帝国准备了条件。", &["变法推动军政与经济能力重组。", "诸子百家形成重要思想传统。"]),
-        HistoryDocument { node: node("qin", HistoryNodeKind::Dynasty, "秦朝", "qin", -221, Some(-206), "中国首个完成大一统的中央集权王朝。", &["秦始皇", "郡县制", "统一六国"]), detail: HistoryDetail::Dynasty(Dynasty { name: "秦朝".into(), start_year: -221, end_year: -206, capital: Some("咸阳".into()), regime_type: "统一王朝".into(), overview: "秦以郡县制、统一文字度量衡等措施奠定大一统治理的制度基础。".into() }) },
+        HistoryDocument { node: node("qin", HistoryNodeKind::Dynasty, "秦朝", "qin", -221, Some(-206), "中国首个完成大一统的中央集权王朝。", &["秦始皇", "郡县制", "统一六国"]), detail: HistoryDetail::Dynasty(Dynasty { name: "秦朝".into(), start_year: -221, end_year: -206, capital: Some("咸阳".into()), regime_type: "统一王朝".into(), overview: "秦以郡县制、统一文字度量衡等措施奠定大一统治理的制度基础。".into(), sections: vec![] }) },
         era_topic("western-han", "西汉", -202, 8, "汉初在秦制基础上调整，逐步形成稳定的大一统治理。", &["郡国并行是早期重要制度特征。", "与西域联系的开拓影响深远。"]),
         era_topic("eastern-han", "东汉", 25, 220, "东汉后期地方势力与政治矛盾加深，最终走向分裂。", &["外戚、宦官与豪强影响中央政治。", "黄巾起义后各地军阀力量扩张。"]),
         era_topic("three-kingdoms", "三国", 220, 280, "魏、蜀、吴并立的时期，不能简化为单一朝代。", &["政权并存与战争塑造了区域格局。", "赤壁之战是理解三方形成的重要节点。"]),
@@ -581,11 +592,57 @@ fn seed_documents() -> Vec<HistoryDocument> {
         era_topic("eastern-jin", "东晋", 317, 420, "以建康为中心的南方政权，与北方多个政权长期对峙。", &["江南地区持续开发。", "淝水之战巩固了短期稳定。"]),
         era_topic("northern-southern", "南北朝", 420, 589, "多个南北政权并存、民族与文化交流频繁的时期。", &["政权更替频繁，制度与文化发展并未中断。", "为隋唐统一积累条件。"]),
         era_topic("sui", "隋", 581, 618, "结束长期分裂并重新统一的短命王朝。", &["大运河影响南北交通与经济联系。", "制度建设对唐朝具有承接意义。"]),
-        HistoryDocument { node: node("tang", HistoryNodeKind::Dynasty, "唐朝", "tang", 618, Some(907), "一个文化开放、制度成熟而后期经历深刻转折的王朝。", &["长安", "安史之乱", "科举"]), detail: HistoryDetail::Dynasty(Dynasty { name: "唐朝".into(), start_year: 618, end_year: 907, capital: Some("长安".into()), regime_type: "统一王朝".into(), overview: "唐朝前期形成较强中央政府，安史之乱后藩镇、宦官等问题加剧。".into() }) },
+        HistoryDocument {
+            node: node("tang", HistoryNodeKind::Dynasty, "唐朝", "tang", 618, Some(907), "一个文化开放、制度成熟而后期经历深刻转折的王朝。", &["长安", "安史之乱", "科举"]),
+            detail: HistoryDetail::Dynasty(Dynasty {
+                name: "唐朝".into(),
+                start_year: 618,
+                end_year: 907,
+                capital: Some("长安".into()),
+                regime_type: "统一王朝".into(),
+                overview: "唐朝（618—907）由李渊建立，以长安为政治中心。它承接隋代制度基础，在唐太宗、武则天、唐玄宗前期先后发展，形成兼具中央集权、开放交流与多元文化特征的帝国。安史之乱后，中央与地方关系、财政和军事体系持续重组，最终在晚唐的藩镇与政治危机中结束。".into(),
+                sections: vec![
+                    HistorySection { title: "时代脉络".into(), items: vec![
+                        "618年李渊在长安称帝建唐；626年李世民即位，贞观时期完成对隋末秩序的整合。".into(),
+                        "武则天执政与称帝期间，科举取士和官僚选拔继续发展，唐的统治范围与行政能力得到巩固。".into(),
+                        "开元前期国力强盛，长安、洛阳和江淮经济区共同支撑帝国运转；755年安史之乱成为由盛转衰的关键节点。".into(),
+                        "叛乱平定后，唐廷仍延续一个多世纪，但藩镇坐大、宦官干政和财政困境反复出现；907年朱温废唐，五代十国开始。".into(),
+                    ]},
+                    HistorySection { title: "政治与制度".into(), items: vec![
+                        "中央以三省六部为骨架处理政务，中书出令、门下审议、尚书执行，实际运行会随皇权与宰相集团的力量变化而调整。".into(),
+                        "州县是地方治理的基本层级；边疆与军事重镇设置节度使，本为边防安排，后期逐渐发展为拥有较强军政财权的地方力量。".into(),
+                        "科举与门荫、荐举并行。进士科地位上升，扩大了士人进入官僚体系的渠道，但并未完全取代门第和政治关系。".into(),
+                        "律、令、格、式共同构成制度规范；《唐律疏议》是研究唐代法律与后世东亚法制影响的重要材料。".into(),
+                    ]},
+                    HistorySection { title: "经济与社会".into(), items: vec![
+                        "前期以均田、租庸调和府兵等制度为重要基础；人口流动、土地兼并与财政需求变化，使这些制度的实际运作逐步调整。".into(),
+                        "安史之乱后，两税法按资产和土地征收，是财政从以人丁与实物为重转向以财产、货币联系为重的重要变化。".into(),
+                        "农业生产重心继续向江南拓展，运河和水路连接南北。长安、洛阳、扬州等城市汇聚官员、商人、手工业者与外来人口。".into(),
+                        "社会身份和财富来源日益多样，但宗族、地域、门第及官僚网络仍深刻影响个人上升与地方秩序。".into(),
+                    ]},
+                    HistorySection { title: "文化与对外交流".into(), items: vec![
+                        "唐诗达到高峰，李白、杜甫、王维、白居易等人的创作展现了不同社会经验与审美传统；书法、绘画、音乐也高度繁荣。".into(),
+                        "佛教、道教与儒家思想互动频繁，玄奘西行、译经与寺院经济体现了宗教网络的广泛影响。".into(),
+                        "陆上丝绸之路与海上贸易把唐与中亚、南亚、西亚及东亚连接起来。长安城内的胡商、使节和宗教社群反映了这种交流。".into(),
+                        "唐的制度、文字与文化通过朝贡、留学和贸易影响周边地区，但这种影响是双向交流，并非单向传播。".into(),
+                    ]},
+                    HistorySection { title: "危机、转型与覆亡".into(), items: vec![
+                        "安史之乱的爆发与边镇权力膨胀、中央财政军事压力及政治矛盾相关，不能仅归因于个别人物。".into(),
+                        "平乱后，河北等地部分藩镇长期保有较大自主性；宦官掌握禁军并影响皇位继承，中央权力受到多重制约。".into(),
+                        "9世纪后期，财政压力、党争、民变与地方军事力量交织。黄巢起义冲击统治基础，朱温最终取代唐室。".into(),
+                    ]},
+                    HistorySection { title: "历史影响".into(), items: vec![
+                        "唐代在政治制度、法律、科举、城市生活和文化生产方面留下深远遗产，常被后世视为理解中古中国的重要高峰。".into(),
+                        "它的兴衰也说明：边防体系、财政结构与中央—地方关系彼此牵动，繁荣并不自动意味着长期稳定。".into(),
+                        "研究唐朝应同时阅读正史、制度文献、诗文与墓志，并结合考古材料；对具体事件和数字需要注意史料立场与学界分歧。".into(),
+                    ]},
+                ],
+            }),
+        },
         era_topic("five-dynasties", "五代十国", 907, 979, "北方多朝更替、南方多政权并存的过渡时期。", &["不能用单一王朝线解释全国局势。", "区域经济与文化持续发展。"]),
-        HistoryDocument { node: node("northern-song", HistoryNodeKind::Dynasty, "北宋", "northern-song", 960, Some(1127), "与辽、西夏长期并存的中原王朝。", &["辽", "西夏", "燕云十六州", "王安石"]), detail: HistoryDetail::Dynasty(Dynasty { name: "北宋".into(), start_year: 960, end_year: 1127, capital: Some("东京开封府".into()), regime_type: "并存政权".into(), overview: "北宋与辽、西夏同时存在，政治、财政与边防问题彼此交织。".into() }) },
-        HistoryDocument { node: node("liao", HistoryNodeKind::Dynasty, "辽", "liao", 916, Some(1125), "契丹建立的政权，与北宋长期并存。", &["契丹", "北宋", "澶渊之盟"]), detail: HistoryDetail::Dynasty(Dynasty { name: "辽".into(), start_year: 916, end_year: 1125, capital: Some("上京临潢府".into()), regime_type: "并存政权".into(), overview: "辽的存在说明中国历史时间线并非单一王朝接续。".into() }) },
-        HistoryDocument { node: node("western-xia", HistoryNodeKind::Dynasty, "西夏", "western-xia", 1038, Some(1227), "党项建立的政权，先后与北宋、辽、金、南宋并存。", &["党项", "北宋", "南宋", "金"]), detail: HistoryDetail::Dynasty(Dynasty { name: "西夏".into(), start_year: 1038, end_year: 1227, capital: Some("兴庆府".into()), regime_type: "并存政权".into(), overview: "西夏是理解宋辽金夏并存格局的重要节点。".into() }) },
+        HistoryDocument { node: node("northern-song", HistoryNodeKind::Dynasty, "北宋", "northern-song", 960, Some(1127), "与辽、西夏长期并存的中原王朝。", &["辽", "西夏", "燕云十六州", "王安石"]), detail: HistoryDetail::Dynasty(Dynasty { name: "北宋".into(), start_year: 960, end_year: 1127, capital: Some("东京开封府".into()), regime_type: "并存政权".into(), overview: "北宋与辽、西夏同时存在，政治、财政与边防问题彼此交织。".into(), sections: vec![] }) },
+        HistoryDocument { node: node("liao", HistoryNodeKind::Dynasty, "辽", "liao", 916, Some(1125), "契丹建立的政权，与北宋长期并存。", &["契丹", "北宋", "澶渊之盟"]), detail: HistoryDetail::Dynasty(Dynasty { name: "辽".into(), start_year: 916, end_year: 1125, capital: Some("上京临潢府".into()), regime_type: "并存政权".into(), overview: "辽的存在说明中国历史时间线并非单一王朝接续。".into(), sections: vec![] }) },
+        HistoryDocument { node: node("western-xia", HistoryNodeKind::Dynasty, "西夏", "western-xia", 1038, Some(1227), "党项建立的政权，先后与北宋、辽、金、南宋并存。", &["党项", "北宋", "南宋", "金"]), detail: HistoryDetail::Dynasty(Dynasty { name: "西夏".into(), start_year: 1038, end_year: 1227, capital: Some("兴庆府".into()), regime_type: "并存政权".into(), overview: "西夏是理解宋辽金夏并存格局的重要节点。".into(), sections: vec![] }) },
         era_topic("southern-song", "南宋", 1127, 1279, "以临安为都，与金、西夏等政权长期并存。", &["江南经济文化进一步发展。", "与北方政权的战争与外交贯穿始终。"]),
         era_topic("jin", "金", 1115, 1234, "女真建立的政权，先后与北宋、南宋、西夏并存。", &["灭北宋后改变北方政治格局。", "其兴衰与蒙古崛起密切相关。"]),
         era_topic("yuan", "元", 1271, 1368, "蒙古建立的统一王朝，形成更广阔的欧亚交流网络。", &["行省制度对后世地方治理影响深远。", "交通与商业网络更加扩展。"]),
@@ -777,5 +834,37 @@ mod tests {
             .sources(&["baike".into(), "academic".into()])
             .expect("sources");
         assert_eq!(sources[0].id, "academic");
+    }
+
+    #[test]
+    fn reopening_upgrades_seeded_documents_without_resetting_favorites() {
+        let dir = tempdir().expect("tempdir");
+        let path = dir.path().join("history.db");
+        let store = HistoryStore::open(&path).expect("store");
+        assert!(store.toggle_favorite("tang").expect("favorite"));
+        store
+            .connection
+            .execute(
+                "UPDATE history_nodes SET detail_json = ?1 WHERE id = 'tang'",
+                [r#"{"detail_type":"dynasty","name":"唐朝","start_year":618,"end_year":907,"capital":"长安","regime_type":"统一王朝","overview":"旧资料"}"#],
+            )
+            .expect("write legacy document");
+        drop(store);
+
+        let upgraded = HistoryStore::open(&path).expect("reopen");
+        let Some(HistoryDocument {
+            detail: HistoryDetail::Dynasty(tang),
+            ..
+        }) = upgraded.document("tang").expect("document")
+        else {
+            panic!("唐朝应保留为朝代详情");
+        };
+        assert!(!tang.sections.is_empty());
+        assert!(
+            upgraded
+                .favorite_ids()
+                .expect("favorites")
+                .contains(&"tang".into())
+        );
     }
 }

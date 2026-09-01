@@ -292,7 +292,8 @@ export interface HistorySearchGroup { kind: HistoryNodeKind; items: HistoryNode[
 export interface HistoryRelation { from_id: string; to_id: string; kind: HistoryRelationKind; note: string | null; }
 export interface HistoryRelationView { relation: HistoryRelation; node: HistoryNode; }
 export interface HistorySource { id: string; title: string; url: string; source_type: string; authority: SourceAuthority; published_at: number | null; fetched_at: number | null; }
-export interface DynastyDetail { detail_type: "dynasty"; name: string; start_year: number; end_year: number; capital: string | null; regime_type: string; overview: string; }
+export interface HistorySection { title: string; items: string[]; }
+export interface DynastyDetail { detail_type: "dynasty"; name: string; start_year: number; end_year: number; capital: string | null; regime_type: string; overview: string; sections: HistorySection[]; }
 export interface PersonDetail { detail_type: "person"; name: string; born_year: number | null; died_year: number | null; identities: string[]; biography: string[]; achievements: string[]; controversies: string[]; }
 export interface EventDetail { detail_type: "event"; name: string; start_year: number; end_year: number | null; overview: string; background: string[]; trigger: string | null; course: string[]; results: string[]; impacts: string[]; debates: string[]; }
 export interface PlaceDetail { detail_type: "place"; name: string; modern_name: string | null; latitude: number | null; longitude: number | null; overview: string; historical_names: string[]; }

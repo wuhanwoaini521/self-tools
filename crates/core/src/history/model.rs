@@ -64,6 +64,15 @@ pub struct Dynasty {
     pub capital: Option<String>,
     pub regime_type: String,
     pub overview: String,
+    /// 朝代详情采用可扩展的专题分节，避免资料只能容纳一段概览。
+    #[serde(default)]
+    pub sections: Vec<HistorySection>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct HistorySection {
+    pub title: String,
+    pub items: Vec<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
