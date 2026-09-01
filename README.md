@@ -9,6 +9,7 @@
 - **RSS** — 订阅阅读器：添加 / 删除订阅、未读计数、定时后台刷新、SQLite 持久化
 - **Travel** — 旅行研究 Agent：输入城市 → 自动规划搜索任务 → 搜索国内互联网（Bing 中国 / 百度 / 本地 SearXNG，均可配置）→ 抓取网页 → 事实提取 → 来源可信度排序 → 多源验证与冲突检测 → 生成结构化攻略（含 Sources）并本地缓存（24h/7d）。未配置 LLM / API Key 时仍可运行（降级为“来源 + 基础信息”模式，绝不编造）
 - **Language** — 多语言学习中心（English / Japanese 完整闭环 + Mandarin / Cantonese 统一架构）：离线优先的词典/搜索/例句/收藏/学习状态/间隔复习/听力/口语，数据全部来自**可追溯的开放数据集**（Open English WordNet + CMUdict、JMdict + KANJIDIC2、CC-CEDICT、words.hk + CC-Canto、Tatoeba），许可与 attribution 在 Settings → Language Data 完整展示；内置 Starter Pack（真实数据子集）首次运行即可安装，完整数据包用 `language-data import …` 导入（见 `docs/language/DATA_SOURCES.md`）
+- **Geography** — Geography Explorer：离线优先的地理实体、关系、问题式 Daily Discovery、可点击探索画布、搜索、比较、收藏与来源追溯；当前使用小型内置种子数据，正式边界和大规模几何在许可核验后再导入（见 `docs/geography/`）
 
 技术栈：Rust + Tauri 2 + React 19 + CodeMirror 6。
 
@@ -130,7 +131,7 @@ npm --prefix apps/desktop/ui exec -- tauri build
 ├── apps/
 │   └── desktop/             # Tauri 桌面适配器（命令层 + AppState）
 │       ├── src/             # Tauri 命令 / 事件边界（文档 / RSS / Travel / History / Language 各自独立）
-│       └── ui/              # React 19 前端：外壳(导航) + features(home/markdown/rss/travel/history/language)
+│       └── ui/              # React 19 前端：外壳(导航) + features(home/markdown/rss/travel/history/language/geography)
 ├── tests/fixtures/          # 跨实现共享的 Markdown 行为样例
 ├── data/                   # 原始数据集（gitignored）+ 生成数据
 ├── tests/fixtures/language/ # Language 真实数据子集（Starter Pack，attribution 完整）

@@ -23,6 +23,12 @@ pub enum ApplicationError {
     History { source: InfrastructureError },
     #[error("history data error: {0}")]
     HistoryData(String),
+    #[error("geography error: {source}")]
+    Geography { source: InfrastructureError },
+    #[error("geography data error: {0}")]
+    GeographyData(String),
+    #[error("geography compare error: {0}")]
+    GeographyCompare(String),
     #[error("operation failed for {path}: {source}")]
     Infrastructure {
         path: PathBuf,

@@ -16,6 +16,11 @@ export interface TravelSettings {
   baidu_map_api_key: string | null;
 }
 
+export interface GeographySettings {
+  amap_api_key: string | null;
+  amap_security_js_code: string | null;
+}
+
 export interface AppSettings {
   schema_version: number;
   recent_files: string[];
@@ -30,6 +35,8 @@ export interface AppSettings {
   markdown_default_view: MarkdownView;
   /** Travel 模块设置（全部可选，未配置时模块仍可用） */
   travel: TravelSettings;
+  /** Geography 模块设置（全部可选，未配置时模块仍可用） */
+  geography: GeographySettings;
 }
 
 export interface DocumentDto {
@@ -296,6 +303,28 @@ export type HistoryDetail = DynastyDetail | PersonDetail | EventDetail | PlaceDe
 export interface HistoryDocument { node: HistoryNode; detail: HistoryDetail; }
 export interface HistoryDetailView { document: HistoryDocument; relations: HistoryRelationView[]; sources: HistorySource[]; }
 export interface HistoryHome { timeline: HistoryPeriod[]; recommendation: HistoryNode; discoveries: HistoryNode[]; recent: HistoryNode[]; favorite_ids: string[]; }
+
+// ---------- Geography Explorer ----------
+
+export type GeoEntityType = "world" | "country" | "region" | "province" | "city" | "river" | "mountain" | "mountain_range" | "plateau" | "plain" | "basin" | "desert" | "lake" | "ocean" | "sea" | "island" | "archipelago" | "climate_zone" | "tectonic_plate";
+export type CoordinateSystem = "WGS84" | "GCJ02" | "BD09";
+export type GeoRelationKind = "LOCATED_IN" | "PART_OF" | "BORDERS" | "FLOWS_THROUGH" | "SOURCE_OF" | "FLOWS_INTO" | "CONNECTED_TO" | "NEAR" | "CROSSES" | "SURROUNDS" | "AFFECTS" | "INFLUENCES" | "FORMED_BY" | "CAUSES" | "BELONGS_TO_CLIMATE_ZONE";
+export type GeoRecommendationKind = "entity" | "question";
+
+export interface GeoCoordinate { system: CoordinateSystem; latitude: number; longitude: number; }
+export interface GeoProperty { key: string; label: string; value: string; unit: string | null; source_ids: string[]; }
+export interface GeoEntity { id: string; entity_type: GeoEntityType; name: string; name_en: string | null; aliases: string[]; coordinates: GeoCoordinate | null; geometry: unknown; parent_id: string | null; properties: GeoProperty[]; summary: string; source_ids: string[]; }
+export interface GeoRelation { from_id: string; to_id: string; kind: GeoRelationKind; note: string | null; source_ids: string[]; }
+export interface GeoSource { id: string; dataset: string; version: string; url: string; license: string; updated_at: string; fields: string[]; }
+export interface GeoRelationView { relation: GeoRelation; entity: GeoEntity; }
+export interface GeoEntityDetail { entity: GeoEntity; relations: GeoRelationView[]; sources: GeoSource[]; favorite: boolean; }
+export interface GeoSearchGroup { entity_type: GeoEntityType; items: GeoEntity[]; }
+export interface GeoRecommendation { kind: GeoRecommendationKind; title: string; question: string; entity_id: string; tags: string[]; }
+export interface GeoMapPoint { entity_id: string; name: string; entity_type: GeoEntityType; coordinate: GeoCoordinate; }
+export interface GeoMapLine { from_id: string; to_id: string; kind: GeoRelationKind; from: GeoCoordinate; to: GeoCoordinate; }
+export interface GeographyHome { recommendation: GeoRecommendation; featured: GeoEntity[]; recent: GeoEntity[]; favorite_ids: string[]; map_points: GeoMapPoint[]; map_lines: GeoMapLine[]; }
+export interface CompareMetric { label: string; key: string; left: string | null; right: string | null; unit: string | null; }
+export interface GeoCompareView { left: GeoEntity; right: GeoEntity; metrics: CompareMetric[]; explanation: string; }
 
 // ---------- Language ----------
 

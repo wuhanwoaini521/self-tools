@@ -23,6 +23,7 @@ export const LANGUAGE_CODES: LanguageCode[] = ["eng", "jpn", "cmn", "yue"];
 interface LanguagePageProps {
   active: boolean;
   setNotice: (message: string) => void;
+  intent?: { id: string; nonce: number } | null;
 }
 
 /**
@@ -30,7 +31,7 @@ interface LanguagePageProps {
  * 页面围绕学习目标组织（Today / Explore / Review / Listen / Speak / Library），
  * 数据全部来自本地 language.db；未安装数据包时引导安装 Starter Pack（离线可用）。
  */
-export function LanguagePage({ active, setNotice }: LanguagePageProps) {
+export function LanguagePage({ active, setNotice, intent }: LanguagePageProps) {
   const [tab, setTab] = useState<LanguageTab>("today");
   const [language, setLanguage] = useState<LanguageCode>("jpn");
   const [languages, setLanguages] = useState<LanguageInfo[]>([]);
@@ -91,6 +92,10 @@ export function LanguagePage({ active, setNotice }: LanguagePageProps) {
       setOpenIntent({ id, nonce: Date.now() });
     }
   }, []);
+
+  useEffect(() => {
+    if (active && intent?.id && hasData) openDetail(intent.id, false);
+  }, [active, hasData, intent, openDetail]);
 
   const onDetailUpdated = useCallback(() => {
     setRefreshNonce((nonce) => nonce + 1);

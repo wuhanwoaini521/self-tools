@@ -1,7 +1,8 @@
 import { invoke } from "@tauri-apps/api/core";
 import { Database, X } from "@phosphor-icons/react";
 import { useCallback, useEffect, useState } from "react";
-import type { SourceInfo, StarterReport, TravelSearchBackend, TravelSettings } from "./types";
+import type { GeographySettings, SourceInfo, StarterReport, TravelSearchBackend, TravelSettings } from "./types";
+import { loadAmap } from "./features/geography/AmapMap";
 import { allThemes, getTheme } from "./theme/ThemeManager";
 import { errorMessage, isTauriRuntime } from "./utils";
 
@@ -12,6 +13,8 @@ interface SettingsDialogProps {
   onRefreshMinutesChange: (minutes: number) => void;
   travel: TravelSettings;
   onTravelChange: (travel: TravelSettings) => void;
+  geography: GeographySettings;
+  onGeographyChange: (geography: GeographySettings) => void;
   onClose: () => void;
 }
 
@@ -29,18 +32,21 @@ const SEARCH_BACKENDS: { value: TravelSearchBackend; label: string }[] = [
  * 目前包含:Appearance(界面风格)、RSS(刷新间隔)与 Travel(搜索后端 / LLM / 可选数据源 Key)。
  * Travel 全部为可选配置：未配置时模块仍可运行（搜索用默认后端、无 LLM 降级为来源列表）。
  */
-export function SettingsDialog({ themeId, onThemeChange, rssRefreshMinutes, onRefreshMinutesChange, travel, onTravelChange, onClose }: SettingsDialogProps) {
+export function SettingsDialog({ themeId, onThemeChange, rssRefreshMinutes, onRefreshMinutesChange, travel, onTravelChange, geography, onGeographyChange, onClose }: SettingsDialogProps) {
   const current = getTheme(themeId);
-  const [testing, setTesting] = useState<"llm" | "amap" | "qweather" | null>(null);
-  const [testResults, setTestResults] = useState<Partial<Record<"llm" | "amap" | "qweather", string>>>({});
+  const [testing, setTesting] = useState<"llm" | "amap" | "geography-amap" | "qweather" | null>(null);
+  const [testResults, setTestResults] = useState<Partial<Record<"llm" | "amap" | "geography-amap" | "qweather", string>>>({});
   const updateTravel = (patch: Partial<TravelSettings>) => onTravelChange({ ...travel, ...patch });
-  const runTest = async (kind: "llm" | "amap" | "qweather") => {
+  const updateGeography = (patch: Partial<GeographySettings>) => onGeographyChange({ ...geography, ...patch });
+  const runTest = async (kind: "llm" | "amap" | "geography-amap" | "qweather") => {
     if (!isTauriRuntime()) return;
     setTesting(kind); setTestResults((current) => ({ ...current, [kind]: "" }));
     try {
       const result = kind === "llm"
         ? await invoke<string>("test_travel_llm", { request: { baseUrl: travel.llm_base_url ?? "", apiKey: travel.llm_api_key, model: travel.llm_model ?? "" } })
-        : kind === "amap"
+        : kind === "geography-amap"
+          ? await loadAmap(geography.amap_api_key ?? "", geography.amap_security_js_code ?? "").then(() => "Geography 高德 JS API 加载成功")
+          : kind === "amap"
           ? await invoke<string>("test_travel_amap", { request: { apiKey: travel.amap_api_key ?? "", apiHost: null } })
           : await invoke<string>("test_travel_qweather", { request: { apiKey: travel.qweather_api_key ?? "", apiHost: travel.qweather_api_host } });
       setTestResults((current) => ({ ...current, [kind]: result }));
@@ -64,6 +70,15 @@ export function SettingsDialog({ themeId, onThemeChange, rssRefreshMinutes, onRe
           {allThemes().map((theme) => <option key={theme.id} value={theme.id}>{theme.name}</option>)}
         </select>
         <p className="settings-theme-description">{current.description}</p>
+      </section>
+      <section className="settings-section">
+        <label className="settings-label">Geography · 高德地图</label>
+        <p className="settings-hint">与 Travel 独立保存。填写高德「Web 端（JS API）」Key 和对应安全密钥后，地理探索页使用真实动态地图；留空时使用离线地图。</p>
+        <input className="settings-select" type="password" placeholder="高德 AMAP_JS_API_KEY（Geography 专用）" value={geography.amap_api_key ?? ""} onChange={(event) => updateGeography({ amap_api_key: event.target.value || null })} style={{ marginTop: 6 }} />
+        <input className="settings-select" type="password" placeholder="高德 securityJsCode（Geography 专用）" value={geography.amap_security_js_code ?? ""} onChange={(event) => updateGeography({ amap_security_js_code: event.target.value || null })} style={{ marginTop: 6 }} />
+        <button className="settings-test-button" disabled={testing !== null || !geography.amap_api_key?.trim() || !geography.amap_security_js_code?.trim()} onClick={() => void runTest("geography-amap")}>{testing === "geography-amap" ? "正在测试…" : "测试 Geography 高德连接"}</button>
+        {testResults["geography-amap"] ? <p className={testResults["geography-amap"]?.startsWith("连接失败") ? "settings-test-result failed" : "settings-test-result"}>{testResults["geography-amap"]}</p> : null}
+        <p className="settings-hint" style={{ marginTop: 6 }}>测试会加载高德 JS API；成功后切换到 Geography 页面即可看到动态地图。</p>
       </section>
       <section className="settings-section">
         <label className="settings-label" htmlFor="rss-refresh-select">RSS 刷新频率</label>

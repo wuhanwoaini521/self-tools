@@ -1,6 +1,7 @@
 //! UI 无关的文档、工作区与任务编辑用例。
 
 pub mod error;
+pub mod geography;
 pub mod history;
 pub mod language;
 pub mod rss_workflows;
@@ -8,6 +9,11 @@ pub mod travel;
 pub mod workflows;
 
 pub use error::ApplicationError;
+pub use geography::{
+    GeoCompareView, GeoEntity, GeoEntityDetail, GeoEntityType, GeoMapLine, GeoMapPoint,
+    GeoRecommendation, GeoRelation, GeoRelationKind, GeoSearchGroup, GeoSource, GeographyHome,
+    GeographyService,
+};
 pub use history::{HistoryHome, HistoryService};
 pub use language::{LanguageInfo, LanguageSearchHit, LanguageService, TodayView};
 pub use rss_workflows::{

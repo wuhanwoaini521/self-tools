@@ -1,6 +1,6 @@
 //! `Tauri` command adapter。业务规则位于 workspace 的 application/core crates。
 //!
-//! 全局 `AppState` 持有 RSS 的 SQLite 存储器、Travel 的缓存与共享 HTTP 客户端；
+//! 全局 `AppState` 持有各模块的 SQLite 存储器、Travel 的缓存与共享 HTTP 客户端；
 //! 每个功能模块(文档 / RSS / Travel)的命令各自独立，互不依赖。
 
 use std::collections::HashMap;
@@ -12,22 +12,24 @@ use devtoolbox_application::language::{
     SourceInfo, TodayView, WordDetail, starter,
 };
 use devtoolbox_application::{
-    ApplicationError, ArticleDto, DocumentDto, FeedDto, HistoryHome, HistoryService, RefreshReport,
+    ApplicationError, ArticleDto, DocumentDto, FeedDto, GeoCompareView, GeoEntityDetail,
+    GeoSearchGroup, GeographyHome, HistoryHome, HistoryService, RefreshReport,
     TravelResearchRequest, TravelResearchService, commit_new_feed, commit_refresh,
     convert_lines_to_tasks, cycle_lines, delete_feed, feed_snapshots, fetch_all_feeds,
     fetch_new_feed, latest_articles, list_articles, list_feeds, load_document, load_settings,
     mark_article_read, save_document, save_settings, scan_workspace, validate_feed_url,
 };
 use devtoolbox_core::{
+    geography::GeoEntityType as CoreGeoEntityType,
     history::{HistoryDetailView, HistorySearchGroup},
     language::{LearningStateKind, ReviewRating, SpeakingScore},
     travel::{CityGuide, GuideSummary, TravelResearchEvent},
 };
 use devtoolbox_infrastructure::{
-    AmapPoiProvider, AppSettings, FeedRepository, HistoryStore, HttpWebFetcher, LanguageStore,
-    LlmConfig, LlmProvider, OpenAiCompatibleLlmProvider, QWeatherProvider, SettingsStore,
-    TravelDataProvider, TravelDataRequest, TravelStore, WorkspaceFile, build_providers,
-    feed_client, providers_for,
+    AmapPoiProvider, AppSettings, FeedRepository, GeographyStore, HistoryStore, HttpWebFetcher,
+    LanguageStore, LlmConfig, LlmProvider, OpenAiCompatibleLlmProvider, QWeatherProvider,
+    SettingsStore, TravelDataProvider, TravelDataRequest, TravelStore, WorkspaceFile,
+    build_providers, feed_client, providers_for,
 };
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager, State};
@@ -51,6 +53,10 @@ impl From<ApplicationError> for CommandError {
             ApplicationError::Language { .. } => "language_error",
             ApplicationError::License(_) => "language_license",
             ApplicationError::History { .. } | ApplicationError::HistoryData(_) => "history_error",
+            ApplicationError::Geography { .. } | ApplicationError::GeographyData(_) => {
+                "geography_error"
+            }
+            ApplicationError::GeographyCompare(_) => "geography_compare_error",
             ApplicationError::Travel { source } => match source {
                 devtoolbox_infrastructure::InfrastructureError::TravelSearch(_) => {
                     "travel_search_failed"
@@ -85,6 +91,7 @@ pub struct AppState {
     pub travel_sessions: Arc<Mutex<HashMap<String, Arc<Mutex<TravelSession>>>>>,
     pub history_store: Arc<Mutex<HistoryStore>>,
     pub language_store: Arc<Mutex<LanguageStore>>,
+    pub geography_store: Arc<Mutex<GeographyStore>>,
     pub client: reqwest::Client,
 }
 
@@ -706,6 +713,75 @@ fn history_toggle_favorite(state: State<'_, AppState>, id: String) -> Result<boo
         .map_err(CommandError::from)
 }
 
+// ---------- Geography Explorer 模块（离线优先） ----------
+
+fn geography_service(state: &State<'_, AppState>) -> devtoolbox_application::GeographyService {
+    devtoolbox_application::GeographyService::new(Arc::clone(&state.geography_store))
+}
+
+#[tauri::command]
+fn geography_home(
+    state: State<'_, AppState>,
+    cursor: Option<u64>,
+) -> Result<GeographyHome, CommandError> {
+    geography_service(&state)
+        .home(cursor.unwrap_or_default())
+        .map_err(CommandError::from)
+}
+
+#[tauri::command]
+fn geography_search(
+    state: State<'_, AppState>,
+    query: String,
+    entity_type: Option<CoreGeoEntityType>,
+    limit: Option<usize>,
+) -> Result<Vec<GeoSearchGroup>, CommandError> {
+    geography_service(&state)
+        .search(&query, entity_type, limit.unwrap_or(30).min(100))
+        .map_err(CommandError::from)
+}
+
+#[tauri::command]
+fn geography_detail(
+    state: State<'_, AppState>,
+    id: String,
+) -> Result<Option<GeoEntityDetail>, CommandError> {
+    geography_service(&state)
+        .detail(&id)
+        .map_err(CommandError::from)
+}
+
+#[tauri::command]
+fn geography_map(
+    state: State<'_, AppState>,
+) -> Result<
+    (
+        Vec<devtoolbox_core::geography::GeoMapPoint>,
+        Vec<devtoolbox_core::geography::GeoMapLine>,
+    ),
+    CommandError,
+> {
+    geography_service(&state).map().map_err(CommandError::from)
+}
+
+#[tauri::command]
+fn geography_compare(
+    state: State<'_, AppState>,
+    left_id: String,
+    right_id: String,
+) -> Result<GeoCompareView, CommandError> {
+    geography_service(&state)
+        .compare(&left_id, &right_id)
+        .map_err(CommandError::from)
+}
+
+#[tauri::command]
+fn geography_toggle_favorite(state: State<'_, AppState>, id: String) -> Result<bool, CommandError> {
+    geography_service(&state)
+        .toggle_favorite(&id)
+        .map_err(CommandError::from)
+}
+
 /// 应用入口。前端需要的权限被限制在文件选择器、command API 与打开原文链接；
 /// 不暴露任意 shell 执行能力。
 pub fn run() {
@@ -722,6 +798,8 @@ pub fn run() {
                 .expect("open history database");
             let language_store = LanguageStore::open(config_directory.join("language.db"))
                 .expect("open language database");
+            let geography_store = GeographyStore::open(config_directory.join("geography.db"))
+                .expect("open geography database");
             let client = feed_client().expect("build http client");
             app.manage(AppState {
                 store: Mutex::new(store),
@@ -729,6 +807,7 @@ pub fn run() {
                 travel_sessions: Arc::new(Mutex::new(HashMap::new())),
                 history_store: Arc::new(Mutex::new(history_store)),
                 language_store: Arc::new(Mutex::new(language_store)),
+                geography_store: Arc::new(Mutex::new(geography_store)),
                 client,
             });
             Ok(())
@@ -760,6 +839,12 @@ pub fn run() {
             history_search,
             history_detail,
             history_toggle_favorite,
+            geography_home,
+            geography_search,
+            geography_detail,
+            geography_map,
+            geography_compare,
+            geography_toggle_favorite,
             language_languages,
             language_search,
             language_item,

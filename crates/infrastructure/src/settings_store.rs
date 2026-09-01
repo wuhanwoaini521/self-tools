@@ -47,6 +47,15 @@ impl Default for TravelSettings {
     }
 }
 
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(default)]
+pub struct GeographySettings {
+    /// 地理模块使用的高德 Web 服务 API Key（可选）。
+    pub amap_api_key: Option<String>,
+    /// 地理模块使用的高德 Web 端 JS API 安全密钥（可选）。
+    pub amap_security_js_code: Option<String>,
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(default)]
 pub struct AppSettings {
@@ -64,6 +73,8 @@ pub struct AppSettings {
     pub markdown_default_view: MarkdownView,
     /// Travel 模块设置（全部 Optional，未配置时模块仍可运行）。
     pub travel: TravelSettings,
+    /// Geography 模块设置（全部 Optional，未配置时模块仍可运行）。
+    pub geography: GeographySettings,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -95,6 +106,7 @@ impl Default for AppSettings {
             auto_save: false,
             markdown_default_view: MarkdownView::Split,
             travel: TravelSettings::default(),
+            geography: GeographySettings::default(),
         }
     }
 }

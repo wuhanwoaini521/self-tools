@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import { Compass, Gear, House, Notebook, Rss, Scroll, Translate, Wrench, X } from "@phosphor-icons/react";
+import { Compass, Gear, House, MapTrifold, Notebook, Rss, Scroll, Translate, Wrench, X } from "@phosphor-icons/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { SettingsDialog } from "./SettingsDialog";
 import { HomePage } from "./features/home/HomePage";
@@ -8,9 +8,10 @@ import { RssPage, type RssIntent } from "./features/rss/RssPage";
 import { HistoryPage } from "./features/history/HistoryPage";
 import { LanguagePage } from "./features/language/LanguagePage";
 import { TravelPage } from "./features/travel/TravelPage";
+import { GeographyPage } from "./features/geography/GeographyPage";
 import { applyTheme, getTheme, storeThemeId } from "./theme/ThemeManager";
 import "./theme/themes";
-import type { AppSettings, ArticleDto, FeedDto } from "./types";
+import type { AppSettings, ArticleDto, FeedDto, GeographyHome, HistoryHome, ReviewCard, TodayView } from "./types";
 import { errorMessage, isTauriRuntime } from "./utils";
 
 /**
@@ -20,7 +21,7 @@ import { errorMessage, isTauriRuntime } from "./utils";
  * - 新增模块 = 新增一个 feature 目录 + 注册一个导航项,外壳不需要感知模块内部。
  */
 
-type PageId = "home" | "markdown" | "rss" | "travel" | "history" | "language" | "tools";
+type PageId = "home" | "markdown" | "rss" | "travel" | "geography" | "history" | "language" | "tools";
 
 interface NavItem {
   id: PageId;
@@ -35,6 +36,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: "markdown", label: "Markdown", icon: Notebook },
   { id: "rss", label: "RSS", icon: Rss },
   { id: "travel", label: "Travel", icon: Compass },
+  { id: "geography", label: "Geography", icon: MapTrifold },
   { id: "history", label: "History", icon: Scroll },
   { id: "language", label: "Language", icon: Translate },
   { id: "tools", label: "Tools", icon: Wrench, disabled: true },
@@ -47,6 +49,7 @@ const defaultSettings: AppSettings = {
     search_backend: "auto", searxng_url: null, llm_base_url: null, llm_api_key: null, llm_model: null,
     amap_api_key: null, qweather_api_key: null, qweather_api_host: null, baidu_map_api_key: null,
   },
+  geography: { amap_api_key: null, amap_security_js_code: null },
 };
 
 export default function App() {
@@ -61,8 +64,15 @@ export default function App() {
   const [rssVersion, setRssVersion] = useState(0);
   const [unreadTotal, setUnreadTotal] = useState(0);
   const [latestArticles, setLatestArticles] = useState<ArticleDto[]>([]);
+  const [geographyHome, setGeographyHome] = useState<GeographyHome | null>(null);
+  const [historyHome, setHistoryHome] = useState<HistoryHome | null>(null);
+  const [todayView, setTodayView] = useState<TodayView | null>(null);
+  const [reviewCard, setReviewCard] = useState<ReviewCard | null>(null);
   const [markdownIntent, setMarkdownIntent] = useState<MarkdownIntent | null>(null);
   const [rssIntent, setRssIntent] = useState<RssIntent | null>(null);
+  const [geographyIntent, setGeographyIntent] = useState<{ entityId: string; nonce: number } | null>(null);
+  const [historyIntent, setHistoryIntent] = useState<{ id: string; nonce: number } | null>(null);
+  const [languageIntent, setLanguageIntent] = useState<{ id: string; nonce: number } | null>(null);
   const startupRefreshed = useRef(false);
 
   /** 主题即时切换:CSS 变量作用于 :root,所有页面同步更新 */
@@ -86,6 +96,22 @@ export default function App() {
     if (!isTauriRuntime()) return;
     try { setLatestArticles(await invoke<ArticleDto[]>("latest_rss_articles", { limit: 6 })); } catch { /* 首页数据加载失败保持安静 */ }
   }, []);
+
+  const reloadHomeKnowledge = useCallback(async () => {
+    if (!isTauriRuntime()) return;
+    const [geography, history, today, review] = await Promise.allSettled([
+      invoke<GeographyHome>("geography_home", { cursor: 0 }),
+      invoke<HistoryHome>("history_home", { cursor: 0 }),
+      invoke<TodayView>("language_today", { language: "jpn" }),
+      invoke<ReviewCard | null>("language_review_next", { language: "jpn" }),
+    ]);
+    if (geography.status === "fulfilled") setGeographyHome(geography.value);
+    if (history.status === "fulfilled") setHistoryHome(history.value);
+    if (today.status === "fulfilled") setTodayView(today.value);
+    if (review.status === "fulfilled") setReviewCard(review.value);
+  }, []);
+
+  useEffect(() => { void reloadHomeKnowledge(); }, [reloadHomeKnowledge]);
 
   /** 刷新全部订阅(手动按钮 / 定时任务 / 启动时各一次)。 */
   const refreshFeeds = useCallback(async (silent = false) => {
@@ -137,6 +163,9 @@ export default function App() {
   const openNote = useCallback((filePath: string) => { setPage("markdown"); setMarkdownIntent({ type: "open", path: filePath, nonce: Date.now() }); }, []);
   const newNote = useCallback(() => { setPage("markdown"); setMarkdownIntent({ type: "new", nonce: Date.now() }); }, []);
   const openArticle = useCallback((article: ArticleDto) => { setPage("rss"); setRssIntent({ article, nonce: Date.now() }); }, []);
+  const openGeography = useCallback((id?: string) => { setPage("geography"); if (id) setGeographyIntent({ entityId: id, nonce: Date.now() }); }, []);
+  const openHistory = useCallback((id?: string) => { setPage("history"); if (id) setHistoryIntent({ id, nonce: Date.now() }); }, []);
+  const openLanguage = useCallback((id?: string) => { setPage("language"); if (id) setLanguageIntent({ id, nonce: Date.now() }); }, []);
 
   return <div className="app-shell">
     <header className="app-bar">
@@ -156,15 +185,16 @@ export default function App() {
         <footer className="app-nav-footer">Personal Workspace</footer>
       </nav>
       <main className="app-content">
-        <section className={"page-pane" + (page === "home" ? "" : " page-hidden")}><HomePage recentFiles={settings.recent_files} latestArticles={latestArticles} rssRefreshing={rssRefreshing} onOpenNote={openNote} onOpenArticle={openArticle} onNewNote={newNote} onRefreshRss={() => void refreshFeeds()} /></section>
+        <section className={"page-pane" + (page === "home" ? "" : " page-hidden")}><HomePage recentFiles={settings.recent_files} latestArticles={latestArticles} geographyHome={geographyHome} historyHome={historyHome} todayView={todayView} reviewCard={reviewCard} rssRefreshing={rssRefreshing} onOpenNote={openNote} onOpenArticle={openArticle} onOpenGeography={openGeography} onOpenHistory={openHistory} onOpenLanguage={openLanguage} onNewNote={newNote} onRefreshRss={() => void refreshFeeds()} /></section>
         <section className={"page-pane" + (page === "markdown" ? "" : " page-hidden")}><MarkdownPage settings={settings} onSettingsChange={(next) => void updateSettings(next)} setNotice={setNotice} active={page === "markdown"} intent={markdownIntent} initialWorkspace={settingsLoaded ? settings.workspace_path : undefined} /></section>
         <section className={"page-pane" + (page === "rss" ? "" : " page-hidden")}><RssPage active={page === "rss"} version={rssVersion} refreshing={rssRefreshing} onRefresh={() => void refreshFeeds()} onFeedsChanged={handleFeedsChanged} setNotice={setNotice} intent={rssIntent} /></section>
         <section className={"page-pane" + (page === "travel" ? "" : " page-hidden")}><TravelPage active={page === "travel"} setNotice={setNotice} amapApiKey={settings.travel.amap_api_key} /></section>
-        <section className={"page-pane history-pane" + (page === "history" ? "" : " page-hidden")}><HistoryPage active={page === "history"} setNotice={setNotice} /></section>
-        <section className={"page-pane language-pane" + (page === "language" ? "" : " page-hidden")}><LanguagePage active={page === "language"} setNotice={setNotice} /></section>
+        <section className={"page-pane geography-pane" + (page === "geography" ? "" : " page-hidden")}><GeographyPage active={page === "geography"} setNotice={setNotice} amapApiKey={settings.geography.amap_api_key} amapSecurityJsCode={settings.geography.amap_security_js_code} intent={geographyIntent} /></section>
+        <section className={"page-pane history-pane" + (page === "history" ? "" : " page-hidden")}><HistoryPage active={page === "history"} setNotice={setNotice} intent={historyIntent} /></section>
+        <section className={"page-pane language-pane" + (page === "language" ? "" : " page-hidden")}><LanguagePage active={page === "language"} setNotice={setNotice} intent={languageIntent} /></section>
       </main>
     </div>
     {notice ? <button className="toast" onClick={() => setNotice("")}>{notice}<X size={16} /></button> : null}
-    {settingsOpen ? <SettingsDialog themeId={themeId} onThemeChange={changeTheme} rssRefreshMinutes={settings.rss_refresh_minutes} onRefreshMinutesChange={changeRefreshMinutes} travel={settings.travel} onTravelChange={(next) => void updateSettings({ ...settings, travel: next })} onClose={() => setSettingsOpen(false)} /> : null}
+    {settingsOpen ? <SettingsDialog themeId={themeId} onThemeChange={changeTheme} rssRefreshMinutes={settings.rss_refresh_minutes} onRefreshMinutesChange={changeRefreshMinutes} travel={settings.travel} onTravelChange={(next) => void updateSettings({ ...settings, travel: next })} geography={settings.geography} onGeographyChange={(next) => void updateSettings({ ...settings, geography: next })} onClose={() => setSettingsOpen(false)} /> : null}
   </div>;
 }
