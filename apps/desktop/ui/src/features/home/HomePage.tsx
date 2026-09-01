@@ -13,6 +13,7 @@ import {
 import type { ReactNode } from "react";
 import type { ArticleDto, GeographyHome, HistoryHome, ReviewCard, TodayView } from "../../types";
 import { fileName, formatRelativeTime, greetingByHour } from "../../utils";
+import { stripRssHtml } from "../rss/rssContent";
 
 interface HomePageProps {
   recentFiles: string[];
@@ -59,6 +60,9 @@ export function HomePage({
   const placeSummary = geoEntity?.summary ?? recommendation?.question ?? "打开 Geography，沿着地点、地形与关系继续探索。";
   const historyTitle = historyNode?.title ?? "从一段历史推荐开始";
   const historySummary = historyNode?.summary ?? "打开 History，沿着时间、人物与事件理解内容背后的来路。";
+  const articleLead = article?.summary
+    ? stripRssHtml(article.summary, article.url)
+    : "首页会把最新订阅和地理、历史、语言学习线索放在一起，帮助你从阅读自然地走向理解。";
 
   return <div className="page-scroll home-page home-story-page">
     <header className="home-story-header">
@@ -80,7 +84,7 @@ export function HomePage({
           <div className="home-article-content">
             <div className="home-article-copy">
               <h2>{article?.title ?? "从一篇文章，开始一次跨领域探索"}</h2>
-              <p className="home-article-lead">{article?.summary ?? "首页会把最新订阅和地理、历史、语言学习线索放在一起，帮助你从阅读自然地走向理解。"}</p>
+              <p className="home-article-lead">{articleLead}</p>
               <p className="home-article-body">{article ? "先读懂这篇文章，再沿着页面提供的地点与历史入口继续展开；每一个入口都保留回到原文的路径。" : "添加 RSS Feed 后，这里会展示最新文章，并自动提供可验证的继续探索入口。"}</p>
               <div className="home-article-actions"><button type="button" className="home-primary-link" onClick={() => article && onOpenArticle(article)} disabled={!article}>阅读全文 <ArrowRight size={16} /></button><span className="home-article-source">{article ? `来源：${article.feed_title} · ${formatRelativeTime(article.published_at)}` : "来源：RSS Reader"}</span></div>
             </div>
