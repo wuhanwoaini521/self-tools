@@ -13,8 +13,9 @@ import { HistoryRelationGraph } from "../components/HistoryRelationGraph";
 
 function eraForNode(node: HistoryNode): HistoryEra | null {
   return (
-    historyEras.find((era) => era.id === node.id || era.id === node.period_id) ??
-    null
+    historyEras.find(
+      (era) => era.id === node.id || era.id === node.period_id,
+    ) ?? null
   );
 }
 
@@ -53,7 +54,8 @@ export function DetailShell({
       <header className="history-detail-head">
         <div>
           <small>
-            {KIND_LABELS[node.kind]} · {rangeText(node.start_year, node.end_year)}
+            {KIND_LABELS[node.kind]} ·{" "}
+            {rangeText(node.start_year, node.end_year)}
           </small>
           <h1>{node.title}</h1>
           <p>{node.summary}</p>

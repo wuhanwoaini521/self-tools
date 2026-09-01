@@ -37,7 +37,11 @@ export function ArtifactDetail({
           <h2>相关条目</h2>
           <div className="history-relation-chips">
             {related.map(({ relation, node }) => (
-              <button type="button" key={node.id} onClick={() => onOpenNode(node)}>
+              <button
+                type="button"
+                key={node.id}
+                onClick={() => onOpenNode(node)}
+              >
                 <small>{relation.note ?? "关联"}</small>
                 <b>{node.title}</b>
               </button>

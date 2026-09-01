@@ -54,7 +54,11 @@ export function EventDetail({
             <span>地点</span>
             <div className="history-event-meta-list">
               {places.map(({ node }) => (
-                <button type="button" key={node.id} onClick={() => onOpenNode(node)}>
+                <button
+                  type="button"
+                  key={node.id}
+                  onClick={() => onOpenNode(node)}
+                >
                   {node.title}
                 </button>
               ))}
@@ -66,7 +70,11 @@ export function EventDetail({
             <span>参与人物</span>
             <div className="history-event-meta-list">
               {participants.map(({ node }) => (
-                <button type="button" key={node.id} onClick={() => onOpenNode(node)}>
+                <button
+                  type="button"
+                  key={node.id}
+                  onClick={() => onOpenNode(node)}
+                >
                   {node.title}
                 </button>
               ))}
@@ -76,7 +84,9 @@ export function EventDetail({
       </section>
 
       <HistoryList title="背景" items={detail.background} />
-      {detail.trigger ? <HistoryList title="导火索" items={[detail.trigger]} /> : null}
+      {detail.trigger ? (
+        <HistoryList title="导火索" items={[detail.trigger]} />
+      ) : null}
       <HistoryList title="过程" items={detail.course} />
       <HistoryList title="结果" items={detail.results} />
       <HistoryList title="长期影响" items={detail.impacts} />
@@ -87,7 +97,11 @@ export function EventDetail({
           <h2>前因与后果</h2>
           <div className="history-relation-chips">
             {causal.map(({ relation, node }) => (
-              <button type="button" key={node.id} onClick={() => onOpenNode(node)}>
+              <button
+                type="button"
+                key={node.id}
+                onClick={() => onOpenNode(node)}
+              >
                 <small>{relation.note ?? "关联"}</small>
                 <b>{node.title}</b>
               </button>
@@ -101,7 +115,11 @@ export function EventDetail({
           <h2>相关事件</h2>
           <div className="history-relation-chips">
             {relatedEvents.map(({ relation, node }) => (
-              <button type="button" key={node.id} onClick={() => onOpenNode(node)}>
+              <button
+                type="button"
+                key={node.id}
+                onClick={() => onOpenNode(node)}
+              >
                 <small>{relation.note ?? "相关事件"}</small>
                 <b>{node.title}</b>
               </button>

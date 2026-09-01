@@ -86,7 +86,11 @@ export function PersonDetail({
           <h2>关键事件</h2>
           <div className="history-relation-chips">
             {keyEvents.map(({ relation, node }) => (
-              <button type="button" key={node.id} onClick={() => onOpenNode(node)}>
+              <button
+                type="button"
+                key={node.id}
+                onClick={() => onOpenNode(node)}
+              >
                 <small>{relation.note ?? "事件"}</small>
                 <b>{node.title}</b>
               </button>
@@ -100,7 +104,11 @@ export function PersonDetail({
           <h2>所属时代</h2>
           <div className="history-relation-chips">
             {dynasty.map(({ node }) => (
-              <button type="button" key={node.id} onClick={() => onOpenNode(node)}>
+              <button
+                type="button"
+                key={node.id}
+                onClick={() => onOpenNode(node)}
+              >
                 <small>时代</small>
                 <b>{node.title}</b>
               </button>
@@ -114,7 +122,11 @@ export function PersonDetail({
           <h2>相关人物</h2>
           <div className="history-relation-chips">
             {people.map(({ relation, node }) => (
-              <button type="button" key={node.id} onClick={() => onOpenNode(node)}>
+              <button
+                type="button"
+                key={node.id}
+                onClick={() => onOpenNode(node)}
+              >
                 <small>{relation.note ?? "相关人物"}</small>
                 <b>{node.title}</b>
               </button>
@@ -128,7 +140,11 @@ export function PersonDetail({
           <h2>相关地点</h2>
           <div className="history-relation-chips">
             {places.map(({ relation, node }) => (
-              <button type="button" key={node.id} onClick={() => onOpenNode(node)}>
+              <button
+                type="button"
+                key={node.id}
+                onClick={() => onOpenNode(node)}
+              >
                 <small>{relation.note ?? "地点"}</small>
                 <b>{node.title}</b>
               </button>
@@ -142,7 +158,11 @@ export function PersonDetail({
           <h2>相关制度</h2>
           <div className="history-relation-chips">
             {institutions.map(({ relation, node }) => (
-              <button type="button" key={node.id} onClick={() => onOpenNode(node)}>
+              <button
+                type="button"
+                key={node.id}
+                onClick={() => onOpenNode(node)}
+              >
                 <small>{relation.note ?? "制度"}</small>
                 <b>{node.title}</b>
               </button>

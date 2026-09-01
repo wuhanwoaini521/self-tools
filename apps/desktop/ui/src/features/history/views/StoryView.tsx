@@ -19,7 +19,7 @@ export function StoryView({
   );
   const story = historyStories.find((item) => item.id === activeId) ?? null;
   const era = story
-    ? historyEras.find((item) => item.id === story.periodId) ?? null
+    ? (historyEras.find((item) => item.id === story.periodId) ?? null)
     : null;
 
   return (

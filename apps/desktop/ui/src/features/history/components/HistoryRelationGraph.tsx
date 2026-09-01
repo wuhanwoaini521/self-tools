@@ -65,16 +65,25 @@ export function HistoryRelationGraph({
         </p>
       </header>
       <div className="history-relation-graph-canvas">
-        <svg viewBox={`0 0 ${VIEW_W} ${VIEW_H}`} role="img" aria-label={`${center.title} 的关系图`}>
+        <svg
+          viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
+          role="img"
+          aria-label={`${center.title} 的关系图`}
+        >
           {unique.map(({ relation, node }, index) => {
-            const angle = -Math.PI / 2 + ((2 * Math.PI) / unique.length) * index;
+            const angle =
+              -Math.PI / 2 + ((2 * Math.PI) / unique.length) * index;
             const x = CX + rx * Math.cos(angle);
             const y = CY + ry * Math.sin(angle);
             const midX = (CX + x) / 2;
             const midY = (CY + y) / 2;
             const labelRight = midX > CX;
             return (
-              <g key={node.id} className="history-graph-edge" onClick={() => onOpenNode(node)}>
+              <g
+                key={node.id}
+                className="history-graph-edge"
+                onClick={() => onOpenNode(node)}
+              >
                 <line x1={CX} y1={CY} x2={x} y2={y} />
                 <text
                   x={midX}
@@ -91,7 +100,9 @@ export function HistoryRelationGraph({
                     textAnchor={labelRight ? "start" : "end"}
                     className="history-graph-edge-note"
                   >
-                    {relation.note.length > 14 ? `${relation.note.slice(0, 14)}…` : relation.note}
+                    {relation.note.length > 14
+                      ? `${relation.note.slice(0, 14)}…`
+                      : relation.note}
                   </text>
                 ) : null}
               </g>
@@ -128,7 +139,8 @@ export function HistoryRelationGraph({
           </g>
           {/* 环绕节点 */}
           {unique.map(({ node }, index) => {
-            const angle = -Math.PI / 2 + ((2 * Math.PI) / unique.length) * index;
+            const angle =
+              -Math.PI / 2 + ((2 * Math.PI) / unique.length) * index;
             const x = CX + rx * Math.cos(angle);
             const y = CY + ry * Math.sin(angle);
             const box = nodeBox(node.title);
@@ -140,11 +152,27 @@ export function HistoryRelationGraph({
                 className="history-graph-node"
                 onClick={() => onOpenNode(node)}
               >
-                <rect x={left} y={top} width={box.width} height={box.height} rx={7} />
-                <text x={x} y={y - 1} textAnchor="middle" className="history-graph-node-title">
+                <rect
+                  x={left}
+                  y={top}
+                  width={box.width}
+                  height={box.height}
+                  rx={7}
+                />
+                <text
+                  x={x}
+                  y={y - 1}
+                  textAnchor="middle"
+                  className="history-graph-node-title"
+                >
                   {node.title}
                 </text>
-                <text x={x} y={y + 13} textAnchor="middle" className="history-graph-node-kind">
+                <text
+                  x={x}
+                  y={y + 13}
+                  textAnchor="middle"
+                  className="history-graph-node-kind"
+                >
                   {KIND_LABELS[node.kind]}
                 </text>
               </g>

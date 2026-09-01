@@ -18,7 +18,17 @@ export function HistorySearch({
   onOpenNode: (node: HistoryNode) => void;
   onLocateEra: (index: number) => void;
 }) {
-  const { query, setQuery, groups, searching, submit, clear, activeIndex, setActiveIndex, flattenedItems } = search;
+  const {
+    query,
+    setQuery,
+    groups,
+    searching,
+    submit,
+    clear,
+    activeIndex,
+    setActiveIndex,
+    flattenedItems,
+  } = search;
 
   const trimmed = query.trim();
   const matchedEraIndex = trimmed
@@ -88,12 +98,20 @@ export function HistorySearch({
           <X size={15} />
         </button>
       ) : null}
-      <button type="submit" className="history-search-go" disabled={searching || !trimmed}>
+      <button
+        type="submit"
+        className="history-search-go"
+        disabled={searching || !trimmed}
+      >
         {searching ? "搜索中…" : "搜索"}
       </button>
 
       {groups.length || (matchedEraIndex >= 0 && trimmed) ? (
-        <div className="history-search-panel" role="listbox" aria-label="搜索结果">
+        <div
+          className="history-search-panel"
+          role="listbox"
+          aria-label="搜索结果"
+        >
           {matchedEraIndex >= 0 && trimmed ? (
             <button
               type="button"
@@ -138,7 +156,9 @@ export function HistorySearch({
             </section>
           ))}
           {!groups.length && trimmed && !searching ? (
-            <p className="history-search-empty">没有匹配资料，换个关键词试试。</p>
+            <p className="history-search-empty">
+              没有匹配资料，换个关键词试试。
+            </p>
           ) : null}
         </div>
       ) : null}

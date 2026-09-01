@@ -48,7 +48,11 @@ export function WarDetail({
               <span>交战相关方</span>
               <div className="history-event-meta-list">
                 {sides.map(({ node }) => (
-                  <button type="button" key={node.id} onClick={() => onOpenNode(node)}>
+                  <button
+                    type="button"
+                    key={node.id}
+                    onClick={() => onOpenNode(node)}
+                  >
                     {node.title}
                   </button>
                 ))}
@@ -56,7 +60,11 @@ export function WarDetail({
             </div>
           ) : null}
         </div>
-        <div className="history-war-map" role="img" aria-label="战争战场示意图（待补充）">
+        <div
+          className="history-war-map"
+          role="img"
+          aria-label="战争战场示意图（待补充）"
+        >
           <span>战场示意图</span>
           <p>详细战图与疆域位置将在后续版本补充。</p>
         </div>
@@ -86,7 +94,11 @@ export function WarDetail({
           <h2>重要人物</h2>
           <div className="history-relation-chips">
             {participants.map(({ relation, node }) => (
-              <button type="button" key={node.id} onClick={() => onOpenNode(node)}>
+              <button
+                type="button"
+                key={node.id}
+                onClick={() => onOpenNode(node)}
+              >
                 <small>{relation.note ?? "人物"}</small>
                 <b>{node.title}</b>
               </button>
@@ -100,7 +112,11 @@ export function WarDetail({
           <h2>相关战役与事件</h2>
           <div className="history-relation-chips">
             {battles.map(({ relation, node }) => (
-              <button type="button" key={node.id} onClick={() => onOpenNode(node)}>
+              <button
+                type="button"
+                key={node.id}
+                onClick={() => onOpenNode(node)}
+              >
                 <small>{relation.note ?? "关联"}</small>
                 <b>{node.title}</b>
               </button>

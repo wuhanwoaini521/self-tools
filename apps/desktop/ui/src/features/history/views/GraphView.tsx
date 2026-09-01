@@ -25,7 +25,9 @@ export function GraphView({
 
   useEffect(() => {
     setSelected((current) =>
-      current && nodes.some((node) => node.id === current.id) ? current : (nodes[0] ?? null),
+      current && nodes.some((node) => node.id === current.id)
+        ? current
+        : (nodes[0] ?? null),
     );
   }, [nodes]);
 
@@ -68,7 +70,11 @@ export function GraphView({
         <p>选择节点查看其关系脉络 · 点击图中的节点继续深入</p>
       </header>
 
-      <div className="history-graph-picker" role="listbox" aria-label="选取要查看关系的节点">
+      <div
+        className="history-graph-picker"
+        role="listbox"
+        aria-label="选取要查看关系的节点"
+      >
         {nodes.map((node) => (
           <button
             type="button"

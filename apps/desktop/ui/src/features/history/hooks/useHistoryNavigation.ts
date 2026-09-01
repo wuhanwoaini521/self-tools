@@ -1,9 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useState } from "react";
-import type {
-  HistoryDetailView,
-  HistoryNode,
-} from "../../../types";
+import type { HistoryDetailView, HistoryNode } from "../../../types";
 import { errorMessage, isTauriRuntime } from "../../../utils";
 import type { HistoryEra } from "../historyEras";
 import type { HistoryGeoNavigationRequest } from "../types/history";

@@ -1,4 +1,11 @@
-import { ArrowRight, Buildings, CompassRose, MapPin, UserFocus } from "@phosphor-icons/react";import type { HistoryNode } from "../../../types";
+import {
+  ArrowRight,
+  Buildings,
+  CompassRose,
+  MapPin,
+  UserFocus,
+} from "@phosphor-icons/react";
+import type { HistoryNode } from "../../../types";
 import { ERA_ICONS, type HistoryEra } from "../historyEras";
 import { compactYear } from "../labels";
 import { EraVisualPlate } from "./EraVisualPlate";
@@ -52,25 +59,45 @@ export function EraHero({
           </button>
         </header>
 
-        {era.tagline ? <p className="history-hero-tagline">{era.tagline}</p> : null}
+        {era.tagline ? (
+          <p className="history-hero-tagline">{era.tagline}</p>
+        ) : null}
 
         <dl className="history-hero-facts">
           {capitalFact ? (
             <div>
-              <dt><MapPin size={16} weight="duotone" />{capitalFact.label}</dt>
-              <dd>{capitalFact.value}<small>{capitalFact.caption}</small></dd>
+              <dt>
+                <MapPin size={16} weight="duotone" />
+                {capitalFact.label}
+              </dt>
+              <dd>
+                {capitalFact.value}
+                <small>{capitalFact.caption}</small>
+              </dd>
             </div>
           ) : null}
           {systemFact ? (
             <div>
-              <dt><Buildings size={16} weight="duotone" />{systemFact.label}</dt>
-              <dd>{systemFact.value}<small>{systemFact.caption}</small></dd>
+              <dt>
+                <Buildings size={16} weight="duotone" />
+                {systemFact.label}
+              </dt>
+              <dd>
+                {systemFact.value}
+                <small>{systemFact.caption}</small>
+              </dd>
             </div>
           ) : null}
           {exchangeFact ? (
             <div>
-              <dt><ExchangeIcon size={16} weight="duotone" />{exchangeFact.label}</dt>
-              <dd>{exchangeFact.value}<small>{exchangeFact.caption}</small></dd>
+              <dt>
+                <ExchangeIcon size={16} weight="duotone" />
+                {exchangeFact.label}
+              </dt>
+              <dd>
+                {exchangeFact.value}
+                <small>{exchangeFact.caption}</small>
+              </dd>
             </div>
           ) : null}
         </dl>
@@ -78,7 +105,8 @@ export function EraHero({
         {persons.length ? (
           <div className="history-hero-persons">
             <span className="history-hero-persons-label">
-              <UserFocus size={14} weight="duotone" />代表人物
+              <UserFocus size={14} weight="duotone" />
+              代表人物
             </span>
             <div className="history-hero-persons-list">
               {persons.slice(0, 4).map((person) => (

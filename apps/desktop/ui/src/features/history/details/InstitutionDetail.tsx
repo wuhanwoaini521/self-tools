@@ -38,7 +38,10 @@ export function InstitutionDetail({
       <HistoryList title="制度概览" items={[detail.overview]} />
 
       {points.length ? (
-        <section className="history-institution-diagram" aria-labelledby={titleId}>
+        <section
+          className="history-institution-diagram"
+          aria-labelledby={titleId}
+        >
           <div className="history-section-head">
             <div>
               <span>STRUCTURE</span>
@@ -46,9 +49,14 @@ export function InstitutionDetail({
             </div>
             <p>理解要点围绕制度核心展开</p>
           </div>
-          <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`${detail.name} 的制度结构示意`}>
+          <svg
+            viewBox={`0 0 ${W} ${H}`}
+            role="img"
+            aria-label={`${detail.name} 的制度结构示意`}
+          >
             {points.map((point, index) => {
-              const angle = -Math.PI / 2 + ((2 * Math.PI) / points.length) * index;
+              const angle =
+                -Math.PI / 2 + ((2 * Math.PI) / points.length) * index;
               const x = CX + Math.cos(angle) * (W / 2 - 180);
               const y = CY + Math.sin(angle) * (H / 2 - 60);
               const shortened =
@@ -57,7 +65,12 @@ export function InstitutionDetail({
                 <g key={index} className="history-institution-spoke">
                   <line x1={CX} y1={CY} x2={x} y2={y} />
                   <circle cx={x} cy={y} r={44} />
-                  <text x={x} y={y + 4} textAnchor="middle" className="history-institution-point">
+                  <text
+                    x={x}
+                    y={y + 4}
+                    textAnchor="middle"
+                    className="history-institution-point"
+                  >
                     {shortened}
                   </text>
                 </g>
@@ -65,7 +78,12 @@ export function InstitutionDetail({
             })}
             <g className="history-institution-core">
               <rect x={CX - 76} y={CY - 26} width={152} height={52} rx={10} />
-              <text x={CX} y={CY + 5} textAnchor="middle" className="history-institution-name">
+              <text
+                x={CX}
+                y={CY + 5}
+                textAnchor="middle"
+                className="history-institution-name"
+              >
                 {detail.name}
               </text>
             </g>
@@ -80,7 +98,11 @@ export function InstitutionDetail({
           <h2>相关条目</h2>
           <div className="history-relation-chips">
             {related.map(({ relation, node }) => (
-              <button type="button" key={node.id} onClick={() => onOpenNode(node)}>
+              <button
+                type="button"
+                key={node.id}
+                onClick={() => onOpenNode(node)}
+              >
                 <small>{relation.note ?? "关联"}</small>
                 <b>{node.title}</b>
               </button>

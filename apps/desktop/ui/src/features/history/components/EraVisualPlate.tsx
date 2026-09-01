@@ -11,7 +11,11 @@ import type { EraVisual } from "../types/history";
 
 function MapMotif({ accent }: { accent: string }) {
   return (
-    <svg viewBox="0 0 480 340" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+    <svg
+      viewBox="0 0 480 340"
+      preserveAspectRatio="xMidYMid slice"
+      aria-hidden="true"
+    >
       {[0, 1, 2, 3, 4].map((i) => (
         <path
           key={`v${i}`}
@@ -47,7 +51,11 @@ function MapMotif({ accent }: { accent: string }) {
 
 function RouteMotif({ accent }: { accent: string }) {
   return (
-    <svg viewBox="0 0 480 340" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+    <svg
+      viewBox="0 0 480 340"
+      preserveAspectRatio="xMidYMid slice"
+      aria-hidden="true"
+    >
       <path
         d="M 70 270 C 160 220, 200 120, 300 95 S 420 120, 430 70"
         stroke={accent}
@@ -76,7 +84,11 @@ function RouteMotif({ accent }: { accent: string }) {
 
 function ArtifactMotif({ accent }: { accent: string }) {
   return (
-    <svg viewBox="0 0 480 340" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+    <svg
+      viewBox="0 0 480 340"
+      preserveAspectRatio="xMidYMid slice"
+      aria-hidden="true"
+    >
       {[40, 78, 118, 156].map((r, i) => (
         <circle
           key={r}
@@ -121,14 +133,28 @@ function ArtifactMotif({ accent }: { accent: string }) {
 }
 
 function PatternMotif({ accent }: { accent: string }) {
-  const diamond = [
-    0, 0, 14, -22, 28, 0, 14, 22,
-  ].join(",");
+  const diamond = [0, 0, 14, -22, 28, 0, 14, 22].join(",");
   return (
-    <svg viewBox="0 0 480 340" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+    <svg
+      viewBox="0 0 480 340"
+      preserveAspectRatio="xMidYMid slice"
+      aria-hidden="true"
+    >
       <defs>
-        <pattern id="hist-diamond" width={56} height={56} patternUnits="userSpaceOnUse">
-          <path d={`M ${diamond}`} fill={accent} fillOpacity={0.09} stroke={accent} strokeOpacity={0.18} strokeWidth={0.8} />
+        <pattern
+          id="hist-diamond"
+          width={56}
+          height={56}
+          patternUnits="userSpaceOnUse"
+        >
+          <path
+            d={`M ${diamond}`}
+            fill={accent}
+            fillOpacity={0.09}
+            stroke={accent}
+            strokeOpacity={0.18}
+            strokeWidth={0.8}
+          />
         </pattern>
       </defs>
       <rect width={480} height={340} fill="url(#hist-diamond)" />
@@ -143,7 +169,13 @@ function PatternMotif({ accent }: { accent: string }) {
   );
 }
 
-function VisualMotif({ visual, accent }: { visual: EraVisual; accent: string }) {
+function VisualMotif({
+  visual,
+  accent,
+}: {
+  visual: EraVisual;
+  accent: string;
+}) {
   switch (visual.type) {
     case "map":
       return <MapMotif accent={accent} />;
@@ -165,8 +197,10 @@ export function EraVisualPlate({
   era: HistoryEra;
   className?: string;
 }) {
-  const visual: EraVisual =
-    era.visual ?? { type: "map", focalPoint: "历史疆域" };
+  const visual: EraVisual = era.visual ?? {
+    type: "map",
+    focalPoint: "历史疆域",
+  };
   const accent = visual.accent ?? ERA_DEFAULT_ACCENT;
   const motif = visual.motif ?? era.shortName;
   const useImage = visual.type === "illustration" && visual.asset === "tang";
@@ -176,9 +210,18 @@ export function EraVisualPlate({
       className={`history-visual${className ? ` ${className}` : ""}`}
       style={{ "--era-accent": accent } as CSSProperties}
     >
-      <div className="history-visual-frame" role="img" aria-label={`${era.name} 时代视觉 · ${visual.focalPoint ?? era.yearLabel}`}>
+      <div
+        className="history-visual-frame"
+        role="img"
+        aria-label={`${era.name} 时代视觉 · ${visual.focalPoint ?? era.yearLabel}`}
+      >
         {useImage ? (
-          <img className="history-visual-img" src={tangPalaceImage} alt="" aria-hidden="true" />
+          <img
+            className="history-visual-img"
+            src={tangPalaceImage}
+            alt=""
+            aria-hidden="true"
+          />
         ) : (
           <div className="history-visual-motif-layer" aria-hidden="true">
             <VisualMotif visual={visual} accent={accent} />

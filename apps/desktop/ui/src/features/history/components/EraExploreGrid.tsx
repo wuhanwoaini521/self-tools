@@ -79,7 +79,9 @@ function ExploreColumn({
         {items.map((node) => (
           <li key={node.id}>
             <button type="button" onClick={() => onOpenNode(node)}>
-              <span className="history-explore-kind">{KIND_LABELS[node.kind]}</span>
+              <span className="history-explore-kind">
+                {KIND_LABELS[node.kind]}
+              </span>
               <b>{node.title}</b>
               <small>{node.summary}</small>
               <ArrowRight size={14} aria-hidden="true" />

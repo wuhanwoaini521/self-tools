@@ -65,7 +65,11 @@ export function HistoryChronologyNavigator({
     if (!explicitRef.current) return;
     const node = nodeRefs.current[currentIndex];
     if (node) {
-      node.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" });
+      node.scrollIntoView({
+        inline: "center",
+        block: "nearest",
+        behavior: "smooth",
+      });
     }
     explicitRef.current = false;
   }, [currentIndex]);

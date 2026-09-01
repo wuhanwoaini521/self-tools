@@ -1,4 +1,10 @@
-import { MapTrifold, Scroll, ShareNetwork, UsersThree, Users } from "@phosphor-icons/react";
+import {
+  MapTrifold,
+  Scroll,
+  ShareNetwork,
+  UsersThree,
+  Users,
+} from "@phosphor-icons/react";
 import type { HistoryViewMode } from "../types/history";
 
 const VIEWS: { id: HistoryViewMode; label: string; icon: typeof Scroll }[] = [

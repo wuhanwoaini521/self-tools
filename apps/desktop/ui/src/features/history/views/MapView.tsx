@@ -52,15 +52,18 @@ export function MapView() {
 
       <div className="history-map-strip" aria-hidden="true">
         {historyEras.map((item) => {
-          const left =
-            ((item.startYear - minYear) / (maxYear - minYear)) * 100;
+          const left = ((item.startYear - minYear) / (maxYear - minYear)) * 100;
           const width =
             ((item.endYear - item.startYear) / (maxYear - minYear)) * 100;
           const accent = item.visual?.accent ?? ERA_DEFAULT_ACCENT;
           return (
             <i
               key={item.id}
-              className={year >= item.startYear && year <= item.endYear ? "is-active" : ""}
+              className={
+                year >= item.startYear && year <= item.endYear
+                  ? "is-active"
+                  : ""
+              }
               style={
                 {
                   left: `${left}%`,
@@ -72,7 +75,10 @@ export function MapView() {
             />
           );
         })}
-        <b className="history-map-marker" style={{ left: `${((year - minYear) / (maxYear - minYear)) * 100}%` }} />
+        <b
+          className="history-map-marker"
+          style={{ left: `${((year - minYear) / (maxYear - minYear)) * 100}%` }}
+        />
       </div>
 
       <div className="history-map-coming">

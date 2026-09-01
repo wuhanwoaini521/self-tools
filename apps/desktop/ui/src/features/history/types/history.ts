@@ -48,13 +48,7 @@ export interface HistoryStory {
 /** 跨 Feature 的「在地图中查看」请求（低耦合 adapter，不硬编码 Geography 内部）。 */
 export interface HistoryGeoNavigationRequest {
   mode: "history";
-  entityType:
-    | "place"
-    | "war"
-    | "route"
-    | "territory"
-    | "city"
-    | "person";
+  entityType: "place" | "war" | "route" | "territory" | "city" | "person";
   entityId: string;
   entityName: string;
   /** 可选经纬度，便于将来直接定位 */

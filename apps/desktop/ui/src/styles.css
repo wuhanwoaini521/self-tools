@@ -3114,7 +3114,9 @@ kbd {
 .history-view-switcher button.is-active {
  background: var(--surface-raised);
  color: var(--history-accent-strong);
- box-shadow: 0 1px 0 var(--line-strong), 0 6px 14px rgb(0 0 0 / 10%);
+ box-shadow:
+  0 1px 0 var(--line-strong),
+  0 6px 14px rgb(0 0 0 / 10%);
 }
 
 /* ---- 通用分节标题 ---- */
@@ -3545,7 +3547,9 @@ kbd {
  font-size: 13px;
  font-weight: 600;
  cursor: pointer;
- transition: border-color 0.16s ease, background 0.16s ease;
+ transition:
+  border-color 0.16s ease,
+  background 0.16s ease;
 }
 .history-hero-persons-list button:hover {
  border-color: var(--history-accent);
@@ -4362,7 +4366,11 @@ kbd {
  padding: 23px 24px 8px;
  border: 1px solid var(--line-strong);
  border-radius: 12px;
- background: linear-gradient(135deg, var(--surface-raised), var(--surface-sunken));
+ background: linear-gradient(
+  135deg,
+  var(--surface-raised),
+  var(--surface-sunken)
+ );
 }
 .history-study-lead {
  display: grid;
@@ -4953,7 +4961,9 @@ kbd {
  font: inherit;
  text-align: left;
  cursor: pointer;
- transition: border-color 0.16s ease, transform 0.16s ease;
+ transition:
+  border-color 0.16s ease,
+  transform 0.16s ease;
 }
 .history-person-card:hover {
  border-color: var(--history-accent);
@@ -5039,7 +5049,9 @@ kbd {
  font: inherit;
  text-align: left;
  cursor: pointer;
- transition: border-color 0.16s ease, transform 0.16s ease;
+ transition:
+  border-color 0.16s ease,
+  transform 0.16s ease;
 }
 .history-story-list button:hover,
 .history-story-list button.is-active {

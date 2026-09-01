@@ -52,11 +52,7 @@ export function TimelineView({
           onStartStory={todayStory ? () => onStartStory(todayStory) : undefined}
         />
 
-        <EraTimeline
-          era={era}
-          onOpenNodeId={onOpenNodeId}
-          onInfo={onStoryInfo}
-        />
+        <EraTimeline era={era} onOpenNodeId={onOpenNodeId} onInfo={onStoryInfo} />
 
         <EraExploreGrid
           nodes={periodLoading ? [] : persons}

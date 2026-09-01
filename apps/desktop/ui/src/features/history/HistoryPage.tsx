@@ -3,11 +3,7 @@ import { Compass } from "@phosphor-icons/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { HistoryHome, HistoryNode } from "../../types";
 import { errorMessage, isTauriRuntime } from "../../utils";
-import {
-  clampEraIndex,
-  DEFAULT_ERA_INDEX,
-  historyEras,
-} from "./historyEras";
+import { clampEraIndex, DEFAULT_ERA_INDEX, historyEras } from "./historyEras";
 import { historyStories } from "./data/historyStories";
 import { useHistoryNavigation } from "./hooks/useHistoryNavigation";
 import { useHistorySearch } from "./hooks/useHistorySearch";
@@ -154,7 +150,9 @@ export function HistoryPage({
         </div>
         <DetailRouter
           view={detail}
-          favorite={Boolean(home?.favorite_ids.includes(detail.document.node.id))}
+          favorite={Boolean(
+            home?.favorite_ids.includes(detail.document.node.id),
+          )}
           onBack={navigation.closeDetail}
           onToggleFavorite={() => void navigation.toggleFavorite()}
           onOpenNode={handleOpenNode}
@@ -272,18 +270,11 @@ function ViewContent({
       );
     case "graph":
       return (
-        <GraphView
-          era={currentEra}
-          nodes={persons}
-          onOpenNode={onOpenNode}
-        />
+        <GraphView era={currentEra} nodes={persons} onOpenNode={onOpenNode} />
       );
     case "story":
       return (
-        <StoryView
-          onOpenNodeId={onOpenNodeId}
-          onLocateEra={onLocateEra}
-        />
+        <StoryView onOpenNodeId={onOpenNodeId} onLocateEra={onLocateEra} />
       );
   }
 }
@@ -299,7 +290,10 @@ function SearchStatus({
     return <p className="history-search-status">正在搜索「{search.query}」…</p>;
   }
   if (search.hasResults) {
-    const total = search.groups.reduce((sum, group) => sum + group.items.length, 0);
+    const total = search.groups.reduce(
+      (sum, group) => sum + group.items.length,
+      0,
+    );
     return (
       <p className="history-search-status">
         找到 {total} 条结果 · ↑↓ 选择，Enter 打开，Esc 清除
@@ -311,5 +305,7 @@ function SearchStatus({
       <p className="history-search-status">按回车开始搜索「{search.query}」</p>
     );
   }
-  return <p className="history-search-status">没有匹配资料，换个关键词试试。</p>;
+  return (
+    <p className="history-search-status">没有匹配资料，换个关键词试试。</p>
+  );
 }

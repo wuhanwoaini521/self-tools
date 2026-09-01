@@ -22,9 +22,12 @@ export function DynastyDetail({
   const kind = detail.detail_type;
   const isDynasty = kind === "dynasty";
   const name = isDynasty ? detail.name : view.document.node.title;
-  const overview = isDynasty ? detail.overview : (detail as { overview: string }).overview;
+  const overview = isDynasty
+    ? detail.overview
+    : (detail as { overview: string }).overview;
   const sections: HistorySection[] = isDynasty ? detail.sections : [];
-  const keyPoints = kind === "topic" ? (detail as { key_points: string[] }).key_points : [];
+  const keyPoints =
+    kind === "topic" ? (detail as { key_points: string[] }).key_points : [];
 
   return (
     <>

@@ -1,7 +1,4 @@
-import type {
-  HistoryNodeKind,
-  HistoryRelationKind,
-} from "../../types";
+import type { HistoryNodeKind, HistoryRelationKind } from "../../types";
 
 export const KIND_LABELS: Record<HistoryNodeKind, string> = {
   person: "人物",
