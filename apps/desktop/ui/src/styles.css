@@ -5772,6 +5772,367 @@ kbd {
  stroke: #719aa1;
  stroke-width: 7;
 }
+.geo-viewer-tabs {
+ display: flex;
+ gap: 8px;
+ margin: 0 0 13px;
+ padding: 5px;
+ border: 1px solid var(--line);
+ border-radius: var(--radius-control);
+ background: var(--surface-sunken);
+}
+.geo-viewer-tabs button {
+ display: inline-flex;
+ flex: 1;
+ align-items: center;
+ justify-content: center;
+ gap: 8px;
+ min-height: 40px;
+ padding: 6px 12px;
+ border: 1px solid transparent;
+ border-radius: 6px;
+ background: transparent;
+ color: var(--muted);
+ cursor: pointer;
+ text-align: left;
+}
+.geo-viewer-tabs button:hover {
+ background: var(--panel-hover);
+ color: var(--text);
+}
+.geo-viewer-tabs button.selected {
+ border-color: var(--accent-border-active);
+ background: var(--accent-selected);
+ color: var(--accent-selected-text);
+ box-shadow: 0 1px 6px rgb(20 30 25 / 12%);
+}
+.geo-viewer-tabs button > svg {
+ flex: 0 0 auto;
+ color: var(--accent);
+}
+.geo-viewer-tabs button > span {
+ display: flex;
+ flex-direction: column;
+ gap: 1px;
+}
+.geo-viewer-tabs button strong {
+ color: inherit;
+ font-size: 13px;
+ font-weight: 600;
+}
+.geo-viewer-tabs button small {
+ color: color-mix(in srgb, currentColor 66%, transparent);
+ font-size: 10px;
+ font-weight: 400;
+ white-space: nowrap;
+}
+@media (max-width: 560px) {
+ .geo-viewer-tabs button small {
+  display: none;
+ }
+}
+.realterrain-viewer {
+ margin: 0 0 15px;
+ overflow: hidden;
+ border: 1px solid var(--line);
+ border-radius: var(--radius-control);
+ background: color-mix(in srgb, var(--surface-sunken) 82%, #cdd8d6);
+}
+.realterrain-viewer-head {
+ display: flex;
+ align-items: center;
+ justify-content: space-between;
+ gap: 12px;
+ min-height: 47px;
+ padding: 8px 10px 8px 12px;
+ border-bottom: 1px solid var(--line);
+ background: color-mix(in srgb, var(--surface-control) 80%, transparent);
+}
+.realterrain-viewer-head > div:first-child {
+ display: flex;
+ align-items: baseline;
+ gap: 8px;
+ min-width: 0;
+}
+.realterrain-viewer-head > div:first-child span {
+ color: var(--accent);
+ font:
+  9px ui-monospace,
+  SFMono-Regular,
+  Consolas,
+  monospace;
+ letter-spacing: 0.09em;
+ white-space: nowrap;
+}
+.realterrain-viewer-head > div:first-child strong {
+ overflow: hidden;
+ color: var(--text-bright);
+ font-size: 12px;
+ text-overflow: ellipsis;
+ white-space: nowrap;
+}
+.realterrain-viewer-actions {
+ display: flex;
+ align-items: center;
+ gap: 3px;
+}
+.realterrain-viewer-actions button {
+ display: inline-flex;
+ align-items: center;
+ gap: 4px;
+ min-height: 26px;
+ padding: 5px 7px;
+ border: 1px solid transparent;
+ border-radius: 4px;
+ background: transparent;
+ color: var(--muted);
+ cursor: pointer;
+ font-size: 10px;
+}
+.realterrain-viewer-actions button:hover {
+ background: var(--panel-hover);
+ color: var(--text);
+}
+.realterrain-viewer-actions button.selected {
+ border-color: var(--accent-border-active);
+ background: var(--accent-selected);
+ color: var(--accent-selected-text);
+}
+.realterrain-map-wrap {
+ position: relative;
+ height: clamp(300px, 34vw, 430px);
+ min-height: 300px;
+ overflow: hidden;
+}
+.realterrain-map {
+ position: absolute;
+ top: 0;
+ left: 0;
+ width: 100%;
+ height: 100%;
+}
+.realterrain-map-wrap .maplibregl-canvas {
+ outline: none;
+}
+.realterrain-loading {
+ position: absolute;
+ inset: 0;
+ z-index: 2;
+ display: grid;
+ place-items: center;
+ background: color-mix(in srgb, var(--surface-sunken) 70%, transparent);
+ color: var(--muted);
+ font-size: 12px;
+}
+.realterrain-loading.wide {
+ position: static;
+ min-height: 300px;
+ background: var(--surface-sunken);
+}
+.realterrain-error {
+ position: absolute;
+ inset: 0;
+ z-index: 3;
+ display: grid;
+ align-content: center;
+ justify-items: center;
+ gap: 8px;
+ padding: 30px;
+ background: var(--surface-sunken);
+ color: var(--muted);
+ text-align: center;
+ font-size: 12px;
+}
+.realterrain-error span {
+ color: var(--text-bright);
+ font-weight: 600;
+}
+.realterrain-error p {
+ margin: 0;
+ line-height: 1.7;
+ max-width: 340px;
+}
+.realterrain-error button {
+ display: inline-flex;
+ align-items: center;
+ gap: 6px;
+ margin-top: 6px;
+ padding: 7px 14px;
+ border: 1px solid var(--accent-border-active);
+ border-radius: 6px;
+ background: var(--accent-selected);
+ color: var(--accent-selected-text);
+ font-size: 12px;
+ cursor: pointer;
+}
+.realterrain-error button:hover {
+ filter: brightness(1.05);
+}
+.realterrain-hint {
+ position: absolute;
+ z-index: 2;
+ left: 11px;
+ bottom: 10px;
+ padding: 5px 8px;
+ border: 1px solid rgb(52 71 68 / 17%);
+ border-radius: 4px;
+ background: rgb(245 249 247 / 88%);
+ color: #566461;
+ font-size: 10px;
+ pointer-events: none;
+}
+.realterrain-tile-notice {
+ position: absolute;
+ z-index: 3;
+ left: 11px;
+ bottom: 42px;
+ max-width: 340px;
+ padding: 7px 10px;
+ border: 1px solid #e6c26b;
+ border-radius: 6px;
+ background: color-mix(in srgb, #fff6e2 90%, transparent);
+ color: #7a5a17;
+ font-size: 11px;
+ line-height: 1.6;
+ pointer-events: none;
+}
+.realterrain-diag {
+ position: absolute;
+ z-index: 2;
+ right: 11px;
+ bottom: 10px;
+ display: flex;
+ gap: 8px;
+ align-items: center;
+ padding: 4px 8px;
+ border: 1px solid rgb(52 71 68 / 14%);
+ border-radius: 4px;
+ background: rgb(245 249 247 / 78%);
+ color: #78827f;
+ font:
+  9px ui-monospace,
+  SFMono-Regular,
+  Consolas,
+  monospace;
+ pointer-events: none;
+}
+.realterrain-diag span.ok {
+ color: #3c8d5f;
+}
+.realterrain-diag span.bad {
+ color: #c1503c;
+}
+.realterrain-diag span.pend {
+ color: #a0834a;
+}
+.realterrain-diag span[title] {
+ max-width: 220px;
+ overflow: hidden;
+ text-overflow: ellipsis;
+ white-space: nowrap;
+}
+.realterrain-guide {
+ position: absolute;
+ z-index: 3;
+ top: 12px;
+ right: 12px;
+ width: min(300px, 58%);
+ padding: 12px 13px;
+ border: 1px solid var(--line);
+ border-radius: 8px;
+ background: color-mix(in srgb, var(--surface-overlay) 92%, transparent);
+ box-shadow: 0 6px 20px rgb(20 30 25 / 14%);
+ backdrop-filter: blur(4px);
+}
+.realterrain-guide-label {
+ display: block;
+ color: var(--accent);
+ font:
+  9px ui-monospace,
+  SFMono-Regular,
+  Consolas,
+  monospace;
+ letter-spacing: 0.1em;
+ margin-bottom: 5px;
+}
+.realterrain-guide strong {
+ display: block;
+ color: var(--text-bright);
+ font-size: 13px;
+ line-height: 1.5;
+ margin-bottom: 6px;
+}
+.realterrain-guide p {
+ margin: 0 0 7px;
+ color: var(--muted);
+ font-size: 11px;
+ line-height: 1.7;
+}
+.realterrain-guide small {
+ display: block;
+ padding-top: 7px;
+ border-top: 1px dashed var(--line);
+ color: var(--accent);
+ font-size: 10px;
+ line-height: 1.6;
+}
+.realterrain-marker {
+ position: relative;
+ display: grid;
+ justify-items: center;
+ width: 11px;
+ cursor: pointer;
+}
+.realterrain-marker-pin {
+ width: 0;
+ height: 0;
+ border-left: 5px solid transparent;
+ border-right: 5px solid transparent;
+ border-top: 7px solid #d4513f;
+}
+.realterrain-marker:before {
+ content: "";
+ position: absolute;
+ top: -13px;
+ width: 22px;
+ height: 22px;
+ border-radius: 50%;
+ background: rgb(212 81 63 / 28%);
+ animation: realterrain-pulse 2.2s ease-out infinite;
+}
+.realterrain-marker-dot {
+ position: absolute;
+ top: -7px;
+ width: 9px;
+ height: 9px;
+ border-radius: 50%;
+ background: #d4513f;
+ border: 2px solid #fff;
+ box-shadow: 0 1px 4px rgb(0 0 0 / 30%);
+}
+.realterrain-marker-label {
+ position: absolute;
+ top: -21px;
+ left: 50%;
+ transform: translateX(-50%);
+ white-space: nowrap;
+ padding: 2px 6px;
+ border-radius: 4px;
+ background: rgb(17 30 28 / 82%);
+ color: #f5f9f7;
+ font-size: 10px;
+ pointer-events: none;
+}
+@keyframes realterrain-pulse {
+ 0% {
+  transform: scale(0.6);
+  opacity: 0.9;
+ }
+ 100% {
+  transform: scale(1.9);
+  opacity: 0;
+ }
+}
 .geo-map-error-state {
  display: grid;
  min-height: 420px;
