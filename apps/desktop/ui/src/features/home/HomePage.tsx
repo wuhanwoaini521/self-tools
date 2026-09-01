@@ -85,7 +85,6 @@ export function HomePage({
               <div className="home-article-actions"><button type="button" className="home-primary-link" onClick={() => article && onOpenArticle(article)} disabled={!article}>阅读全文 <ArrowRight size={16} /></button><span className="home-article-source">{article ? `来源：${article.feed_title} · ${formatRelativeTime(article.published_at)}` : "来源：RSS Reader"}</span></div>
             </div>
             <section className="home-place-card">
-              <div className="home-place-map"><img src="/geography/natural-earth-50m-hypso-mercator.jpg" alt="世界地形底图" /><span className="home-place-marker"><MapPin size={22} weight="fill" /></span><span className="home-place-map-label">WORLD / OFFLINE</span></div>
               <div className="home-place-copy"><span>继续探索地点</span><strong>{placeName}</strong><small>{placeEnglish}</small><button type="button" onClick={() => onOpenGeography(recommendation?.entity_id)}>{placeSummary} <ArrowRight size={15} /></button></div>
             </section>
           </div>

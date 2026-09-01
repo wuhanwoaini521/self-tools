@@ -81,17 +81,16 @@ V1 通过稳定 id、JSON 属性和关系表保持演进空间；几何暂不写
 
 ## 6. Map Architecture
 
-V1 是 React SVG `ExplorationCanvas`：经纬度投影为可点击点和关系线，带经纬网、图层选择、选择态和可访问文本。它的职责是空间定位、关系和探索入口，不宣称是测绘底图。
+当前首页地图使用 MapLibre GL JS：由 WebGL 负责地图渲染、缩放、旋转和图层管理；实体点与关系线由应用转换为 GeoJSON source/layer。Mapterhorn 提供 `raster-dem` 地形瓦片，分别作为 3D terrain 和 hillshade 的数据源，地形模式使用两个独立 DEM source，避免地形与阴影争抢瓦片缓存。
 
-未来接入 MapLibre GL JS 时，保持 `GeoMapAdapter` 边界：
+地图适配器保持如下边界：
 
 ```text
 GeoMapAdapter
-├── OfflineSvgAdapter (V1)
-└── MapLibreVectorAdapter (future)
+└── MapLibreTerrainAdapter
 ```
 
-MapLibre 本身是 WebGL 渲染库，不提供数据或离线瓦片；引入前必须同时确定 style、tile、缓存、归属和许可。当前依赖和网络请求均不增加。
+MapLibre 本身是渲染库，不提供底图或地形数据；当前运行时使用 OpenStreetMap 栅格底图与 Mapterhorn DEM，均通过网络请求加载。MapLibre 与 Mapterhorn 的代码按各自 BSD-3-Clause 许可使用，地形数据仍需按 Mapterhorn attribution 页面标注；底图保留 OpenStreetMap 归属。MapLibre 模块采用动态导入，地图 chunk 只在 Geography 页面需要时加载。网络或瓦片初始化失败时，只展示清晰的加载失败提示，不再渲染手绘或静态占位图。
 
 ## 7. Geographic Data Strategy
 
@@ -102,6 +101,7 @@ V1 只内置少量人工审核的实体事实和关系，所有事实绑定 `Geo
 - 人口/GDP：需要时再按指标版本导入 World Bank（默认 CC BY 4.0，但逐数据集复核）。
 - 中国地图：不从随机 GeoJSON 直接使用；先核验自然资源部标准地图/天地图的授权、坐标、精度和公开使用限制。
 - OSM：只在能承担 ODbL 归属和派生数据库义务时使用，不作为当前 V1 的基础数据。
+- Mapterhorn：运行时地形 DEM 瓦片，使用 `https://tiles.mapterhorn.com/tilejson.json` 的 Terrarium 编码；不把第三方地形数据打包进应用，按其 attribution 页面展示数据来源。
 
 ## 8. Search Strategy
 
@@ -120,15 +120,14 @@ Geography
 ├── Explore（首页、Daily Discovery、搜索、继续探索）
 ├── Map（首页内的探索画布）
 ├── China（通过中国实体和相关实体进入）
-├── Compare（首页内的比较工作区）
-└── Library（收藏和最近探索）
+└── Knowledge（地貌知识与阅读入口）
 ```
 
 V1 用一个一级导航项承载这些子体验，避免占满全局 Sidebar。实体详情在同一页面的侧栏/面板展开，保持用户的探索上下文。
 
 ## 10. V1 范围
 
-实现：离线首页、问题式 Daily Discovery、实体搜索、实体详情、基础关系、世界/中国探索画布、Administrative/Terrain/River 图层语义、Country/City/River/Mountain/Region 详情、Country/City/Region/River 基础比较、收藏、最近探索、Sources。
+实现：问题式 Daily Discovery、实体搜索、实体详情、基础关系、世界/中国探索画布、Administrative/Terrain/River 图层语义、Country/City/River/Mountain/Region 详情、地貌知识阅读、收藏、最近探索、Sources。
 
 不实现：在线地图服务、导航、实时天气/交通、专业 GIS、3D Globe、复杂投影转换、Graph DB、Vector DB、RAG 和多 Agent。
 
