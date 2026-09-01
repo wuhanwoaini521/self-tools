@@ -1,10 +1,10 @@
-import DOMPurify from "dompurify";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { ArrowBendUpLeft, ArrowSquareOut, ArrowsClockwise, Check, Plus, Rss, TextT, TrashSimple } from "@phosphor-icons/react";
 import { useCallback, useEffect, useState, type MouseEvent } from "react";
 import type { ArticleDto, FeedDto } from "../../types";
 import { errorMessage, formatDateTime, formatRelativeTime, isTauriRuntime } from "../../utils";
+import { prepareRssContent, stripRssHtml } from "./rssContent";
 
 /**
  * RSS Feature:订阅管理 + 文章列表 + 阅读面板。
@@ -204,7 +204,7 @@ export function RssPage({ active, version, refreshing, onRefresh, onFeedsChanged
                   {!article.is_read && <i className="rss-unread-dot" />}
                   <span className="rss-article-title">{reply ? <span className="rss-reply-badge"><ArrowBendUpLeft size={12} weight="bold" />回复</span> : null}{article.title}</span>
                   <small className="rss-article-meta">{article.feed_title} · {formatRelativeTime(article.published_at)}</small>
-                  {article.summary ? <p className="rss-article-snippet">{stripHtml(article.summary)}</p> : null}
+                  {article.summary ? <p className="rss-article-snippet">{stripRssHtml(article.summary, article.url)}</p> : null}
                 </button>;
               })}
             </div>
@@ -225,9 +225,9 @@ export function RssPage({ active, version, refreshing, onRefresh, onFeedsChanged
             ? <p className="rss-fetch-note">已加载网页全文</p>
             : null}
           {fetchedHtml
-            ? <div className="rss-reading-content rss-fetched" onClick={handleContentClick(selectedArticle)} dangerouslySetInnerHTML={{ __html: prepareContent(fetchedHtml, selectedArticle.url) }} />
+            ? <div className="rss-reading-content rss-fetched" onClick={handleContentClick(selectedArticle)} dangerouslySetInnerHTML={{ __html: prepareRssContent(fetchedHtml, selectedArticle.url) }} />
             : selectedArticle.summary
-              ? <div className="rss-reading-content" onClick={handleContentClick(selectedArticle)} dangerouslySetInnerHTML={{ __html: prepareContent(selectedArticle.summary, selectedArticle.url) }} />
+              ? <div className="rss-reading-content" onClick={handleContentClick(selectedArticle)} dangerouslySetInnerHTML={{ __html: prepareRssContent(selectedArticle.summary, selectedArticle.url) }} />
               : <p className="rss-empty">该文章没有摘要内容,可打开原文阅读。</p>}
         </article>}
     </section>
@@ -313,37 +313,4 @@ function escapeHtml(text: string): string {
 /** 相对链接基于文章原文地址解析为绝对地址。 */
 function resolveUrl(href: string, base?: string): string {
   try { return new URL(href, base).toString(); } catch { return href; }
-}
-
-/**
- * 阅读正文:先 DOMPurify 净化,再把相对 `a[href]` / `img[src]` 基于原文地址补全为绝对地址
- * (feedparser / Miniflux 在聚合端的标准行为,否则正文里的相对图片会 404)。
- */
-function prepareContent(html: string, baseUrl?: string): string {
-  const clean = DOMPurify.sanitize(html);
-  if (!baseUrl) return clean;
-  try {
-    const document = new DOMParser().parseFromString(clean, "text/html");
-    document.querySelectorAll("a[href], img[src]").forEach((element) => {
-      const attribute = element.tagName === "A" ? "href" : "src";
-      const value = element.getAttribute(attribute);
-      if (!value) return;
-      try { element.setAttribute(attribute, new URL(value, baseUrl).toString()); } catch { /* 保持原样 */ }
-    });
-    document.querySelectorAll("img").forEach((image) => image.setAttribute("loading", "lazy"));
-    return document.body.innerHTML;
-  } catch {
-    return clean;
-  }
-}
-
-/** 列表摘要:取纯文本,并去掉源站截断尾巴上的「…查看全文」等链接文字。 */
-function stripHtml(html: string): string {
-  const template = document.createElement("div");
-  template.innerHTML = DOMPurify.sanitize(html);
-  const text = (template.textContent || "").replace(/\s+/g, " ").trim();
-  return text
-    .replace(/(?:…{1,2}|\.{2,6}|⋯+)?\s*(?:查看全文|阅读全文|继续阅读|[Rr]ead\s*[Mm]ore)\s*$/u, "")
-    .replace(/(?:…{1,2}|\.{2,6}|⋯+)\s*$/u, "")
-    .trim();
 }
