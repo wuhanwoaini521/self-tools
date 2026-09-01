@@ -4711,6 +4711,33 @@ kbd {
 .geo-knowledge-map { min-height: 290px; padding: 7px; }
 .geo-knowledge-map-loading { display: grid; min-height: 290px; place-items: center; color: var(--muted); font-size: 12px; }
 .geo-knowledge-visual > p { margin: 0; padding: 9px 12px 11px; border-top: 1px solid var(--line); color: var(--muted); font-size: 11px; line-height: 1.5; }
+.landform-viewer { margin: 0 0 15px; overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius-control); background: color-mix(in srgb, var(--surface-sunken) 82%, #d9d0bd); }
+.landform-viewer-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 47px; padding: 8px 10px 8px 12px; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--surface-control) 80%, transparent); }
+.landform-viewer-head > div:first-child { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.landform-viewer-head > div:first-child span { color: var(--accent); font: 9px ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: .09em; white-space: nowrap; }
+.landform-viewer-head > div:first-child strong { overflow: hidden; color: var(--text-bright); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.landform-viewer-actions, .landform-viewer-actions > div { display: flex; align-items: center; gap: 3px; }
+.landform-viewer-actions > div { padding-right: 5px; border-right: 1px solid var(--line); }
+.landform-viewer-actions button { display: inline-flex; align-items: center; gap: 4px; min-height: 26px; padding: 5px 7px; border: 1px solid transparent; border-radius: 4px; background: transparent; color: var(--muted); cursor: pointer; font-size: 10px; }
+.landform-viewer-actions button:hover { background: var(--panel-hover); color: var(--text); }
+.landform-viewer-actions button.selected { border-color: var(--accent-border-active); background: var(--accent-selected); color: var(--accent-selected-text); }
+.landform-canvas-wrap { position: relative; height: clamp(300px, 34vw, 430px); min-height: 300px; overflow: hidden; touch-action: none; }
+.landform-canvas-wrap canvas { display: block; width: 100% !important; height: 100% !important; outline: none; }
+.landform-drag-hint { position: absolute; z-index: 2; left: 11px; bottom: 10px; padding: 5px 8px; border: 1px solid rgb(85 71 52 / 17%); border-radius: 4px; background: rgb(250 247 239 / 82%); color: #6b6254; font-size: 10px; pointer-events: none; }
+.landform-hotspot { display: inline-flex; align-items: center; gap: 5px; padding: 3px 5px; border: 0; border-radius: 3px; background: rgb(252 248 239 / 92%); color: #5b4433; box-shadow: 0 1px 7px rgb(58 45 29 / 15%); cursor: pointer; font: 600 10px/1.15 var(--font-sans, inherit); white-space: nowrap; }
+.landform-hotspot i { width: 14px; height: 1px; background: #bd713c; }
+.landform-hotspot:hover { color: #9a5529; transform: translateY(-1px); }
+.landform-hotspot-detail { position: absolute; z-index: 3; right: 11px; bottom: 10px; width: min(215px, calc(100% - 22px)); padding: 10px 29px 10px 11px; border: 1px solid rgb(105 78 49 / 17%); border-radius: 5px; background: rgb(252 248 239 / 94%); color: #5b4433; box-shadow: 0 7px 22px rgb(58 45 29 / 12%); }
+.landform-hotspot-detail strong { display: block; font-size: 11px; }
+.landform-hotspot-detail p { margin: 4px 0 0; font-size: 10px; line-height: 1.55; }
+.landform-hotspot-detail button { position: absolute; top: 7px; right: 7px; display: grid; width: 20px; height: 20px; place-items: center; border: 0; border-radius: 3px; background: transparent; color: #806e5c; cursor: pointer; }
+.landform-hotspot-detail button:hover { background: rgb(114 88 57 / 10%); }
+.landform-loading, .landform-static-fallback { display: grid; width: 100%; height: 100%; place-items: center; color: var(--muted); font-size: 12px; }
+.landform-static-fallback { align-content: center; gap: 14px; padding: 22px; text-align: center; }
+.landform-static-fallback svg { width: min(500px, 90%); max-height: 190px; }
+.landform-static-fallback img { width: min(500px, 90%); max-height: 190px; object-fit: contain; }
+.landform-static-fallback path:first-child { fill: #b79b70; }
+.landform-static-fallback path:last-child { fill: none; stroke: #719aa1; stroke-width: 7; }
 .geo-map-error-state { display: grid; min-height: 420px; place-items: center; padding: 30px; color: var(--muted); font-size: 12px; text-align: center; }
 .geo-map-legend { position: absolute; z-index: 3; left: 20px; bottom: 38px; display: flex; gap: 10px; padding: 5px 7px; border: 1px solid var(--line); border-radius: 5px; background: color-mix(in srgb, var(--surface-overlay) 88%, transparent); color: var(--muted); font-size: 10px; }
 .geo-map-legend span { display: inline-flex; align-items: center; gap: 4px; }
@@ -4739,8 +4766,15 @@ kbd {
 .geo-knowledge-count strong { color: var(--accent); font: 700 24px ui-monospace, SFMono-Regular, Consolas, monospace; }
 .geo-knowledge-count span { color: var(--faint); font-size: 10px; }
 .geo-knowledge-layout { display: grid; grid-template-columns: minmax(220px, .36fr) minmax(0, 1fr); gap: 14px; }
-.geo-knowledge-index { align-self: start; padding: 10px; border: 1px solid var(--line-soft); border-radius: var(--radius-control); background: var(--surface-sunken); }
-.geo-knowledge-index-label { display: block; padding: 4px 8px 9px; color: var(--faint); font: 9px ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: .12em; }
+.geo-knowledge-index { align-self: start; max-height: calc(100vh - 156px); padding: 10px; overflow: auto; border: 1px solid var(--line-soft); border-radius: var(--radius-control); background: var(--surface-sunken); scrollbar-width: thin; }
+.geo-knowledge-index-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 8px 9px; }
+.geo-knowledge-index-label { display: block; color: var(--faint); font: 9px ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: .12em; }
+.geo-knowledge-index-head small { color: var(--faint); font-size: 10px; white-space: nowrap; }
+.geo-landform-search { display: flex; align-items: center; gap: 6px; margin: 0 0 7px; padding: 7px 8px; border: 1px solid var(--line-strong); border-radius: 5px; background: var(--surface-control); color: var(--icon-muted); }
+.geo-landform-search:focus-within { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-glow); }
+.geo-landform-search input { min-width: 0; flex: 1; border: 0; outline: 0; background: transparent; color: var(--text-input); font-size: 11px; }
+.geo-landform-search button { display: grid; width: 18px; height: 18px; place-items: center; padding: 0; border: 0; border-radius: 3px; background: transparent; color: var(--faint); cursor: pointer; }
+.geo-landform-search button:hover { background: var(--panel-hover); color: var(--text); }
 .geo-knowledge-index button { position: relative; display: flex; width: 100%; align-items: center; gap: 9px; padding: 11px 8px; border: 1px solid transparent; border-radius: 5px; background: transparent; color: var(--text); text-align: left; cursor: pointer; }
 .geo-knowledge-index button:hover { background: var(--panel-hover); }
 .geo-knowledge-index button.selected { border-color: var(--accent-border-active); background: var(--accent-selected); }
@@ -4753,6 +4787,7 @@ kbd {
 .geo-knowledge-index button.selected small { color: color-mix(in srgb, var(--accent-selected-text) 70%, transparent); }
 .geo-knowledge-index button svg { flex: 0 0 auto; color: var(--faint); }
 .geo-knowledge-index button.selected svg { color: var(--accent); }
+.geo-landform-no-results { margin: 10px 8px; color: var(--muted); font-size: 11px; line-height: 1.6; }
 .geo-knowledge-detail { min-width: 0; padding: 16px; border: 1px solid var(--line-soft); border-radius: var(--radius-control); background: var(--surface-control); }
 .geo-knowledge-detail-title { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 13px; }
 .geo-knowledge-detail-title h3 { margin: 6px 0 3px; color: var(--text-bright); font-size: 23px; }
@@ -4847,6 +4882,7 @@ kbd {
  .geo-profile-card dl { grid-template-columns: 1fr; }
  .geo-knowledge-header { align-items: flex-start; flex-direction: column; }
  .geo-knowledge-count { align-self: flex-start; }
+ .geo-knowledge-index { max-height: 330px; }
  .geo-knowledge-example { align-items: flex-start; flex-direction: column; }
 }
 

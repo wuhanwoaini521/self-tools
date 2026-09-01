@@ -1,10 +1,13 @@
 import { invoke } from "@tauri-apps/api/core";
 import { ArrowRight, BookmarkSimple, BookOpen, Compass, GitBranch, MagnifyingGlass, Question, X } from "@phosphor-icons/react";
-import { lazy, Suspense, useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { GeoEntity, GeoEntityDetail, GeoEntityType, GeoMapLine, GeoMapPoint, GeoSearchGroup, GeographyHome } from "../../types";
 import { errorMessage, isTauriRuntime } from "../../utils";
 import { AmapRegionMap } from "./AmapRegionMap";
 import { GeoMap, type GeoMapLayer } from "./GeoMap";
+import { Landform3DViewer } from "./Landform3DViewer";
+import { LANDFORM_KNOWLEDGE_ENTRIES } from "./landformKnowledgeData";
+import { LANDFORM_VIEWERS } from "./landform3dData";
 
 interface GeographyPageProps { active: boolean; setNotice: (notice: string) => void; amapApiKey?: string | null; amapSecurityJsCode?: string | null; intent?: { entityId: string; nonce: number } | null; }
 
@@ -148,66 +151,27 @@ function EntityDetail({ detail, onBack, onFavorite, onOpen, amapApiKey, amapSecu
   </section>;
 }
 
-interface GeoKnowledgeEntry {
-  id: string;
-  category: string;
-  title: string;
-  subtitle: string;
-  intro: string;
-  formation: string;
-  identify: string;
-  example: string;
-  exampleId: string;
-}
-
-const KNOWLEDGE_ENTRIES: GeoKnowledgeEntry[] = [
-  { id: "mountains", category: "构造地貌", title: "山地与山脉", subtitle: "起伏强烈的高地系统", intro: "山地是相对高差大、坡度明显的地表单元；多个山地沿一定方向延伸并相互连接，就形成山脉。", formation: "地壳受挤压发生褶皱、断裂和抬升，是山地形成的常见机制；长期风化、侵蚀又不断雕刻山脊、峡谷和坡面。", identify: "在地图上看等高线，线条密集通常意味着坡度较大；在卫星图上，山地常表现为连续的阴影、山脊和切割深的河谷。", example: "喜马拉雅山脉", exampleId: "himalayas" },
-  { id: "plateau", category: "构造地貌", title: "高原", subtitle: "海拔较高的广阔台地", intro: "高原是面积较大、整体海拔较高的地形，表面可以相对平坦，也可能被河流切割成高山峡谷。", formation: "大范围地壳抬升、火山堆积或构造活动会形成高原；抬升后的河流侵蚀，决定了高原边缘和内部的起伏。", identify: "判断高原不能只看一座山的高度，要看一整片区域是否处在较高海拔，并观察边缘是否有陡降或深切河谷。", example: "青藏高原", exampleId: "tibetan-plateau" },
-  { id: "basin", category: "构造地貌", title: "盆地", subtitle: "四周较高、中部较低的地形", intro: "盆地像一个巨大的地形容器，四周通常被山地或高地包围，中部相对低平，容易汇集水汽、河流和沉积物。", formation: "地壳沉降、断陷或周缘山地抬升，都可能造成盆地；河流不断搬运沉积物，会进一步填平盆地内部。", identify: "从地形图看，盆地常呈现边缘等高线密集、中心较疏的格局；从区域关系看，要同时寻找周缘高地和内部水系。", example: "四川盆地", exampleId: "sichuan-basin" },
-  { id: "plain", category: "流水地貌", title: "平原与冲积平原", subtitle: "地势平坦、沉积物深厚的低地", intro: "平原是起伏小、坡度缓的地貌。河流携带的泥沙在中下游和河口沉积，常形成适合农业、交通和城市发展的冲积平原。", formation: "河流流速降低后，泥沙会在河漫滩、冲积扇、三角洲等位置沉积；海岸线变化也会参与塑造平原。", identify: "平原通常等高线稀疏、河网较密，城市和农田容易连续分布；不要把‘平’误认为没有河流，很多平原正是河流塑造的结果。", example: "东北平原", exampleId: "northeast-china" },
-  { id: "river", category: "流水地貌", title: "河流地貌", subtitle: "水流侵蚀、搬运与沉积的连续结果", intro: "河流地貌不是单一形状，而是一套随河流过程变化的地貌组合：上游常见峡谷，中下游常见曲流、河漫滩，入海处可形成三角洲。", formation: "坡降大时，河流以侵蚀为主；坡降变缓后，搬运能力下降，泥沙开始沉积。河流因此把高地、盆地、平原和海洋串成一条空间线索。", identify: "阅读河流要同时看流向、坡度、支流和入海位置；弯曲河道通常意味着侧向侵蚀和沉积正在改变河谷。", example: "长江", exampleId: "yangtze" },
-  { id: "island-arc", category: "板块地貌", title: "岛弧与火山地貌", subtitle: "板块俯冲塑造的弧形岛链", intro: "岛弧是沿板块边界呈弧形排列的岛屿或火山岛链，常与深海沟、地震和火山活动共同出现。", formation: "海洋板块俯冲到另一板块之下，部分物质熔融并形成岩浆，长期活动可能构成火山链和岛弧。", identify: "在地图上观察岛链是否呈弧状，并结合海沟、火山和地震带判断其板块背景；日本列岛就是典型案例。", example: "日本列岛", exampleId: "japan" },
-];
-
-const KnowledgeTerrainMap = lazy(() => import("./MapLibreMap").then((module) => ({ default: module.MapLibreMap })));
-
-const KNOWLEDGE_CAMERA: Record<string, { center: [number, number]; zoom: number }> = {
-  mountains: { center: [84, 29], zoom: 4.8 },
-  plateau: { center: [88, 33], zoom: 4.4 },
-  basin: { center: [105.5, 30.5], zoom: 5.7 },
-  plain: { center: [126.6, 45.7], zoom: 5.1 },
-  river: { center: [112, 30], zoom: 4.8 },
-  "island-arc": { center: [138.25, 36.2], zoom: 5.1 },
-};
-
-function KnowledgeTerrainPreview({ entry, onOpenEntity }: { entry: GeoKnowledgeEntry; onOpenEntity: (id: string) => void }) {
-  const example = FALLBACK_ENTITIES.find((item) => item.id === entry.exampleId);
-  const camera = KNOWLEDGE_CAMERA[entry.id] ?? { center: [105, 32] as [number, number], zoom: 4.5 };
-  const points = example?.coordinates ? [{ entity_id: example.id, name: example.name, entity_type: example.entity_type, coordinate: example.coordinates }] : [];
-  return <section className="geo-knowledge-visual" aria-label={`${entry.title}真实地形预览`}>
-    <header><div><span>REAL TERRAIN PREVIEW</span><strong>{entry.example}</strong></div><small>Mapterhorn DEM · 可旋转</small></header>
-    <div className="geo-knowledge-map">
-      <Suspense fallback={<div className="geo-knowledge-map-loading">正在载入真实地形…</div>}>
-        <KnowledgeTerrainMap key={entry.id} points={points} lines={[]} layer="terrain" onSelect={onOpenEntity} onError={() => undefined} center={camera.center} zoom={camera.zoom} compact />
-      </Suspense>
-    </div>
-    <p>把视角倾斜后观察高差：山地看山脊，高原看整体抬升，盆地看周缘高地与中心低地。</p>
-  </section>;
-}
-
 function KnowledgePage({ onOpenEntity }: { onOpenEntity: (id: string) => void }) {
-  const [selectedId, setSelectedId] = useState(KNOWLEDGE_ENTRIES[0].id);
-  const selected = KNOWLEDGE_ENTRIES.find((entry) => entry.id === selectedId) ?? KNOWLEDGE_ENTRIES[0];
+  const [selectedId, setSelectedId] = useState(LANDFORM_KNOWLEDGE_ENTRIES[0].id);
+  const [landformQuery, setLandformQuery] = useState("");
+  const selected = LANDFORM_KNOWLEDGE_ENTRIES.find((entry) => entry.id === selectedId) ?? LANDFORM_KNOWLEDGE_ENTRIES[0];
+  const visibleEntries = useMemo(() => {
+    const query = landformQuery.trim().toLocaleLowerCase();
+    if (!query) return LANDFORM_KNOWLEDGE_ENTRIES;
+    return LANDFORM_KNOWLEDGE_ENTRIES.filter((entry) => `${entry.title} ${entry.subtitle} ${entry.category} ${entry.keywords.join(" ")}`.toLocaleLowerCase().includes(query));
+  }, [landformQuery]);
+  const selectedIndex = LANDFORM_KNOWLEDGE_ENTRIES.findIndex((entry) => entry.id === selected.id);
   return <section className="geo-knowledge-page">
-    <header className="geo-knowledge-header"><div><span className="geo-eyebrow">GEOGRAPHY KNOWLEDGE · LANDFORMS</span><h2>先认识地貌，再理解地图</h2><p>地貌不是需要孤立背诵的名词。看它怎么形成、如何辨认，再把它和气候、水系、城市联系起来。</p></div><div className="geo-knowledge-count"><strong>{KNOWLEDGE_ENTRIES.length}</strong><span>个基础地貌主题</span></div></header>
+    <header className="geo-knowledge-header"><div><span className="geo-eyebrow">GEOGRAPHY KNOWLEDGE · LANDFORMS</span><h2>先认识地貌，再理解地图</h2><p>按主导营力组织主要地貌单元：先观察形态，再理解形成过程和真实案例。</p></div><div className="geo-knowledge-count"><strong>{LANDFORM_KNOWLEDGE_ENTRIES.length}</strong><span>个主要地貌主题</span></div></header>
     <div className="geo-knowledge-layout">
       <nav className="geo-knowledge-index" aria-label="地貌知识目录">
-        <span className="geo-knowledge-index-label">LANDFORM INDEX</span>
-        {KNOWLEDGE_ENTRIES.map((entry, index) => <button type="button" key={entry.id} className={selected.id === entry.id ? "selected" : ""} onClick={() => setSelectedId(entry.id)}><i>{String(index + 1).padStart(2, "0")}</i><span><strong>{entry.title}</strong><small>{entry.subtitle}</small></span><ArrowRight size={15} /></button>)}
+        <div className="geo-knowledge-index-head"><span className="geo-knowledge-index-label">LANDFORM INDEX</span><small>{landformQuery ? `${visibleEntries.length} 个结果` : "按成因浏览"}</small></div>
+        <label className="geo-landform-search"><MagnifyingGlass size={14} /><input value={landformQuery} onChange={(event) => setLandformQuery(event.target.value)} placeholder="搜索地貌、成因或关键词" aria-label="搜索地貌" />{landformQuery ? <button type="button" onClick={() => setLandformQuery("")} aria-label="清除地貌搜索"><X size={13} /></button> : null}</label>
+        {visibleEntries.length ? visibleEntries.map((entry) => { const index = LANDFORM_KNOWLEDGE_ENTRIES.indexOf(entry); return <button type="button" key={entry.id} className={selected.id === entry.id ? "selected" : ""} onClick={() => setSelectedId(entry.id)}><i>{String(index + 1).padStart(2, "0")}</i><span><strong>{entry.title}</strong><small>{entry.category} · {entry.subtitle}</small></span><ArrowRight size={15} /></button>; }) : <p className="geo-landform-no-results">未找到相关地貌。可尝试“冰川”“海岸”“侵蚀”或“火山”。</p>}
       </nav>
       <article className="geo-knowledge-detail">
-        <div className="geo-knowledge-detail-title"><div><span className="geo-card-type">{selected.category}</span><h3>{selected.title}</h3><p>{selected.subtitle}</p></div><span className="geo-knowledge-mark">{String(KNOWLEDGE_ENTRIES.indexOf(selected) + 1).padStart(2, "0")} / {String(KNOWLEDGE_ENTRIES.length).padStart(2, "0")}</span></div>
-        <KnowledgeTerrainPreview entry={selected} onOpenEntity={onOpenEntity} />
+        <div className="geo-knowledge-detail-title"><div><span className="geo-card-type">{selected.category}</span><h3>{selected.title}</h3><p>{selected.subtitle}</p></div><span className="geo-knowledge-mark">{String(selectedIndex + 1).padStart(2, "0")} / {String(LANDFORM_KNOWLEDGE_ENTRIES.length).padStart(2, "0")}</span></div>
+        <Landform3DViewer title={selected.title} config={LANDFORM_VIEWERS[selected.viewerType]} />
         <div className="geo-knowledge-copy"><section><span>01 · 它是什么</span><p>{selected.intro}</p></section><section><span>02 · 怎么形成</span><p>{selected.formation}</p></section><section><span>03 · 怎么辨认</span><p>{selected.identify}</p></section></div>
         <footer className="geo-knowledge-example"><div><span>典型案例</span><strong>{selected.example}</strong></div><button type="button" onClick={() => onOpenEntity(selected.exampleId)}>打开实体详情 <ArrowRight size={15} /></button></footer>
       </article>
