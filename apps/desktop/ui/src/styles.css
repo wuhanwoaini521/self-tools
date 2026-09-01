@@ -5612,6 +5612,44 @@ kbd {
  font-size: 10px;
  pointer-events: none;
 }
+.landform-context-lost {
+ position: absolute;
+ inset: 0;
+ z-index: 5;
+ display: grid;
+ align-content: center;
+ justify-items: center;
+ gap: 9px;
+ padding: 30px;
+ background: color-mix(in srgb, var(--surface-sunken) 88%, transparent);
+ color: var(--muted);
+ text-align: center;
+}
+.landform-context-lost strong {
+ color: var(--text-bright);
+ font-size: 15px;
+}
+.landform-context-lost p {
+ max-width: 380px;
+ margin: 0;
+ font-size: 12px;
+ line-height: 1.7;
+}
+.landform-context-lost button {
+ display: inline-flex;
+ align-items: center;
+ gap: 6px;
+ padding: 7px 14px;
+ border: 1px solid var(--accent-border-active);
+ border-radius: 6px;
+ background: var(--accent-selected);
+ color: var(--accent-selected-text);
+ font-size: 12px;
+ cursor: pointer;
+}
+.landform-context-lost button:hover {
+ filter: brightness(1.05);
+}
 .landform-hotspot {
  display: inline-flex;
  align-items: center;

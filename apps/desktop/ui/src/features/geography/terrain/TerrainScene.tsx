@@ -65,6 +65,8 @@ export interface TerrainSceneProps {
       labelsVisible: boolean;
       resetToken: number;
       onSelectHotspot: (item: LandformHotspot) => void;
+      /** 渲染途中 WebGL 上下文被系统回收时回调（用于提示而不是静默黑屏）。 */
+      onContextLost?: () => void;
 }
 
 export function TerrainScene({
@@ -75,10 +77,31 @@ export function TerrainScene({
       labelsVisible,
       resetToken,
       onSelectHotspot,
+      onContextLost,
 }: TerrainSceneProps) {
       const controlsRef = useRef<OrbitControlsImpl | null>(null);
       const showContour = mode === "contour";
       const showSection = mode === "section";
+      const onContextLostRef = useRef(onContextLost);
+      onContextLostRef.current = onContextLost;
+
+      // 监听 WebGL 上下文丢失：GPU 压力/驱动/WebView 限制会使上下文被回收，
+      // 若不处理，画布会静默黑屏。丢失时通知上层做优雅降级（提示 + 重建）。
+      const { gl } = useThree();
+      useEffect(() => {
+            const canvas = gl.domElement;
+            const handleLost = (event: Event) => {
+                  event.preventDefault();
+                  onContextLostRef.current?.();
+            };
+            canvas.addEventListener("webglcontextlost", handleLost, false);
+            return () =>
+                  canvas.removeEventListener(
+                        "webglcontextlost",
+                        handleLost,
+                        false,
+                  );
+      }, [gl]);
 
       return (
             <>

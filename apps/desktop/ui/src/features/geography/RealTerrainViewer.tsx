@@ -91,7 +91,6 @@ export function RealTerrainViewer({ region }: RealTerrainViewerProps) {
     try {
       const map = new maplibregl.Map({
         container,
-        canvasContextAttributes: { preserveDrawingBuffer: true },
         center: region.center,
         zoom: region.zoom,
         pitch: region.pitch,

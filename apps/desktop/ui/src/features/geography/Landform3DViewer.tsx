@@ -67,7 +67,9 @@ export function Landform3DViewer({ title, config }: Landform3DViewerProps) {
   const [mode, setMode] = useState<LandformViewMode>("terrain");
   const [labelsVisible, setLabelsVisible] = useState(false);
   const [resetToken, setResetToken] = useState(0);
+  const [reloadToken, setReloadToken] = useState(0);
   const [webglAvailable, setWebglAvailable] = useState<boolean | null>(null);
+  const [contextLost, setContextLost] = useState(false);
   const [selectedHotspot, setSelectedHotspot] =
     useState<LandformHotspot | null>(null);
   const [compact, setCompact] = useState(false);
@@ -94,6 +96,7 @@ export function Landform3DViewer({ title, config }: Landform3DViewerProps) {
     setMode("terrain");
     setLabelsVisible(false);
     setSelectedHotspot(null);
+    setContextLost(false);
     setResetToken((value) => value + 1);
   }, [config.modelType]);
 
@@ -174,6 +177,7 @@ export function Landform3DViewer({ title, config }: Landform3DViewerProps) {
           <div className="landform-loading">正在生成连续地形…</div>
         ) : (
           <Canvas
+            key={reloadToken}
             shadows
             dpr={[1, 1.5]}
             camera={{ fov: 35, position: preset.camera.position }}
@@ -186,10 +190,33 @@ export function Landform3DViewer({ title, config }: Landform3DViewerProps) {
               labelsVisible={labelsVisible}
               resetToken={resetToken}
               onSelectHotspot={setSelectedHotspot}
+              onContextLost={() => setContextLost(true)}
             />
           </Canvas>
         )}
-        <div className="landform-drag-hint">{DRAG_HINTS[mode]}</div>
+        {contextLost ? (
+          <div className="landform-context-lost" role="alert">
+            <strong>3D 渲染上下文已丢失</strong>
+            <p>
+              GPU 渲染被系统中断（常见于未开启硬件加速 / 虚拟机 / 驱动受限）。
+              可重试重建渲染上下文，或开启浏览器硬件加速后刷新页面。
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setContextLost(false);
+                setReloadToken((value) => value + 1);
+                setResetToken((value) => value + 1);
+              }}
+            >
+              <ArrowsClockwise size={14} />
+              重试 3D
+            </button>
+          </div>
+        ) : null}
+        {!contextLost ? (
+          <div className="landform-drag-hint">{DRAG_HINTS[mode]}</div>
+        ) : null}
         {selectedHotspot ? (
           <aside className="landform-hotspot-detail">
             <button
