@@ -864,21 +864,18 @@ impl TravelResearchService {
                     .and_then(|(_, point)| point.clone());
                 if let (Some(origin), Some(destination)) = (previous.clone(), current.clone()) {
                     for provider in &self.data_providers {
-                        match provider
+                        if let Ok(Some(route)) = provider
                             .driving_route(TravelRouteRequest {
                                 origin: origin.clone(),
                                 destination: destination.clone(),
                             })
                             .await
                         {
-                            Ok(Some(route)) => {
-                                stop.travel_time = Some(format!(
-                                    "驾车约 {} 分钟 · {:.1} 公里",
-                                    route.duration_minutes, route.distance_km
-                                ));
-                                break;
-                            }
-                            Ok(None) | Err(_) => {}
+                            stop.travel_time = Some(format!(
+                                "驾车约 {} 分钟 · {:.1} 公里",
+                                route.duration_minutes, route.distance_km
+                            ));
+                            break;
                         }
                     }
                 }

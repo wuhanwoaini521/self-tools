@@ -4,6 +4,7 @@
 //! 每个功能模块(文档 / RSS / Travel)的命令各自独立，互不依赖。
 
 use std::collections::HashMap;
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
@@ -115,12 +116,60 @@ pub struct TravelResearchSnapshot {
     pub guide: Option<CityGuide>,
 }
 
-fn settings_store(app: &AppHandle) -> Result<SettingsStore, CommandError> {
-    let config_directory = app.path().app_config_dir().map_err(|error| CommandError {
-        code: "app_config_dir",
+fn project_root_from(start: PathBuf) -> Option<PathBuf> {
+    let mut current = start;
+    loop {
+        if current.join("Cargo.toml").is_file() || current.join(".git").exists() {
+            return Some(current);
+        }
+        if !current.pop() {
+            return None;
+        }
+    }
+}
+
+fn project_config_directory(app: &AppHandle) -> Result<PathBuf, CommandError> {
+    let current_dir = std::env::current_dir().map_err(|error| CommandError {
+        code: "project_config_dir",
         message: error.to_string(),
     })?;
-    Ok(SettingsStore::new(config_directory))
+    let project_root = project_root_from(current_dir.clone())
+        .or_else(|| {
+            std::env::current_exe()
+                .ok()
+                .and_then(|path| project_root_from(path.parent()?.to_path_buf()))
+        })
+        .unwrap_or(current_dir);
+    let config_directory = project_root.join("config");
+    std::fs::create_dir_all(&config_directory).map_err(|error| CommandError {
+        code: "project_config_dir",
+        message: error.to_string(),
+    })?;
+
+    // 首次切换时只迁移不存在的文件，不覆盖项目 config 中已有内容。
+    if let Ok(legacy_directory) = app.path().app_config_dir()
+        && legacy_directory != config_directory
+    {
+        for filename in [
+            "settings.json",
+            "dashboard.db",
+            "travel.db",
+            "history.db",
+            "geography.db",
+            "language.db",
+        ] {
+            let source = legacy_directory.join(filename);
+            let target = config_directory.join(filename);
+            if source.is_file() && !target.exists() {
+                let _ = std::fs::copy(source, target);
+            }
+        }
+    }
+    Ok(config_directory)
+}
+
+fn settings_store(app: &AppHandle) -> Result<SettingsStore, CommandError> {
+    Ok(SettingsStore::new(project_config_directory(app)?))
 }
 
 // ---------- 文档 / Markdown 模块 ----------
@@ -800,7 +849,8 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
-            let config_directory = app.path().app_config_dir()?;
+            let config_directory = project_config_directory(app.handle())
+                .map_err(|error| std::io::Error::other(error.message))?;
             let store = FeedRepository::open(config_directory.join("dashboard.db"))
                 .expect("open rss database");
             let travel_store = TravelStore::open(config_directory.join("travel.db"))

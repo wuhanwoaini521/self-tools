@@ -68,7 +68,7 @@ Infrastructure (crates/infrastructure/src/travel/)
 - V1 采用「会话 + 短轮询」：`travel_research_start` 返回 session_id（后台任务），
   前端 600ms 轮询 `travel_research_progress`；复用现有“无 Tauri emit”的机制，未引入新事件通道
 
-## 配置（settings.json，全部 Optional）
+## 配置（`config/settings.json`，全部 Optional）
 
 | 字段 | 说明 |
 |---|---|
@@ -79,7 +79,7 @@ Infrastructure (crates/infrastructure/src/travel/)
 | `travel.qweather_api_host / qweather_api_key` | **已接入**：和风天气专属 API Host + Key，3 天预报 → 逐日天气卡片；仅展示 API 实际预报窗口 |
 | `travel.baidu_map_api_key` | 预留（V2 地点检索） |
 
-Key 只保存在本机 settings.json（个人桌面工具），不硬编码、不提交。
+桌面应用的 Key 只保存在项目根目录的 `config/settings.json`（个人桌面工具），不硬编码、不提交；整个 `config/` 目录都已加入 `.gitignore`。
 未配置任何 Key 时「结构化数据源」阶段显示 Skipped，并提示可增强路径。
 
 ## 日期范围与天气展示

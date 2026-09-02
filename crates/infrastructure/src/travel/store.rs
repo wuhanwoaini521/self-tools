@@ -213,7 +213,7 @@ impl TravelStore {
             .collect::<Result<Vec<_>, _>>()
             .map_err(|source| InfrastructureError::Sqlite(source.to_string()))?;
         summaries.extend(date_rows);
-        summaries.sort_by(|left, right| right.updated_at.cmp(&left.updated_at));
+        summaries.sort_by_key(|summary| std::cmp::Reverse(summary.updated_at));
         summaries.truncate(limit as usize);
         Ok(summaries)
     }

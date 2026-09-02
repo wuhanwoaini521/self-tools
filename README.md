@@ -149,6 +149,8 @@ Markdown 的 Focus Mode、Zen Mode 和命令面板：
 
 ## 数据与可追溯性
 
+- 桌面应用的运行时数据统一保存在项目根目录的 `config/`：包括 `settings.json`、RSS 的 `dashboard.db`、Travel 的 `travel.db`、History 的 `history.db`、Geography 的 `geography.db` 和 Language 的 `language.db`；该目录已加入 `.gitignore`，不会提交到 Git。
+- 如果旧版本曾把数据写入系统 AppData，应用首次启动时会把缺失的文件复制到项目 `config/`，不会覆盖已经存在的项目数据，也不会删除旧文件。
 - Language 的词典和例句来自可追溯的开放数据集：Open English WordNet、CMUdict、JMdict、KANJIDIC2、CC-CEDICT、words.hk、CC-Canto 和 Tatoeba。
 - Geography 当前使用小型内置种子数据；正式边界和大规模几何数据会在许可核验后再导入。
 - Travel 生成攻略时保留来源列表；没有 LLM 或 API Key 时降级为来源与基础信息模式，不凭空补全内容。

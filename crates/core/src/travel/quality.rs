@@ -49,10 +49,11 @@ pub fn normalize_entity_name(value: &str) -> String {
 }
 
 fn same_attraction(left: &Attraction, right: &Attraction) -> bool {
-    if let (Some(left_id), Some(right_id)) = (&left.poi_id, &right.poi_id) {
-        if !left_id.is_empty() && left_id == right_id {
-            return true;
-        }
+    if let (Some(left_id), Some(right_id)) = (&left.poi_id, &right.poi_id)
+        && !left_id.is_empty()
+        && left_id == right_id
+    {
+        return true;
     }
     let left_name = left
         .normalized_name

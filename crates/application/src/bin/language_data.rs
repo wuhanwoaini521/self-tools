@@ -34,7 +34,20 @@ use devtoolbox_application::ApplicationError;
 use devtoolbox_application::language::{LanguageService, importing, starter};
 use devtoolbox_infrastructure::language::LanguageStore;
 
-const DEFAULT_DB: &str = "language.db";
+const DEFAULT_DB: &str = "config/language.db";
+
+fn project_config_db() -> PathBuf {
+    let start = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+    let mut current = start.clone();
+    loop {
+        if current.join("Cargo.toml").is_file() || current.join(".git").exists() {
+            return current.join(DEFAULT_DB);
+        }
+        if !current.pop() {
+            return start.join(DEFAULT_DB);
+        }
+    }
+}
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
@@ -82,7 +95,7 @@ fn db_path(args: &[String]) -> PathBuf {
         .position(|arg| arg == "--db")
         .and_then(|index| args.get(index + 1))
         .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from(DEFAULT_DB))
+        .unwrap_or_else(project_config_db)
 }
 
 fn open_store(args: &[String]) -> Result<LanguageStore, ApplicationError> {
