@@ -105,7 +105,6 @@ export function RealTerrainViewer({ region }: RealTerrainViewerProps) {
   const [showGuide, setShowGuide] = useState(true);
   const [webglLost, setWebglLost] = useState(false);
   const [tileNotice, setTileNotice] = useState<string | null>(null);
-  const [paintNotice, setPaintNotice] = useState<string | null>(null);
   const [diag, setDiag] = useState<DiagState>(INITIAL_DIAG);
   const terrainProvider = TERRAIN_PROVIDERS[providerIndex];
 
@@ -117,7 +116,6 @@ export function RealTerrainViewer({ region }: RealTerrainViewerProps) {
     setStatus("loading");
     setWebglLost(false);
     setTileNotice(null);
-    setPaintNotice(null);
     setDiag(INITIAL_DIAG);
 
     // WebGL 是否可用是 MapLibre 渲染的必要前提；提前探测，避免创建后静默黑屏。
@@ -198,6 +196,14 @@ export function RealTerrainViewer({ region }: RealTerrainViewerProps) {
       };
       map.on("webglcontextlost", handleContextLost);
       map.on("webglcontextrestored", handleContextRestored);
+      // 不直接读取 WebGL 像素判断画面：MapLibre 可能使用 WebGL2，而从同一
+      // canvas 再请求 WebGL1 会返回 null，造成“未绘制”的假阳性。render 事件
+      // 是 MapLibre 对“至少已完成一帧”的权威信号。
+      let hasRendered = false;
+      const handleMapRender = () => {
+        hasRendered = true;
+      };
+      map.on("render", handleMapRender);
       map.addControl(
         new maplibregl.NavigationControl({
           showCompass: true,
@@ -299,51 +305,19 @@ export function RealTerrainViewer({ region }: RealTerrainViewerProps) {
           );
         }
 
-        // 绘制看门狗：ready 后过几秒探测是否真的出了画面。
-        // “样式加载成功但一帧都没画”是环境级故障，需要明确区分开。
+        // 将 MapLibre 的绘制状态记录到诊断信息中；无法确认时保留“未知”，而不
+        // 用跨 WebGL 版本的像素采样误报“画面未绘制”。
         window.setTimeout(() => {
           if (cancelled || !loaded) return;
           try {
-            const canvas = map.getCanvas();
             const tilesLoaded = map.areTilesLoaded();
-            // 先假设未绘制；任一采样点有颜色即认为已绘制；读出失败则为未知。
-            let painted: boolean | null = false;
-            const gl = (canvas.getContext("webgl") ||
-              canvas.getContext(
-                "experimental-webgl",
-              )) as WebGLRenderingContext | null;
-            if (gl) {
-              const w = canvas.width;
-              const h = canvas.height;
-              const buf = new Uint8Array(4);
-              const samples: [number, number][] = [
-                [0, 0],
-                [w - 1, 0],
-                [0, h - 1],
-                [w - 1, h - 1],
-                [w >> 1, h >> 1],
-              ];
-              for (const [x, y] of samples) {
-                try {
-                  gl.readPixels(x, y, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, buf);
-                  if (buf[0] !== 0 || buf[1] !== 0 || buf[2] !== 0) {
-                    painted = true;
-                    break;
-                  }
-                } catch {
-                  painted = null;
-                  break;
-                }
-              }
-            }
-            setDiag((value) => ({ ...value, tilesLoaded, painted }));
-            if (painted === false) {
-              setPaintNotice(
-                "地图已加载但画面未绘制出来（渲染受限），可尝试重试。",
-              );
-            }
-          } catch (probeError) {
-            console.error("[real-terrain] paint probe failed:", probeError);
+            setDiag((value) => ({
+              ...value,
+              tilesLoaded,
+              painted: hasRendered ? true : null,
+            }));
+          } catch (diagnosticError) {
+            console.error("[real-terrain] render diagnostic failed:", diagnosticError);
           }
         }, 3000);
       });
@@ -364,6 +338,7 @@ export function RealTerrainViewer({ region }: RealTerrainViewerProps) {
         window.removeEventListener("resize", handleWindowResize);
         map.off("webglcontextlost", handleContextLost);
         map.off("webglcontextrestored", handleContextRestored);
+        map.off("render", handleMapRender);
         map.remove();
         mapRef.current = null;
       };
@@ -547,11 +522,6 @@ export function RealTerrainViewer({ region }: RealTerrainViewerProps) {
         {providerIndex > 0 && status === "ready" ? (
           <div className="realterrain-provider-notice" role="status">
             已自动切换至 {terrainProvider.label}。
-          </div>
-        ) : null}
-        {paintNotice && status === "ready" ? (
-          <div className="realterrain-tile-notice" role="status">
-            {paintNotice}
           </div>
         ) : null}
         <div className="realterrain-diag" aria-hidden="true">
