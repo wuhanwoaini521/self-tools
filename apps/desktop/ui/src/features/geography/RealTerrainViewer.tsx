@@ -4,13 +4,55 @@ import {
   Mountains,
   Repeat,
 } from "@phosphor-icons/react";
+import type { RasterDEMSourceSpecification } from "@maplibre/maplibre-gl-style-spec";
 import * as maplibregl from "maplibre-gl";
 import { useEffect, useMemo, useRef, useState } from "react";
 import "maplibre-gl/dist/maplibre-gl.css";
 import type { RealTerrainRegion } from "./realTerrainData";
 
-const TERRAIN_TILEJSON = "https://tiles.mapterhorn.com/tilejson.json";
 const OSM_TILES = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
+/**
+ * 真实地形不能只依赖单一的在线瓦片服务。任一服务在特定网络、CDN 节点或地区
+ * 不可达时，所有地貌条目都会同时变成空白。这里保留 Mapterhorn 作为首选，并用
+ * AWS Open Data 的全球 Terrarium DEM 作无密钥后备；两者都是 MapLibre 可直接读取
+ * 的 Terrarium 编码。
+ */
+interface TerrainProvider {
+  id: string;
+  label: string;
+  attribution: string;
+  source: RasterDEMSourceSpecification;
+}
+
+const TERRAIN_PROVIDERS: TerrainProvider[] = [
+  {
+    id: "mapterhorn",
+    label: "Mapterhorn DEM",
+    attribution:
+      'Terrain: <a href="https://mapterhorn.com/attribution">Mapterhorn</a>',
+    source: {
+      type: "raster-dem",
+      url: "https://tiles.mapterhorn.com/tilejson.json",
+      tileSize: 512,
+      encoding: "terrarium",
+    },
+  },
+  {
+    id: "aws-terrain",
+    label: "AWS Open Data DEM",
+    attribution:
+      'Terrain: <a href="https://registry.opendata.aws/terrain-tiles/">AWS Open Data</a>',
+    source: {
+      type: "raster-dem",
+      tiles: [
+        "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png",
+      ],
+      tileSize: 256,
+      maxzoom: 15,
+      encoding: "terrarium",
+    },
+  },
+];
 /** 若地图在这段时间内仍未完成加载，判定为加载失败（而非永久的转圈）。
  *  首次加载需拉取 DEM TileJSON + 瓦片，慢网络下给足余量。 */
 const LOAD_TIMEOUT_MS = 25000;
@@ -58,12 +100,14 @@ export function RealTerrainViewer({ region }: RealTerrainViewerProps) {
   const mapRef = useRef<maplibregl.Map | null>(null);
   const [status, setStatus] = useState<ViewStatus>("loading");
   const [retryToken, setRetryToken] = useState(0);
+  const [providerIndex, setProviderIndex] = useState(0);
   const [terrain3d, setTerrain3d] = useState(true);
   const [showGuide, setShowGuide] = useState(true);
   const [webglLost, setWebglLost] = useState(false);
   const [tileNotice, setTileNotice] = useState<string | null>(null);
   const [paintNotice, setPaintNotice] = useState<string | null>(null);
   const [diag, setDiag] = useState<DiagState>(INITIAL_DIAG);
+  const terrainProvider = TERRAIN_PROVIDERS[providerIndex];
 
   // Create (or recreate on retry) the map.
   useEffect(() => {
@@ -108,22 +152,9 @@ export function RealTerrainViewer({ region }: RealTerrainViewerProps) {
               maxzoom: 19,
               attribution: "© OpenStreetMap contributors",
             },
-            "rt-terrain": {
-              type: "raster-dem",
-              url: TERRAIN_TILEJSON,
-              tileSize: 512,
-              encoding: "terrarium",
-              attribution:
-                'Terrain: <a href="https://mapterhorn.com/attribution">Mapterhorn</a>',
-            },
-            "rt-hillshade": {
-              type: "raster-dem",
-              url: TERRAIN_TILEJSON,
-              tileSize: 512,
-              encoding: "terrarium",
-              attribution:
-                'Terrain: <a href="https://mapterhorn.com/attribution">Mapterhorn</a>',
-            },
+            // terrain 和 hillshade 使用独立 source，避免它们争抢同一组 DEM 瓦片缓存。
+            "rt-terrain": { ...terrainProvider.source, attribution: terrainProvider.attribution },
+            "rt-hillshade": { ...terrainProvider.source, attribution: terrainProvider.attribution },
           },
           layers: [
             {
@@ -151,16 +182,22 @@ export function RealTerrainViewer({ region }: RealTerrainViewerProps) {
         },
       });
       mapRef.current = map;
-      // WebGL 上下文可能在渲染途中被系统回收（GPU 资源紧张 / 驱动/WebView 限制），
-      // 监听丢失事件以便给出明确提示，而不是让地图黑屏。
-      try {
-        map.getCanvas().addEventListener("webglcontextlost", () => {
-          setWebglLost(true);
-          setDiag((value) => ({ ...value, webglLost: true }));
-        });
-      } catch {
-        /* canvas 尚未就绪时忽略，交给 load 后再处理 */
-      }
+      // MapLibre 在 map.remove() 时会主动调用 WEBGL_lose_context 来释放 GPU。
+      // 因此不能直接监听 canvas：组件切换、StrictMode 的开发期重挂载都会被误判为
+      // "WebGL 丢失"。用 MapLibre 事件并跳过已取消的实例，且在浏览器自动恢复时
+      // 清除错误态，让它自行重建样式和画布。
+      const handleContextLost = () => {
+        if (cancelled) return;
+        setWebglLost(true);
+        setDiag((value) => ({ ...value, webglLost: true }));
+      };
+      const handleContextRestored = () => {
+        if (cancelled) return;
+        setWebglLost(false);
+        setDiag((value) => ({ ...value, webglLost: false }));
+      };
+      map.on("webglcontextlost", handleContextLost);
+      map.on("webglcontextrestored", handleContextRestored);
       map.addControl(
         new maplibregl.NavigationControl({
           showCompass: true,
@@ -175,6 +212,7 @@ export function RealTerrainViewer({ region }: RealTerrainViewerProps) {
 
       let loaded = false;
       let tileFailureCount = 0;
+      let terrainProviderFailed = false;
       const timeoutId = window.setTimeout(() => {
         if (!cancelled && !loaded) {
           setDiag((value) => ({ ...value, timeoutFired: true }));
@@ -196,14 +234,24 @@ export function RealTerrainViewer({ region }: RealTerrainViewerProps) {
         if (!errEvent.error) return;
 
         // 单张/某个源的瓦片失败：常见且可恢复（404 / 网络抖动 / 解码失败）。
-        // 不把地图判死；但若地图已就绪仍连续失败，提示“可能网络受限”。
+        // DEM 两个 source 都连续失败时切到后备服务；不要因 OSM 底图的一次失败
+        // 误切换高程服务。
         if (errEvent.sourceId || errEvent.tile) {
-          if (loaded) {
+          const isTerrainFailure =
+            errEvent.sourceId === "rt-terrain" ||
+            errEvent.sourceId === "rt-hillshade";
+          if (isTerrainFailure) {
             tileFailureCount += 1;
             setDiag((value) => ({ ...value, tileFail: value.tileFail + 1 }));
-            if (tileFailureCount >= 3) {
+            if (tileFailureCount >= 3 && !terrainProviderFailed) {
+              terrainProviderFailed = true;
+              if (providerIndex < TERRAIN_PROVIDERS.length - 1) {
+                window.clearTimeout(timeoutId);
+                setProviderIndex((value) => value + 1);
+                return;
+              }
               setTileNotice(
-                "部分地形瓦片未能加载（可能网络受限），已显示可用部分。",
+                "高程瓦片未能加载（可能网络受限），当前仅显示可用底图。",
               );
             }
           }
@@ -314,6 +362,8 @@ export function RealTerrainViewer({ region }: RealTerrainViewerProps) {
         cancelled = true;
         window.clearTimeout(timeoutId);
         window.removeEventListener("resize", handleWindowResize);
+        map.off("webglcontextlost", handleContextLost);
+        map.off("webglcontextrestored", handleContextRestored);
         map.remove();
         mapRef.current = null;
       };
@@ -328,7 +378,7 @@ export function RealTerrainViewer({ region }: RealTerrainViewerProps) {
     }
     // 地图按需重建（挂载 + 用户点「重试」）。eslint 依赖警告可忽略。
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [retryToken]);
+  }, [retryToken, providerIndex]);
 
   // Sync to a (possibly new) region while keeping the same map instance.
   useEffect(() => {
@@ -364,6 +414,8 @@ export function RealTerrainViewer({ region }: RealTerrainViewerProps) {
   }, [terrain3d, region, status]);
 
   const handleRetry = () => {
+    // 每次手动重试都从首选服务开始；自动切换仍会在 DEM 连续失败时发生。
+    setProviderIndex(0);
     setRetryToken((value) => value + 1);
   };
 
@@ -484,12 +536,17 @@ export function RealTerrainViewer({ region }: RealTerrainViewerProps) {
         ) : null}
         {status === "ready" ? (
           <div className="realterrain-hint">
-            滚轮缩放 · 拖动旋转 · Mapterhorn DEM 真实高程
+            滚轮缩放 · 拖动旋转 · {terrainProvider.label} 真实高程
           </div>
         ) : null}
         {tileNotice && status === "ready" ? (
           <div className="realterrain-tile-notice" role="status">
             {tileNotice}
+          </div>
+        ) : null}
+        {providerIndex > 0 && status === "ready" ? (
+          <div className="realterrain-provider-notice" role="status">
+            已自动切换至 {terrainProvider.label}。
           </div>
         ) : null}
         {paintNotice && status === "ready" ? (

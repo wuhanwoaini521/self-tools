@@ -7236,6 +7236,21 @@ kbd {
  line-height: 1.6;
  pointer-events: none;
 }
+.realterrain-provider-notice {
+ position: absolute;
+ z-index: 3;
+ top: 12px;
+ left: 12px;
+ max-width: calc(100% - 24px);
+ padding: 6px 9px;
+ border: 1px solid #82a897;
+ border-radius: 6px;
+ background: color-mix(in srgb, #edf8f1 92%, transparent);
+ color: #38634c;
+ font-size: 11px;
+ line-height: 1.45;
+ pointer-events: none;
+}
 .realterrain-diag {
  position: absolute;
  z-index: 2;
