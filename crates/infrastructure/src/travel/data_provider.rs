@@ -28,6 +28,20 @@ pub struct TravelDataRequest {
     pub kind: &'static str,
 }
 
+/// 两个 POI 之间的驾车路线请求。
+#[derive(Clone, Debug)]
+pub struct TravelRouteRequest {
+    pub origin: MapCoordinates,
+    pub destination: MapCoordinates,
+}
+
+/// 路线服务返回的可读结果。距离来自道路路径，不是坐标直线距离。
+#[derive(Clone, Debug, Default)]
+pub struct TravelRoute {
+    pub distance_km: f32,
+    pub duration_minutes: u32,
+}
+
 /// 数据 Provider 接口。
 #[async_trait]
 pub trait TravelDataProvider: Send + Sync {
@@ -37,6 +51,13 @@ pub trait TravelDataProvider: Send + Sync {
         &self,
         request: TravelDataRequest,
     ) -> Result<Vec<TravelFact>, InfrastructureError>;
+
+    async fn driving_route(
+        &self,
+        _request: TravelRouteRequest,
+    ) -> Result<Option<TravelRoute>, InfrastructureError> {
+        Ok(None)
+    }
 }
 
 /// 依据设置装配数据 Provider。Key 未配置 → 不生成对应 Provider，核心流程不受影响。
@@ -160,6 +181,22 @@ impl TravelDataProvider for AmapPoiProvider {
         }
         Ok(facts)
     }
+
+    async fn driving_route(
+        &self,
+        request: TravelRouteRequest,
+    ) -> Result<Option<TravelRoute>, InfrastructureError> {
+        let url = format!(
+            "https://restapi.amap.com/v3/direction/driving?origin={origin_lon},{origin_lat}&destination={destination_lon},{destination_lat}&extensions=base&key={key}",
+            origin_lon = request.origin.longitude,
+            origin_lat = request.origin.latitude,
+            destination_lon = request.destination.longitude,
+            destination_lat = request.destination.latitude,
+            key = percent_encode(&self.key),
+        );
+        let body = get_json(&self.client, &url, "amap driving").await?;
+        parse_amap_driving_route(&body)
+    }
 }
 
 fn percent_encode(value: &str) -> String {
@@ -222,6 +259,10 @@ pub fn parse_amap_pois(
             .get("location")
             .and_then(serde_json::Value::as_str)
             .and_then(parse_amap_coordinates);
+        let poi_id = poi
+            .get("id")
+            .and_then(serde_json::Value::as_str)
+            .map(str::to_string);
         let value = if address.is_empty() && district.is_empty() {
             "高德地图 POI".to_string()
         } else {
@@ -239,6 +280,9 @@ pub fn parse_amap_pois(
             confidence: 0.8,
             fetched_at,
             coordinates,
+            poi_id,
+            area: (!district.is_empty()).then(|| district.to_string()),
+            address: (!address.is_empty()).then(|| address.to_string()),
         });
     }
     Ok(facts)
@@ -250,6 +294,58 @@ fn parse_amap_coordinates(value: &str) -> Option<MapCoordinates> {
         longitude: longitude.trim().parse().ok()?,
         latitude: latitude.trim().parse().ok()?,
     })
+}
+
+/// 解析高德驾车路径第一条方案（离线可单测）。
+pub fn parse_amap_driving_route(
+    body: &serde_json::Value,
+) -> Result<Option<TravelRoute>, InfrastructureError> {
+    let status = body
+        .get("status")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or_default();
+    if status != "1" {
+        let info = body
+            .get("info")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or_default();
+        return Err(InfrastructureError::TravelData(format!(
+            "amap driving: status={status} info={info}"
+        )));
+    }
+    let Some(path) = body
+        .get("route")
+        .and_then(|route| route.get("paths"))
+        .and_then(serde_json::Value::as_array)
+        .and_then(|paths| paths.first())
+    else {
+        return Ok(None);
+    };
+    let distance_m = path
+        .get("distance")
+        .and_then(serde_json::Value::as_str)
+        .and_then(|value| value.parse::<f32>().ok())
+        .or_else(|| {
+            path.get("distance")
+                .and_then(serde_json::Value::as_f64)
+                .map(|v| v as f32)
+        });
+    let duration_s = path
+        .get("duration")
+        .and_then(serde_json::Value::as_str)
+        .and_then(|value| value.parse::<u32>().ok())
+        .or_else(|| {
+            path.get("duration")
+                .and_then(serde_json::Value::as_u64)
+                .map(|v| v as u32)
+        });
+    match (distance_m, duration_s) {
+        (Some(distance_m), Some(duration_s)) if distance_m >= 0.0 => Ok(Some(TravelRoute {
+            distance_km: distance_m / 1000.0,
+            duration_minutes: ((duration_s as f32) / 60.0).ceil() as u32,
+        })),
+        _ => Ok(None),
+    }
 }
 
 // ---------- 和风天气 ----------
@@ -376,14 +472,17 @@ pub fn parse_qweather_daily(
         confidence: 0.9,
         fetched_at,
         coordinates: None,
+        poi_id: None,
+        area: None,
+        address: None,
     }])
 }
 
 #[cfg(test)]
 mod tests {
     use super::{
-        AMAP_SOURCE_URL, QWEATHER_SOURCE_URL, parse_amap_pois, parse_qweather_daily,
-        parse_qweather_location, providers_for,
+        AMAP_SOURCE_URL, QWEATHER_SOURCE_URL, parse_amap_driving_route, parse_amap_pois,
+        parse_qweather_daily, parse_qweather_location, providers_for,
     };
     use devtoolbox_core::travel::FactCategory;
 
@@ -436,6 +535,19 @@ mod tests {
         let body = serde_json::json!({"status": "1"});
         let facts = parse_amap_pois(&body, FactCategory::Food, 1).expect("empty ok");
         assert!(facts.is_empty());
+    }
+
+    #[test]
+    fn amap_driving_route_parses_distance_and_duration() {
+        let body = serde_json::json!({
+            "status": "1",
+            "route": {"paths": [{"distance": "12500", "duration": "1860"}]}
+        });
+        let route = parse_amap_driving_route(&body)
+            .expect("parse route")
+            .expect("first path");
+        assert!((route.distance_km - 12.5).abs() < f32::EPSILON);
+        assert_eq!(route.duration_minutes, 31);
     }
 
     #[test]

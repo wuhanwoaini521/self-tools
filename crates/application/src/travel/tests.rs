@@ -4,7 +4,7 @@ use std::sync::{Arc, Mutex};
 
 use devtoolbox_core::travel::{
     CityGuide, CityInfo, FactCategory, GuideMeta, MapCoordinates, ResearchPhase, StepStatus,
-    TravelFact, TravelResearchEvent,
+    TravelDateRange, TravelFact, TravelResearchEvent,
 };
 use devtoolbox_infrastructure::TravelStore;
 
@@ -22,6 +22,20 @@ fn request(city: &str) -> TravelResearchRequest {
         date_range: None,
         preferences: vec![],
         force: false,
+    }
+}
+
+fn fushun_request() -> TravelResearchRequest {
+    TravelResearchRequest {
+        city: "抚顺".to_string(),
+        days: 2,
+        month: Some(9),
+        date_range: Some(TravelDateRange {
+            start: "2026-09-05".to_string(),
+            end: "2026-09-06".to_string(),
+        }),
+        preferences: vec!["历史".to_string(), "美食".to_string(), "自然".to_string()],
+        force: true,
     }
 }
 
@@ -356,6 +370,7 @@ async fn conflicting_facts_resolve_by_authority() {
     let attraction = guide
         .attractions
         .iter()
+        .chain(guide.alternatives.iter())
         .find(|a| a.name.contains("西湖"))
         .expect("西湖 attraction");
     let hours = attraction
@@ -447,6 +462,87 @@ async fn parse_query_list_handles_json_and_lines() {
     assert_eq!(parsed.len(), 2);
 }
 
+#[test]
+fn structured_search_intents_are_validated_and_categorized() {
+    let raw = r#"[{"query":"抚顺 历史与文化体验","category":"culture_history","purpose":"补足历史偏好","priority":0.8},{"query":"抚顺 随便","category":"not_a_category"},{"query":"外地 景点","category":"nature"}]"#;
+    let intents = crate::travel::service::parse_search_intents(raw, "抚顺");
+    assert_eq!(intents.len(), 1);
+    assert_eq!(
+        intents[0].intent,
+        devtoolbox_core::travel::SearchIntentCategory::CultureHistory
+    );
+    assert_eq!(
+        intents[0].category,
+        devtoolbox_core::travel::QueryCategory::Attractions
+    );
+    assert_eq!(intents[0].priority, 0.8);
+}
+
+#[tokio::test]
+async fn fushun_two_day_guide_is_curated_and_deduplicated() {
+    let provider = MockSearchProvider::new(
+        "mock",
+        vec![search_result(
+            "https://fushun.example/guide",
+            "抚顺旅行资料",
+            "景点与路线",
+        )],
+    );
+    let fetcher = MockWebFetcher::new().with_page(
+        "https://fushun.example/guide",
+        "抚顺旅行资料",
+        "抚顺景点、历史、美食与自然路线。",
+    );
+    let attractions = [
+        ("萨尔浒风景名胜区", "自然山水，适合半日游。"),
+        ("萨尔浒风景区", "自然山水，适合半日游。"),
+        ("清永陵", "满清历史遗存，适合历史偏好。"),
+        ("赫图阿拉城", "可以集中了解满族历史。"),
+        ("抚顺市博物馆", "适合用一小时了解城市历史。"),
+        ("西露天矿", "工业遗产景观，适合摄影。"),
+        ("劳动公园", "市区内的轻松散步点。"),
+    ];
+    let attraction_json = attractions
+        .iter()
+        .map(|(name, why)| format!(r#"{{"name":"{name}","why_go":"{why}","why_for_this_trip":"与两天路线匹配","area":"市区","suggested_duration":"2 小时","best_for":["历史"],"source_ids":[]}}"#))
+        .collect::<Vec<_>>()
+        .join(",");
+    let guide_json = format!(
+        r#"{{"city":{{"name":"抚顺"}},"summary":"工业历史与满族文化，配合东北本地美食。","attractions":[{attraction_json}],"accommodation_areas":[{{"name":"新抚区","note":"市区交通方便"}},{{"name":"顺城区"}},{{"name":"东洲区"}},{{"name":"不应展示的区域"}}],"restaurants":[{{"name":"本地麻辣拌","area":"新抚区"}}]}}"#
+    );
+    let llm = MockLlmProvider::new(["[]".to_string(), "[]".to_string(), guide_json]);
+    let (service, _events, _dir) = harness(
+        vec![Box::new(provider)],
+        Box::new(fetcher),
+        Some(Box::new(llm)),
+    );
+    let guide = service
+        .research_city(&fushun_request(), &|_| {})
+        .await
+        .expect("fushun guide");
+    assert_eq!(guide.meta.days, 2);
+    assert!(guide.attractions.len() <= 6);
+    assert_eq!(guide.itinerary_days.len(), 2);
+    assert!(guide.attractions.iter().all(|item| item.why_go.is_some()
+        && item.suggested_duration.is_some()
+        && item.area.is_some()));
+    assert!(
+        guide
+            .attractions
+            .iter()
+            .filter(|item| item.name.contains("萨尔浒"))
+            .count()
+            <= 1
+    );
+    assert!(guide.accommodation_areas.len() <= 3);
+    assert!(
+        !guide
+            .attractions
+            .iter()
+            .any(|item| item.why_go.as_deref() == Some("抚顺旅游必去景点推荐"))
+    );
+}
+
 fn amap_fact(category: FactCategory, subject: &str, value: &str) -> TravelFact {
     TravelFact {
         category,
@@ -459,6 +555,9 @@ fn amap_fact(category: FactCategory, subject: &str, value: &str) -> TravelFact {
             longitude: 120.134,
             latitude: 30.211,
         }),
+        poi_id: None,
+        area: None,
+        address: None,
     }
 }
 
@@ -483,6 +582,9 @@ async fn data_provider_facts_enrich_guide_and_sources() {
                 confidence: 0.9,
                 fetched_at: 1_700_000_000,
                 coordinates: None,
+                poi_id: None,
+                area: None,
+                address: None,
             }],
         );
     let llm = MockLlmProvider::new([
@@ -501,16 +603,16 @@ async fn data_provider_facts_enrich_guide_and_sources() {
         .research_city(&request("杭州"), &|_| {})
         .await
         .expect("research with data providers");
-    // 高德 POI 补进攻略区块
+    // 只有经过编辑补齐理由/时长/区域的条目进入主推荐；裸 POI 作为备选保留
     assert!(
-        guide.attractions.iter().any(|a| a.name.contains("龙井村")),
-        "attractions: {:?}",
-        guide.attractions
+        guide.alternatives.iter().any(|a| a.name.contains("龙井村")),
+        "alternatives: {:?}",
+        guide.alternatives
     );
     assert!(guide.foods.iter().any(|f| f.name.contains("龙井虾仁")));
     assert!(
         guide
-            .attractions
+            .alternatives
             .iter()
             .find(|item| item.name.contains("龙井村"))
             .and_then(|item| item.coordinates.as_ref())
@@ -535,6 +637,85 @@ async fn data_provider_facts_enrich_guide_and_sources() {
             .iter()
             .any(|s| s.title.contains("高德地图 POI"))
     );
+}
+
+#[tokio::test]
+async fn amap_poi_fallback_keeps_fushun_itinerary_and_restaurants_readable() {
+    let poi = vec![
+        TravelFact {
+            category: FactCategory::Attraction,
+            subject: "萨尔浒风景区".to_string(),
+            value: "东洲区 景区路".to_string(),
+            source_id: "https://restapi.amap.com".to_string(),
+            confidence: 0.8,
+            fetched_at: 1_700_000_000,
+            coordinates: Some(MapCoordinates {
+                longitude: 124.2,
+                latitude: 41.9,
+            }),
+            poi_id: Some("poi-sah".to_string()),
+            area: Some("东洲区".to_string()),
+            address: Some("景区路".to_string()),
+        },
+        TravelFact {
+            category: FactCategory::Attraction,
+            subject: "抚顺市博物馆".to_string(),
+            value: "新抚区 迎宾路".to_string(),
+            source_id: "https://restapi.amap.com".to_string(),
+            confidence: 0.8,
+            fetched_at: 1_700_000_000,
+            coordinates: Some(MapCoordinates {
+                longitude: 123.9,
+                latitude: 41.88,
+            }),
+            poi_id: Some("poi-museum".to_string()),
+            area: Some("新抚区".to_string()),
+            address: Some("迎宾路".to_string()),
+        },
+        TravelFact {
+            category: FactCategory::Food,
+            subject: "二中正宗四川麻辣拌（城东店）".to_string(),
+            value: "顺城区 裕城路".to_string(),
+            source_id: "https://restapi.amap.com".to_string(),
+            confidence: 0.8,
+            fetched_at: 1_700_000_000,
+            coordinates: Some(MapCoordinates {
+                longitude: 123.91,
+                latitude: 41.88,
+            }),
+            poi_id: Some("poi-food".to_string()),
+            area: Some("顺城区".to_string()),
+            address: Some("裕城路".to_string()),
+        },
+    ];
+    let data = MockDataProvider::new("amap-poi").with_facts("poi", poi);
+    let (service, _events, _dir) = harness_with_data(
+        vec![Box::new(happy_provider())],
+        Box::new(happy_fetcher()),
+        None,
+        vec![Box::new(data)],
+    );
+    let guide = service
+        .research_city(&fushun_request(), &|_| {})
+        .await
+        .expect("fallback guide");
+
+    assert!(!guide.meta.llm_used);
+    assert!(!guide.attractions.is_empty());
+    assert_eq!(guide.itinerary_days.len(), 2);
+    assert!(guide.itinerary_days.iter().any(|day| !day.stops.is_empty()));
+    assert!(!guide.restaurants.is_empty());
+    assert!(
+        guide
+            .food_summary
+            .as_deref()
+            .is_none_or(|text| !text.contains("裕城路"))
+    );
+    assert!(guide.restaurants[0].route_day.is_some());
+    assert!(guide.restaurants[0].distance_to_route.is_some());
+    assert!(guide.attractions.iter().all(|item| {
+        item.why_go.is_some() && item.suggested_duration.as_deref() == Some("待确认")
+    }));
 }
 
 #[tokio::test]

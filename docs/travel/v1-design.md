@@ -75,7 +75,7 @@ Infrastructure (crates/infrastructure/src/travel/)
 | `travel.search_backend` | auto / searxng / baidu / bing（SearXNG 不可用自动回退 Bing） |
 | `travel.searxng_url` | 如 `http://localhost:8080` |
 | `travel.llm_base_url / llm_model / llm_api_key` | OpenAI-Compatible；留空 → 降级模式 |
-| `travel.amap_api_key` | **已接入**：高德 POI（地点搜索，景点/美食/住宿）→ 补充 Attraction/Food/Accommodation 事实并进入 Sources |
+| `travel.amap_api_key` | **已接入**：高德 POI（景点/餐饮/住宿）与驾车路线；Key 仅由 Rust 服务端调用，不进入前端 URL |
 | `travel.qweather_api_host / qweather_api_key` | **已接入**：和风天气专属 API Host + Key，3 天预报 → 逐日天气卡片；仅展示 API 实际预报窗口 |
 | `travel.baidu_map_api_key` | 预留（V2 地点检索） |
 
@@ -86,13 +86,14 @@ Key 只保存在本机 settings.json（个人桌面工具），不硬编码、�
 
 - Travel 输入区支持一个起止日期范围控件；范围为 1～7 天时自动同步行程天数。
 - 该范围会进入查询规划、LLM 补充查询和攻略生成提示，用于检索对应日期的活动、天气和客流信息。
-- 日期范围攻略不复用“城市 + 天数”的普通 24 小时缓存，避免不同出行日期得到错误推荐。
+- 日期范围攻略不复用“城市 + 天数”的普通 24 小时缓存，而是使用独立日期键持久化并出现在 Travel 的“最近攻略”列表中，避免不同出行日期互相覆盖。
 - 和风天气当前接入的是近期 3 天预报；若用户所选日期不在预报窗口，界面明确提示，并仍按所选范围生成非实时的季节、活动和客流建议。
 
 ## 景点地图
 
-- 高德 POI 查询返回的坐标会随景点事实进入攻略；配置 `travel.amap_api_key` 后，攻略页展示最多 10 个真实景点标记的高德静态地图。
-- 地图卡片可打开高德多点标注页查看所有已展示景点；未配置 Key、未获取 POI 坐标或查看旧缓存攻略时不展示地图，避免生成示意图或猜测坐标。
+- 高德 POI 查询返回的坐标会随景点和餐饮候选进入攻略；配置 `travel.amap_api_key` 后，攻略页按 Day 切换路线示意，并可打开高德多点标注页查看位置。
+- 相邻行程点的驾车距离/时间由高德驾车 API 后置补齐；餐饮候选按坐标关联最近行程日，路线关联字段明确区分道路距离与直线估算。
+- 未配置 Key、未获取 POI 坐标或查看旧缓存攻略时不展示地图，避免生成示意坐标或猜测路线。
 
 ## 测试矩阵（现状：108 项全绿）
 
@@ -105,5 +106,5 @@ Key 只保存在本机 settings.json（个人桌面工具），不硬编码、�
 
 ## V1 明确不做（后续阶段）
 
-复杂 GIS / 导航 / 真实路线规划 / 订票 / 复杂地图 / 多 Agent 并发框架 / 向量数据库 / RAG /
+复杂 GIS / 导航级路线规划 / 订票 / 复杂地图 / 多 Agent 并发框架 / 向量数据库 / RAG /
 百度地图地点检索（Key 已预留输入框）；`BrowserFetcher` 仅作 HTTP 失败时的后续 fallback。

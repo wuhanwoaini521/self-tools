@@ -110,6 +110,9 @@ pub fn parse_facts_json(
                 confidence,
                 fetched_at,
                 coordinates: None,
+                poi_id: None,
+                area: None,
+                address: None,
             })
         })
         .collect())

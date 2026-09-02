@@ -17,7 +17,6 @@ export const TRAVEL_PREFERENCES = ["历史", "美食", "自然", "散步", "摄�
 interface TravelPageProps {
   active: boolean;
   setNotice: (message: string) => void;
-  amapApiKey?: string | null;
 }
 
 type ResearchState = "idle" | "running" | "done" | "error";
@@ -30,7 +29,7 @@ function inclusiveDays(start: string, end: string): number | null {
   return Math.floor((endTime - startTime) / 86_400_000) + 1;
 }
 
-export function TravelPage({ active, setNotice, amapApiKey }: TravelPageProps) {
+export function TravelPage({ active, setNotice }: TravelPageProps) {
   const [city, setCity] = useState("");
   const [days, setDays] = useState(3);
   const [tripStart, setTripStart] = useState("");
@@ -128,7 +127,7 @@ export function TravelPage({ active, setNotice, amapApiKey }: TravelPageProps) {
   const openHistory = async (summary: GuideSummary) => {
     if (!isTauriRuntime()) return;
     try {
-      const loaded = await invoke<CityGuide | null>("travel_load_guide", { city: summary.city, days: summary.days });
+      const loaded = await invoke<CityGuide | null>("travel_load_guide", { city: summary.city, days: summary.days, dateRange: summary.date_range });
       if (loaded) { setCity(summary.city); setDays(summary.days); setTripStart(loaded.meta.date_range?.start ?? ""); setTripEnd(loaded.meta.date_range?.end ?? ""); setGuide(loaded); setEvents([]); setState("done"); setFromCache(false); }
       else setNotice("本地没有找到该攻略，可能已被清除。");
     } catch (openError) { setNotice(errorMessage(openError)); }
@@ -181,8 +180,8 @@ export function TravelPage({ active, setNotice, amapApiKey }: TravelPageProps) {
         <h2>最近攻略</h2>
         <div className="travel-history-list">
           {history.slice(0, 6).map((summary) =>
-            <button key={`${summary.city}-${summary.days}`} onClick={() => void openHistory(summary)}>
-              <MapPin size={14} /><span>{summary.city}</span><small>{summary.days} 天</small>
+            <button key={`${summary.city}-${summary.days}-${summary.date_range?.start ?? "any"}`} onClick={() => void openHistory(summary)}>
+              <MapPin size={14} /><span>{summary.city}</span><small>{summary.date_range ? `${summary.date_range.start} 至 ${summary.date_range.end}` : `${summary.days} 天`}</small>
             </button>)}
         </div>
       </section> : null}
@@ -196,7 +195,7 @@ export function TravelPage({ active, setNotice, amapApiKey }: TravelPageProps) {
     {state === "done" && guide
       ? <>
         {fromCache ? <p className="travel-cache-note">已命中本地缓存（24 小时内生成），点击「重新研究」可获取最新信息。</p> : null}
-        <TravelGuide guide={guide} fromCache={fromCache} amapApiKey={amapApiKey} />
+        <TravelGuide guide={guide} fromCache={fromCache} />
       </>
       : null}
     {state === "idle" ? <p className="travel-hint"><Sparkle size={14} />输入城市后，系统会规划搜索任务 → 搜索 → 抓取网页 → 提取并验证事实 → 生成攻略。</p> : null}

@@ -137,6 +137,7 @@ export interface GuideSummary {
   city: string;
   days: number;
   updated_at: number;
+  date_range: TravelDateRange | null;
 }
 
 export interface CityInfo {
@@ -152,17 +153,27 @@ export interface VerifiedValue {
   verified_sources: number;
   primary_source: string;
   has_conflict: boolean;
+  verified: boolean;
 }
 
 export interface Attraction {
+  id: string | null;
   name: string;
+  normalized_name: string | null;
+  poi_id: string | null;
   intro: string | null;
+  why_go: string | null;
+  why_for_this_trip: string | null;
   area: string | null;
   suggested_duration: string | null;
   opening_hours: VerifiedValue | null;
   ticket: VerifiedValue | null;
   reservation: VerifiedValue | null;
   tips: string[];
+  best_for: string[];
+  recommended_day: number | null;
+  open_status: VerifiedValue | null;
+  confidence: string | null;
   source_ids: string[];
   coordinates: MapCoordinates | null;
 }
@@ -176,6 +187,7 @@ export interface Food {
   name: string;
   dish_type: string | null;
   intro: string | null;
+  area: string | null;
   source_ids: string[];
 }
 
@@ -183,6 +195,13 @@ export interface Place {
   name: string;
   area: string | null;
   note: string | null;
+  signature_dish: string | null;
+  why_pick: string | null;
+  route_day: number | null;
+  distance_to_route: string | null;
+  confidence: string | null;
+  poi_id: string | null;
+  coordinates: MapCoordinates | null;
 }
 
 export interface DistrictInfo {
@@ -210,6 +229,11 @@ export interface AccommodationArea {
 export interface ItineraryStop {
   name: string;
   note: string | null;
+  time: string | null;
+  duration: string | null;
+  area: string | null;
+  reason: string | null;
+  travel_time: string | null;
 }
 
 export interface Itinerary {
@@ -222,6 +246,29 @@ export interface Itineraries {
   one_day: Itinerary | null;
   two_days: Itinerary | null;
   three_days: Itinerary | null;
+}
+
+export interface ItineraryDay {
+  day: number;
+  title: string | null;
+  theme: string | null;
+  stops: ItineraryStop[];
+}
+
+export interface QuickDecisions {
+  best_area_to_stay: string | null;
+  signature_food: string | null;
+  trip_style: string | null;
+  must_visit: string[];
+  main_warning: string | null;
+}
+
+export interface EvidenceSummary {
+  source_count: number;
+  verified_count: number;
+  snippet_only_count: number;
+  conflict_count: number;
+  quality: string;
 }
 
 export interface TravelTip {
@@ -281,6 +328,14 @@ export interface CityGuide {
   itineraries: Itineraries;
   local_tips: TravelTip[];
   warnings: TravelWarning[];
+  quick_decisions: QuickDecisions;
+  top_picks: Attraction[];
+  alternatives: Attraction[];
+  itinerary_days: ItineraryDay[];
+  food_summary: string | null;
+  stay_areas: AccommodationArea[];
+  transport_summary: string | null;
+  evidence: EvidenceSummary;
   sources: TravelSource[];
   meta: GuideMeta;
 }

@@ -24,16 +24,18 @@ use futures_util::future::join_all;
 use serde::{Deserialize, Serialize};
 
 use devtoolbox_core::travel::{
-    AccommodationArea, Attraction, CityGuide, CityInfo, ContentState, FactCategory, Food,
-    GuideMeta, MapCoordinates, QueryCategory, QueryTask, ResearchPhase, SearchResult, SourceLevel,
-    StepStatus, TravelDateRange, TravelDocument, TravelFact, TravelQueryInput, TravelQueryPlanner,
-    TravelResearchEvent, TravelSource, TravelTip, TravelWarning, VerifiedFact, VerifiedValue,
-    WeatherDay, WeatherForecast, dedup_facts, dedup_search_results, host_of, parse_facts_json,
-    parse_guide_json, rate_source, verify_facts,
+    AccommodationArea, Attraction, CityGuide, CityInfo, ContentState, EvidenceSummary,
+    FactCategory, Food, GuideMeta, ItineraryDay, ItineraryStop, MapCoordinates, Place,
+    QueryCategory, QueryTask, ResearchPhase, SearchIntentCategory, SearchResult, SourceLevel,
+    SourceRankingContext, StepStatus, TravelDateRange, TravelDocument, TravelFact,
+    TravelQueryInput, TravelQueryPlanner, TravelResearchEvent, TravelSource, TravelTip,
+    VerifiedFact, VerifiedValue, WeatherDay, WeatherForecast, apply_quality_gate,
+    dedup_entity_facts, dedup_facts, dedup_search_results, host_of, normalize_url,
+    parse_facts_json, parse_guide_json, rate_source_for, verify_facts_with_states,
 };
 use devtoolbox_infrastructure::{
     InfrastructureError, LlmProvider, SearchOptions, SearchProvider, TravelDataProvider,
-    TravelDataRequest, TravelStore, WebFetcher, now_unix,
+    TravelDataRequest, TravelRouteRequest, TravelStore, WebFetcher, now_unix,
 };
 
 use crate::ApplicationError;
@@ -158,8 +160,11 @@ impl TravelResearchService {
             preferences: request.preferences.clone(),
         };
         let mut tasks = TravelQueryPlanner::plan(&input);
-        if let Some(extra) = self.llm_expand_queries(&city, &input, &mut emit).await {
-            tasks.extend(extra);
+        if let Some(extra) = self
+            .llm_expand_queries(&city, &input, &tasks, &mut emit)
+            .await
+        {
+            append_query_tasks(&mut tasks, extra, 12);
         }
         if tasks.is_empty() {
             return Err(ApplicationError::EmptyCity);
@@ -173,6 +178,8 @@ impl TravelResearchService {
         // 4. 搜索（Provider 链 fallback + 24h 缓存；单个任务失败不阻塞）
         emit(ResearchPhase::Search, StepStatus::InProgress, String::new());
         let mut all_results: Vec<SearchResult> = Vec::new();
+        let mut result_contexts: HashMap<String, (QueryCategory, String)> = HashMap::new();
+        let mut result_counts: HashMap<QueryCategory, usize> = HashMap::new();
         for task in &tasks {
             emit(
                 ResearchPhase::Search,
@@ -181,11 +188,24 @@ impl TravelResearchService {
             );
             match self.search_query(&task.query, now).await {
                 Ok(results) => {
+                    result_counts.insert(
+                        task.category,
+                        result_counts
+                            .get(&task.category)
+                            .copied()
+                            .unwrap_or_default()
+                            + results.len(),
+                    );
                     emit(
                         ResearchPhase::Search,
                         StepStatus::Done,
                         format!("「{}」返回 {} 条结果", task.query, results.len()),
                     );
+                    for result in &results {
+                        result_contexts
+                            .entry(normalize_url(&result.url))
+                            .or_insert((task.category, task.query.clone()));
+                    }
                     all_results.extend(results);
                 }
                 Err(error) => {
@@ -204,6 +224,35 @@ impl TravelResearchService {
             )));
         }
 
+        // 搜索完成后再做一次覆盖度检查：只有某个意图完全没有返回结果时才补搜，
+        // 避免把 Query Expansion 变成无边界的“继续搜索”。
+        let gap_tasks = post_search_gap_tasks(&tasks, &result_counts, &city, &input);
+        if !gap_tasks.is_empty() {
+            emit(
+                ResearchPhase::PlanQueries,
+                StepStatus::InProgress,
+                format!("搜索后发现 {} 个信息缺口，执行有限补搜", gap_tasks.len()),
+            );
+            for task in gap_tasks {
+                match self.search_query(&task.query, now).await {
+                    Ok(results) => {
+                        for result in &results {
+                            result_contexts
+                                .entry(normalize_url(&result.url))
+                                .or_insert((task.category, task.query.clone()));
+                        }
+                        all_results.extend(results);
+                    }
+                    Err(error) => notes.push(format!("补搜「{}」失败：{error}", task.query)),
+                }
+            }
+            emit(
+                ResearchPhase::PlanQueries,
+                StepStatus::Done,
+                "搜索后补搜完成".to_string(),
+            );
+        }
+
         // 5. 去重 + 可信度排序（需求 #七 / #八）
         emit(
             ResearchPhase::RankSources,
@@ -211,10 +260,27 @@ impl TravelResearchService {
             format!("去重并排序 {} 条搜索结果", all_results.len()),
         );
         let deduped = dedup_search_results(all_results);
+        let ranking_context = SourceRankingContext {
+            city: &city,
+            category: QueryCategory::Attractions,
+            preferences: &request.preferences,
+            date_range: request
+                .date_range
+                .as_ref()
+                .map(|range| (range.start.as_str(), range.end.as_str())),
+        };
         let mut rated: Vec<(SearchResult, TravelSource)> = deduped
             .into_iter()
             .map(|result| {
-                let source = rate_source(&city, &result);
+                let (category, query) = result_contexts
+                    .get(&normalize_url(&result.url))
+                    .cloned()
+                    .unwrap_or((QueryCategory::Attractions, city.clone()));
+                let context = SourceRankingContext {
+                    category,
+                    ..ranking_context.clone()
+                };
+                let source = rate_source_for(&context, &query, &result);
                 (result, source)
             })
             .collect();
@@ -328,7 +394,7 @@ impl TravelResearchService {
                 "LLM 事实提取连接失败，已停止本次剩余 LLM 请求并立即降级：{error}"
             ));
         }
-        let mut facts = dedup_facts(facts);
+        let mut facts = dedup_entity_facts(dedup_facts(facts));
         emit(
             ResearchPhase::ExtractFacts,
             StepStatus::Done,
@@ -400,7 +466,8 @@ impl TravelResearchService {
             StepStatus::Done,
             format!("结构化数据共 {} 条", data_facts.len()),
         );
-        facts.extend(dedup_facts(data_facts));
+        facts.extend(dedup_entity_facts(dedup_facts(data_facts)));
+        facts = dedup_entity_facts(facts);
 
         // 9. 来源评级（合并抓取状态 + 数据源 → TravelSource 列表）
         emit(
@@ -426,7 +493,11 @@ impl TravelResearchService {
             .iter()
             .map(|source| (source.url.clone(), source.level))
             .collect();
-        let verified = verify_facts(&facts, &levels);
+        let states: HashMap<String, ContentState> = sources
+            .iter()
+            .map(|source| (source.url.clone(), source.state))
+            .collect();
+        let verified = verify_facts_with_states(&facts, &levels, &states);
         let conflict_count = verified.iter().filter(|v| v.has_conflict).count();
         emit(
             ResearchPhase::ValidateFacts,
@@ -469,21 +540,19 @@ impl TravelResearchService {
             StepStatus::InProgress,
             "保存到本地缓存".to_string(),
         );
-        // 日期范围会影响推荐结果；旧缓存键仅包含城市与天数，不能复用或覆盖它。
-        let stored = if request.date_range.is_some() {
-            guide
-        } else {
-            let store = self.store.lock().expect("travel store poisoned");
-            store.upsert_guide(&guide, now).map_err(travel)?
-        };
+        // 日期范围作为独立键持久化，避免覆盖同城同天数的普通攻略。
+        let store = self.store.lock().expect("travel store poisoned");
+        let stored = store.upsert_guide(&guide, now).map_err(travel)?;
         emit(
             ResearchPhase::SaveGuide,
             StepStatus::Done,
-            if request.date_range.is_some() {
-                "已完成日期范围攻略（为避免与普通攻略缓存混淆，未写入近期列表）".to_string()
-            } else {
-                format!("已保存（{city}，{} 天）", request.days)
-            },
+            format!(
+                "已保存（{city}，{} 天{}）",
+                request.days,
+                request.date_range.as_ref().map_or(String::new(), |range| {
+                    format!("，{} 至 {}", range.start, range.end)
+                })
+            ),
         );
         Ok(stored)
     }
@@ -611,6 +680,7 @@ impl TravelResearchService {
         &self,
         city: &str,
         input: &TravelQueryInput,
+        existing: &[QueryTask],
         emit: &mut (dyn FnMut(ResearchPhase, StepStatus, String) + Send),
     ) -> Option<Vec<QueryTask>> {
         let llm = self.llm.as_deref()?;
@@ -618,22 +688,23 @@ impl TravelResearchService {
             .complete(QUERY_SYSTEM_PROMPT, &query_user_prompt(city, input))
             .await
             .ok()?;
-        let raw_queries = parse_query_list(&raw);
-        if raw_queries.is_empty() {
+        let tasks = parse_search_intents(&raw, city);
+        if tasks.is_empty() {
             return None;
         }
         emit(
             ResearchPhase::PlanQueries,
             StepStatus::Done,
-            format!("LLM 追加 {} 个搜索主题", raw_queries.len()),
+            format!("LLM 根据缺口追加 {} 个搜索意图", tasks.len()),
         );
+        let existing_queries = existing
+            .iter()
+            .map(|task| task.query.as_str())
+            .collect::<Vec<_>>();
         Some(
-            raw_queries
+            tasks
                 .into_iter()
-                .map(|query| QueryTask {
-                    category: QueryCategory::Activities,
-                    query,
-                })
+                .filter(|task| !existing_queries.contains(&task.query.as_str()))
                 .collect(),
         )
     }
@@ -716,38 +787,107 @@ impl TravelResearchService {
         let mut llm_ok = false;
         match llm_result {
             Ok(parsed) => {
-                guide.city.name_en = parsed.city.name_en;
-                guide.city.province = parsed.city.province;
-                guide.city.country = parsed.city.country;
-                guide.summary = parsed.summary;
-                guide.highlights = parsed.highlights;
-                guide.best_time = parsed.best_time;
-                guide.districts = parsed.districts;
-                guide.attractions = parsed.attractions;
-                guide.foods = parsed.foods;
-                guide.restaurants = parsed.restaurants;
-                guide.transport = parsed.transport;
-                guide.accommodation_areas = parsed.accommodation_areas;
-                guide.itineraries = parsed.itineraries;
-                guide.local_tips = parsed.local_tips;
-                guide.warnings = parsed.warnings;
+                let mut parsed = parsed;
+                if parsed.city.name.trim().is_empty() {
+                    parsed.city.name = city.to_string();
+                }
+                parsed.meta = guide.meta.clone();
+                parsed.sources = sources.to_vec();
+                guide = parsed;
                 llm_ok = true;
             }
             Err(error) => {
+                // 后续的外部 POI 合并需要知道这是降级路径；否则质量门禁会把
+                // 所有仅有名称/坐标的结构化候选全部移出主行程。
+                guide.meta.llm_used = false;
                 notes.push(format!(
                     "LLM 攻略生成失败，已降级为“仅来源列表”模式：{error}"
                 ));
                 build_fallback_guide(&mut guide, city, sources);
+                notes.append(&mut guide.meta.notes);
             }
         }
         // 程序层合并已验证事实（LLM 与降级两条路径都执行）：
         // - 高德 POI 的景点/美食/住宿条目补进攻略；
         // - 和风天气进入独立天气卡片；
         // - 开放时间/门票/预约挂到同名景点。
-        merge_external_data(&mut guide, verified, facts);
+        let fallback_mode = !guide.meta.llm_used;
+        merge_external_data(&mut guide, verified, facts, fallback_mode);
+        sanitize_unverified_hard_facts(&mut guide, verified);
+        let report = apply_quality_gate(&mut guide);
+        if report.duplicate_attractions_removed > 0 || report.attractions_demoted > 0 {
+            notes.push(format!(
+                "质量门禁：合并 {} 个重复景点，{} 个景点降为备选",
+                report.duplicate_attractions_removed, report.attractions_demoted
+            ));
+        }
+        populate_decisions(&mut guide);
+        plan_itinerary(&mut guide, days);
+        self.enrich_route_data(&mut guide).await;
+        guide.evidence = EvidenceSummary {
+            source_count: sources.len(),
+            verified_count: verified.iter().filter(|fact| fact.verified).count(),
+            snippet_only_count: sources
+                .iter()
+                .filter(|source| source.state == ContentState::SnippetOnly)
+                .count(),
+            conflict_count: verified.iter().filter(|fact| fact.has_conflict).count(),
+            quality: if sources.is_empty() {
+                "有限".to_string()
+            } else if sources
+                .iter()
+                .filter(|source| source.state == ContentState::Full)
+                .count()
+                * 2
+                >= sources.len()
+            {
+                "良好".to_string()
+            } else {
+                "有限".to_string()
+            },
+        };
         guide.meta.llm_used = llm_used && llm_ok;
         guide.meta.notes = notes;
         guide
+    }
+
+    /// 用结构化路线服务补齐相邻行程点的驾车距离/时间，并把餐饮 POI 归属到最近的一天。
+    /// 没有可用路线 Provider 时保持字段为空，不把坐标直线距离伪装成驾车时间。
+    async fn enrich_route_data(&self, guide: &mut CityGuide) {
+        let coordinates = guide_coordinates(guide);
+        for day in &mut guide.itinerary_days {
+            let mut previous: Option<MapCoordinates> = None;
+            for stop in &mut day.stops {
+                let current = coordinates
+                    .iter()
+                    .find(|(name, _)| contains(name, &stop.name) || contains(&stop.name, name))
+                    .and_then(|(_, point)| point.clone());
+                if let (Some(origin), Some(destination)) = (previous.clone(), current.clone()) {
+                    for provider in &self.data_providers {
+                        match provider
+                            .driving_route(TravelRouteRequest {
+                                origin: origin.clone(),
+                                destination: destination.clone(),
+                            })
+                            .await
+                        {
+                            Ok(Some(route)) => {
+                                stop.travel_time = Some(format!(
+                                    "驾车约 {} 分钟 · {:.1} 公里",
+                                    route.duration_minutes, route.distance_km
+                                ));
+                                break;
+                            }
+                            Ok(None) | Err(_) => {}
+                        }
+                    }
+                }
+                if current.is_some() {
+                    previous = current;
+                }
+            }
+        }
+        assign_restaurant_routes(guide);
     }
 }
 
@@ -842,8 +982,10 @@ pub fn fact_user_prompt(text: &str) -> String {
 }
 
 const QUERY_SYSTEM_PROMPT: &str = "\
-你是中文旅行研究助手。根据城市与偏好，列出 3-6 个补充搜索主题（城市名必须拼入查询词）。\
-只输出 JSON 字符串数组，如 [\"杭州 宋韵文化体验\", \"杭州 秋季桂花景点\"]。不要解释。";
+你是旅行研究中的信息缺口分析器和搜索意图规划师。先查看已覆盖的类别，只为明确缺失且会改变旅行决策的信息补充查询。\
+最多输出 4 个 JSON 对象，不要重复已有意图，不要输出泛化的“旅游攻略/热门景点”。字段为 query、category、purpose、priority、freshness_required、structured_data_preferred。\
+category 只能是 must_see、culture_history、nature、food、transport、accommodation_area、current_status、weather、local_experience、event、itinerary。\
+城市名必须出现在 query 中；只输出 JSON。";
 
 pub fn query_user_prompt(city: &str, input: &TravelQueryInput) -> String {
     let mut brief = format!("城市：{city}；旅行天数：{} 天", input.days);
@@ -856,7 +998,94 @@ pub fn query_user_prompt(city: &str, input: &TravelQueryInput) -> String {
     if !input.preferences.is_empty() {
         brief.push_str(&format!("；偏好：{}", input.preferences.join("、")));
     }
-    format!("请为以下需求生成补充搜索主题：\n{brief}")
+    let covered = "城市概览、核心景点、美食、住宿区域、交通、开放与预约";
+    format!("请分析以下需求。已覆盖类别：{covered}。只补充仍缺失的信息：\n{brief}")
+}
+
+fn post_search_gap_tasks(
+    tasks: &[QueryTask],
+    result_counts: &HashMap<QueryCategory, usize>,
+    city: &str,
+    input: &TravelQueryInput,
+) -> Vec<QueryTask> {
+    let mut seen = std::collections::HashSet::new();
+    let mut gaps = Vec::new();
+    for task in tasks {
+        if result_counts
+            .get(&task.category)
+            .copied()
+            .unwrap_or_default()
+            > 0
+            || !seen.insert(task.category)
+        {
+            continue;
+        }
+        let (query, intent, purpose, priority, freshness_required, structured_data_preferred) =
+            match task.category {
+                QueryCategory::Food => (
+                    format!("{city} 本地特色美食与餐厅"),
+                    SearchIntentCategory::Food,
+                    "补齐美食缺口",
+                    0.9,
+                    false,
+                    true,
+                ),
+                QueryCategory::Transport => (
+                    format!("{city} 景点之间交通与驾车时间"),
+                    SearchIntentCategory::Transport,
+                    "补齐移动成本缺口",
+                    0.85,
+                    true,
+                    false,
+                ),
+                QueryCategory::Accommodation => (
+                    format!("{city} 适合旅行住宿的区域"),
+                    SearchIntentCategory::AccommodationArea,
+                    "补齐住宿区域缺口",
+                    0.8,
+                    false,
+                    false,
+                ),
+                QueryCategory::Warnings => (
+                    format!("{city} 主要景区最新开放与预约"),
+                    SearchIntentCategory::CurrentStatus,
+                    "补齐开放状态缺口",
+                    0.95,
+                    true,
+                    false,
+                ),
+                QueryCategory::Itinerary if input.days <= 3 => (
+                    format!("{city} {}日游路线建议", input.days),
+                    SearchIntentCategory::Itinerary,
+                    "补齐短途路线缺口",
+                    0.65,
+                    false,
+                    false,
+                ),
+                QueryCategory::Attractions => (
+                    format!("{city} 核心景点与自然历史景区"),
+                    SearchIntentCategory::MustSee,
+                    "补齐景点缺口",
+                    0.9,
+                    false,
+                    true,
+                ),
+                _ => continue,
+            };
+        gaps.push(QueryTask {
+            category: task.category,
+            query,
+            intent,
+            purpose: purpose.to_string(),
+            priority,
+            freshness_required,
+            structured_data_preferred,
+        });
+        if gaps.len() >= 2 {
+            break;
+        }
+    }
+    gaps
 }
 
 /// 解析 LLM 返回的查询列表（容错：剥围栏、取 JSON 数组或逐行读取）。
@@ -882,10 +1111,113 @@ pub fn parse_query_list(raw: &str) -> Vec<String> {
         .collect()
 }
 
+#[derive(Debug, Deserialize)]
+struct SearchIntentJson {
+    query: Option<String>,
+    category: Option<String>,
+    purpose: Option<String>,
+    priority: Option<f32>,
+    freshness_required: Option<bool>,
+    structured_data_preferred: Option<bool>,
+}
+
+/// 解析并校验 LLM 的结构化 SearchIntent。兼容旧模型返回的字符串数组，
+/// 但会统一补上语义类别和预算字段。
+pub fn parse_search_intents(raw: &str, city: &str) -> Vec<QueryTask> {
+    let Ok(value) = devtoolbox_core::travel::extract_json(raw) else {
+        return Vec::new();
+    };
+    let items = match value {
+        serde_json::Value::Array(items) => items,
+        serde_json::Value::Object(mut object) => object
+            .remove("intents")
+            .and_then(|v| v.as_array().cloned())
+            .unwrap_or_default(),
+        _ => return Vec::new(),
+    };
+    let mut tasks = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+    for item in items.into_iter().take(4) {
+        if let Some(query) = item.as_str() {
+            let query = query.trim();
+            if query.contains(city) && seen.insert(query.to_string()) {
+                tasks.push(QueryTask {
+                    category: QueryCategory::Activities,
+                    query: query.to_string(),
+                    intent: SearchIntentCategory::LocalExperience,
+                    purpose: "补充本地体验缺口".to_string(),
+                    priority: 0.65,
+                    freshness_required: false,
+                    structured_data_preferred: false,
+                });
+            }
+            continue;
+        }
+        let Ok(parsed) = serde_json::from_value::<SearchIntentJson>(item) else {
+            continue;
+        };
+        let Some(query) = parsed
+            .query
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty() && value.contains(city))
+        else {
+            continue;
+        };
+        let Some(intent) = parsed
+            .category
+            .as_deref()
+            .and_then(SearchIntentCategory::parse)
+        else {
+            continue;
+        };
+        if !seen.insert(query.clone()) {
+            continue;
+        }
+        let category = match intent {
+            SearchIntentCategory::Food => QueryCategory::Food,
+            SearchIntentCategory::Transport => QueryCategory::Transport,
+            SearchIntentCategory::AccommodationArea => QueryCategory::Accommodation,
+            SearchIntentCategory::CurrentStatus => QueryCategory::Warnings,
+            SearchIntentCategory::Itinerary => QueryCategory::Itinerary,
+            SearchIntentCategory::Weather
+            | SearchIntentCategory::Event
+            | SearchIntentCategory::LocalExperience => QueryCategory::Activities,
+            _ => QueryCategory::Attractions,
+        };
+        tasks.push(QueryTask {
+            category,
+            query,
+            intent,
+            purpose: parsed.purpose.unwrap_or_else(|| "补充信息缺口".to_string()),
+            priority: parsed.priority.unwrap_or(0.6).clamp(0.0, 1.0),
+            freshness_required: parsed.freshness_required.unwrap_or(false),
+            structured_data_preferred: parsed.structured_data_preferred.unwrap_or(false),
+        });
+    }
+    tasks
+}
+
+fn append_query_tasks(tasks: &mut Vec<QueryTask>, extras: Vec<QueryTask>, max: usize) {
+    let mut seen = tasks
+        .iter()
+        .map(|task| task.query.to_lowercase())
+        .collect::<std::collections::HashSet<_>>();
+    for task in extras {
+        if tasks.len() >= max {
+            break;
+        }
+        if seen.insert(task.query.to_lowercase()) {
+            tasks.push(task);
+        }
+    }
+}
+
 const GUIDE_SYSTEM_PROMPT: &str = "\
-你是中文旅行攻略整理助手。请仅基于给定的「已验证事实」与「信息源列表」整理结构化攻略，\
-不得编造任何未出现在资料中的信息（包括具体价格、开放时间、地址）。信息不足的字段留空或省略。\
-输出 JSON（字段名与结构见用户消息中的 schema）。“注意事项”只能来自 source 类型为 Warning 的事实。";
+你不是信息整理器，而是一名旅行编辑和行程规划师。只使用给定事实，不补写资料中没有的价格、开放时间、地址或交通时间。\
+SELECT > SUMMARIZE：宁可少，不要凑数；同类 POI 主动比较并合并别名；低信息量句子（如“旅游必去景点推荐”）禁止进入 why_go。\
+根据请求天数做减法：主要景点最多 6 个，餐厅最多 5 个，住宿只推荐区域且最多 3 个；离主体路线明显过远的景点放 alternatives。\
+行程必须按坐标/区域分组，避免让远距离景点与市区景点来回穿插。仅 SnippetOnly 的开放、门票、预约、交通事实不是已验证事实。\
+输出严格 JSON，缺少可靠信息就留空，不要为了填满字段而编造。";
 
 fn input_brief(request: &TravelResearchRequest) -> String {
     let mut brief = format!(
@@ -907,22 +1239,9 @@ fn input_brief(request: &TravelResearchRequest) -> String {
 
 pub fn guide_user_prompt(city: &str, brief: &str, facts_block: &str, docs_block: &str) -> String {
     format!(
-        "目标城市：{city}\n需求：{brief}\n\n已验证事实：\n{facts_block}\n\n信息源（标题/等级/地址/抓取状态）：\n{docs_block}\n\n\
-请输出如下 JSON 结构（缺失字段省略或为空数组）：\n\
-{{\"summary\":\"120字以内概览\",\"highlights\":[\"亮点\"],\"best_time\":\"最佳时间\",\n\
-\"districts\":[{{\"name\":\"区域\",\"note\":\"说明\",\"landmarks\":[\"地标\"]}}],\n\
-\"attractions\":[{{\"name\":\"景点\",\"intro\":\"介绍\",\"area\":\"区域\",\"suggested_duration\":\"建议时长\",\
-\"opening_hours\":{{\"value\":\"时间\",\"confidence\":\"high|medium|low\",\"verified_sources\":1,\"primary_source\":\"类型\",\"has_conflict\":false}},\
-\"ticket\":{{\"value\":\"票价\",\"confidence\":\"high\",\"verified_sources\":1,\"primary_source\":\"类型\",\"has_conflict\":false}},\
-\"tips\":[\"贴士\"],\"source_ids\":[\"来源URL\"]}}],\n\
-\"foods\":[{{\"name\":\"美食\",\"dish_type\":\"类别\",\"intro\":\"介绍\",\"source_ids\":[]}}],\n\
-\"restaurants\":[{{\"name\":\"店名\",\"area\":\"区域\",\"note\":\"说明\"}}],\n\
-\"transport\":{{\"overview\":\"总览\",\"airport\":\"机场\",\"train_station\":\"高铁站\",\"metro\":\"地铁\",\"bus_taxi\":\"公交打车\",\"tips\":[]}},\n\
-\"accommodation_areas\":[{{\"name\":\"区域\",\"area\":\"位置\",\"note\":\"适合谁\",\"budget\":\"价位\"}}],\n\
-\"itineraries\":{{\"one_day\":{{\"day\":1,\"title\":\"主题\",\"stops\":[{{\"name\":\"地点\",\"note\":\"安排\"}}]}},\
-\"two_days\":{{\"day\":2,...}},\"three_days\":{{\"day\":3,...}}}}（按需求天数提供对应条目）,\n\
-\"local_tips\":[{{\"title\":\"标题\",\"text\":\"内容\"}}],\n\
-\"warnings\":[{{\"title\":\"标题\",\"text\":\"内容\"}}]}}"
+        "目标城市：{city}\n需求：{brief}\n\n已验证事实（verified=false 的硬事实只能作为线索）：\n{facts_block}\n\n信息源（标题/等级/抓取状态）：\n{docs_block}\n\n\
+请输出 JSON，重点字段为 quick_decisions、top_picks、alternatives、itinerary_days、food_summary、stay_areas、transport_summary、evidence；同时填充兼容字段 summary、weather、districts、attractions、foods、restaurants、transport、accommodation_areas、itineraries、local_tips、warnings。\n\
+每个主要景点尽量提供 name、why_go、why_for_this_trip、area、suggested_duration、best_for、recommended_day、opening_hours、ticket、reservation、source_ids。每一天包含 day、title、theme 和 stops；stop 包含 name、time、duration、area、reason、travel_time。只输出有事实支持且与本次天数匹配的内容。"
     )
 }
 
@@ -935,13 +1254,14 @@ fn format_verified_facts(verified: &[VerifiedFact]) -> String {
         .iter()
         .map(|f| {
             format!(
-                "- [{category}] {subject} = {value}（confidence={confidence}, 来源数={count}, 冲突={conflict}）",
+                "- [{category}] {subject} = {value}（confidence={confidence}, 来源数={count}, 冲突={conflict}, verified={verified}）",
                 category = f.category.json_name(),
                 subject = f.subject,
                 value = f.value,
                 confidence = f.confidence,
                 count = f.verified_sources,
                 conflict = f.has_conflict
+                ,verified = f.verified
             )
         })
         .collect::<Vec<_>>()
@@ -970,7 +1290,12 @@ fn format_documents(sources: &[TravelSource]) -> String {
 
 /// 把已验证事实合并回攻略（LLM 输出可能遗漏，程序层保证验证结果落地）。
 /// 覆盖：高德 POI（景点/美食/住宿）、和风天气、开放时间/门票/预约挂景点。
-fn merge_external_data(guide: &mut CityGuide, verified: &[VerifiedFact], facts: &[TravelFact]) {
+fn merge_external_data(
+    guide: &mut CityGuide,
+    verified: &[VerifiedFact],
+    facts: &[TravelFact],
+    fallback_mode: bool,
+) {
     for fact in verified {
         match fact.category {
             FactCategory::OpeningHours | FactCategory::Ticket | FactCategory::Reservation => {
@@ -979,41 +1304,70 @@ fn merge_external_data(guide: &mut CityGuide, verified: &[VerifiedFact], facts: 
             }
             FactCategory::Attraction => {
                 let coordinates = coordinates_for_verified_fact(fact, facts);
-                if let Some(attraction) = guide
-                    .attractions
-                    .iter_mut()
-                    .find(|item| contains(&item.name, &fact.subject))
-                {
+                let poi = facts.iter().find(|candidate| {
+                    candidate.category == FactCategory::Attraction
+                        && candidate.subject == fact.subject
+                        && candidate.value == fact.value
+                });
+                if let Some(attraction) = guide.attractions.iter_mut().find(|item| {
+                    contains(&item.name, &fact.subject)
+                        || item.poi_id.as_deref() == poi.and_then(|p| p.poi_id.as_deref())
+                }) {
                     if attraction.coordinates.is_none() {
                         attraction.coordinates = coordinates;
                     }
+                    if attraction.area.is_none() {
+                        attraction.area = poi.and_then(|p| p.area.clone());
+                    }
+                    if attraction.poi_id.is_none() {
+                        attraction.poi_id = poi.and_then(|p| p.poi_id.clone());
+                    }
+                    if let Some(source_id) = poi.map(|candidate| candidate.source_id.clone()) {
+                        attraction.source_ids.push(source_id);
+                    }
                 } else {
                     guide.attractions.push(Attraction {
+                        id: poi.and_then(|p| p.poi_id.clone()),
                         name: fact.subject.clone(),
-                        intro: Some(fact.value.clone()),
+                        normalized_name: Some(devtoolbox_core::travel::normalize_entity_name(
+                            &fact.subject,
+                        )),
+                        poi_id: poi.and_then(|p| p.poi_id.clone()),
+                        area: poi.and_then(|p| p.area.clone()),
+                        source_ids: poi
+                            .map(|candidate| vec![candidate.source_id.clone()])
+                            .unwrap_or_default(),
                         coordinates,
+                        why_go: fallback_mode.then(|| {
+                            "已由高德 POI 识别；缺少 AI 编辑描述，建议先核实开放状态，再决定是否纳入路线。"
+                                .to_string()
+                        }),
+                        why_for_this_trip: fallback_mode.then(|| {
+                            "已获得 POI 坐标，可结合当天路线安排；以下信息仍待进一步核实。"
+                                .to_string()
+                        }),
+                        suggested_duration: fallback_mode.then(|| "待确认".to_string()),
+                        confidence: fallback_mode.then(|| "low".to_string()),
                         ..Attraction::default()
                     });
                 }
             }
-            FactCategory::Food if !guide.foods.iter().any(|f| contains(&f.name, &fact.subject)) => {
-                guide.foods.push(Food {
-                    name: fact.subject.clone(),
-                    intro: Some(fact.value.clone()),
-                    ..Food::default()
-                });
-            }
-            FactCategory::Accommodation
-                if !guide
-                    .accommodation_areas
-                    .iter()
-                    .any(|a| contains(&a.name, &fact.subject)) =>
-            {
-                guide.accommodation_areas.push(AccommodationArea {
-                    name: fact.subject.clone(),
-                    note: Some(fact.value.clone()),
-                    ..AccommodationArea::default()
-                });
+            FactCategory::Food => merge_food_fact(guide, fact, facts),
+            // 高德酒店/民宿 POI 只作为路线附近检索候选，不默认倾倒到攻略；
+            // 住宿主内容保持“推荐区域”的粒度。
+            FactCategory::Accommodation => {
+                if let Some(area) = facts.iter().find_map(|candidate| candidate.area.clone())
+                    && (area.contains('区') || area.contains("商圈"))
+                    && !guide
+                        .accommodation_areas
+                        .iter()
+                        .any(|item| item.name == area)
+                {
+                    guide.accommodation_areas.push(AccommodationArea {
+                        name: area,
+                        ..AccommodationArea::default()
+                    });
+                }
             }
             FactCategory::Weather => {
                 if guide.weather.is_none() {
@@ -1035,6 +1389,55 @@ fn merge_external_data(guide: &mut CityGuide, verified: &[VerifiedFact], facts: 
             _ => {}
         }
     }
+}
+
+fn merge_food_fact(guide: &mut CityGuide, fact: &VerifiedFact, facts: &[TravelFact]) {
+    let source = facts.iter().find(|candidate| {
+        candidate.category == FactCategory::Food && candidate.subject == fact.subject
+    });
+    let is_amap = source.is_some_and(|candidate| {
+        candidate.source_id == devtoolbox_infrastructure::travel::data_provider::AMAP_SOURCE_URL
+            && (candidate.coordinates.is_some()
+                || candidate.poi_id.is_some()
+                || candidate.area.is_some()
+                || candidate.address.is_some())
+    });
+    if is_amap {
+        // 高德这个查询返回的是“餐厅 POI”，value 通常是行政区 + 地址，不能作为菜品简介。
+        if let Some(source) = source
+            && !guide.restaurants.iter().any(|place| {
+                place.poi_id == source.poi_id && source.poi_id.is_some()
+                    || (place.poi_id.is_none() && place.name == fact.subject)
+            })
+        {
+            guide.restaurants.push(Place {
+                name: fact.subject.clone(),
+                area: source.area.clone(),
+                why_pick: Some("高德 POI 候选；建议结合当天路线和营业状态选择。".to_string()),
+                confidence: Some("low".to_string()),
+                poi_id: source.poi_id.clone(),
+                coordinates: source.coordinates.clone(),
+                ..Place::default()
+            });
+        }
+        return;
+    }
+    if guide
+        .foods
+        .iter()
+        .any(|food| contains(&food.name, &fact.subject))
+    {
+        return;
+    }
+    guide.foods.push(Food {
+        name: fact.subject.clone(),
+        intro: Some(fact.value.clone()),
+        area: source.and_then(|item| item.area.clone()),
+        source_ids: source
+            .map(|candidate| vec![candidate.source_id.clone()])
+            .unwrap_or_default(),
+        ..Food::default()
+    });
 }
 
 fn coordinates_for_verified_fact(
@@ -1085,6 +1488,9 @@ fn apply_to_attraction(
     category: FactCategory,
     verified: &VerifiedFact,
 ) {
+    if !verified.verified {
+        return;
+    }
     let mut target: Option<&mut Attraction> = guide
         .attractions
         .iter_mut()
@@ -1103,6 +1509,7 @@ fn apply_to_attraction(
             verified_sources: verified.verified_sources,
             primary_source: verified.primary_source.clone(),
             has_conflict: verified.has_conflict,
+            verified: verified.verified,
         };
         match category {
             FactCategory::OpeningHours => attraction.opening_hours = Some(value),
@@ -1113,80 +1520,270 @@ fn apply_to_attraction(
     }
 }
 
+fn sanitize_unverified_hard_facts(guide: &mut CityGuide, verified: &[VerifiedFact]) {
+    for attractions in [
+        &mut guide.attractions,
+        &mut guide.top_picks,
+        &mut guide.alternatives,
+    ] {
+        sanitize_attraction_hard_facts(attractions, verified);
+    }
+}
+
+fn sanitize_attraction_hard_facts(attractions: &mut [Attraction], verified: &[VerifiedFact]) {
+    for attraction in attractions {
+        let has_verified = |category: FactCategory, value: &VerifiedValue| {
+            verified.iter().any(|fact| {
+                fact.category == category
+                    && fact.verified
+                    && contains(&fact.subject, &attraction.name)
+                    && contains(&fact.value, &value.value)
+            })
+        };
+        if attraction
+            .opening_hours
+            .as_ref()
+            .is_some_and(|value| !has_verified(FactCategory::OpeningHours, value))
+        {
+            attraction.opening_hours = None;
+        }
+        if attraction
+            .ticket
+            .as_ref()
+            .is_some_and(|value| !has_verified(FactCategory::Ticket, value))
+        {
+            attraction.ticket = None;
+        }
+        if attraction
+            .reservation
+            .as_ref()
+            .is_some_and(|value| !has_verified(FactCategory::Reservation, value))
+        {
+            attraction.reservation = None;
+        }
+    }
+}
+
+fn populate_decisions(guide: &mut CityGuide) {
+    if guide.quick_decisions.best_area_to_stay.is_none() {
+        guide.quick_decisions.best_area_to_stay = guide
+            .accommodation_areas
+            .first()
+            .map(|area| area.name.clone());
+    }
+    if guide.quick_decisions.signature_food.is_none() {
+        guide.quick_decisions.signature_food = guide.foods.first().map(|food| food.name.clone());
+    }
+    if guide.quick_decisions.must_visit.is_empty() {
+        guide.quick_decisions.must_visit = guide
+            .attractions
+            .iter()
+            .take(3)
+            .map(|item| item.name.clone())
+            .collect();
+    }
+    if guide.food_summary.is_none() {
+        guide.food_summary = guide.foods.first().and_then(|food| food.intro.clone());
+        if guide.food_summary.is_none() && !guide.restaurants.is_empty() {
+            guide.food_summary =
+                Some("已识别到本地餐饮 POI；优先选择靠近当天路线、再核实营业状态。".to_string());
+        }
+    }
+    if guide.transport_summary.is_none() {
+        guide.transport_summary = guide.transport.overview.clone();
+    }
+}
+
+/// 根据坐标/区域把首选景点分配到实际请求的天数，并生成可直接阅读的 Day Card 数据。
+/// 不依赖 LLM，因此即使模型失败，行程仍有稳定的 Day 1..Day N 骨架。
+fn plan_itinerary(guide: &mut CityGuide, days: u8) {
+    let days = days.clamp(1, 7);
+    let attractions = if guide.top_picks.is_empty() {
+        guide.attractions.clone()
+    } else {
+        guide.top_picks.clone()
+    };
+    let mut buckets = vec![Vec::<Attraction>::new(); days as usize];
+    let mut unassigned = Vec::new();
+    for attraction in attractions {
+        if let Some(day) = attraction
+            .recommended_day
+            .filter(|day| (1..=days).contains(day))
+        {
+            buckets[day as usize - 1].push(attraction);
+        } else {
+            unassigned.push(attraction);
+        }
+    }
+    // 有坐标时按经度/纬度排序后切成连续组，形成“市区 / 远郊”这类地理簇；
+    // 无坐标时退回区域排序，不让 LLM 随机把远距离景点穿插到同一天。
+    unassigned.sort_by(|left, right| {
+        let left_key = left
+            .coordinates
+            .as_ref()
+            .map_or((String::new(), 0.0, 0.0), |point| {
+                (String::new(), point.longitude, point.latitude)
+            });
+        let right_key = right
+            .coordinates
+            .as_ref()
+            .map_or((String::new(), 0.0, 0.0), |point| {
+                (String::new(), point.longitude, point.latitude)
+            });
+        left.area
+            .cmp(&right.area)
+            .then_with(|| {
+                left_key
+                    .1
+                    .partial_cmp(&right_key.1)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
+            .then_with(|| {
+                left_key
+                    .2
+                    .partial_cmp(&right_key.2)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
+    });
+    let total = unassigned.len().max(1);
+    for (index, attraction) in unassigned.into_iter().enumerate() {
+        let target = (index * days as usize / total).min(days as usize - 1);
+        buckets[target].push(attraction);
+    }
+    for (index, bucket) in buckets.iter().enumerate() {
+        for attraction in bucket {
+            let day = (index + 1) as u8;
+            for item in guide
+                .attractions
+                .iter_mut()
+                .chain(guide.top_picks.iter_mut())
+            {
+                if item.name == attraction.name && item.recommended_day.is_none() {
+                    item.recommended_day = Some(day);
+                }
+            }
+        }
+    }
+    guide.itinerary_days = buckets
+        .into_iter()
+        .enumerate()
+        .map(|(index, stops)| {
+            let theme = stops
+                .iter()
+                .filter_map(|item| item.area.clone())
+                .collect::<Vec<_>>()
+                .join(" + ");
+            let day = (index + 1) as u8;
+            let itinerary_stops = stops
+                .into_iter()
+                .enumerate()
+                .map(|(stop_index, attraction)| {
+                    let time = match stop_index {
+                        0 => "09:00",
+                        1 => "13:30",
+                        2 => "16:00",
+                        _ => "18:30",
+                    };
+                    ItineraryStop {
+                        name: attraction.name,
+                        note: attraction
+                            .why_for_this_trip
+                            .clone()
+                            .or(attraction.why_go.clone()),
+                        time: Some(time.to_string()),
+                        duration: attraction.suggested_duration,
+                        area: attraction.area,
+                        reason: attraction.why_for_this_trip.or(attraction.why_go),
+                        // 没有路线服务时不伪造交通时间；真实驾车时间由后置增强阶段填入。
+                        travel_time: None,
+                    }
+                })
+                .collect();
+            ItineraryDay {
+                day,
+                title: Some(format!("第 {day} 天")),
+                theme: (!theme.is_empty()).then_some(theme),
+                stops: itinerary_stops,
+            }
+        })
+        .collect();
+}
+
 fn contains(haystack: &str, needle: &str) -> bool {
     let haystack = haystack.trim();
     let needle = needle.trim();
     !needle.is_empty() && (haystack.contains(needle) || needle.contains(haystack))
 }
 
+fn guide_coordinates(guide: &CityGuide) -> Vec<(String, Option<MapCoordinates>)> {
+    guide
+        .attractions
+        .iter()
+        .chain(guide.top_picks.iter())
+        .chain(guide.alternatives.iter())
+        .map(|item| (item.name.clone(), item.coordinates.clone()))
+        .collect()
+}
+
+fn assign_restaurant_routes(guide: &mut CityGuide) {
+    let attraction_points = guide
+        .attractions
+        .iter()
+        .filter_map(|item| Some((item.recommended_day?, item.coordinates.clone()?)))
+        .collect::<Vec<_>>();
+    if attraction_points.is_empty() {
+        return;
+    }
+    for place in &mut guide.restaurants {
+        let Some(point) = place.coordinates.clone() else {
+            continue;
+        };
+        let Some((day, distance)) = attraction_points
+            .iter()
+            .map(|(day, destination)| (*day, haversine_km(&point, destination)))
+            .min_by(|left, right| {
+                left.1
+                    .partial_cmp(&right.1)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
+        else {
+            continue;
+        };
+        place.route_day = Some(day);
+        // 明确标注“直线”，避免把估算冒充驾车距离。
+        place.distance_to_route = Some(format!("距 Day {day} 路线直线约 {distance:.1} 公里"));
+    }
+}
+
+fn haversine_km(left: &MapCoordinates, right: &MapCoordinates) -> f64 {
+    let radius_km = 6_371.0_f64;
+    let lat1 = left.latitude.to_radians();
+    let lat2 = right.latitude.to_radians();
+    let dlat = (right.latitude - left.latitude).to_radians();
+    let dlon = (right.longitude - left.longitude).to_radians();
+    let a = (dlat / 2.0).sin().powi(2) + lat1.cos() * lat2.cos() * (dlon / 2.0).sin().powi(2);
+    radius_km * 2.0 * a.sqrt().atan2((1.0 - a).sqrt())
+}
+
 /// 降级版攻略：只使用真实搜索信息（标题 / 摘要 / 来源），缺失区留空并注明。
 fn build_fallback_guide(guide: &mut CityGuide, _city: &str, sources: &[TravelSource]) {
     guide.summary = format!(
-        "「{}」暂无 AI 整理；以下为基于搜索结果的原始信息来源（请以官方信息为准）。",
+        "「{}」的资料已收集，但 AI 编辑暂不可用。当前只展示可追溯的有限结论，请以官方信息为准。",
         guide.city.name
     );
-    // 来源标题按域名归类为“候选条目”，标注为低可信参考
-    for source in sources {
-        let name = &source.title;
-        let note = || {
-            Some(format!(
-                "来自 {}（{} 级来源，仅作参考）",
-                source.host, source.level
-            ))
-        };
-        if name.contains("美食") || name.contains("小吃") || name.contains("餐厅") {
-            guide.foods.push(Food {
-                name: name.clone(),
-                intro: note(),
-                ..Food::default()
-            });
-        } else if name.contains("酒店") || name.contains("住宿") || name.contains("民宿") {
-            guide.accommodation_areas.push(AccommodationArea {
-                name: name.clone(),
-                note: note(),
-                ..AccommodationArea::default()
-            });
-        } else if name.contains("交通")
-            || name.contains("地铁")
-            || name.contains("机场")
-            || name.contains("车站")
-        {
-            guide
-                .transport
-                .tips
-                .push(format!("{name} — 来源：{}", source.host));
-        } else if name.contains("避坑") || name.contains("注意") {
-            guide.warnings.push(TravelWarning {
-                title: name.clone(),
-                text: format!("来源：{}（请以官方公告为准）", source.host),
-            });
-        } else {
-            guide.attractions.push(Attraction {
-                name: name.clone(),
-                intro: note(),
-                ..Attraction::default()
-            });
-        }
-        if guide.attractions.len() > 12 {
-            break;
-        }
-    }
-    if guide.foods.is_empty() {
-        guide
-            .meta
-            .notes
-            .push("美食信息不足，暂无可靠数据".to_string());
-    }
-    if guide.attractions.is_empty() {
-        guide
-            .meta
-            .notes
-            .push("景点信息不足，暂无可靠数据".to_string());
-    }
+    let full_sources = sources
+        .iter()
+        .filter(|source| source.state == ContentState::Full)
+        .count();
+    guide.meta.notes.push(format!(
+        "降级模式：保留 {} 个来源，其中 {} 个可抓取全文；未将来源标题当作景点或酒店推荐。",
+        sources.len(),
+        full_sources
+    ));
     guide
         .meta
         .notes
-        .push("当前为降级模式：LLM 未配置或不可用，仅展示原始来源".to_string());
+        .push("未生成可靠的精选景点、餐厅或住宿区域，避免用搜索结果凑数。".to_string());
 }
 
 fn truncate(text: &str, max_chars: usize) -> String {

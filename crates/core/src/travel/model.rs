@@ -136,6 +136,15 @@ pub struct TravelFact {
     /// 地图坐标（仅可信 POI 数据源提供；普通网页/LLM 事实保持为空）。
     #[serde(default)]
     pub coordinates: Option<MapCoordinates>,
+    /// 结构化 POI 的稳定 ID；网页事实通常为空。
+    #[serde(default)]
+    pub poi_id: Option<String>,
+    /// POI 所在行政区 / 商圈。
+    #[serde(default)]
+    pub area: Option<String>,
+    /// POI 详细地址。
+    #[serde(default)]
+    pub address: Option<String>,
 }
 
 /// WGS-84 / GCJ-02 坐标由数据源语义决定；高德 POI 使用 GCJ-02，可直接供高德地图展示。

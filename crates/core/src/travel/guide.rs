@@ -27,6 +27,18 @@ pub struct CityGuide {
     pub itineraries: Itineraries,
     pub local_tips: Vec<TravelTip>,
     pub warnings: Vec<TravelWarning>,
+    /// 面向决策的摘要，优先回答住哪里、吃什么、最值得去哪里。
+    pub quick_decisions: QuickDecisions,
+    /// 经过筛选的首选景点；`attractions` 保留兼容语义，生成后两者同步。
+    pub top_picks: Vec<Attraction>,
+    /// 因天数、距离或证据不足而降级的备选景点。
+    pub alternatives: Vec<Attraction>,
+    /// 按实际请求天数生成的行程，支持 1~7 天。
+    pub itinerary_days: Vec<ItineraryDay>,
+    pub food_summary: Option<String>,
+    pub stay_areas: Vec<AccommodationArea>,
+    pub transport_summary: Option<String>,
+    pub evidence: EvidenceSummary,
     pub sources: Vec<TravelSource>,
     pub meta: GuideMeta,
 }
@@ -62,7 +74,7 @@ pub struct WeatherDay {
     pub temp_max: String,
 }
 
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 pub struct DistrictInfo {
     pub name: String,
     /// 该区域的亮点 / 说明。
@@ -74,9 +86,15 @@ pub struct DistrictInfo {
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 #[serde(default)]
 pub struct Attraction {
+    /// 稳定实体 ID（优先 POI ID，否则由名称与坐标生成）。
+    pub id: Option<String>,
     pub name: String,
+    pub normalized_name: Option<String>,
+    pub poi_id: Option<String>,
     /// 一句话介绍。
     pub intro: Option<String>,
+    pub why_go: Option<String>,
+    pub why_for_this_trip: Option<String>,
     /// 所在区域（如 "西湖区"）。
     pub area: Option<String>,
     /// 建议游玩时长（如 "半天"）。
@@ -89,6 +107,10 @@ pub struct Attraction {
     pub reservation: Option<VerifiedValue>,
     /// 本地游览贴士。
     pub tips: Vec<String>,
+    pub best_for: Vec<String>,
+    pub recommended_day: Option<u8>,
+    pub open_status: Option<VerifiedValue>,
+    pub confidence: Option<String>,
     /// 支撑该条目的事实来源 URL。
     pub source_ids: Vec<String>,
     /// 仅来自地图 POI 的坐标，用于攻略地图展示。
@@ -103,15 +125,25 @@ pub struct Food {
     pub dish_type: Option<String>,
     /// 介绍 / 推荐理由。
     pub intro: Option<String>,
+    /// 结构化数据识别到的菜品 / 餐饮所在区域。
+    pub area: Option<String>,
     pub source_ids: Vec<String>,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 #[serde(default)]
 pub struct Place {
     pub name: String,
     pub area: Option<String>,
     pub note: Option<String>,
+    pub signature_dish: Option<String>,
+    pub why_pick: Option<String>,
+    pub route_day: Option<u8>,
+    pub distance_to_route: Option<String>,
+    pub confidence: Option<String>,
+    pub poi_id: Option<String>,
+    /// 结构化餐饮 POI 坐标，用于关联具体行程日与路线。
+    pub coordinates: Option<MapCoordinates>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
@@ -159,10 +191,45 @@ pub struct Itinerary {
     pub stops: Vec<ItineraryStop>,
 }
 
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(default)]
 pub struct ItineraryStop {
     pub name: String,
     pub note: Option<String>,
+    pub time: Option<String>,
+    pub duration: Option<String>,
+    pub area: Option<String>,
+    pub reason: Option<String>,
+    pub travel_time: Option<String>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[serde(default)]
+pub struct ItineraryDay {
+    pub day: u8,
+    pub title: Option<String>,
+    pub theme: Option<String>,
+    pub stops: Vec<ItineraryStop>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[serde(default)]
+pub struct QuickDecisions {
+    pub best_area_to_stay: Option<String>,
+    pub signature_food: Option<String>,
+    pub trip_style: Option<String>,
+    pub must_visit: Vec<String>,
+    pub main_warning: Option<String>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(default)]
+pub struct EvidenceSummary {
+    pub source_count: usize,
+    pub verified_count: usize,
+    pub snippet_only_count: usize,
+    pub conflict_count: usize,
+    pub quality: String,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -191,6 +258,8 @@ pub struct VerifiedValue {
     pub primary_source: String,
     /// 是否存在冲突版本。
     pub has_conflict: bool,
+    /// Hard Fact 是否由全文或结构化数据支持；仅摘要不得标为已验证。
+    pub verified: bool,
 }
 
 /// 攻略元信息（生成 / 更新时间由存储层维护）。
@@ -216,6 +285,9 @@ pub struct GuideSummary {
     pub city: String,
     pub days: u8,
     pub updated_at: i64,
+    /// 有具体出行日期的攻略；普通城市攻略为 None。
+    #[serde(default)]
+    pub date_range: Option<TravelDateRange>,
 }
 
 /// 已验证事实（`verify_facts` 的输出），供 Guide 组装时查询。
@@ -228,6 +300,12 @@ pub struct VerifiedFact {
     pub verified_sources: usize,
     pub primary_source: String,
     pub has_conflict: bool,
+    #[serde(default = "default_true")]
+    pub verified: bool,
     /// 冲突时存在的其他版本（供 UI 展示「多个版本」）。
     pub candidates: Vec<String>,
+}
+
+fn default_true() -> bool {
+    true
 }

@@ -22,6 +22,7 @@ pub use settings_store::{AppSettings, GeographySettings, SettingsStore, TravelSe
 pub use travel::{
     AmapPoiProvider, HttpWebFetcher, LlmConfig, LlmProvider, OpenAiCompatibleLlmProvider,
     QWeatherProvider, SearchOptions, SearchProvider, TravelDataProvider, TravelDataRequest,
-    TravelSearchBackend, TravelStore, WebFetcher, build_providers, providers_for,
+    TravelRoute, TravelRouteRequest, TravelSearchBackend, TravelStore, WebFetcher, build_providers,
+    parse_amap_driving_route, providers_for,
 };
 pub use workspace_scanner::{WorkspaceFile, scan_markdown_files};

@@ -8,7 +8,8 @@
 use std::collections::HashMap;
 
 use crate::travel::guide::VerifiedFact;
-use crate::travel::model::{SearchResult, SourceLevel, TravelFact};
+use crate::travel::model::{ContentState, FactCategory, SearchResult, SourceLevel, TravelFact};
+use crate::travel::quality::normalize_entity_name;
 
 /// 归一化 URL 用于去重：去 fragment、去尾部斜杠、清掉常见跟踪参数、小写 scheme/host。
 #[must_use]
@@ -106,6 +107,52 @@ pub fn dedup_facts(facts: Vec<TravelFact>) -> Vec<TravelFact> {
     best.into_values().collect()
 }
 
+/// 合并结构化 POI 的实体别名。网页事实没有稳定 ID 或坐标时不做激进合并，
+/// 避免把同名餐厅、不同分店和同名景点错误归为一处。
+#[must_use]
+pub fn dedup_entity_facts(facts: Vec<TravelFact>) -> Vec<TravelFact> {
+    let mut unique: Vec<TravelFact> = Vec::with_capacity(facts.len());
+    for fact in facts {
+        let duplicate = unique
+            .iter()
+            .position(|existing| same_entity(existing, &fact));
+        if let Some(index) = duplicate {
+            if fact.confidence > unique[index].confidence
+                || (unique[index].coordinates.is_none() && fact.coordinates.is_some())
+            {
+                unique[index] = fact;
+            }
+        } else {
+            unique.push(fact);
+        }
+    }
+    unique
+}
+
+fn same_entity(left: &TravelFact, right: &TravelFact) -> bool {
+    if left.category != right.category {
+        return false;
+    }
+    if let (Some(left_id), Some(right_id)) = (&left.poi_id, &right.poi_id) {
+        return !left_id.is_empty() && left_id == right_id;
+    }
+    // 只对景点使用“别名 + 坐标”规则；餐饮分店必须保守处理。
+    if left.category != FactCategory::Attraction {
+        return false;
+    }
+    let left_name = normalize_entity_name(&left.subject);
+    let right_name = normalize_entity_name(&right.subject);
+    if left_name.is_empty() || left_name != right_name {
+        return false;
+    }
+    match (&left.coordinates, &right.coordinates) {
+        (Some(a), Some(b)) => {
+            ((a.longitude - b.longitude).powi(2) + (a.latitude - b.latitude).powi(2)).sqrt() < 0.04
+        }
+        _ => false,
+    }
+}
+
 /// 按 (category, subject) 分组验证，产生 `VerifiedFact`（需求 #十）。
 ///
 /// 解析规则：
@@ -119,6 +166,17 @@ pub fn dedup_facts(facts: Vec<TravelFact>) -> Vec<TravelFact> {
 pub fn verify_facts(
     facts: &[TravelFact],
     source_levels: &HashMap<String, SourceLevel>,
+) -> Vec<VerifiedFact> {
+    verify_facts_with_states(facts, source_levels, &HashMap::new())
+}
+
+/// 带抓取状态的事实验证。仅 SnippetOnly 支持的开放、票价、预约、交通硬事实
+/// 不能被标记为 verified；它们仍可作为候选线索保留。
+#[must_use]
+pub fn verify_facts_with_states(
+    facts: &[TravelFact],
+    source_levels: &HashMap<String, SourceLevel>,
+    source_states: &HashMap<String, ContentState>,
 ) -> Vec<VerifiedFact> {
     let mut grouped: HashMap<(FactCategoryKey, String), Vec<&TravelFact>> = HashMap::new();
     for fact in facts {
@@ -134,7 +192,7 @@ pub fn verify_facts(
         .map(|((category, subject_normalized), members)| {
             let mut candidates: HashMap<String, (usize, f32)> = HashMap::new();
             let mut candidate_examples: HashMap<String, String> = HashMap::new();
-            for fact in members {
+            for fact in &members {
                 let value = normalize_text(&fact.value);
                 let weight = source_levels
                     .get(&fact.source_id)
@@ -175,6 +233,19 @@ pub fn verify_facts(
             } else {
                 "single"
             };
+            let hard_fact = matches!(
+                category,
+                FactCategory::OpeningHours
+                    | FactCategory::Ticket
+                    | FactCategory::Reservation
+                    | FactCategory::Transport
+            );
+            let verified = !hard_fact
+                || members.iter().any(|fact| {
+                    source_states
+                        .get(&fact.source_id)
+                        .is_none_or(|state| *state != ContentState::SnippetOnly)
+                });
             let confidence = match (count, max_weight) {
                 (n, w) if n >= 3 || (n >= 2 && w >= 0.8) => "high",
                 (2, _) => "medium",
@@ -189,6 +260,7 @@ pub fn verify_facts(
                 verified_sources: count,
                 primary_source: primary.to_string(),
                 has_conflict: candidates_list.len() > 1,
+                verified,
                 candidates: candidates_list,
             }
         })
@@ -239,7 +311,7 @@ impl crate::travel::model::FactCategory {
 #[cfg(test)]
 mod tests {
     use super::{dedup_facts, dedup_search_results, normalize_url, verify_facts};
-    use crate::travel::model::{FactCategory, SearchResult, SourceLevel, TravelFact};
+    use crate::travel::model::{ContentState, FactCategory, SearchResult, SourceLevel, TravelFact};
 
     fn result(url: &str, title: &str) -> SearchResult {
         SearchResult {
@@ -267,6 +339,9 @@ mod tests {
             confidence: conf,
             fetched_at: 1_700_000_000,
             coordinates: None,
+            poi_id: None,
+            area: None,
+            address: None,
         }
     }
 
@@ -395,5 +470,27 @@ mod tests {
         ];
         let verified = verify_facts(&facts, &std::collections::HashMap::new());
         assert_eq!(verified.len(), 2);
+    }
+
+    #[test]
+    fn snippet_only_hard_fact_is_not_verified() {
+        let facts = vec![fact(
+            FactCategory::OpeningHours,
+            "红河谷",
+            "08:00-17:00",
+            "https://search.example/result",
+            0.9,
+        )];
+        let levels = std::collections::HashMap::from([(
+            "https://search.example/result".to_string(),
+            SourceLevel::B,
+        )]);
+        let states = std::collections::HashMap::from([(
+            "https://search.example/result".to_string(),
+            ContentState::SnippetOnly,
+        )]);
+        let verified = super::verify_facts_with_states(&facts, &levels, &states);
+        assert!(!verified[0].verified);
+        assert_eq!(verified[0].confidence, "low");
     }
 }

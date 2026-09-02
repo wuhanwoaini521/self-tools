@@ -7,7 +7,8 @@ pub mod search;
 pub mod store;
 
 pub use data_provider::{
-    AmapPoiProvider, QWeatherProvider, TravelDataProvider, TravelDataRequest, providers_for,
+    AmapPoiProvider, QWeatherProvider, TravelDataProvider, TravelDataRequest, TravelRoute,
+    TravelRouteRequest, parse_amap_driving_route, providers_for,
 };
 pub use fetcher::{HttpWebFetcher, WebFetcher, detect_encoding, extract_text};
 pub use llm::{LlmConfig, LlmProvider, OpenAiCompatibleLlmProvider, extract_chat_content};

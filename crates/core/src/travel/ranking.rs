@@ -5,6 +5,7 @@
 //! 规则简单但可单测、可解释；后续可替换为更细的规则或模型打分。
 
 use crate::travel::model::{SearchResult, SourceLevel, TravelSource};
+use crate::travel::query_planner::QueryCategory;
 
 const REL_KEYWORDS: &[&str] = &[
     "推荐",
@@ -126,14 +127,107 @@ pub fn relevance_score(doc_text: &str, _query: &str) -> f32 {
     (0.45 + 0.12 * matched as f32).min(1.0)
 }
 
+/// 与用户请求绑定的来源评分上下文。搜索词、意图、日期和偏好共同决定相关性。
+#[derive(Clone, Debug)]
+pub struct SourceRankingContext<'a> {
+    pub city: &'a str,
+    pub category: QueryCategory,
+    pub preferences: &'a [String],
+    pub date_range: Option<(&'a str, &'a str)>,
+}
+
+fn context_relevance(context: &SourceRankingContext<'_>, query: &str, text: &str) -> f32 {
+    let lowered = text.to_lowercase();
+    let terms = query
+        .split_whitespace()
+        .filter(|term| term.len() > 1 && *term != context.city)
+        .collect::<Vec<_>>();
+    let query_hits = terms.iter().filter(|term| lowered.contains(**term)).count();
+    let preference_hits = context
+        .preferences
+        .iter()
+        .filter(|preference| lowered.contains(&preference.to_lowercase()))
+        .count();
+    let category_terms = match context.category {
+        QueryCategory::Food => ["美食", "小吃", "餐厅", "吃"].as_slice(),
+        QueryCategory::Transport => ["交通", "公交", "车站", "打车"].as_slice(),
+        QueryCategory::Accommodation => ["住宿", "酒店", "区域", "住"].as_slice(),
+        QueryCategory::Warnings => ["开放", "预约", "门票", "注意"].as_slice(),
+        QueryCategory::Activities => ["活动", "天气", "演出", "摄影"].as_slice(),
+        QueryCategory::Itinerary => ["路线", "行程", "一日游", "两日游", "三日游"].as_slice(),
+        QueryCategory::Attractions => ["景点", "风景", "博物馆", "古迹"].as_slice(),
+        QueryCategory::CityIntro => ["城市", "历史", "文化", "旅行"].as_slice(),
+    };
+    let category_hits = category_terms
+        .iter()
+        .filter(|term| lowered.contains(**term))
+        .count();
+    let date_hits = context.date_range.is_some()
+        && (lowered.contains("2026") || lowered.contains("日期") || lowered.contains("活动"));
+    (0.35
+        + 0.1 * query_hits as f32
+        + 0.06 * category_hits as f32
+        + 0.08 * preference_hits as f32
+        + if date_hits { 0.08 } else { 0.0 })
+    .min(1.0)
+}
+
+fn category_authority(level: SourceLevel, category: QueryCategory, host: &str) -> f32 {
+    let base = level.weight();
+    let host = host.to_ascii_lowercase();
+    match category {
+        QueryCategory::Food
+            if host.contains("dianping")
+                || host.contains("meituan")
+                || host.contains("xiaohongshu") =>
+        {
+            (base + 0.08).min(1.0)
+        }
+        QueryCategory::Warnings if level == SourceLevel::S => 1.0,
+        QueryCategory::Transport
+            if level == SourceLevel::S || host.contains("amap") || host.contains("12306") =>
+        {
+            (base + 0.05).min(1.0)
+        }
+        _ => base,
+    }
+}
+
+/// 按用户搜索意图评分；同一来源在“开放状态”和“本地美食”场景可有不同权重。
+#[must_use]
+pub fn rate_source_for(
+    context: &SourceRankingContext<'_>,
+    query: &str,
+    result: &SearchResult,
+) -> TravelSource {
+    let level = classify_source(&host_of(&result.url), &result.url);
+    let authority = category_authority(level, context.category, &host_of(&result.url));
+    let freshness = freshness_score(result.published_at, result.fetched_at);
+    let relevance = context_relevance(
+        context,
+        query,
+        &format!("{} {}", result.title, result.snippet),
+    );
+    let score = authority * freshness * relevance;
+    TravelSource {
+        url: result.url.clone(),
+        title: result.title.clone(),
+        host: host_of(&result.url),
+        level,
+        state: crate::travel::model::ContentState::SnippetOnly,
+        published_at: result.published_at,
+        fetched_at: result.fetched_at,
+        score: (score * 1000.0).round() / 1000.0,
+    }
+}
+
 /// 综合评分一个搜索结果，产出带评级的 `TravelSource`。
 #[must_use]
 pub fn rate_source(query: &str, result: &SearchResult) -> TravelSource {
     let level = classify_source(&host_of(&result.url), &result.url);
-    let authority = level.weight();
-    let freshness = freshness_score(result.published_at, result.fetched_at);
-    let relevance = relevance_score(&format!("{} {}", result.title, result.snippet), query);
-    let score = authority * freshness * relevance;
+    let score = level.weight()
+        * freshness_score(result.published_at, result.fetched_at)
+        * relevance_score(&format!("{} {}", result.title, result.snippet), query);
     TravelSource {
         url: result.url.clone(),
         title: result.title.clone(),

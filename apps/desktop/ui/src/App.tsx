@@ -390,7 +390,6 @@ export default function App() {
             <TravelPage
               active={page === "travel"}
               setNotice={setNotice}
-              amapApiKey={settings.travel.amap_api_key}
             />
           </section>
           <section

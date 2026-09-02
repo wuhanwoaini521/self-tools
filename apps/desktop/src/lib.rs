@@ -23,7 +23,7 @@ use devtoolbox_core::{
     geography::GeoEntityType as CoreGeoEntityType,
     history::{HistoryDetailView, HistoryNode, HistorySearchGroup},
     language::{LearningStateKind, ReviewRating, SpeakingScore},
-    travel::{CityGuide, GuideSummary, TravelResearchEvent},
+    travel::{CityGuide, GuideSummary, TravelDateRange, TravelResearchEvent},
 };
 use devtoolbox_infrastructure::{
     AmapPoiProvider, AppSettings, FeedRepository, GeographyStore, HistoryStore, HttpWebFetcher,
@@ -493,10 +493,11 @@ fn travel_load_guide(
     state: State<'_, AppState>,
     city: String,
     days: u8,
+    date_range: Option<TravelDateRange>,
 ) -> Result<Option<CityGuide>, CommandError> {
     let store = state.travel_store.lock().expect("travel store poisoned");
     let guide = store
-        .load_guide(&city, days)
+        .load_guide(&city, days, date_range.as_ref())
         .map_err(|source| CommandError::from(ApplicationError::Travel { source }))?;
     Ok(guide)
 }

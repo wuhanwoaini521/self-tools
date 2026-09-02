@@ -9,22 +9,32 @@ pub mod dedup;
 pub mod guide;
 pub mod llm_parse;
 pub mod model;
+pub mod quality;
 pub mod query_planner;
 pub mod ranking;
 
 pub use cache::{DOCUMENT_TTL_SECS, GUIDE_TTL_SECS, SEARCH_TTL_SECS, is_fresh};
-pub use dedup::{dedup_facts, dedup_search_results, normalize_url, verify_facts};
+pub use dedup::{
+    dedup_entity_facts, dedup_facts, dedup_search_results, normalize_url, verify_facts,
+    verify_facts_with_states,
+};
 pub use guide::{
-    AccommodationArea, Attraction, CityGuide, CityInfo, DistrictInfo, Food, GuideMeta,
-    GuideSummary, Itineraries, Itinerary, ItineraryStop, Place, TransportGuide, TravelTip,
-    TravelWarning, VerifiedFact, VerifiedValue, WeatherDay, WeatherForecast,
+    AccommodationArea, Attraction, CityGuide, CityInfo, DistrictInfo, EvidenceSummary, Food,
+    GuideMeta, GuideSummary, Itineraries, Itinerary, ItineraryDay, ItineraryStop, Place,
+    QuickDecisions, TransportGuide, TravelTip, TravelWarning, VerifiedFact, VerifiedValue,
+    WeatherDay, WeatherForecast,
 };
 pub use llm_parse::{TravelParseError, extract_json, parse_facts_json, parse_guide_json};
 pub use model::{
     ContentState, FactCategory, MapCoordinates, ResearchPhase, SearchResult, SourceLevel,
     StepStatus, TravelDocument, TravelFact, TravelResearchEvent, TravelSource,
 };
+pub use quality::{QualityReport, apply_quality_gate, normalize_entity_name};
 pub use query_planner::{
-    QueryCategory, QueryTask, TravelDateRange, TravelQueryInput, TravelQueryPlanner,
+    QueryCategory, QueryTask, SearchIntentCategory, TravelDateRange, TravelQueryInput,
+    TravelQueryPlanner,
 };
-pub use ranking::{classify_source, freshness_score, host_of, rate_source, relevance_score};
+pub use ranking::{
+    SourceRankingContext, classify_source, freshness_score, host_of, rate_source, rate_source_for,
+    relevance_score,
+};

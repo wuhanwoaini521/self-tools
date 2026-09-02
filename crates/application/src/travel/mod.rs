@@ -9,5 +9,5 @@ mod tests;
 
 pub use service::{
     TravelResearchRequest, TravelResearchService, fact_user_prompt, guide_user_prompt,
-    parse_query_list, query_user_prompt,
+    parse_query_list, parse_search_intents, query_user_prompt,
 };

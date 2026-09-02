@@ -14,7 +14,7 @@ use rusqlite::{Connection, OptionalExtension};
 use crate::error::InfrastructureError;
 use devtoolbox_core::travel::{
     CityGuide, DOCUMENT_TTL_SECS, GUIDE_TTL_SECS, GuideSummary, SEARCH_TTL_SECS, SearchResult,
-    TravelDocument, is_fresh,
+    TravelDateRange, TravelDocument, is_fresh,
 };
 
 /// 缓存条目（搜索结果 / 文档共用）。
@@ -69,7 +69,19 @@ impl TravelStore {
                     fetched_at INTEGER NOT NULL
                 );
                 CREATE INDEX IF NOT EXISTS idx_travel_guides_updated
-                    ON travel_guides(updated_at DESC);",
+                    ON travel_guides(updated_at DESC);
+                CREATE TABLE IF NOT EXISTS travel_date_guides (
+                    city TEXT NOT NULL,
+                    days INTEGER NOT NULL,
+                    date_start TEXT NOT NULL,
+                    date_end TEXT NOT NULL,
+                    generated_at INTEGER NOT NULL,
+                    updated_at INTEGER NOT NULL,
+                    guide_json TEXT NOT NULL,
+                    PRIMARY KEY (city, days, date_start, date_end)
+                );
+                CREATE INDEX IF NOT EXISTS idx_travel_date_guides_updated
+                    ON travel_date_guides(updated_at DESC);",
             )
             .map_err(|source| InfrastructureError::Sqlite(source.to_string()))
     }
@@ -112,6 +124,29 @@ impl TravelStore {
         stored.meta.updated_at = now;
         let json = serde_json::to_string(&stored)
             .map_err(|source| InfrastructureError::TravelFetch(source.to_string()))?;
+        if let Some(range) = &stored.meta.date_range {
+            self.connection
+                .execute(
+                    "INSERT INTO travel_date_guides
+                     (city, days, date_start, date_end, generated_at, updated_at, guide_json)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+                     ON CONFLICT(city, days, date_start, date_end) DO UPDATE SET
+                        generated_at = excluded.generated_at,
+                        updated_at = excluded.updated_at,
+                        guide_json = excluded.guide_json",
+                    rusqlite::params![
+                        stored.city.name,
+                        stored.meta.days,
+                        range.start,
+                        range.end,
+                        stored.meta.generated_at,
+                        now,
+                        json
+                    ],
+                )
+                .map_err(|source| InfrastructureError::Sqlite(source.to_string()))?;
+            return Ok(stored);
+        }
         self.connection
             .execute(
                 "INSERT INTO travel_guides (city, days, generated_at, updated_at, guide_json)
@@ -147,12 +182,40 @@ impl TravelStore {
                     city: row.get(0)?,
                     days: row.get(1)?,
                     updated_at: row.get(2)?,
+                    date_range: None,
                 })
             })
             .map_err(|source| InfrastructureError::Sqlite(source.to_string()))?
             .collect::<Result<Vec<_>, _>>()
             .map_err(|source| InfrastructureError::Sqlite(source.to_string()))?;
-        Ok(rows)
+        let mut summaries = rows;
+        let mut date_statement = self
+            .connection
+            .prepare(
+                "SELECT city, days, date_start, date_end, updated_at
+                 FROM travel_date_guides
+                 ORDER BY updated_at DESC LIMIT ?1",
+            )
+            .map_err(|source| InfrastructureError::Sqlite(source.to_string()))?;
+        let date_rows = date_statement
+            .query_map([limit], |row| {
+                Ok(GuideSummary {
+                    city: row.get(0)?,
+                    days: row.get(1)?,
+                    updated_at: row.get(4)?,
+                    date_range: Some(TravelDateRange {
+                        start: row.get(2)?,
+                        end: row.get(3)?,
+                    }),
+                })
+            })
+            .map_err(|source| InfrastructureError::Sqlite(source.to_string()))?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|source| InfrastructureError::Sqlite(source.to_string()))?;
+        summaries.extend(date_rows);
+        summaries.sort_by(|left, right| right.updated_at.cmp(&left.updated_at));
+        summaries.truncate(limit as usize);
+        Ok(summaries)
     }
 
     /// 按城市读取攻略（不校验 TTL，供历史打开）。
@@ -160,7 +223,26 @@ impl TravelStore {
         &self,
         city: &str,
         days: u8,
+        date_range: Option<&TravelDateRange>,
     ) -> Result<Option<CityGuide>, InfrastructureError> {
+        if let Some(range) = date_range {
+            let row = self
+                .connection
+                .query_row(
+                    "SELECT guide_json FROM travel_date_guides
+                     WHERE city = ?1 AND days = ?2 AND date_start = ?3 AND date_end = ?4",
+                    rusqlite::params![city, days, range.start, range.end],
+                    |row| row.get::<_, String>(0),
+                )
+                .optional()
+                .map_err(|source| InfrastructureError::Sqlite(source.to_string()))?;
+            return row
+                .map(|json| {
+                    serde_json::from_str(&json)
+                        .map_err(|source| InfrastructureError::TravelFetch(source.to_string()))
+                })
+                .transpose();
+        }
         let row = self
             .connection
             .query_row(
@@ -276,7 +358,8 @@ impl TravelStore {
 #[cfg(test)]
 mod tests {
     use devtoolbox_core::travel::{
-        CityGuide, CityInfo, ContentState, GuideMeta, SearchResult, TravelDocument, is_fresh,
+        CityGuide, CityInfo, ContentState, GuideMeta, SearchResult, TravelDateRange,
+        TravelDocument, is_fresh,
     };
 
     use super::{DOCUMENT_TTL_SECS, TravelStore};
@@ -352,6 +435,33 @@ mod tests {
                 .expect("get")
                 .is_none()
         );
+    }
+
+    #[test]
+    fn date_range_guide_is_persisted_and_listed_separately() {
+        let (_dir, store) = open();
+        let range = TravelDateRange {
+            start: "2026-09-05".to_string(),
+            end: "2026-09-06".to_string(),
+        };
+        let mut dated = guide("抚顺");
+        dated.meta.days = 2;
+        dated.meta.date_range = Some(range.clone());
+        store.upsert_guide(&dated, 1_800_000_000).expect("upsert");
+
+        let loaded = store
+            .load_guide("抚顺", 2, Some(&range))
+            .expect("load")
+            .expect("dated guide exists");
+        assert_eq!(loaded.meta.date_range, Some(range.clone()));
+        assert!(
+            store
+                .load_guide("抚顺", 2, None)
+                .expect("load ordinary guide")
+                .is_none()
+        );
+        let history = store.list_guides(10).expect("history");
+        assert_eq!(history[0].date_range, Some(range));
     }
 
     #[test]
