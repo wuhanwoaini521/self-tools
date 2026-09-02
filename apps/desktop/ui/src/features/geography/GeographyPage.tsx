@@ -1101,6 +1101,7 @@ export function GeographyPage({
               points={displayedHome.map_points}
               lines={displayedHome.map_lines}
               layer={layer}
+              active={active}
               onSelect={handleOpenEntity}
               onLayerChange={setLayer}
             />

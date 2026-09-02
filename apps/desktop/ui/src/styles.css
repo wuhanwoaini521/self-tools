@@ -3217,7 +3217,8 @@ kbd {
  align-items: end;
  gap: 8px;
  min-width: max-content;
- padding: 14px 38%;
+ /* 两端只保留适度的呼吸空间；原先的 38% 在宽屏上会制造大面积空白。 */
+ padding: 14px clamp(20px, 6vw, 80px);
 }
 .history-chronology-node {
  position: relative;

@@ -145,5 +145,10 @@ export function MapLibreMap({ points, lines, layer, onSelect, onError, center = 
     updateMapData(mapRef.current, points, lines, layer);
   }, [layer, lines, points, ready]);
 
+  useEffect(() => {
+    if (!ready || !mapRef.current) return;
+    mapRef.current.easeTo({ center, zoom, duration: 650 });
+  }, [center[0], center[1], ready, zoom]);
+
   return <div className={`geo-maplibre-wrap${compact ? " compact" : ""}`}><div ref={containerRef} className="geo-maplibre-map" role="img" aria-label="MapLibre 真实三维地形地图" />{ready ? <div className="geo-maplibre-hint">MapLibre GL JS · <a href="https://mapterhorn.com/attribution" target="_blank" rel="noreferrer">Mapterhorn DEM 地形</a> · 滚轮缩放 · 拖动旋转</div> : <div className="geo-maplibre-hint">正在加载 MapLibre 地图与 Mapterhorn 地形…</div>}</div>;
 }
