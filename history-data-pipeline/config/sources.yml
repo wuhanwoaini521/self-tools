@@ -1,0 +1,23 @@
+# 运行时会从这些官方入口动态解析当前版本；不要把具体版本文件 URL 写进代码。
+sources:
+  cbdb:
+    official_page: https://github.com/cbdb-project/cbdb_sqlite
+    latest_metadata: https://github.com/cbdb-project/cbdb_sqlite/raw/refs/heads/master/latest.json
+    license: "见 CBDB 项目随附说明"
+  ctext:
+    official_page: https://ctext.org/tools/linked-open-data
+    file_pattern: ctext_datawiki-*.ttl.zip
+    license: CC BY-NC-SA 3.0
+  classical-modern:
+    repository: https://github.com/NiuTrans/Classical-Modern
+    license: "MIT（仓库）+ 各目录数据来源.txt"
+  chgis:
+    download_page: https://yugong.fudan.edu.cn/CHGIS/sjxz.htm
+    license_page: https://yugong.fudan.edu.cn/CHGIS/bqsm.htm
+    mode: manual_import_only
+  wikipedia:
+    official_page: https://dumps.wikimedia.org/zhwiki/latest/
+    file_pattern: "*-latest-pages-articles-multistream.xml.bz2"
+  wikisource:
+    official_page: https://dumps.wikimedia.org/zhwikisource/latest/
+    file_pattern: "*-latest-pages-articles-multistream.xml.bz2"

@@ -1,0 +1,12 @@
+text:
+  source_field: original_text
+  derived_field: original_simplified
+  translation_field: translation_zh_cn
+  converter: OpenCC t2s
+  preserve_original: true
+entity_resolution:
+  auto_merge_min_score: 0.95
+  review_min_score: 0.75
+  below_review_action: separate
+time:
+  bce_internal_representation: negative_integer

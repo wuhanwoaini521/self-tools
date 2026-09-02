@@ -1,0 +1,11 @@
+.venv/
+**/__pycache__/
+.pytest_cache/
+data/raw/
+data/logs/
+data/staging/normalized.building/
+data/staging/
+data/normalized/
+data/exports/
+data/reports/
+*.part
