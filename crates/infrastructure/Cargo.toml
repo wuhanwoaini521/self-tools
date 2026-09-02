@@ -9,6 +9,7 @@ description = "DevToolbox local filesystem and settings adapters."
 
 [dependencies]
 async-trait = "0.1"
+duckdb = { version = "1.4", features = ["bundled"] }
 devtoolbox-core = { path = "../core" }
 encoding_rs = "0.8"
 feed-rs.workspace = true

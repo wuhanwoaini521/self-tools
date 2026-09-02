@@ -17,6 +17,8 @@ pub enum InfrastructureError {
     InvalidWorkspace(PathBuf),
     #[error("sqlite error: {0}")]
     Sqlite(String),
+    #[error("duckdb error: {0}")]
+    DuckDb(String),
     #[error("failed to fetch feed: {0}")]
     FeedFetch(String),
     #[error("failed to parse feed: {0}")]
