@@ -1,0 +1,33 @@
+version: history-semantic-v1
+source_type: curated_reference
+source_reference: "项目政权参考现有 CBDB DYNASTIES、HistoricalText 书目年代与通行历史分期；本表为浏览语义层，不覆盖源数据中的冲突事实。"
+regimes:
+  - {id: regime-qin, name_zh_cn: 秦, start_year: -221, end_year: -207, date_precision: range, period_id: period-qin, description_zh_cn: 秦帝国。}
+  - {id: regime-western-han, name_zh_cn: 西汉, start_year: -206, end_year: 8, date_precision: range, period_id: period-western-han, description_zh_cn: 西汉政权。}
+  - {id: regime-xin, name_zh_cn: 新, start_year: 9, end_year: 23, date_precision: range, period_id: period-xin, description_zh_cn: 新朝政权。}
+  - {id: regime-eastern-han, name_zh_cn: 东汉, start_year: 25, end_year: 220, date_precision: range, period_id: period-eastern-han, description_zh_cn: 东汉政权。}
+  - {id: regime-cao-wei, name_zh_cn: 曹魏, start_year: 220, end_year: 265, date_precision: range, period_id: period-three-kingdoms, description_zh_cn: 三国时期魏政权。}
+  - {id: regime-shu-han, name_zh_cn: 蜀汉, start_year: 221, end_year: 263, date_precision: range, period_id: period-three-kingdoms, description_zh_cn: 三国时期蜀汉政权。}
+  - {id: regime-eastern-wu, name_zh_cn: 东吴, start_year: 222, end_year: 280, date_precision: range, period_id: period-three-kingdoms, description_zh_cn: 三国时期吴政权。}
+  - {id: regime-western-jin, name_zh_cn: 西晋, start_year: 265, end_year: 316, date_precision: range, period_id: period-western-jin, description_zh_cn: 西晋政权。}
+  - {id: regime-eastern-jin, name_zh_cn: 东晋, start_year: 317, end_year: 420, date_precision: range, period_id: period-eastern-jin, description_zh_cn: 东晋政权。}
+  - {id: regime-northern-wei, name_zh_cn: 北魏, start_year: 386, end_year: 534, date_precision: range, period_id: period-northern-southern, description_zh_cn: 南北朝时期北方政权。}
+  - {id: regime-eastern-wei, name_zh_cn: 东魏, start_year: 534, end_year: 550, date_precision: range, period_id: period-northern-southern, description_zh_cn: 南北朝时期北方政权。}
+  - {id: regime-western-wei, name_zh_cn: 西魏, start_year: 535, end_year: 557, date_precision: range, period_id: period-northern-southern, description_zh_cn: 南北朝时期北方政权。}
+  - {id: regime-northern-qi, name_zh_cn: 北齐, start_year: 550, end_year: 577, date_precision: range, period_id: period-northern-southern, description_zh_cn: 南北朝时期北方政权。}
+  - {id: regime-northern-zhou, name_zh_cn: 北周, start_year: 557, end_year: 581, date_precision: range, period_id: period-northern-southern, description_zh_cn: 南北朝时期北方政权。}
+  - {id: regime-sui, name_zh_cn: 隋, start_year: 581, end_year: 618, date_precision: range, period_id: period-sui, description_zh_cn: 隋政权。}
+  - {id: regime-tang, name_zh_cn: 唐, start_year: 618, end_year: 907, date_precision: range, period_id: period-tang, description_zh_cn: 唐政权。}
+  - {id: regime-later-liang, name_zh_cn: 后梁, start_year: 907, end_year: 923, date_precision: range, period_id: period-five-dynasties-ten-kingdoms, description_zh_cn: 五代政权。}
+  - {id: regime-later-tang, name_zh_cn: 后唐, start_year: 923, end_year: 936, date_precision: range, period_id: period-five-dynasties-ten-kingdoms, description_zh_cn: 五代政权。}
+  - {id: regime-later-jin, name_zh_cn: 后晋, start_year: 936, end_year: 947, date_precision: range, period_id: period-five-dynasties-ten-kingdoms, description_zh_cn: 五代政权。}
+  - {id: regime-later-han, name_zh_cn: 后汉, start_year: 947, end_year: 951, date_precision: range, period_id: period-five-dynasties-ten-kingdoms, description_zh_cn: 五代政权。}
+  - {id: regime-later-zhou, name_zh_cn: 后周, start_year: 951, end_year: 960, date_precision: range, period_id: period-five-dynasties-ten-kingdoms, description_zh_cn: 五代政权。}
+  - {id: regime-northern-song, name_zh_cn: 北宋, start_year: 960, end_year: 1127, date_precision: range, period_id: period-northern-song, description_zh_cn: 北宋政权。}
+  - {id: regime-southern-song, name_zh_cn: 南宋, start_year: 1127, end_year: 1279, date_precision: range, period_id: period-southern-song, description_zh_cn: 南宋政权。}
+  - {id: regime-liao, name_zh_cn: 辽, start_year: 916, end_year: 1125, date_precision: range, period_id: period-song-liao-jin, description_zh_cn: 辽政权。}
+  - {id: regime-western-xia, name_zh_cn: 西夏, start_year: 1038, end_year: 1227, date_precision: range, period_id: period-song-liao-jin, description_zh_cn: 西夏政权。}
+  - {id: regime-jin, name_zh_cn: 金, start_year: 1115, end_year: 1234, date_precision: range, period_id: period-song-liao-jin, description_zh_cn: 金政权。}
+  - {id: regime-yuan, name_zh_cn: 元, start_year: 1271, end_year: 1368, date_precision: range, period_id: period-yuan, description_zh_cn: 元政权。}
+  - {id: regime-ming, name_zh_cn: 明, start_year: 1368, end_year: 1644, date_precision: range, period_id: period-ming, description_zh_cn: 明政权。}
+  - {id: regime-qing, name_zh_cn: 清, start_year: 1644, end_year: 1911, date_precision: range, period_id: period-qing, description_zh_cn: 清政权。}

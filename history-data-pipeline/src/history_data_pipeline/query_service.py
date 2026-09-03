@@ -221,6 +221,210 @@ class HistoryQueryService:
                 row["source"] = _rows(connection, "SELECT id,dataset,dataset_version,license,raw_path,staging_path FROM sources WHERE id = ?", [row["source_id"]])
             return rows
 
+    @staticmethod
+    def _decode_json_fields(row: dict[str, Any], fields: tuple[str, ...]) -> dict[str, Any]:
+        for field in fields:
+            if field in row:
+                row[field] = _jsonish(row[field])
+        return row
+
+    def list_periods(self, limit: int = 100) -> list[dict[str, Any]]:
+        with self._connection() as connection:
+            rows = _rows(connection, "SELECT * FROM periods ORDER BY start_year NULLS LAST, id LIMIT ?", [max(1, min(limit, 500))])
+            return [self._decode_json_fields(row, ("source_ids",)) for row in rows]
+
+    def get_period(self, query: str) -> dict[str, Any] | None:
+        with self._connection() as connection:
+            row = _rows(connection, "SELECT * FROM periods WHERE id=? OR name_zh_cn=? OR name_raw=? ORDER BY id LIMIT 1", [query, query, query])
+            return self._decode_json_fields(row[0], ("source_ids",)) if row else None
+
+    def list_regimes_by_period(self, period: str, limit: int = 100) -> list[dict[str, Any]]:
+        with self._connection() as connection:
+            period_row = _rows(connection, "SELECT id FROM periods WHERE id=? OR name_zh_cn=? LIMIT 1", [period, period])
+            period_id = period_row[0]["id"] if period_row else period
+            rows = _rows(connection, "SELECT * FROM regimes WHERE period_id=? ORDER BY start_year NULLS LAST, id LIMIT ?", [period_id, max(1, min(limit, 500))])
+            return [self._decode_json_fields(row, ("source_ids",)) for row in rows]
+
+    def get_regime(self, query: str) -> dict[str, Any] | None:
+        with self._connection() as connection:
+            rows = _rows(connection, "SELECT * FROM regimes WHERE id=? OR name_zh_cn=? OR name_raw=? ORDER BY id LIMIT 1", [query, query, query])
+            return self._decode_json_fields(rows[0], ("source_ids",)) if rows else None
+
+    def list_stories(self, period: str | None = None, limit: int = 100) -> list[dict[str, Any]]:
+        with self._connection() as connection:
+            params: list[Any] = []
+            where = ""
+            if period:
+                period_rows = _rows(connection, "SELECT id FROM periods WHERE id=? OR name_zh_cn=? LIMIT 1", [period, period])
+                period_id = period_rows[0]["id"] if period_rows else period
+                where = "WHERE period_id=? OR period_ids LIKE ?"
+                params.extend([period_id, f"%{period_id}%"])
+            params.append(max(1, min(limit, 500)))
+            rows = _rows(connection, f"SELECT * FROM stories {where} ORDER BY start_year NULLS LAST, id LIMIT ?", params)
+            return [self._decode_json_fields(row, ("period_ids", "source_ids")) for row in rows]
+
+    def _find_story(self, connection, query: str) -> dict[str, Any] | None:
+        rows = _rows(connection, "SELECT * FROM stories WHERE id=? OR title_zh_cn=? ORDER BY id LIMIT 1", [query, query])
+        return self._decode_json_fields(rows[0], ("period_ids", "source_ids")) if rows else None
+
+    def get_story_events(self, story: str) -> list[dict[str, Any]]:
+        with self._connection() as connection:
+            story_row = self._find_story(connection, story)
+            if not story_row:
+                return []
+            rows = _rows(connection, """
+                SELECT se.story_id,se.event_id,se.sequence,se.role,se.importance,se.transition_text_zh_cn,se.quality_status,
+                       e.name_zh_cn,e.event_type,e.start_year,e.end_year,e.date_precision,e.summary_zh_cn,e.result_zh_cn,
+                       e.quality_status AS event_quality_status,e.source_type,e.source_ids
+                FROM story_events se JOIN events e ON e.id=se.event_id
+                WHERE se.story_id=? ORDER BY se.sequence NULLS LAST,se.event_id
+            """, [story_row["id"]])
+            return [self._decode_json_fields(row, ("source_ids",)) for row in rows]
+
+    def get_story_people(self, story: str) -> list[dict[str, Any]]:
+        with self._connection() as connection:
+            story_row = self._find_story(connection, story)
+            if not story_row:
+                return []
+            return _rows(connection, """
+                SELECT sp.story_id,sp.person_id,sp.role,sp.importance,sp.source_type,sp.source_id,sp.quality_status,
+                       sp.link_quality_status,sp.link_confidence,sp.link_reason,
+                       p.canonical_name_zh_cn,p.name_raw,p.birth_year,p.death_year,p.quality_status AS person_quality_status
+                FROM story_person sp JOIN people p ON p.id=sp.person_id
+                WHERE sp.story_id=? ORDER BY sp.importance DESC, p.canonical_name_zh_cn, p.id
+            """, [story_row["id"]])
+
+    def get_story_places(self, story: str) -> list[dict[str, Any]]:
+        with self._connection() as connection:
+            story_row = self._find_story(connection, story)
+            if not story_row:
+                return []
+            return _rows(connection, """
+                SELECT sp.story_id,sp.place_id,sp.place_name_raw,sp.role,sp.importance,sp.source_type,sp.source_id,
+                       sp.quality_status,sp.link_status,sp.link_quality_status,sp.link_confidence,sp.link_reason,
+                       p.canonical_name_zh_cn,p.historical_name,p.modern_name,p.longitude,p.latitude
+                FROM story_place sp LEFT JOIN places p ON p.id=sp.place_id
+                WHERE sp.story_id=? ORDER BY sp.importance DESC, coalesce(p.canonical_name_zh_cn,sp.place_name_raw)
+            """, [story_row["id"]])
+
+    def get_story(self, query: str, include_events: bool = True) -> dict[str, Any] | None:
+        with self._connection() as connection:
+            story = self._find_story(connection, query)
+            if not story:
+                return None
+            result: dict[str, Any] = {"story": story}
+            # 聚合仍使用桥接查询，避免把同一人物/史料复制到每个事件中。
+            if include_events:
+                result["events"] = self.get_story_events(story["id"])
+                result["key_people"] = self.get_story_people(story["id"])
+                result["key_places"] = self.get_story_places(story["id"])
+                result["historical_texts"] = self._story_texts(connection, story["id"])
+                result["sources"] = self._story_sources(connection, story["id"])
+            return result
+
+    def _story_texts(self, connection, story_id: str) -> list[dict[str, Any]]:
+        rows = _rows(connection, """
+            SELECT DISTINCT ht.id,ht.title_zh_cn,ht.book_id,w.title AS work_title,ht.chapter,ht.section,
+                   ht.original_text,ht.original_simplified,ht.translation_zh_cn,ht.translation_source,
+                   ht.quality_status,ht.source_id,et.event_id,et.role,et.sequence,et.source_quality_status,
+                   et.link_quality_status,et.link_confidence,et.link_reason,et.temporal_score,et.person_score,et.place_score,
+                   et.keyword_score,et.work_score,et.context_score,et.chapter_score
+            FROM story_events se JOIN event_text et ON et.event_id=se.event_id
+            JOIN historical_texts ht ON ht.id=et.historical_text_id
+            LEFT JOIN works w ON w.id=ht.book_id
+            WHERE se.story_id=? ORDER BY et.sequence,ht.id
+        """, [story_id])
+        return rows
+
+    def _story_sources(self, connection, story_id: str) -> list[dict[str, Any]]:
+        return _rows(connection, """
+            SELECT DISTINCT s.* FROM sources s WHERE s.id IN (
+              SELECT ?
+              UNION SELECT source_id FROM event_person ep JOIN story_events se ON se.event_id=ep.event_id WHERE se.story_id=? AND ep.source_id IS NOT NULL
+              UNION SELECT source_id FROM event_text et JOIN story_events se ON se.event_id=et.event_id WHERE se.story_id=? AND et.source_id IS NOT NULL
+              UNION SELECT source_id FROM event_place ep JOIN story_events se ON se.event_id=ep.event_id WHERE se.story_id=? AND ep.source_id IS NOT NULL
+            ) ORDER BY s.dataset,s.id
+        """, ["source-curated-semantic-v1", story_id, story_id, story_id])
+
+    def get_event(self, query: str, include_details: bool = True) -> dict[str, Any] | None:
+        with self._connection() as connection:
+            rows = _rows(connection, "SELECT * FROM events WHERE id=? OR name_zh_cn=? ORDER BY id LIMIT 1", [query, query])
+            if not rows:
+                return None
+            event = self._decode_json_fields(rows[0], ("period_ids", "dynasty_ids", "regime_ids", "source_ids"))
+            if include_details:
+                event["people"] = self._event_people(connection, event["id"])
+                event["places"] = self._event_places(connection, event["id"])
+                event["relations"] = self._event_relations(connection, event["id"])
+                event["historical_texts"] = self._event_texts(connection, event["id"])
+                event["sources"] = self._event_sources(connection, event["id"])
+            return event
+
+    def _event_people(self, connection, event_id: str) -> list[dict[str, Any]]:
+        return _rows(connection, """
+            SELECT ep.*,p.canonical_name_zh_cn,p.name_raw,p.birth_year,p.death_year,p.quality_status AS person_quality_status
+            FROM event_person ep LEFT JOIN people p ON p.id=ep.person_id
+            WHERE ep.event_id=? ORDER BY ep.importance DESC,p.canonical_name_zh_cn,p.id
+        """, [event_id])
+
+    def _event_places(self, connection, event_id: str) -> list[dict[str, Any]]:
+        return _rows(connection, """
+            SELECT ep.*,p.canonical_name_zh_cn,p.historical_name,p.modern_name,p.longitude,p.latitude
+            FROM event_place ep LEFT JOIN places p ON p.id=ep.place_id
+            WHERE ep.event_id=? ORDER BY ep.sequence NULLS LAST,ep.id
+        """, [event_id])
+
+    def _event_relations(self, connection, event_id: str) -> list[dict[str, Any]]:
+        return _rows(connection, """
+            SELECT er.*,se.name_zh_cn AS source_event_name,te.name_zh_cn AS target_event_name
+            FROM event_relations er LEFT JOIN events se ON se.id=er.source_event_id
+            LEFT JOIN events te ON te.id=er.target_event_id
+            WHERE er.source_event_id=? OR er.target_event_id=?
+            ORDER BY er.source_event_id,er.target_event_id,er.relation_type
+        """, [event_id, event_id])
+
+    def _event_texts(self, connection, event_id: str) -> list[dict[str, Any]]:
+        return _rows(connection, """
+            SELECT et.event_id,et.historical_text_id,et.role,et.sequence,et.description_zh_cn,et.source_type,
+                   et.source_id,et.quality_status,et.source_quality_status,et.link_quality_status,et.link_confidence,et.link_reason,
+                   et.temporal_score,et.person_score,et.place_score,et.keyword_score,et.work_score,et.context_score,et.chapter_score,
+                   ht.title_zh_cn,ht.book_id,w.title AS work_title,ht.chapter,
+                   ht.original_text,ht.original_simplified,ht.translation_zh_cn,ht.translation_source,ht.alignment_quality
+            FROM event_text et JOIN historical_texts ht ON ht.id=et.historical_text_id
+            LEFT JOIN works w ON w.id=ht.book_id WHERE et.event_id=? ORDER BY et.sequence,ht.id
+        """, [event_id])
+
+    def _event_sources(self, connection, event_id: str) -> list[dict[str, Any]]:
+        return _rows(connection, """
+            SELECT DISTINCT s.* FROM sources s WHERE s.id IN (
+              SELECT source_id FROM event_person WHERE event_id=? AND source_id IS NOT NULL
+              UNION SELECT source_id FROM event_place WHERE event_id=? AND source_id IS NOT NULL
+              UNION SELECT source_id FROM event_text WHERE event_id=? AND source_id IS NOT NULL
+              UNION SELECT source_id FROM event_relations WHERE source_event_id=? AND source_id IS NOT NULL
+              UNION SELECT ?
+            ) ORDER BY s.dataset,s.id
+        """, [event_id, event_id, event_id, event_id, "source-curated-semantic-v1"])
+
+    def get_event_people(self, event_id: str) -> list[dict[str, Any]]:
+        with self._connection() as connection:
+            return self._event_people(connection, event_id)
+
+    def get_event_places(self, event_id: str) -> list[dict[str, Any]]:
+        with self._connection() as connection:
+            return self._event_places(connection, event_id)
+
+    def get_event_relations(self, event_id: str) -> list[dict[str, Any]]:
+        with self._connection() as connection:
+            return self._event_relations(connection, event_id)
+
+    def get_event_texts(self, event_id: str) -> list[dict[str, Any]]:
+        with self._connection() as connection:
+            return self._event_texts(connection, event_id)
+
+    def get_relation_type_dictionary(self, source_dataset: str = "cbdb", limit: int = 500) -> list[dict[str, Any]]:
+        with self._connection() as connection:
+            return _rows(connection, "SELECT * FROM relation_type_dictionary WHERE source_dataset=? ORDER BY CAST(source_relation_code AS INTEGER),source_relation_code LIMIT ?", [source_dataset, max(1, min(limit, 1000))])
+
     def get_stats(self) -> dict[str, Any]:
         with self._connection() as connection:
             tables = [row[0] for row in connection.execute("SHOW TABLES").fetchall()]

@@ -1,0 +1,513 @@
+version: history-semantic-v1
+source_type: curated_reference
+source_reference: "事件节点由现有 HistoricalText（史记、汉书、三国志、资治通鉴、旧唐书、新唐书）逐条检索支撑；故事结构为项目人工整理的学习顺序，不把 LLM 作为史实来源。"
+stories:
+  - id: story-chu-han
+    title_zh_cn: 楚汉争霸
+    start_year: -209
+    end_year: -202
+    period_id: period-western-han
+    story_type: political-military
+    importance: high
+    summary_zh_cn: 从秦末战争、楚汉相持到刘邦建立汉朝的事件链。
+    background_zh_cn: 秦末政治秩序崩解后，刘邦与项羽等力量争夺天下。
+    result_zh_cn: 垓下战败后楚势力退出竞争，刘邦建立汉朝。
+    events:
+      - id: event-chuhan-qin-revolt
+        sequence: 1
+        name_zh_cn: 秦末起义
+        event_type: rebellion
+        start_year: -209
+        end_year: -206
+        date_precision: range
+        summary_zh_cn: 秦末多地反秦力量兴起并推动旧秩序瓦解。
+        result_zh_cn: 反秦战争持续发展并进入灭秦阶段。
+        importance: high
+        people:
+          - {person_id: cbdb-person-16622, role: participant, role_zh_cn: 反秦力量参与者, side: 刘邦集团, importance: medium}
+        places:
+          - {place_id: null, place_name_raw: 陈胜起义地, role: 起事区域, sequence: 1, description_zh_cn: 具体地点未在现有 Place 中可靠匹配。}
+        texts:
+          - {work: 史记, term: 陈胜, historical_text_id: text-niutrans-0826c5731719a2cb8174, role: 相关史料, description_zh_cn: 现有《史记》文本中含秦末起事叙述。}
+      - id: event-chuhan-julu
+        sequence: 2
+        name_zh_cn: 巨鹿之战
+        event_type: war
+        start_year: -207
+        end_year: -207
+        date_precision: year
+        summary_zh_cn: 反秦战争中的关键战役节点。
+        result_zh_cn: 秦军主力受挫，项羽声势上升。
+        importance: high
+        people:
+          - {person_id: cbdb-person-16622, role: participant, role_zh_cn: 反秦阵营人物, side: 汉军前身, importance: medium}
+        places:
+          - {place_id: null, place_name_raw: 巨鹿, role: 战场, sequence: 1, description_zh_cn: 现有 Place 表未找到可安全复用的战国秦末巨鹿记录。}
+        texts:
+          - {work: 史记, term: 巨鹿, historical_text_id: text-niutrans-0ad035d6f9e6e67dd80c, role: 相关史料}
+      - id: event-chuhan-qin-fall
+        sequence: 3
+        name_zh_cn: 秦朝灭亡
+        event_type: political
+        start_year: -206
+        end_year: -206
+        date_precision: year
+        summary_zh_cn: 秦政权在反秦战争中结束。
+        result_zh_cn: 关中旧政权结束，诸侯进入重新分配天下的阶段。
+        importance: high
+        people:
+          - {person_id: cbdb-person-16622, role: participant, role_zh_cn: 进入关中的势力领导者, side: 刘邦集团, importance: high}
+        places:
+          - {place_id: null, place_name_raw: 咸阳, role: 政治中心, sequence: 1, description_zh_cn: 现有 Place 表未找到可安全复用的对应记录。}
+        texts:
+          - {work: 史记, term: 子婴, historical_text_id: text-niutrans-0193bf35e69830de4662, role: 相关史料}
+      - id: event-hongmen
+        sequence: 4
+        name_zh_cn: 鸿门宴
+        event_type: political
+        start_year: -206
+        end_year: -206
+        date_precision: year
+        summary_zh_cn: 刘邦入关后与项羽集团之间的一次关键政治会面。
+        result_zh_cn: 刘邦暂时脱身，楚汉之间的竞争继续发展。
+        importance: high
+        people:
+          - {person_id: cbdb-person-16622, role: participant, role_zh_cn: 会面一方领导者, side: 刘邦集团, importance: high}
+          - {person_id: curated-person-fan-zeng, role: participant, role_zh_cn: 项羽集团谋士, side: 楚方, importance: medium}
+        places:
+          - {place_id: null, place_name_raw: 鸿门, role: 会面地点, sequence: 1, description_zh_cn: 现有鴻門记录的有效年代与本事件不一致，保留 needs_linking。}
+        texts:
+          - {work: 史记, term: 鸿门, historical_text_id: text-niutrans-0f1cfcd46351a2e24217, role: 主要史料}
+      - id: event-chuhan-pengcheng
+        sequence: 5
+        name_zh_cn: 彭城之战
+        event_type: war
+        start_year: -205
+        end_year: -205
+        date_precision: year
+        summary_zh_cn: 楚汉战争中的重要反攻与会战节点。
+        result_zh_cn: 楚军在彭城取得优势，刘邦集团重新调整战略。
+        importance: high
+        people:
+          - {person_id: cbdb-person-16622, role: commander, role_zh_cn: 主要统帅, side: 汉军, importance: high}
+          - {person_id: ctext-person-664414, role: participant, role_zh_cn: 汉军将领, side: 汉军, importance: medium}
+        places:
+          - {place_id: ctext-place-489739, place_name_raw: 彭城, role: 战场, sequence: 1, description_zh_cn: 使用现有 CText Place canonical ID，具体历史坐标仍需复核。}
+        texts:
+          - {work: 史记, term: 彭城, historical_text_id: text-niutrans-0164588692a8c5a97bdb, role: 相关史料}
+      - id: event-chuhan-xingyang
+        sequence: 6
+        name_zh_cn: 荥阳对峙
+        event_type: war
+        start_year: -205
+        end_year: -203
+        date_precision: range
+        summary_zh_cn: 楚汉双方在荥阳、成皋一线长期相持。
+        result_zh_cn: 双方力量消耗，战争进入决定性阶段。
+        importance: high
+        people:
+          - {person_id: cbdb-person-16622, role: commander, role_zh_cn: 主要统帅, side: 汉军, importance: high}
+          - {person_id: cbdb-person-22437, role: strategist, role_zh_cn: 汉军重要将领, side: 汉军, importance: high}
+        places:
+          - {place_id: null, place_name_raw: 荥阳, role: 对峙区域, sequence: 1, description_zh_cn: 现有 Place 表未找到可安全复用的秦汉时期对应记录。}
+        texts:
+          - {work: 资治通鉴, term: 荥阳, historical_text_id: text-niutrans-2424c030d1a8c400cd23, rejected_text_ids: [text-niutrans-0220c15301a44aa90542], chapter_hint: 汉纪, context_keywords: [荥阳, 汉王, 项王], role: 相关史料}
+      - id: event-chuhan-gaixia
+        sequence: 7
+        name_zh_cn: 垓下之战
+        event_type: war
+        start_year: -202
+        end_year: -202
+        date_precision: year
+        summary_zh_cn: 楚汉战争的决定性战役。
+        result_zh_cn: 楚军败退，楚汉争霸的军事结局确定。
+        importance: high
+        people:
+          - {person_id: cbdb-person-16622, role: commander, role_zh_cn: 汉军领导者, side: 汉军, importance: high}
+          - {person_id: cbdb-person-22437, role: commander, role_zh_cn: 主要统帅, side: 汉军, importance: high}
+          - {person_id: ctext-person-664414, role: participant, role_zh_cn: 汉军将领, side: 汉军, importance: medium}
+        places:
+          - {place_id: null, place_name_raw: 垓下, role: 决战地点, sequence: 1, description_zh_cn: 现有 Place 表未找到可安全复用的对应记录。}
+        texts:
+          - {work: 资治通鉴, term: 垓下, historical_text_id: text-niutrans-73a8fb83804e9664fd5e, role: 主要史料}
+      - id: event-chuhan-han-foundation
+        sequence: 8
+        name_zh_cn: 刘邦建立汉朝
+        event_type: political
+        start_year: -202
+        end_year: -202
+        date_precision: year
+        summary_zh_cn: 楚汉战争结束后汉政权建立。
+        result_zh_cn: 刘邦建立西汉政权，楚汉争霸阶段结束。
+        importance: high
+        people:
+          - {person_id: cbdb-person-16622, role: founder, role_zh_cn: 政权建立者, side: 汉, importance: high}
+          - {person_id: cbdb-person-22437, role: contributor, role_zh_cn: 重要军事贡献者, side: 汉, importance: high}
+        places:
+          - {place_id: null, place_name_raw: 定陶, role: 政权建立相关地点, sequence: 1, description_zh_cn: 当前 Place 表未找到可安全复用记录。}
+        texts:
+          - {work: 汉书, term: 高祖, historical_text_id: text-niutrans-017fe9f3cbd5d21e19ac, role: 相关史料}
+      - id: event-chuhan-later
+        sequence: 9
+        name_zh_cn: 楚汉争霸余波
+        event_type: political
+        start_year: -202
+        end_year: -195
+        date_precision: range
+        summary_zh_cn: 汉政权建立后的整合与秩序重建。
+        result_zh_cn: 汉政权逐步巩固。
+        importance: medium
+        people:
+          - {person_id: cbdb-person-16622, role: ruler, role_zh_cn: 汉政权统治者, side: 汉, importance: high}
+          - {person_id: ctext-person-933340, role: participant, role_zh_cn: 汉初诸侯相关人物, side: 汉, importance: medium}
+        places:
+          - {place_id: null, place_name_raw: 关中, role: 政权整合区域, sequence: 1, description_zh_cn: 保留为 needs_linking。}
+        texts:
+          - {work: 汉书, term: 高祖, historical_text_id: text-niutrans-017fe9f3cbd5d21e19ac, role: 相关史料}
+    relations:
+      - {target_event_id: event-chuhan-julu, relation_type: leads_to, confidence: 0.7, description_zh_cn: 反秦战争的发展引出巨鹿等关键战役。}
+      - {target_event_id: event-chuhan-qin-fall, relation_type: leads_to, confidence: 0.8, description_zh_cn: 巨鹿之后秦政权进入终局。}
+      - {target_event_id: event-hongmen, relation_type: follows, confidence: 0.95, description_zh_cn: 秦亡后诸侯重新分配天下，鸿门宴发生。}
+      - {target_event_id: event-chuhan-pengcheng, relation_type: leads_to, confidence: 0.8, description_zh_cn: 鸿门宴后的政治竞争继续发展为楚汉战争。}
+      - {target_event_id: event-chuhan-xingyang, relation_type: follows, confidence: 0.9, description_zh_cn: 彭城战后楚汉双方在荥阳一线相持。}
+      - {target_event_id: event-chuhan-gaixia, relation_type: leads_to, confidence: 0.85, description_zh_cn: 荥阳对峙和力量消耗最终引向垓下决战。}
+      - {target_event_id: event-chuhan-han-foundation, relation_type: leads_to, confidence: 0.85, description_zh_cn: 垓下战败后汉政权建立。}
+      - {target_event_id: event-chuhan-later, relation_type: follows, confidence: 0.9, description_zh_cn: 政权建立后进入整合阶段。}
+
+  - id: story-three-kingdoms
+    title_zh_cn: 三国格局形成
+    start_year: 184
+    end_year: 229
+    period_id: period-three-kingdoms
+    story_type: political-military
+    importance: high
+    summary_zh_cn: 从东汉末年秩序崩解、官渡与赤壁到魏蜀吴格局形成的事件链。
+    background_zh_cn: 东汉后期中央控制力下降，地方军事力量和区域政权逐步成长。
+    result_zh_cn: 曹魏、蜀汉、东吴相继确立，三方对峙格局形成。
+    events:
+      - id: event-three-yellow-turbans
+        sequence: 1
+        name_zh_cn: 黄巾起义
+        event_type: rebellion
+        start_year: 184
+        end_year: 189
+        date_precision: range
+        summary_zh_cn: 东汉后期大规模民变，中央权威进一步受到冲击。
+        result_zh_cn: 地方军事力量扩张，东汉政治秩序继续分化。
+        importance: high
+        people:
+          - {person_id: cbdb-person-135353, role: participant, role_zh_cn: 东汉末年地方力量人物, side: 地方军事力量, importance: medium}
+        places:
+          - {place_id: null, place_name_raw: 颍川, role: 起事区域, sequence: 1, description_zh_cn: 具体地点暂未可靠匹配。}
+        texts:
+          - {work: 后汉书, term: 黄巾, historical_text_id: text-niutrans-01fa90c1b3084a0dc133, role: 相关史料}
+      - id: event-three-dong-zhuo
+        sequence: 2
+        name_zh_cn: 董卓进京
+        event_type: political
+        start_year: 189
+        end_year: 189
+        date_precision: year
+        summary_zh_cn: 董卓率军进入洛阳并控制朝廷，东汉中央政治进一步失衡。
+        result_zh_cn: 关东诸侯讨董，割据局面加速形成。
+        importance: high
+        people:
+          - {person_id: cbdb-person-30257, role: participant, role_zh_cn: 东汉末年军事人物, side: 诸侯势力, importance: medium}
+          - {person_id: cbdb-person-135353, role: participant, role_zh_cn: 地方势力人物, side: 地方势力, importance: medium}
+        places:
+          - {place_id: cbdb-place-100409, place_name_raw: 洛阳, role: 政治中心, sequence: 1, description_zh_cn: 候选洛阳记录的有效年代与189年冲突，QA 将其拒绝并保留 needs_linking。}
+        texts:
+          - {work: 资治通鉴, term: 董卓, historical_text_id: text-niutrans-00239f408e357cbdedb0, role: 相关史料}
+      - id: event-three-guandu
+        sequence: 3
+        name_zh_cn: 官渡之战
+        event_type: war
+        start_year: 200
+        end_year: 200
+        date_precision: year
+        summary_zh_cn: 曹操与袁绍争夺北方主导权的关键战役。
+        result_zh_cn: 曹操取得优势，北方统一进程加速。
+        importance: high
+        people:
+          - {person_id: cbdb-person-30257, role: commander, role_zh_cn: 主要统帅, side: 曹操集团, importance: high}
+          - {person_id: cbdb-person-135152, role: commander, role_zh_cn: 主要统帅, side: 袁绍集团, importance: high}
+        places:
+          - {place_id: null, place_name_raw: 官渡, role: 战场, sequence: 1, description_zh_cn: 现有同名 Place 的有效年代不匹配，保留 needs_linking。}
+        texts:
+          - {work: 资治通鉴, term: 官渡, historical_text_id: text-niutrans-2d9290ecab76e5fa9242, role: 主要史料}
+      - id: event-three-north-consolidation
+        sequence: 4
+        name_zh_cn: 曹操北方势力巩固
+        event_type: political-military
+        start_year: 200
+        end_year: 207
+        date_precision: range
+        summary_zh_cn: 官渡之后曹操集团继续巩固北方控制力。
+        result_zh_cn: 北方形成相对集中的军事政治力量。
+        importance: high
+        people:
+          - {person_id: cbdb-person-30257, role: ruler, role_zh_cn: 北方势力领导者, side: 曹操集团, importance: high}
+          - {person_id: cbdb-person-135152, role: opponent, role_zh_cn: 主要对手, side: 袁绍集团, importance: medium}
+        places:
+          - {place_id: null, place_name_raw: 邺, role: 政治中心, sequence: 1, description_zh_cn: 现有同名记录与事件定位仍需复核。}
+        texts:
+          - {work: 三国志, term: 曹操, historical_text_id: text-niutrans-0019afc7ba67932eee5b, role: 相关史料}
+      - id: event-three-jingzhou-change
+        sequence: 5
+        name_zh_cn: 荆州局势变化
+        event_type: political-military
+        start_year: 208
+        end_year: 208
+        date_precision: year
+        summary_zh_cn: 北方势力南下后，荆州成为多方竞争的关键区域。
+        result_zh_cn: 孙刘双方的合作基础形成。
+        importance: high
+        people:
+          - {person_id: cbdb-person-30257, role: commander, role_zh_cn: 南下势力领导者, side: 曹操集团, importance: high}
+          - {person_id: cbdb-person-135353, role: ruler, role_zh_cn: 地方势力领导者, side: 刘备集团, importance: high}
+          - {person_id: cbdb-person-20609, role: ruler, role_zh_cn: 江东势力领导者, side: 东吴, importance: high}
+        places:
+          - {place_id: cbdb-place-400359, place_name_raw: 荆州, role: 争夺区域, sequence: 1, description_zh_cn: 候选荆州记录的有效年代与208年冲突，QA 将其拒绝并保留 needs_linking。}
+        texts:
+          - {work: 三国志, term: 荆州, historical_text_id: text-niutrans-02385e447e12e9be29e7, role: 相关史料}
+      - id: event-three-sun-liu-alliance
+        sequence: 6
+        name_zh_cn: 孙刘联盟
+        event_type: alliance
+        start_year: 208
+        end_year: 208
+        date_precision: year
+        summary_zh_cn: 孙权与刘备集团在曹操南下压力下形成军事合作。
+        result_zh_cn: 联军共同应对曹操集团南下。
+        importance: high
+        people:
+          - {person_id: cbdb-person-135353, role: leader, role_zh_cn: 联盟一方领导者, side: 刘备集团, importance: high}
+          - {person_id: cbdb-person-20609, role: leader, role_zh_cn: 联盟一方领导者, side: 东吴, importance: high}
+          - {person_id: cbdb-person-25403, role: strategist, role_zh_cn: 联盟谋士, side: 孙刘联军, importance: high}
+        places:
+          - {place_id: null, place_name_raw: 夏口, role: 联盟活动区域, sequence: 1, description_zh_cn: 暂未可靠匹配 Place。}
+        texts:
+          - {work: 三国志, term: 孙权, historical_text_id: text-niutrans-006092418dd88e019fbd, role: 相关史料}
+      - id: event-three-chibi
+        sequence: 7
+        name_zh_cn: 赤壁之战
+        event_type: war
+        start_year: 208
+        end_year: 208
+        date_precision: year
+        summary_zh_cn: 曹操南下与孙刘联军交战的关键战役。
+        result_zh_cn: 曹操集团南下受挫，三方竞争格局进一步清晰。
+        importance: high
+        people:
+          - {person_id: cbdb-person-30257, role: commander, role_zh_cn: 主要统帅, side: 曹操集团, importance: high}
+          - {person_id: cbdb-person-20609, role: ruler, role_zh_cn: 联军一方领导者, side: 东吴, importance: high}
+          - {person_id: cbdb-person-25403, role: strategist, role_zh_cn: 联盟谋士, side: 孙刘联军, importance: high}
+          - {person_id: ctext-person-817615, role: commander, role_zh_cn: 主要统帅, side: 东吴, importance: high}
+        places:
+          - {place_id: null, place_name_raw: 赤壁, role: 战场, sequence: 1, description_zh_cn: 现有 Place 表未找到可安全复用的对应记录。}
+        texts:
+          - {work: 三国志, term: 赤壁, historical_text_id: text-niutrans-01944969510a3280e6a5, role: 主要史料}
+      - id: event-three-regime-formation
+        sequence: 8
+        name_zh_cn: 三国鼎立格局逐渐形成
+        event_type: political
+        start_year: 220
+        end_year: 229
+        date_precision: range
+        summary_zh_cn: 曹魏、蜀汉、东吴政权相继确立，三方并立格局成形。
+        result_zh_cn: 三国时期的政权结构稳定下来。
+        importance: high
+        people:
+          - {person_id: cbdb-person-30257, role: predecessor, role_zh_cn: 曹魏政权前身领导者, side: 曹魏, importance: high}
+          - {person_id: cbdb-person-135353, role: founder, role_zh_cn: 蜀汉政权建立者, side: 蜀汉, importance: high}
+          - {person_id: cbdb-person-20609, role: founder, role_zh_cn: 东吴政权建立者, side: 东吴, importance: high}
+        places:
+          - {place_id: null, place_name_raw: 建业, role: 政权中心, sequence: 1, description_zh_cn: 暂未可靠匹配 Place。}
+        texts:
+          - {work: 三国志, term: 黄初, historical_text_id: text-niutrans-00942895b49e702cb324, role: 相关史料}
+    relations:
+      - {target_event_id: event-three-dong-zhuo, relation_type: leads_to, confidence: 0.8, description_zh_cn: 黄巾起义后中央控制力继续下降，董卓进京成为后续节点。}
+      - {target_event_id: event-three-guandu, relation_type: precedes, confidence: 0.95, description_zh_cn: 董卓进京与诸侯割据先于官渡之战。}
+      - {target_event_id: event-three-north-consolidation, relation_type: leads_to, confidence: 0.9, description_zh_cn: 官渡后曹操集团继续巩固北方。}
+      - {target_event_id: event-three-jingzhou-change, relation_type: leads_to, confidence: 0.75, description_zh_cn: 北方力量南下使荆州成为争夺焦点。}
+      - {target_event_id: event-three-sun-liu-alliance, relation_type: leads_to, confidence: 0.8, description_zh_cn: 荆州局势变化推动孙刘军事合作。}
+      - {target_event_id: event-three-chibi, relation_type: leads_to, confidence: 0.9, description_zh_cn: 孙刘联盟直接进入赤壁战事。}
+      - {target_event_id: event-three-regime-formation, relation_type: leads_to, confidence: 0.85, description_zh_cn: 赤壁后多方力量继续发展为三国政权格局。}
+
+  - id: story-an-lushan-rebellion
+    title_zh_cn: 安史之乱
+    start_year: 751
+    end_year: 763
+    period_id: period-tang
+    story_type: rebellion
+    importance: high
+    summary_zh_cn: 从唐玄宗后期政治军事结构、安禄山起兵到叛乱平定的事件链。
+    background_zh_cn: 唐代边镇军事力量增强，中央与地方军事政治关系逐步紧张。
+    result_zh_cn: 叛乱平定但唐朝中央权威下降，藩镇问题加剧。
+    events:
+      - id: event-anlu-three-frontiers
+        sequence: 1
+        name_zh_cn: 安禄山兼领三镇
+        event_type: political-military
+        start_year: 751
+        end_year: 751
+        date_precision: year
+        summary_zh_cn: 安禄山掌握多个北方边镇，个人军事资源显著扩大。
+        result_zh_cn: 安禄山集团成为唐廷北方重要军事力量。
+        importance: high
+        people:
+          - {person_id: cbdb-person-19244, role: ruler, role_zh_cn: 唐玄宗, side: 唐廷, importance: high}
+          - {person_id: cbdb-person-379873, role: commander, role_zh_cn: 边镇军事长官, side: 安禄山集团, importance: high}
+          - {person_id: cbdb-person-31221, role: official, role_zh_cn: 朝廷权臣, side: 唐廷, importance: medium}
+        places:
+          - {place_id: cbdb-place-400387, place_name_raw: 范阳, role: 军事基地, sequence: 1, description_zh_cn: 候选邺郡与范阳名称不一致，QA 将其拒绝并保留 needs_linking。}
+        texts:
+          - {work: 旧唐书, term: 禄山, historical_text_id: text-niutrans-01256ac6603fa0d89381, role: 相关史料}
+      - id: event-anlu-uprising
+        sequence: 2
+        name_zh_cn: 安禄山起兵
+        event_type: rebellion
+        start_year: 755
+        end_year: 755
+        date_precision: year
+        summary_zh_cn: 安禄山发动叛乱，安史之乱爆发。
+        result_zh_cn: 叛军迅速向中原推进。
+        importance: high
+        people:
+          - {person_id: cbdb-person-379873, role: commander, role_zh_cn: 叛军首领, side: 叛军, importance: high}
+          - {person_id: cbdb-person-19244, role: ruler, role_zh_cn: 唐朝皇帝, side: 唐廷, importance: high}
+        places:
+          - {place_id: null, place_name_raw: 范阳, role: 起兵地点, sequence: 1, description_zh_cn: 具体地点暂未可靠匹配。}
+        texts:
+          - {work: 旧唐书, term: 安禄山, historical_text_id: text-niutrans-01256ac6603fa0d89381, role: 主要史料}
+      - id: event-anlu-luoyang
+        sequence: 3
+        name_zh_cn: 洛阳失守
+        event_type: war
+        start_year: 756
+        end_year: 756
+        date_precision: year
+        summary_zh_cn: 叛军攻占洛阳，战局进一步恶化。
+        result_zh_cn: 叛军取得东都，唐廷面临关中危机。
+        importance: high
+        people:
+          - {person_id: cbdb-person-379873, role: commander, role_zh_cn: 叛军首领, side: 叛军, importance: high}
+          - {person_id: cbdb-person-19244, role: ruler, role_zh_cn: 唐朝皇帝, side: 唐廷, importance: high}
+        places:
+          - {place_id: cbdb-place-14693, place_name_raw: 洛阳, role: 城市, sequence: 1, description_zh_cn: 使用唐代有效年代的洛陽 canonical ID。}
+        texts:
+          - {work: 旧唐书, term: 洛阳, historical_text_id: text-niutrans-0167bf76596fd9a14af0, role: 相关史料}
+      - id: event-anlu-tongguan
+        sequence: 4
+        name_zh_cn: 潼关失守
+        event_type: war
+        start_year: 756
+        end_year: 756
+        date_precision: year
+        summary_zh_cn: 潼关防线失守，关中防御被突破。
+        result_zh_cn: 长安直接暴露于叛军压力之下。
+        importance: high
+        people:
+          - {person_id: cbdb-person-146097, role: commander, role_zh_cn: 唐军将领, side: 唐军, importance: high}
+          - {person_id: cbdb-person-19244, role: ruler, role_zh_cn: 唐朝皇帝, side: 唐廷, importance: high}
+        places:
+          - {place_id: null, place_name_raw: 潼关, role: 关隘, sequence: 1, description_zh_cn: 现有潼關记录为后世有效年代，不能直接绑定本事件。}
+        texts:
+          - {work: 资治通鉴, term: 潼关, historical_text_id: text-niutrans-004b218a7a2f9094e047, role: 相关史料}
+      - id: event-anlu-changan
+        sequence: 5
+        name_zh_cn: 长安失守
+        event_type: political-military
+        start_year: 756
+        end_year: 756
+        date_precision: year
+        summary_zh_cn: 叛军进入长安，唐廷核心政治空间失守。
+        result_zh_cn: 唐玄宗西行，唐肃宗在灵武即位。
+        importance: high
+        people:
+          - {person_id: cbdb-person-19244, role: ruler, role_zh_cn: 唐朝皇帝, side: 唐廷, importance: high}
+          - {person_id: ctext-person-62031, role: successor, role_zh_cn: 唐肃宗, side: 唐廷, importance: high}
+          - {person_id: cbdb-person-379873, role: commander, role_zh_cn: 叛军首领, side: 叛军, importance: high}
+        places:
+          - {place_id: null, place_name_raw: 长安, role: 都城, sequence: 1, description_zh_cn: 当前 Place 表未找到可安全复用的唐代长安记录。}
+        texts:
+          - {work: 资治通鉴, term: 长安, historical_text_id: text-niutrans-21a46f4067526d0c8f5a, rejected_text_ids: [text-niutrans-001916ce996444297435], chapter_hint: 唐纪, context_keywords: [长安, 玄宗, 安禄山], role: 相关史料}
+      - id: event-anlu-xuanzong-shu
+        sequence: 6
+        name_zh_cn: 唐玄宗入蜀
+        event_type: political
+        start_year: 756
+        end_year: 756
+        date_precision: year
+        summary_zh_cn: 长安失守后唐玄宗向蜀地转移。
+        result_zh_cn: 唐廷政治中心转移，肃宗集团组织反攻。
+        importance: high
+        people:
+          - {person_id: cbdb-person-19244, role: ruler, role_zh_cn: 唐朝皇帝, side: 唐廷, importance: high}
+          - {person_id: ctext-person-62031, role: successor, role_zh_cn: 唐肃宗, side: 唐廷, importance: high}
+        places:
+          - {place_id: cbdb-place-406333, place_name_raw: 成都, role: 蜀地, sequence: 1, description_zh_cn: 使用唐代有效年代的成都 canonical ID作为蜀地锚点。}
+        texts:
+          - {work: 资治通鉴, term: 蜀, historical_text_id: text-niutrans-2eac2c18323f559cc9d0, rejected_text_ids: [text-niutrans-0012aca6d5dcc3407238], chapter_hint: 唐纪, context_keywords: [入蜀, 玄宗, 蜀], role: 相关史料}
+      - id: event-anlu-changan-recapture
+        sequence: 7
+        name_zh_cn: 唐军收复长安
+        event_type: war
+        start_year: 757
+        end_year: 757
+        date_precision: year
+        summary_zh_cn: 唐军在郭子仪等将领组织下展开反攻并收复长安。
+        result_zh_cn: 唐廷重新取得都城，但战争并未结束。
+        importance: high
+        people:
+          - {person_id: cbdb-person-94373, role: commander, role_zh_cn: 唐军主要将领, side: 唐军, importance: high}
+          - {person_id: cbdb-person-146097, role: commander, role_zh_cn: 唐军将领, side: 唐军, importance: high}
+          - {person_id: cbdb-person-379873, role: opponent, role_zh_cn: 叛军首领, side: 叛军, importance: high}
+        places:
+          - {place_id: null, place_name_raw: 长安, role: 收复目标, sequence: 1, description_zh_cn: 仍保留 needs_linking。}
+        texts:
+          - {work: 资治通鉴, term: 郭子仪, historical_text_id: text-niutrans-00bc403762ac547a8da8, role: 主要史料}
+      - id: event-anlu-shi-siming
+        sequence: 8
+        name_zh_cn: 史思明再叛
+        event_type: rebellion
+        start_year: 759
+        end_year: 761
+        date_precision: range
+        summary_zh_cn: 安禄山死后，史思明重新发动叛乱，战争延续。
+        result_zh_cn: 叛乱从安禄山集团转入史思明主导的阶段。
+        importance: high
+        people:
+          - {person_id: cbdb-person-32814, role: commander, role_zh_cn: 叛军首领, side: 叛军, importance: high}
+          - {person_id: cbdb-person-94373, role: commander, role_zh_cn: 唐军将领, side: 唐军, importance: medium}
+        places:
+          - {place_id: cbdb-place-400387, place_name_raw: 邺郡, role: 叛军活动区域, sequence: 1, description_zh_cn: 候选邺郡记录有效至757年，与759—761年事件不完全重叠，QA 将其拒绝并保留 needs_linking。}
+        texts:
+          - {work: 资治通鉴, term: 史思明, historical_text_id: text-niutrans-002fe8511a405d905c84, role: 主要史料}
+      - id: event-anlu-pacification
+        sequence: 9
+        name_zh_cn: 安史之乱平定
+        event_type: political-military
+        start_year: 763
+        end_year: 763
+        date_precision: year
+        summary_zh_cn: 唐廷最终平定安史叛乱。
+        result_zh_cn: 唐朝延续但中央权威下降，藩镇问题加剧。
+        importance: high
+        people:
+          - {person_id: cbdb-person-94373, role: commander, role_zh_cn: 唐军主要将领, side: 唐军, importance: high}
+          - {person_id: cbdb-person-32814, role: opponent, role_zh_cn: 叛军首领, side: 叛军, importance: high}
+          - {person_id: cbdb-person-19244, role: predecessor, role_zh_cn: 唐玄宗, side: 唐廷, importance: medium}
+        places:
+          - {place_id: cbdb-place-400387, place_name_raw: 邺郡, role: 战争区域, sequence: 1, description_zh_cn: 候选邺郡记录有效至757年，与763年事件冲突，QA 将其拒绝并保留 needs_linking。}
+        texts:
+          - {work: 旧唐书, term: 思明, historical_text_id: text-niutrans-03f66d1143294a7c837c, role: 相关史料}
+    relations:
+      - {target_event_id: event-anlu-uprising, relation_type: leads_to, confidence: 0.85, description_zh_cn: 边镇力量扩张与中央矛盾发展为安禄山起兵。}
+      - {target_event_id: event-anlu-luoyang, relation_type: leads_to, confidence: 0.9, description_zh_cn: 起兵后叛军向东都推进。}
+      - {target_event_id: event-anlu-tongguan, relation_type: precedes, confidence: 0.95, description_zh_cn: 洛阳失守后潼关防线成为关键节点。}
+      - {target_event_id: event-anlu-changan, relation_type: leads_to, confidence: 0.9, description_zh_cn: 潼关失守导致长安防线崩溃。}
+      - {target_event_id: event-anlu-xuanzong-shu, relation_type: follows, confidence: 0.95, description_zh_cn: 长安失守后唐玄宗入蜀。}
+      - {target_event_id: event-anlu-changan-recapture, relation_type: leads_to, confidence: 0.85, description_zh_cn: 唐廷在西行与重组后组织反攻。}
+      - {target_event_id: event-anlu-shi-siming, relation_type: leads_to, confidence: 0.8, description_zh_cn: 安禄山集团变化后史思明继续发动叛乱。}
+      - {target_event_id: event-anlu-pacification, relation_type: leads_to, confidence: 0.9, description_zh_cn: 史思明阶段结束后安史之乱最终平定。}

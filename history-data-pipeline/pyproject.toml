@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "history-data-pipeline"
 version = "0.1.0"
 requires-python = ">=3.11"
-dependencies = ["duckdb>=1.0"]
+dependencies = ["duckdb>=1.0", "PyYAML>=6"]
 
 [project.scripts]
 history-data = "history_data_pipeline.cli:main"

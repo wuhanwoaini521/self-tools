@@ -16,6 +16,7 @@ from .query_service import HistoryQueryService
 from .real_build import build_from_staging
 from .review import ensure_review_table
 from .sample import sample_records
+from .semantic_layer import build_semantic_layer, write_link_qa_report, write_semantic_report, write_story_samples
 from .stats import write_reports
 from .validation import validate_database
 
@@ -37,7 +38,7 @@ def parser() -> argparse.ArgumentParser:
             command.add_argument("--sample", action="store_true", help="构建最小验证 Dataset")
             command.add_argument("--from-staging", action="store_true", help="使用真实 staging 构建正式数据库")
     query = commands.add_parser("query", help="只读查询正式 History DuckDB")
-    query.add_argument("kind", choices=("person", "work", "text", "source", "stats"))
+    query.add_argument("kind", choices=("person", "work", "text", "source", "stats", "periods", "regimes", "stories", "story", "event"))
     query.add_argument("query", nargs="?", help="人物或作品名称")
     query.add_argument("--relations", action="store_true", help="人物查询同时返回人物关系")
     query.add_argument("--places", action="store_true", help="人物查询同时返回人物地点关系")
@@ -46,6 +47,9 @@ def parser() -> argparse.ArgumentParser:
     query.add_argument("--entity-id", help="Source provenance 的实体 ID")
     query.add_argument("--limit", type=int, default=20)
     query.add_argument("--json", action="store_true", dest="as_json", help="输出 JSON")
+    query.add_argument("--events", action="store_true", help="Story 查询返回有序事件")
+    query.add_argument("--people", action="store_true", help="Event 查询返回人物")
+    query.add_argument("--texts", action="store_true", help="Event 查询返回 HistoricalText")
     return root
 
 
@@ -87,6 +91,8 @@ def _print_query_result(result, as_json: bool) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
     args = parser().parse_args(argv)
     paths = PipelinePaths(args.root)
     paths.ensure()
@@ -123,6 +129,10 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "build":
         if args.from_staging:
             target = build_from_staging(paths)
+            semantic_result = build_semantic_layer(target, paths.root)
+            write_story_samples(target, paths.root)
+            write_link_qa_report(target, paths.root, semantic_result)
+            write_semantic_report(target, paths.root, semantic_result)
             write_phase_reports(paths)
             print(target)
             return 0
@@ -156,6 +166,26 @@ def main(argv: list[str] | None = None) -> int:
             if bool(args.entity_type) != bool(args.entity_id):
                 raise SystemExit("query source 的 --entity-type 与 --entity-id 必须同时提供")
             result = service.get_sources(args.entity_type, args.entity_id)
+        elif args.kind == "periods":
+            result = service.list_periods(args.limit)
+        elif args.kind == "regimes":
+            if not args.query:
+                raise SystemExit("query regimes 需要提供 Period 名称或 ID")
+            result = service.list_regimes_by_period(args.query, args.limit)
+        elif args.kind == "stories":
+            result = service.list_stories(args.query, args.limit)
+        elif args.kind == "story":
+            if not args.query:
+                raise SystemExit("query story 需要提供 Story 名称或 ID")
+            result = service.get_story(args.query, include_events=True)
+            if result is None:
+                raise SystemExit(f"未找到 Story: {args.query}")
+        elif args.kind == "event":
+            if not args.query:
+                raise SystemExit("query event 需要提供 Event 名称或 ID")
+            result = service.get_event(args.query, include_details=True)
+            if result is None:
+                raise SystemExit(f"未找到 Event: {args.query}")
         else:
             result = service.get_stats()
         _print_query_result(result, args.as_json)
