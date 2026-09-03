@@ -1,8 +1,0 @@
-{
-  "cbdb": {"license": "unknown_until_snapshot", "commercial_use": "unknown", "redistribution": "unknown", "attribution": "required"},
-  "ctext": {"license": "CC BY-NC-SA 3.0", "commercial_use": false, "redistribution": "share_alike_with_attribution", "attribution": true},
-  "classical-modern": {"license": "MIT repository; source files retain upstream provenance", "commercial_use": "source_dependent", "redistribution": "source_dependent", "attribution": true},
-  "chgis": {"license": "CHGIS official user agreement", "commercial_use": false, "redistribution": "restricted", "attribution": true, "manual_permission_required": true},
-  "wikipedia": {"license": "CC BY-SA 4.0 + GFDL 1.3", "commercial_use": true, "redistribution": "with_attribution", "attribution": true},
-  "wikisource": {"license": "Wikimedia text licenses; verify page-level terms", "commercial_use": "verify", "redistribution": "verify", "attribution": true}
-}

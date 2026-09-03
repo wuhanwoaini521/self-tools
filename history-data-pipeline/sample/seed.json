@@ -1,5 +1,0 @@
-{
-  "description": "V1 最小验证 Dataset 的生成源；运行 build --sample 时由 sample.py 生成完整 staging JSON。",
-  "scope": ["楚汉", "三国", "唐"],
-  "not_for_historical_fact": true
-}

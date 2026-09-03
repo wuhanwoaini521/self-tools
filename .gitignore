@@ -21,10 +21,6 @@ output/
 # 本地应用数据（设置、数据库与缓存，不提交）
 config/
 
-# 历史数据管线的可审计源配置是版本化工程文件，不是应用运行时配置
-!history-data-pipeline/config/
-!history-data-pipeline/config/**
-
 # Language 数据集（下载的原始语料不进 Git；fixtures 已归属 attribution 单独提交）
 data/raw/
 data/generated/
