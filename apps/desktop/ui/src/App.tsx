@@ -30,7 +30,7 @@ import type {
   ArticleDto,
   FeedDto,
   GeographyHome,
-  HistoryHome,
+  SemanticHistoryHome,
   ReviewCard,
   TodayView,
 } from "./types";
@@ -111,7 +111,7 @@ export default function App() {
   const [geographyHome, setGeographyHome] = useState<GeographyHome | null>(
     null,
   );
-  const [historyHome, setHistoryHome] = useState<HistoryHome | null>(null);
+  const [historyHome, setHistoryHome] = useState<SemanticHistoryHome | null>(null);
   const [todayView, setTodayView] = useState<TodayView | null>(null);
   const [reviewCard, setReviewCard] = useState<ReviewCard | null>(null);
   const [markdownIntent, setMarkdownIntent] = useState<MarkdownIntent | null>(
@@ -177,7 +177,7 @@ export default function App() {
     if (!isTauriRuntime()) return;
     const [geography, history, today, review] = await Promise.allSettled([
       invoke<GeographyHome>("geography_home", { cursor: 0 }),
-      invoke<HistoryHome>("history_home", { cursor: 0 }),
+      invoke<SemanticHistoryHome>("history_semantic_home"),
       invoke<TodayView>("language_today", { language: "jpn" }),
       invoke<ReviewCard | null>("language_review_next", { language: "jpn" }),
     ]);

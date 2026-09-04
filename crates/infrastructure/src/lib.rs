@@ -15,7 +15,12 @@ pub use document_store::{read_utf8, write_utf8_atomic};
 pub use error::InfrastructureError;
 pub use feed_fetcher::{FetchedEntry, FetchedFeed, feed_client, fetch_feed, parse_feed};
 pub use geography::GeographyStore;
-pub use history::HistoryStore;
+pub use history::{
+    DatasetStats, EventHistoricalTextResult, EventPersonResult, EventPlaceResult,
+    EventRelationResult, EventResult, HistoricalTextResult, HistoryDuckDbRepository, HistoryStore,
+    PeriodResult, PersonEventResult, PersonPlaceResult, PersonRelationResult, PersonResult,
+    PersonStoryResult, RegimeResult, SourceResult, StoryEventResult, StoryResult, WorkResult,
+};
 pub use language::{LanguageStore, SearchHit, sources};
 pub use rss_store::{ArticleRow, FeedRepository, FeedRow, now_unix};
 pub use settings_store::{AppSettings, GeographySettings, SettingsStore, TravelSettings};

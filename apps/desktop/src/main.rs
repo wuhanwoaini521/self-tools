@@ -5,6 +5,7 @@ use devtoolbox_core as _;
 use devtoolbox_infrastructure as _;
 use reqwest as _;
 use serde as _;
+use serde_json as _;
 use tauri as _;
 use tauri_plugin_dialog as _;
 use tauri_plugin_opener as _;

@@ -500,6 +500,10 @@ export interface HistoryHome {
   recent: HistoryNode[];
   favorite_ids: string[];
 }
+export interface SemanticHistoryHome {
+  periods: { id: string; name_zh_cn: string; start_year: number | null; end_year: number | null }[];
+  stories: { id: string; title_zh_cn: string; summary_zh_cn?: string | null; usable?: boolean | null }[];
+}
 
 // ---------- Geography Explorer ----------
 

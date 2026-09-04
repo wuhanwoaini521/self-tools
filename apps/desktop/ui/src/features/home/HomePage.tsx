@@ -11,7 +11,7 @@ import {
   Translate,
 } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
-import type { ArticleDto, GeographyHome, HistoryHome, ReviewCard, TodayView } from "../../types";
+import type { ArticleDto, GeographyHome, ReviewCard, SemanticHistoryHome, TodayView } from "../../types";
 import { fileName, formatRelativeTime, greetingByHour } from "../../utils";
 import { stripRssHtml } from "../rss/rssContent";
 
@@ -19,7 +19,7 @@ interface HomePageProps {
   recentFiles: string[];
   latestArticles: ArticleDto[];
   geographyHome: GeographyHome | null;
-  historyHome: HistoryHome | null;
+  historyHome: SemanticHistoryHome | null;
   todayView: TodayView | null;
   reviewCard: ReviewCard | null;
   rssRefreshing: boolean;
@@ -52,14 +52,15 @@ export function HomePage({
   const recommendation = geographyHome?.recommendation ?? null;
   const geoEntity = [...(geographyHome?.featured ?? []), ...(geographyHome?.recent ?? [])]
     .find((item) => item.id === recommendation?.entity_id) ?? null;
-  const historyNode = historyHome?.recommendation ?? null;
+  const historyStories = historyHome?.stories ?? [];
+  const historyStory = historyStories.find((story) => story.usable !== false) ?? historyStories[0] ?? null;
   const languageItem = reviewCard?.item ?? null;
   const language = LANGUAGE_LABELS[todayView?.language ?? "jpn"] ?? "日语";
   const placeName = geoEntity?.name ?? recommendation?.title ?? "从一个地点开始";
   const placeEnglish = geoEntity?.name_en ?? "A place to explore";
   const placeSummary = geoEntity?.summary ?? recommendation?.question ?? "打开 Geography，沿着地点、地形与关系继续探索。";
-  const historyTitle = historyNode?.title ?? "从一段历史推荐开始";
-  const historySummary = historyNode?.summary ?? "打开 History，沿着时间、人物与事件理解内容背后的来路。";
+  const historyTitle = historyStory?.title_zh_cn ?? "从一段历史推荐开始";
+  const historySummary = historyStory?.summary_zh_cn ?? "打开 History，沿着时间、人物与事件理解内容背后的来路。";
   const articleLead = article?.summary
     ? stripRssHtml(article.summary, article.url)
     : "首页会把最新订阅和地理、历史、语言学习线索放在一起，帮助你从阅读自然地走向理解。";
@@ -92,10 +93,10 @@ export function HomePage({
               <div className="home-place-copy"><span>继续探索地点</span><strong>{placeName}</strong><small>{placeEnglish}</small><button type="button" onClick={() => onOpenGeography(recommendation?.entity_id)}>{placeSummary} <ArrowRight size={15} /></button></div>
             </section>
           </div>
-          <footer className="home-article-footer"><button type="button" onClick={() => article && onOpenArticle(article)} disabled={!article}><Note size={17} />稍后读</button><button type="button" onClick={() => onOpenHistory(historyNode?.id)}><BookOpen size={17} />查看关联知识</button><button type="button" className="home-note-action" onClick={onNewNote}><NotePencil size={17} />写笔记</button></footer>
+          <footer className="home-article-footer"><button type="button" onClick={() => article && onOpenArticle(article)} disabled={!article}><Note size={17} />稍后读</button><button type="button" onClick={() => onOpenHistory(historyStory?.id)}><BookOpen size={17} />查看关联知识</button><button type="button" className="home-note-action" onClick={onNewNote}><NotePencil size={17} />写笔记</button></footer>
         </article>
 
-        <section className="home-history-context"><div className="home-context-icon"><Clock size={21} /></div><div className="home-context-copy"><div><span>历史推荐</span><small>{historyNode ? "来自本地历史资料库" : "等待历史资料"}</small></div><strong>{historyTitle}</strong><p>{historySummary}</p></div><button type="button" onClick={() => onOpenHistory(historyNode?.id)}>了解更多历史 <ArrowRight size={16} /></button></section>
+        <section className="home-history-context"><div className="home-context-icon"><Clock size={21} /></div><div className="home-context-copy"><div><span>历史推荐</span><small>{historyStory ? "来自本地语义资料库" : "等待历史资料"}</small></div><strong>{historyTitle}</strong><p>{historySummary}</p></div><button type="button" onClick={() => onOpenHistory(historyStory?.id)}>了解更多历史 <ArrowRight size={16} /></button></section>
       </section>
 
       <aside className="home-language-panel">
@@ -107,7 +108,7 @@ export function HomePage({
 
     <section className="home-activity-grid">
       <section className="home-activity-section"><HomeSectionHeading eyebrow="WORKSPACE" title="最近笔记" action={<button type="button" onClick={onNewNote}>新建 <ArrowRight size={14} /></button>} />{recentFiles.length === 0 ? <p className="home-empty">还没有编辑记录，从一篇文章开始写下你的理解。</p> : <ul>{recentFiles.slice(0, 4).map((filePath) => <li key={filePath}><button type="button" onClick={() => onOpenNote(filePath)}><FileText size={16} /><span>{fileName(filePath)}</span><small>{filePath}</small><ArrowRight size={14} /></button></li>)}</ul>}</section>
-      <section className="home-activity-section"><HomeSectionHeading eyebrow="CONTINUE EXPLORING" title="最近探索" />{<ul className="home-exploration-list">{geoEntity ? <li><button type="button" onClick={() => onOpenGeography(geoEntity.id)}><MapPin size={16} /><span>{geoEntity.name}</span><small>Geography · {geoEntity.entity_type}</small><ArrowRight size={14} /></button></li> : null}{historyNode ? <li><button type="button" onClick={() => onOpenHistory(historyNode.id)}><Clock size={16} /><span>{historyNode.title}</span><small>History · {historyNode.kind}</small><ArrowRight size={14} /></button></li> : null}{!geoEntity && !historyNode ? <li><button type="button" onClick={() => onOpenGeography()}><MapPin size={16} /><span>打开 Geography 开始探索</span><small>沿着地点与关系继续</small><ArrowRight size={14} /></button></li> : null}</ul>}</section>
+      <section className="home-activity-section"><HomeSectionHeading eyebrow="CONTINUE EXPLORING" title="最近探索" />{<ul className="home-exploration-list">{geoEntity ? <li><button type="button" onClick={() => onOpenGeography(geoEntity.id)}><MapPin size={16} /><span>{geoEntity.name}</span><small>Geography · {geoEntity.entity_type}</small><ArrowRight size={14} /></button></li> : null}{historyStory ? <li><button type="button" onClick={() => onOpenHistory(historyStory.id)}><Clock size={16} /><span>{historyStory.title_zh_cn}</span><small>History · Story</small><ArrowRight size={14} /></button></li> : null}{!geoEntity && !historyStory ? <li><button type="button" onClick={() => onOpenGeography()}><MapPin size={16} /><span>打开 Geography 开始探索</span><small>沿着地点与关系继续</small><ArrowRight size={14} /></button></li> : null}</ul>}</section>
     </section>
 
     <footer className="home-offline-note"><CheckCircle size={16} />跨模块内容优先使用本地数据；RSS 更新后，首页会同步最新阅读入口。</footer>

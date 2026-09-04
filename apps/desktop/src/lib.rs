@@ -27,10 +27,10 @@ use devtoolbox_core::{
     travel::{CityGuide, GuideSummary, TravelDateRange, TravelResearchEvent},
 };
 use devtoolbox_infrastructure::{
-    AmapPoiProvider, AppSettings, FeedRepository, GeographyStore, HistoryStore, HttpWebFetcher,
-    LanguageStore, LlmConfig, LlmProvider, OpenAiCompatibleLlmProvider, QWeatherProvider,
-    SettingsStore, TravelDataProvider, TravelDataRequest, TravelStore, WorkspaceFile,
-    build_providers, feed_client, providers_for,
+    AmapPoiProvider, AppSettings, FeedRepository, GeographyStore, HistoryDuckDbRepository,
+    HistoryStore, HttpWebFetcher, LanguageStore, LlmConfig, LlmProvider,
+    OpenAiCompatibleLlmProvider, QWeatherProvider, SettingsStore, TravelDataProvider,
+    TravelDataRequest, TravelStore, WorkspaceFile, build_providers, feed_client, providers_for,
 };
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager, State};
@@ -91,6 +91,7 @@ pub struct AppState {
     pub travel_store: Arc<Mutex<TravelStore>>,
     pub travel_sessions: Arc<Mutex<HashMap<String, Arc<Mutex<TravelSession>>>>>,
     pub history_store: Arc<Mutex<HistoryStore>>,
+    pub history_duckdb: Arc<HistoryDuckDbRepository>,
     pub language_store: Arc<Mutex<LanguageStore>>,
     pub geography_store: Arc<Mutex<GeographyStore>>,
     pub client: reqwest::Client,
@@ -170,6 +171,43 @@ fn project_config_directory(app: &AppHandle) -> Result<PathBuf, CommandError> {
 
 fn settings_store(app: &AppHandle) -> Result<SettingsStore, CommandError> {
     Ok(SettingsStore::new(project_config_directory(app)?))
+}
+
+fn semantic_history_path(_app: &AppHandle) -> Result<PathBuf, CommandError> {
+    fn find_from(start: PathBuf) -> Option<PathBuf> {
+        let mut current = start;
+        loop {
+            let candidate = current
+                .join("history-data-pipeline")
+                .join("data")
+                .join("normalized")
+                .join("history.duckdb");
+            if candidate.is_file() {
+                return Some(candidate);
+            }
+            if !current.pop() {
+                return None;
+            }
+        }
+    }
+
+    let current_dir = std::env::current_dir().map_err(|error| CommandError {
+        code: "history_data_dir",
+        message: error.to_string(),
+    })?;
+    let path = find_from(current_dir.clone()).or_else(|| {
+        std::env::current_exe()
+            .ok()
+            .and_then(|path| path.parent().map(PathBuf::from))
+            .and_then(find_from)
+    });
+    path.ok_or_else(|| CommandError {
+        code: "history_data_dir",
+        message: format!(
+            "History semantic database not found from current directory or executable path: {}",
+            current_dir.display()
+        ),
+    })
 }
 
 // ---------- 文档 / Markdown 模块 ----------
@@ -736,6 +774,464 @@ fn history_home(state: State<'_, AppState>, cursor: u64) -> Result<HistoryHome, 
         .map_err(CommandError::from)
 }
 
+#[derive(Debug, Serialize)]
+struct HistorySemanticHome {
+    periods: Vec<devtoolbox_infrastructure::PeriodResult>,
+    stories: Vec<devtoolbox_infrastructure::StoryResult>,
+}
+
+#[derive(Debug, Serialize)]
+struct HistorySemanticPeriodDetail {
+    period: devtoolbox_infrastructure::PeriodResult,
+    regimes: Vec<devtoolbox_infrastructure::RegimeResult>,
+    stories: Vec<devtoolbox_infrastructure::StoryResult>,
+}
+
+#[derive(Debug, Serialize)]
+struct HistorySemanticStoryDetail {
+    story: devtoolbox_infrastructure::StoryResult,
+    events: Vec<devtoolbox_infrastructure::StoryEventResult>,
+    people: Vec<devtoolbox_infrastructure::EventPersonResult>,
+    places: Vec<devtoolbox_infrastructure::EventPlaceResult>,
+    historical_texts: Vec<devtoolbox_infrastructure::EventHistoricalTextResult>,
+    sources: Vec<devtoolbox_infrastructure::SourceResult>,
+}
+
+#[derive(Debug, Serialize)]
+struct HistorySemanticEventDetail {
+    event: devtoolbox_infrastructure::EventResult,
+    people: Vec<devtoolbox_infrastructure::EventPersonResult>,
+    places: Vec<devtoolbox_infrastructure::EventPlaceResult>,
+    relations: Vec<devtoolbox_infrastructure::EventRelationResult>,
+    historical_texts: Vec<devtoolbox_infrastructure::EventHistoricalTextResult>,
+    sources: Vec<devtoolbox_infrastructure::SourceResult>,
+}
+
+#[derive(Debug, Serialize)]
+struct HistorySemanticPersonDetail {
+    person: devtoolbox_infrastructure::PersonResult,
+    relations: Vec<devtoolbox_infrastructure::PersonRelationResult>,
+    places: Vec<devtoolbox_infrastructure::PersonPlaceResult>,
+    events: Vec<devtoolbox_infrastructure::PersonEventResult>,
+    stories: Vec<devtoolbox_infrastructure::PersonStoryResult>,
+    sources: Vec<devtoolbox_infrastructure::SourceResult>,
+}
+
+#[derive(Debug, Serialize)]
+struct HistorySemanticSearchHit {
+    id: String,
+    kind: String,
+    title: String,
+    subtitle: Option<String>,
+    start_year: Option<i32>,
+    end_year: Option<i32>,
+}
+
+#[derive(Debug, Serialize)]
+struct HistorySemanticSearchGroup {
+    kind: String,
+    items: Vec<HistorySemanticSearchHit>,
+}
+
+fn semantic_ids(value: &Option<String>) -> Vec<String> {
+    value
+        .as_deref()
+        .and_then(|raw| serde_json::from_str::<Vec<String>>(raw).ok())
+        .unwrap_or_default()
+}
+
+fn semantic_source_ids(
+    story: Option<&devtoolbox_infrastructure::StoryResult>,
+    events: &[devtoolbox_infrastructure::StoryEventResult],
+    people: &[devtoolbox_infrastructure::EventPersonResult],
+    places: &[devtoolbox_infrastructure::EventPlaceResult],
+    texts: &[devtoolbox_infrastructure::EventHistoricalTextResult],
+) -> Vec<String> {
+    let mut ids = std::collections::BTreeSet::new();
+    if let Some(story) = story {
+        ids.extend(semantic_ids(&story.source_ids));
+    }
+    for event in events {
+        ids.extend(semantic_ids(&event.source_ids));
+    }
+    ids.extend(people.iter().filter_map(|item| item.source_id.clone()));
+    ids.extend(places.iter().filter_map(|item| item.source_id.clone()));
+    ids.extend(texts.iter().filter_map(|item| item.source_id.clone()));
+    ids.into_iter().collect()
+}
+
+#[tauri::command]
+fn history_semantic_home(state: State<'_, AppState>) -> Result<HistorySemanticHome, CommandError> {
+    Ok(HistorySemanticHome {
+        periods: state
+            .history_duckdb
+            .get_periods()
+            .map_err(|error| CommandError {
+                code: "history_error",
+                message: error.to_string(),
+            })?,
+        stories: state
+            .history_duckdb
+            .get_stories()
+            .map_err(|error| CommandError {
+                code: "history_error",
+                message: error.to_string(),
+            })?,
+    })
+}
+
+#[tauri::command]
+fn history_semantic_period(
+    state: State<'_, AppState>,
+    period_id: String,
+) -> Result<Option<HistorySemanticPeriodDetail>, CommandError> {
+    let period = state
+        .history_duckdb
+        .get_periods()
+        .map_err(|error| CommandError {
+            code: "history_error",
+            message: error.to_string(),
+        })?
+        .into_iter()
+        .find(|item| item.id == period_id);
+    let Some(period) = period else {
+        return Ok(None);
+    };
+    Ok(Some(HistorySemanticPeriodDetail {
+        regimes: state
+            .history_duckdb
+            .get_regimes_by_period(&period_id)
+            .map_err(|error| CommandError {
+                code: "history_error",
+                message: error.to_string(),
+            })?,
+        stories: state
+            .history_duckdb
+            .get_stories_for_period(Some(&period_id))
+            .map_err(|error| CommandError {
+                code: "history_error",
+                message: error.to_string(),
+            })?,
+        period,
+    }))
+}
+
+#[tauri::command]
+fn history_semantic_story(
+    state: State<'_, AppState>,
+    story_id: String,
+) -> Result<Option<HistorySemanticStoryDetail>, CommandError> {
+    let Some(story) = state
+        .history_duckdb
+        .get_story(&story_id)
+        .map_err(|error| CommandError {
+            code: "history_error",
+            message: error.to_string(),
+        })?
+    else {
+        return Ok(None);
+    };
+    let events = state
+        .history_duckdb
+        .get_story_events(&story.id)
+        .map_err(|error| CommandError {
+            code: "history_error",
+            message: error.to_string(),
+        })?;
+    let people = state
+        .history_duckdb
+        .get_story_people(&story.id)
+        .map_err(|error| CommandError {
+            code: "history_error",
+            message: error.to_string(),
+        })?;
+    let places = state
+        .history_duckdb
+        .get_story_places(&story.id)
+        .map_err(|error| CommandError {
+            code: "history_error",
+            message: error.to_string(),
+        })?;
+    let historical_texts = state
+        .history_duckdb
+        .get_story_texts(&story.id)
+        .map_err(|error| CommandError {
+            code: "history_error",
+            message: error.to_string(),
+        })?;
+    let ids = semantic_source_ids(Some(&story), &events, &people, &places, &historical_texts);
+    let sources = state
+        .history_duckdb
+        .get_sources_for_ids(&ids)
+        .map_err(|error| CommandError {
+            code: "history_error",
+            message: error.to_string(),
+        })?;
+    Ok(Some(HistorySemanticStoryDetail {
+        story,
+        events,
+        people,
+        places,
+        historical_texts,
+        sources,
+    }))
+}
+
+#[tauri::command]
+fn history_semantic_event(
+    state: State<'_, AppState>,
+    event_id: String,
+) -> Result<Option<HistorySemanticEventDetail>, CommandError> {
+    let Some(event) = state
+        .history_duckdb
+        .get_event(&event_id)
+        .map_err(|error| CommandError {
+            code: "history_error",
+            message: error.to_string(),
+        })?
+    else {
+        return Ok(None);
+    };
+    let people = state
+        .history_duckdb
+        .get_event_people(&event.id)
+        .map_err(|error| CommandError {
+            code: "history_error",
+            message: error.to_string(),
+        })?;
+    let places = state
+        .history_duckdb
+        .get_event_places(&event.id)
+        .map_err(|error| CommandError {
+            code: "history_error",
+            message: error.to_string(),
+        })?;
+    let relations = state
+        .history_duckdb
+        .get_event_relations(&event.id)
+        .map_err(|error| CommandError {
+            code: "history_error",
+            message: error.to_string(),
+        })?;
+    let historical_texts = state
+        .history_duckdb
+        .get_event_texts(&event.id)
+        .map_err(|error| CommandError {
+            code: "history_error",
+            message: error.to_string(),
+        })?;
+    let mut ids = std::collections::BTreeSet::new();
+    ids.extend(semantic_ids(&event.source_ids));
+    ids.extend(people.iter().filter_map(|item| item.source_id.clone()));
+    ids.extend(places.iter().filter_map(|item| item.source_id.clone()));
+    ids.extend(relations.iter().filter_map(|item| item.source_id.clone()));
+    ids.extend(
+        historical_texts
+            .iter()
+            .filter_map(|item| item.source_id.clone()),
+    );
+    let sources = state
+        .history_duckdb
+        .get_sources_for_ids(&ids.into_iter().collect::<Vec<_>>())
+        .map_err(|error| CommandError {
+            code: "history_error",
+            message: error.to_string(),
+        })?;
+    Ok(Some(HistorySemanticEventDetail {
+        event,
+        people,
+        places,
+        relations,
+        historical_texts,
+        sources,
+    }))
+}
+
+#[tauri::command]
+fn history_semantic_person(
+    state: State<'_, AppState>,
+    person_id: String,
+) -> Result<Option<HistorySemanticPersonDetail>, CommandError> {
+    let Some(person) = state
+        .history_duckdb
+        .get_person(&person_id)
+        .map_err(|error| CommandError {
+            code: "history_error",
+            message: error.to_string(),
+        })?
+    else {
+        return Ok(None);
+    };
+    let relations = state
+        .history_duckdb
+        .get_person_relations(&person.id)
+        .map_err(|error| CommandError {
+            code: "history_error",
+            message: error.to_string(),
+        })?;
+    let places = state
+        .history_duckdb
+        .get_person_places(&person.id)
+        .map_err(|error| CommandError {
+            code: "history_error",
+            message: error.to_string(),
+        })?;
+    let events = state
+        .history_duckdb
+        .get_person_events(&person.id)
+        .map_err(|error| CommandError {
+            code: "history_error",
+            message: error.to_string(),
+        })?;
+    let stories = state
+        .history_duckdb
+        .get_person_stories(&person.id)
+        .map_err(|error| CommandError {
+            code: "history_error",
+            message: error.to_string(),
+        })?;
+    let mut ids = std::collections::BTreeSet::new();
+    if let Some(id) = person.created_from_source.clone() {
+        ids.insert(id);
+    }
+    ids.extend(
+        relations
+            .iter()
+            .flat_map(|item| semantic_ids(&item.source_ids)),
+    );
+    ids.extend(places.iter().map(|item| item.source_id.clone()));
+    let sources = state
+        .history_duckdb
+        .get_sources_for_ids(&ids.into_iter().collect::<Vec<_>>())
+        .map_err(|error| CommandError {
+            code: "history_error",
+            message: error.to_string(),
+        })?;
+    Ok(Some(HistorySemanticPersonDetail {
+        person,
+        relations,
+        places,
+        events,
+        stories,
+        sources,
+    }))
+}
+
+#[tauri::command]
+fn history_semantic_search(
+    state: State<'_, AppState>,
+    query: String,
+) -> Result<Vec<HistorySemanticSearchGroup>, CommandError> {
+    let query = query.trim();
+    if query.is_empty() {
+        return Ok(Vec::new());
+    }
+    let people = state
+        .history_duckdb
+        .search_people(query, 8)
+        .map_err(|error| CommandError {
+            code: "history_error",
+            message: error.to_string(),
+        })?;
+    let stories = state
+        .history_duckdb
+        .get_stories()
+        .map_err(|error| CommandError {
+            code: "history_error",
+            message: error.to_string(),
+        })?
+        .into_iter()
+        .filter(|item| {
+            item.title_zh_cn.contains(query)
+                || item
+                    .summary_zh_cn
+                    .as_deref()
+                    .is_some_and(|text| text.contains(query))
+        })
+        .take(8)
+        .collect::<Vec<_>>();
+    let events = state
+        .history_duckdb
+        .search_events(query, 8)
+        .map_err(|error| CommandError {
+            code: "history_error",
+            message: error.to_string(),
+        })?;
+    let works = state
+        .history_duckdb
+        .get_work(query, 8)
+        .map_err(|error| CommandError {
+            code: "history_error",
+            message: error.to_string(),
+        })?;
+    let mut groups = Vec::new();
+    if !people.is_empty() {
+        groups.push(HistorySemanticSearchGroup {
+            kind: "person".into(),
+            items: people
+                .into_iter()
+                .map(|item| HistorySemanticSearchHit {
+                    id: item.id,
+                    kind: "person".into(),
+                    title: item.canonical_name_zh_cn,
+                    subtitle: item.intro_zh_cn,
+                    start_year: item.birth_year,
+                    end_year: item.death_year,
+                })
+                .collect(),
+        });
+    }
+    if !stories.is_empty() {
+        groups.push(HistorySemanticSearchGroup {
+            kind: "story".into(),
+            items: stories
+                .into_iter()
+                .map(|item| HistorySemanticSearchHit {
+                    id: item.id,
+                    kind: "story".into(),
+                    title: item.title_zh_cn,
+                    subtitle: item.summary_zh_cn,
+                    start_year: item.start_year,
+                    end_year: item.end_year,
+                })
+                .collect(),
+        });
+    }
+    if !events.is_empty() {
+        groups.push(HistorySemanticSearchGroup {
+            kind: "event".into(),
+            items: events
+                .into_iter()
+                .map(|item| HistorySemanticSearchHit {
+                    id: item.id,
+                    kind: "event".into(),
+                    title: item.name_zh_cn,
+                    subtitle: item.summary_zh_cn,
+                    start_year: item.start_year,
+                    end_year: item.end_year,
+                })
+                .collect(),
+        });
+    }
+    if !works.is_empty() {
+        groups.push(HistorySemanticSearchGroup {
+            kind: "work".into(),
+            items: works
+                .into_iter()
+                .map(|item| HistorySemanticSearchHit {
+                    id: item.id,
+                    kind: "work".into(),
+                    title: item.title_zh_cn.unwrap_or(item.title),
+                    subtitle: None,
+                    start_year: None,
+                    end_year: None,
+                })
+                .collect(),
+        });
+    }
+    Ok(groups)
+}
+
 #[tauri::command]
 fn history_search(
     state: State<'_, AppState>,
@@ -857,6 +1353,11 @@ pub fn run() {
                 .expect("open travel database");
             let history_store = HistoryStore::open(config_directory.join("history.db"))
                 .expect("open history database");
+            let history_duckdb = HistoryDuckDbRepository::open(
+                semantic_history_path(app.handle())
+                    .map_err(|error| std::io::Error::other(error.message))?,
+            )
+            .expect("open history semantic database");
             let language_store = LanguageStore::open(config_directory.join("language.db"))
                 .expect("open language database");
             let geography_store = GeographyStore::open(config_directory.join("geography.db"))
@@ -867,6 +1368,7 @@ pub fn run() {
                 travel_store: Arc::new(Mutex::new(travel_store)),
                 travel_sessions: Arc::new(Mutex::new(HashMap::new())),
                 history_store: Arc::new(Mutex::new(history_store)),
+                history_duckdb: Arc::new(history_duckdb),
                 language_store: Arc::new(Mutex::new(language_store)),
                 geography_store: Arc::new(Mutex::new(geography_store)),
                 client,
@@ -901,6 +1403,12 @@ pub fn run() {
             history_period_nodes,
             history_detail,
             history_toggle_favorite,
+            history_semantic_home,
+            history_semantic_period,
+            history_semantic_story,
+            history_semantic_event,
+            history_semantic_person,
+            history_semantic_search,
             geography_home,
             geography_search,
             geography_detail,
