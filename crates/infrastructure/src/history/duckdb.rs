@@ -304,107 +304,6 @@ pub struct DatasetStats {
     pub historical_texts: i64,
 }
 
-#[cfg(test)]
-mod semantic_tests {
-    use super::*;
-
-    #[test]
-    fn semantic_repository_reads_curated_story_flow_and_evidence() {
-        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("../../history-data-pipeline/data/normalized/history.duckdb");
-        if !path.is_file() {
-            return;
-        }
-        let repository = HistoryDuckDbRepository::open(path).expect("open semantic database");
-        let periods = repository.get_periods().expect("period query");
-        assert!(periods.len() >= 27, "正式历史库必须暴露完整的时期列表");
-        assert!(
-            periods
-                .iter()
-                .any(|period| period.id == "period-three-kingdoms")
-        );
-        let story = repository
-            .get_story("story-three-kingdoms")
-            .expect("story query")
-            .expect("curated story");
-        assert_eq!(story.usable, Some(true));
-
-        let events = repository
-            .get_story_events(&story.id)
-            .expect("story events query");
-        assert_eq!(events.len(), 8);
-        assert!(
-            events
-                .windows(2)
-                .all(|pair| pair[0].sequence < pair[1].sequence)
-        );
-
-        let people = repository
-            .get_story_people(&story.id)
-            .expect("story people query");
-        assert!(
-            people
-                .iter()
-                .any(|person| person.person_name.as_deref() == Some("曹操"))
-        );
-
-        let event = repository
-            .get_event("event-three-chibi")
-            .expect("event query")
-            .expect("chibi event");
-        let texts = repository.get_event_texts(&event.id).expect("text query");
-        assert!(!texts.is_empty());
-        assert!(texts.iter().all(|text| text.original_text.is_some()));
-    }
-
-    #[test]
-    fn semantic_repository_reads_person_by_stable_id() {
-        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("../../history-data-pipeline/data/normalized/history.duckdb");
-        if !path.is_file() {
-            return;
-        }
-        let repository = HistoryDuckDbRepository::open(path).expect("open semantic database");
-        let story = repository
-            .get_story("story-three-kingdoms")
-            .expect("story query")
-            .expect("curated story");
-        let person_id = repository
-            .get_story_people(&story.id)
-            .expect("story people query")
-            .into_iter()
-            .map(|person| person.person_id)
-            .next()
-            .expect("story person id");
-
-        let person = repository
-            .get_person(&person_id)
-            .expect("person query by id")
-            .expect("person detail");
-        assert_eq!(person.id, person_id);
-    }
-
-    #[test]
-    fn person_relations_use_directional_cbdb_labels() {
-        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("../../history-data-pipeline/data/normalized/history.duckdb");
-        if !path.is_file() {
-            return;
-        }
-        let repository = HistoryDuckDbRepository::open(path).expect("open semantic database");
-        let relations = repository
-            .get_person_relations("cbdb-person-30257")
-            .expect("person relation query");
-        assert!(!relations.is_empty(), "曹操应有 CBDB 人物关系");
-        assert!(
-            relations
-                .iter()
-                .all(|relation| relation.relation_name_zh_cn.is_some()),
-            "已收录的 CBDB 关系必须映射为可读称谓"
-        );
-    }
-}
-
 impl HistoryDuckDbRepository {
     pub fn open(path: impl AsRef<Path>) -> Result<Self, InfrastructureError> {
         let path = path.as_ref().to_path_buf();
@@ -485,7 +384,7 @@ impl HistoryDuckDbRepository {
                  FROM people WHERE canonical_name_zh_cn LIKE ?1 OR search_name LIKE ?1 OR search_text LIKE ?1
                  ORDER BY canonical_name_zh_cn,id LIMIT ?2",
             ).map_err(|error| InfrastructureError::DuckDb(error.to_string()))?;
-            let rows = statement.query_map(params![format!("%{query}%"), limit.max(1).min(100)], |row| {
+            let rows = statement.query_map(params![format!("%{query}%"), limit.clamp(1, 100)], |row| {
                 Ok(PersonResult {
                     id: row.get(0)?, canonical_name_zh_cn: row.get(1)?, name_raw: row.get(2)?,
                     birth_year: row.get(3)?, death_year: row.get(4)?, gender: row.get(5)?,
@@ -555,7 +454,7 @@ impl HistoryDuckDbRepository {
                 .map_err(|error| InfrastructureError::DuckDb(error.to_string()))?;
             let rows = statement
                 .query_map(
-                    params![format!("%{title}%"), limit.max(1).min(100)],
+                    params![format!("%{title}%"), limit.clamp(1, 100)],
                     |row| {
                         Ok(WorkResult {
                             id: row.get(0)?,
@@ -585,7 +484,7 @@ impl HistoryDuckDbRepository {
                        ORDER BY ht.title_zh_cn,ht.chapter,ht.id LIMIT ?3";
             let pattern = work.map(|value| format!("%{value}%"));
             let mut statement = connection.prepare(sql).map_err(|error| InfrastructureError::DuckDb(error.to_string()))?;
-            let rows = statement.query_map(params![work, pattern, limit.max(1).min(100)], |row| Ok(HistoricalTextResult {
+            let rows = statement.query_map(params![work, pattern, limit.clamp(1, 100)], |row| Ok(HistoricalTextResult {
                 id: row.get(0)?, title_zh_cn: row.get(1)?, book_id: row.get(2)?, work_title: row.get(3)?, chapter: row.get(4)?,
                 original_text: row.get(5)?, original_simplified: row.get(6)?, translation_zh_cn: row.get(7)?, translation_source: row.get(8)?,
                 alignment_quality: row.get(9)?, source_id: row.get(10)?, quality_status: row.get(11)?, translation_type: row.get(12)?,
@@ -712,7 +611,7 @@ impl HistoryDuckDbRepository {
                     .is_some_and(|text| text.contains(query))
             {
                 matches.push(event);
-                if matches.len() >= limit.max(1).min(100) as usize {
+                if matches.len() >= limit.clamp(1, 100) as usize {
                     break;
                 }
             }
@@ -982,5 +881,106 @@ impl HistoryDuckDbRepository {
                 historical_texts: count("historical_texts")?,
             })
         })
+    }
+}
+
+#[cfg(test)]
+mod semantic_tests {
+    use super::*;
+
+    #[test]
+    fn semantic_repository_reads_curated_story_flow_and_evidence() {
+        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../history-data-pipeline/data/normalized/history.duckdb");
+        if !path.is_file() {
+            return;
+        }
+        let repository = HistoryDuckDbRepository::open(path).expect("open semantic database");
+        let periods = repository.get_periods().expect("period query");
+        assert!(periods.len() >= 27, "正式历史库必须暴露完整的时期列表");
+        assert!(
+            periods
+                .iter()
+                .any(|period| period.id == "period-three-kingdoms")
+        );
+        let story = repository
+            .get_story("story-three-kingdoms")
+            .expect("story query")
+            .expect("curated story");
+        assert_eq!(story.usable, Some(true));
+
+        let events = repository
+            .get_story_events(&story.id)
+            .expect("story events query");
+        assert_eq!(events.len(), 8);
+        assert!(
+            events
+                .windows(2)
+                .all(|pair| pair[0].sequence < pair[1].sequence)
+        );
+
+        let people = repository
+            .get_story_people(&story.id)
+            .expect("story people query");
+        assert!(
+            people
+                .iter()
+                .any(|person| person.person_name.as_deref() == Some("曹操"))
+        );
+
+        let event = repository
+            .get_event("event-three-chibi")
+            .expect("event query")
+            .expect("chibi event");
+        let texts = repository.get_event_texts(&event.id).expect("text query");
+        assert!(!texts.is_empty());
+        assert!(texts.iter().all(|text| text.original_text.is_some()));
+    }
+
+    #[test]
+    fn semantic_repository_reads_person_by_stable_id() {
+        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../history-data-pipeline/data/normalized/history.duckdb");
+        if !path.is_file() {
+            return;
+        }
+        let repository = HistoryDuckDbRepository::open(path).expect("open semantic database");
+        let story = repository
+            .get_story("story-three-kingdoms")
+            .expect("story query")
+            .expect("curated story");
+        let person_id = repository
+            .get_story_people(&story.id)
+            .expect("story people query")
+            .into_iter()
+            .map(|person| person.person_id)
+            .next()
+            .expect("story person id");
+
+        let person = repository
+            .get_person(&person_id)
+            .expect("person query by id")
+            .expect("person detail");
+        assert_eq!(person.id, person_id);
+    }
+
+    #[test]
+    fn person_relations_use_directional_cbdb_labels() {
+        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../history-data-pipeline/data/normalized/history.duckdb");
+        if !path.is_file() {
+            return;
+        }
+        let repository = HistoryDuckDbRepository::open(path).expect("open semantic database");
+        let relations = repository
+            .get_person_relations("cbdb-person-30257")
+            .expect("person relation query");
+        assert!(!relations.is_empty(), "曹操应有 CBDB 人物关系");
+        assert!(
+            relations
+                .iter()
+                .all(|relation| relation.relation_name_zh_cn.is_some()),
+            "已收录的 CBDB 关系必须映射为可读称谓"
+        );
     }
 }
