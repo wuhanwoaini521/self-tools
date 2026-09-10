@@ -20,6 +20,44 @@ export interface SemanticRegime {
   quality_status?: string | null;
 }
 
+/** 时期页事件列表行（后端 PeriodEventItem）。 */
+export interface SemanticPeriodEvent {
+  id: string;
+  name_zh_cn: string;
+  event_type?: string | null;
+  start_year: number | null;
+  end_year: number | null;
+  importance?: string | null;
+  summary_zh_cn?: string | null;
+  result_zh_cn?: string | null;
+  people_count: number;
+  relation_count: number;
+  evidence_count: number;
+}
+
+/** 时期页核心人物（按参与事件数倒序）。 */
+export interface SemanticPeriodPerson {
+  person_id: string;
+  canonical_name_zh_cn: string;
+  event_count: number;
+}
+
+/** 全库统计（DatasetStats 镜像）。 */
+export interface SemanticStats {
+  people: number;
+  places: number;
+  person_relations: number;
+  person_places: number;
+  works: number;
+  historical_texts: number;
+  events: number;
+  periods: number;
+  regimes: number;
+  stories: number;
+  event_relations: number;
+  event_evidences: number;
+}
+
 export interface SemanticStory {
   id: string;
   title_zh_cn: string;
@@ -147,6 +185,26 @@ export interface SemanticHistoricalText {
   alignment_quality?: string | null;
 }
 
+/** Backbone V2 的章节级史料证据（event_evidence）：作品 / 篇目 / 术语 + 复核状态。 */
+export interface SemanticEventEvidence {
+  id: string;
+  event_id: string;
+  historical_text_id?: string | null;
+  work?: string | null;
+  term?: string | null;
+  chapter_hint?: string | null;
+  context_keywords?: string | null;
+  evidence_role?: string | null;
+  link_status?: string | null;
+  link_quality_status?: string | null;
+  link_confidence?: number | null;
+  review_note?: string | null;
+  source_type?: string | null;
+  source_id?: string | null;
+  quality_status?: string | null;
+  rejected_text_ids?: string | null;
+}
+
 export interface SemanticSource {
   id: string;
   dataset?: string | null;
@@ -218,12 +276,15 @@ export interface SemanticPersonStory {
 export interface SemanticHome {
   periods: SemanticPeriod[];
   stories: SemanticStory[];
+  stats?: SemanticStats | null;
 }
 
 export interface SemanticPeriodDetail {
   period: SemanticPeriod;
   regimes: SemanticRegime[];
   stories: SemanticStory[];
+  events: SemanticPeriodEvent[];
+  people: SemanticPeriodPerson[];
 }
 
 export interface SemanticStoryDetail {
@@ -232,6 +293,7 @@ export interface SemanticStoryDetail {
   people: SemanticEventPerson[];
   places: SemanticEventPlace[];
   historical_texts: SemanticHistoricalText[];
+  evidences: SemanticEventEvidence[];
   sources: SemanticSource[];
 }
 
@@ -241,6 +303,7 @@ export interface SemanticEventDetail {
   places: SemanticEventPlace[];
   relations: SemanticEventRelation[];
   historical_texts: SemanticHistoricalText[];
+  evidences: SemanticEventEvidence[];
   sources: SemanticSource[];
 }
 

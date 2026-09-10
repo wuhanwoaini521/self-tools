@@ -503,6 +503,19 @@ export interface HistoryHome {
 export interface SemanticHistoryHome {
   periods: { id: string; name_zh_cn: string; start_year: number | null; end_year: number | null }[];
   stories: { id: string; title_zh_cn: string; summary_zh_cn?: string | null; usable?: boolean | null }[];
+  stats?: {
+    people: number;
+    places: number;
+    works: number;
+    events: number;
+    periods: number;
+    regimes: number;
+    stories: number;
+    event_relations: number;
+    event_evidences: number;
+    person_relations: number;
+    historical_texts: number;
+  } | null;
 }
 
 // ---------- Geography Explorer ----------
