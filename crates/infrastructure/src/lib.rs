@@ -16,10 +16,11 @@ pub use error::InfrastructureError;
 pub use feed_fetcher::{FetchedEntry, FetchedFeed, feed_client, fetch_feed, parse_feed};
 pub use geography::GeographyStore;
 pub use history::{
-    DatasetStats, EventHistoricalTextResult, EventPersonResult, EventPlaceResult,
-    EventRelationResult, EventResult, HistoricalTextResult, HistoryDuckDbRepository, HistoryStore,
-    PeriodResult, PersonEventResult, PersonPlaceResult, PersonRelationResult, PersonResult,
-    PersonStoryResult, RegimeResult, SourceResult, StoryEventResult, StoryResult, WorkResult,
+    DatasetStats, EventEvidenceResult, EventHistoricalTextResult, EventPersonResult,
+    EventPlaceResult, EventRelationResult, EventResult, HistoricalTextResult,
+    HistoryDuckDbRepository, HistoryStore, PeriodEventItem, PeriodPersonItem, PeriodResult,
+    PersonEventResult, PersonPlaceResult, PersonRelationResult, PersonResult, PersonStoryResult,
+    RegimeResult, SourceResult, StoryEventResult, StoryResult, WorkResult,
 };
 pub use language::{LanguageStore, SearchHit, sources};
 pub use rss_store::{ArticleRow, FeedRepository, FeedRow, now_unix};

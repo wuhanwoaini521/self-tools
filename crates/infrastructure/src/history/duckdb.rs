@@ -233,6 +233,31 @@ pub struct EventRelationResult {
     pub target_event_name: Option<String>,
 }
 
+/// Backbone V2 的 `event_evidence` 章节级史料出处行。
+///
+/// V2 `dist/history.duckdb` 不再内嵌 HistoricalText 全文，而是用
+/// “作品 + 篇目（term）+ 术语提示”承载史料证据；`link_status` 反映原文
+/// 关联状态（`needs_linking` / `pending_knowledge`）。
+#[derive(Debug, Clone, Serialize)]
+pub struct EventEvidenceResult {
+    pub id: String,
+    pub event_id: String,
+    pub historical_text_id: Option<String>,
+    pub work: Option<String>,
+    pub term: Option<String>,
+    pub chapter_hint: Option<String>,
+    pub context_keywords: Option<String>,
+    pub evidence_role: Option<String>,
+    pub link_status: Option<String>,
+    pub link_quality_status: Option<String>,
+    pub link_confidence: Option<f64>,
+    pub review_note: Option<String>,
+    pub source_type: Option<String>,
+    pub source_id: Option<String>,
+    pub quality_status: Option<String>,
+    pub rejected_text_ids: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct EventHistoricalTextResult {
     pub event_id: String,
@@ -302,6 +327,36 @@ pub struct DatasetStats {
     pub person_places: i64,
     pub works: i64,
     pub historical_texts: i64,
+    pub events: i64,
+    pub periods: i64,
+    pub regimes: i64,
+    pub stories: i64,
+    pub event_relations: i64,
+    pub event_evidences: i64,
+}
+
+/// 时期页事件列表行：事件要点 + 关联人物/关系/证据计数。
+#[derive(Debug, Clone, Serialize)]
+pub struct PeriodEventItem {
+    pub id: String,
+    pub name_zh_cn: String,
+    pub event_type: Option<String>,
+    pub start_year: Option<i32>,
+    pub end_year: Option<i32>,
+    pub importance: Option<String>,
+    pub summary_zh_cn: Option<String>,
+    pub result_zh_cn: Option<String>,
+    pub people_count: i64,
+    pub relation_count: i64,
+    pub evidence_count: i64,
+}
+
+/// 时期页的核心人物（按参与事件数倒序）。
+#[derive(Debug, Clone, Serialize)]
+pub struct PeriodPersonItem {
+    pub person_id: String,
+    pub canonical_name_zh_cn: String,
+    pub event_count: i64,
 }
 
 impl HistoryDuckDbRepository {
@@ -722,6 +777,91 @@ impl HistoryDuckDbRepository {
             .collect())
     }
 
+    /// 单事件的章节级史料证据（V2 `event_evidence`）；primary 证据优先。
+    pub fn get_event_evidences(
+        &self,
+        event_id: &str,
+    ) -> Result<Vec<EventEvidenceResult>, InfrastructureError> {
+        self.with_connection(|connection| {
+            let mut statement = connection.prepare(
+                "SELECT id,event_id,historical_text_id,work,term,chapter_hint,context_keywords,
+                        evidence_role,link_status,link_quality_status,link_confidence,review_note,
+                        source_type,source_id,quality_status,rejected_text_ids
+                 FROM event_evidence WHERE event_id=?1
+                 ORDER BY CASE evidence_role WHEN 'primary' THEN 0 ELSE 1 END,term,id",
+            )
+            .map_err(|error| InfrastructureError::DuckDb(error.to_string()))?;
+            let rows =
+                statement
+                    .query_map(params![event_id], |row| {
+                        Ok(EventEvidenceResult {
+                            id: row.get(0)?,
+                            event_id: row.get(1)?,
+                            historical_text_id: row.get(2)?,
+                            work: row.get(3)?,
+                            term: row.get(4)?,
+                            chapter_hint: row.get(5)?,
+                            context_keywords: row.get(6)?,
+                            evidence_role: row.get(7)?,
+                            link_status: row.get(8)?,
+                            link_quality_status: row.get(9)?,
+                            link_confidence: row.get(10)?,
+                            review_note: row.get(11)?,
+                            source_type: row.get(12)?,
+                            source_id: row.get(13)?,
+                            quality_status: row.get(14)?,
+                            rejected_text_ids: row.get(15)?,
+                        })
+                    })
+                    .map_err(|error| InfrastructureError::DuckDb(error.to_string()))?;
+            rows.map(|row| row.map_err(|error| InfrastructureError::DuckDb(error.to_string())))
+                .collect()
+        })
+    }
+
+    /// Story 内全部事件的史料证据（沿 `story_events` 顺序展开）。
+    pub fn get_story_evidences(
+        &self,
+        story_id: &str,
+    ) -> Result<Vec<EventEvidenceResult>, InfrastructureError> {
+        self.with_connection(|connection| {
+            let mut statement = connection.prepare(
+                "SELECT ev.id,ev.event_id,ev.historical_text_id,ev.work,ev.term,ev.chapter_hint,ev.context_keywords,
+                        ev.evidence_role,ev.link_status,ev.link_quality_status,ev.link_confidence,ev.review_note,
+                        ev.source_type,ev.source_id,ev.quality_status,ev.rejected_text_ids
+                 FROM story_events se JOIN event_evidence ev ON ev.event_id=se.event_id
+                 WHERE se.story_id=?1
+                 ORDER BY se.sequence NULLS LAST,CASE ev.evidence_role WHEN 'primary' THEN 0 ELSE 1 END,ev.term,ev.id",
+            )
+            .map_err(|error| InfrastructureError::DuckDb(error.to_string()))?;
+            let rows =
+                statement
+                    .query_map(params![story_id], |row| {
+                        Ok(EventEvidenceResult {
+                            id: row.get(0)?,
+                            event_id: row.get(1)?,
+                            historical_text_id: row.get(2)?,
+                            work: row.get(3)?,
+                            term: row.get(4)?,
+                            chapter_hint: row.get(5)?,
+                            context_keywords: row.get(6)?,
+                            evidence_role: row.get(7)?,
+                            link_status: row.get(8)?,
+                            link_quality_status: row.get(9)?,
+                            link_confidence: row.get(10)?,
+                            review_note: row.get(11)?,
+                            source_type: row.get(12)?,
+                            source_id: row.get(13)?,
+                            quality_status: row.get(14)?,
+                            rejected_text_ids: row.get(15)?,
+                        })
+                    })
+                    .map_err(|error| InfrastructureError::DuckDb(error.to_string()))?;
+            rows.map(|row| row.map_err(|error| InfrastructureError::DuckDb(error.to_string())))
+                .collect()
+        })
+    }
+
     pub fn get_story_people(
         &self,
         story_id: &str,
@@ -879,7 +1019,83 @@ impl HistoryDuckDbRepository {
                 person_places: count("person_place")?,
                 works: count("works")?,
                 historical_texts: count("historical_texts")?,
+                events: count("events")?,
+                periods: count("periods")?,
+                regimes: count("regimes")?,
+                stories: count("stories")?,
+                event_relations: count("event_relations")?,
+                event_evidences: count("event_evidence")?,
             })
+        })
+    }
+
+    /// 时期页事件列表：按起年排序，并带该事件的人物/关系/证据条数。
+    pub fn get_events_for_period(
+        &self,
+        period_id: &str,
+    ) -> Result<Vec<PeriodEventItem>, InfrastructureError> {
+        self.with_connection(|connection| {
+            let mut statement = connection.prepare(
+                "SELECT e.id, e.name_zh_cn, e.event_type, e.start_year, e.end_year, e.importance,
+                        e.summary_zh_cn, e.result_zh_cn,
+                        (SELECT COUNT(*) FROM event_person ep WHERE ep.event_id = e.id) AS people_count,
+                        (SELECT COUNT(*) FROM event_relations r WHERE r.source_event_id = e.id OR r.target_event_id = e.id) AS relation_count,
+                        (SELECT COUNT(*) FROM event_evidence ev WHERE ev.event_id = e.id) AS evidence_count
+                 FROM events e WHERE e.period_id = ?1
+                 ORDER BY e.start_year NULLS LAST, e.id",
+            )
+            .map_err(|error| InfrastructureError::DuckDb(error.to_string()))?;
+            let rows = statement
+                .query_map(params![period_id], |row| {
+                    Ok(PeriodEventItem {
+                        id: row.get(0)?,
+                        name_zh_cn: row.get(1)?,
+                        event_type: row.get(2)?,
+                        start_year: row.get(3)?,
+                        end_year: row.get(4)?,
+                        importance: row.get(5)?,
+                        summary_zh_cn: row.get(6)?,
+                        result_zh_cn: row.get(7)?,
+                        people_count: row.get(8)?,
+                        relation_count: row.get(9)?,
+                        evidence_count: row.get(10)?,
+                    })
+                })
+                .map_err(|error| InfrastructureError::DuckDb(error.to_string()))?;
+            rows.map(|row| row.map_err(|error| InfrastructureError::DuckDb(error.to_string())))
+                .collect()
+        })
+    }
+
+    /// 时期页核心人物：参与事件数倒序，`limit` 限制返回条数。
+    pub fn get_people_for_period(
+        &self,
+        period_id: &str,
+        limit: i64,
+    ) -> Result<Vec<PeriodPersonItem>, InfrastructureError> {
+        self.with_connection(|connection| {
+            let mut statement = connection.prepare(
+                "SELECT p.id, p.canonical_name_zh_cn, COUNT(DISTINCT ep.event_id) AS event_count
+                 FROM event_person ep
+                 JOIN events e ON e.id = ep.event_id
+                 JOIN people p ON p.id = ep.person_id
+                 WHERE e.period_id = ?1
+                 GROUP BY p.id, p.canonical_name_zh_cn
+                 ORDER BY event_count DESC, p.canonical_name_zh_cn
+                 LIMIT ?2",
+            )
+            .map_err(|error| InfrastructureError::DuckDb(error.to_string()))?;
+            let rows = statement
+                .query_map(params![period_id, limit.clamp(1, 200)], |row| {
+                    Ok(PeriodPersonItem {
+                        person_id: row.get(0)?,
+                        canonical_name_zh_cn: row.get(1)?,
+                        event_count: row.get(2)?,
+                    })
+                })
+                .map_err(|error| InfrastructureError::DuckDb(error.to_string()))?;
+            rows.map(|row| row.map_err(|error| InfrastructureError::DuckDb(error.to_string())))
+                .collect()
         })
     }
 }
@@ -888,16 +1104,29 @@ impl HistoryDuckDbRepository {
 mod semantic_tests {
     use super::*;
 
+    /// V2 Backbone 产物路径（`dist/`）；仅在本机有构建产物时运行，
+    /// 缺失时静默跳过（`dist/` 不在 Git 中）。
+    fn available_dist_repository() -> Option<HistoryDuckDbRepository> {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../history-data-pipeline");
+        let dist = root.join("dist").join("history.duckdb");
+        let legacy = root.join("data").join("normalized").join("history.duckdb");
+        let path = if dist.is_file() {
+            dist
+        } else if legacy.is_file() {
+            legacy
+        } else {
+            return None;
+        };
+        Some(HistoryDuckDbRepository::open(path).expect("open semantic database"))
+    }
+
     #[test]
-    fn semantic_repository_reads_curated_story_flow_and_evidence() {
-        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("../../history-data-pipeline/data/normalized/history.duckdb");
-        if !path.is_file() {
+    fn semantic_repository_reads_curated_story_flow_and_calibration_evidence() {
+        let Some(repository) = available_dist_repository() else {
             return;
-        }
-        let repository = HistoryDuckDbRepository::open(path).expect("open semantic database");
+        };
         let periods = repository.get_periods().expect("period query");
-        assert!(periods.len() >= 27, "正式历史库必须暴露完整的时期列表");
+        assert!(periods.len() >= 31, "最新 Backbone 必须暴露完整时期列表");
         assert!(
             periods
                 .iter()
@@ -916,7 +1145,8 @@ mod semantic_tests {
         assert!(
             events
                 .windows(2)
-                .all(|pair| pair[0].sequence < pair[1].sequence)
+                .all(|pair| pair[0].sequence < pair[1].sequence),
+            "story_events 必须按 sequence 升序"
         );
 
         let people = repository
@@ -928,25 +1158,72 @@ mod semantic_tests {
                 .any(|person| person.person_name.as_deref() == Some("曹操"))
         );
 
+        // Calibration 产物：关键事件必须携带章节级证据行。
+        let evidences = repository
+            .get_event_evidences("event-feishui-zhizhan")
+            .expect("evidence query");
+        assert_eq!(evidences.len(), 3);
+        assert!(
+            evidences
+                .iter()
+                .any(|evidence| evidence.evidence_role.as_deref() == Some("primary")),
+            "淝水之战必须有 primary 证据"
+        );
+        assert!(
+            evidences
+                .iter()
+                .all(|evidence| evidence.quality_status.as_deref() == Some("reviewed"))
+        );
+
+        // V2 不内嵌 historical_texts 全文；event_text 查询必须保持可读、不报错。
         let event = repository
             .get_event("event-three-chibi")
             .expect("event query")
             .expect("chibi event");
-        let texts = repository.get_event_texts(&event.id).expect("text query");
-        assert!(!texts.is_empty());
-        assert!(texts.iter().all(|text| text.original_text.is_some()));
+        let _texts = repository.get_event_texts(&event.id).expect("text query");
+    }
+
+    #[test]
+    fn semantic_repository_reads_calibration_backbone_counts_and_story_evidence() {
+        let Some(repository) = available_dist_repository() else {
+            return;
+        };
+        let events = repository.get_events().expect("get event list");
+        assert!(events.len() >= 618, "最新 Backbone 应至少 618 个事件");
+        assert!(
+            events
+                .iter()
+                .any(|event| event.importance.as_deref() == Some("critical")),
+            "校准期必须包含 critical 事件"
+        );
+
+        let story = repository
+            .get_story("story-chu-han")
+            .expect("story query")
+            .expect("story");
+        let evidences = repository
+            .get_story_evidences(&story.id)
+            .expect("story evidence query");
+        assert!(
+            evidences.len() >= 9,
+            "楚汉争霸 story 应携带章节级证据（当前 {} 条）",
+            evidences.len()
+        );
+        assert!(
+            evidences
+                .iter()
+                .all(|evidence| evidence.event_id.starts_with("event-")),
+            "story 证据必须能回溯到具体事件"
+        );
     }
 
     #[test]
     fn semantic_repository_reads_person_by_stable_id() {
-        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("../../history-data-pipeline/data/normalized/history.duckdb");
-        if !path.is_file() {
+        let Some(repository) = available_dist_repository() else {
             return;
-        }
-        let repository = HistoryDuckDbRepository::open(path).expect("open semantic database");
+        };
         let story = repository
-            .get_story("story-three-kingdoms")
+            .get_story("story-chu-han")
             .expect("story query")
             .expect("curated story");
         let person_id = repository
@@ -965,22 +1242,74 @@ mod semantic_tests {
     }
 
     #[test]
-    fn person_relations_use_directional_cbdb_labels() {
-        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("../../history-data-pipeline/data/normalized/history.duckdb");
-        if !path.is_file() {
+    fn person_relations_stay_queryable_when_dataset_is_empty() {
+        // V2 dist 当前不携带 person_relations（0 行）；仓库必须保持可用并返回空集。
+        let Some(repository) = available_dist_repository() else {
             return;
-        }
-        let repository = HistoryDuckDbRepository::open(path).expect("open semantic database");
+        };
         let relations = repository
             .get_person_relations("cbdb-person-30257")
             .expect("person relation query");
-        assert!(!relations.is_empty(), "曹操应有 CBDB 人物关系");
+        assert!(relations.is_empty(), "V2 dist 不应包含 person_relations 数据");
+    }
+
+    #[test]
+    fn semantic_repository_reads_period_events_and_people() {
+        let Some(repository) = available_dist_repository() else {
+            return;
+        };
+        let events = repository
+            .get_events_for_period("period-three-kingdoms")
+            .expect("period events query");
         assert!(
-            relations
-                .iter()
-                .all(|relation| relation.relation_name_zh_cn.is_some()),
-            "已收录的 CBDB 关系必须映射为可读称谓"
+            events.len() >= 10,
+            "三国时期应有 ≥10 事件，当前 {} 条",
+            events.len()
         );
+        assert!(
+            events
+                .windows(2)
+                .all(|pair| pair[0]
+                    .start_year
+                    .unwrap_or(i32::MIN)
+                    <= pair[1].start_year.unwrap_or(i32::MIN)), 
+            "period events 应按起始年排序"
+        );
+        assert!(
+            events.iter().any(|event| event.people_count > 0),
+            "三国时期事件至少一个关联人物"
+        );
+        assert!(
+            events.iter().any(|event| event.evidence_count > 0),
+            "三国时期事件至少一个章节级证据"
+        );
+
+        let people = repository
+            .get_people_for_period("period-three-kingdoms", 20)
+            .expect("period people query");
+        assert!(!people.is_empty(), "三国时期应有关键人物");
+        assert!(
+            people
+                .windows(2)
+                .all(|pair| pair[0].event_count >= pair[1].event_count),
+            "key people 应按事件数倒序"
+        );
+        assert!(
+            people.iter().all(|item| !item.canonical_name_zh_cn.is_empty()),
+            "key people 必须有名字"
+        );
+    }
+
+    #[test]
+    fn semantic_repository_reads_dataset_totals() {
+        let Some(repository) = available_dist_repository() else {
+            return;
+        };
+        let stats = repository.get_dataset_stats().expect("stats query");
+        assert!(stats.events >= 600, "events 总量至少 600，当前 {}", stats.events);
+        assert!(stats.periods >= 31, "periods 至少 31（含上古），当前 {}", stats.periods);
+        assert!(stats.people >= 230, "people 至少 230，当前 {}", stats.people);
+        assert!(stats.event_relations >= 1000, "事件关系至少 1000，当前 {}", stats.event_relations);
+        assert!(stats.event_evidences >= 120, "章节级证据至少 120，当前 {}", stats.event_evidences);
     }
 }
