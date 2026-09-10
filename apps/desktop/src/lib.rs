@@ -174,16 +174,20 @@ fn settings_store(app: &AppHandle) -> Result<SettingsStore, CommandError> {
 }
 
 fn semantic_history_path(_app: &AppHandle) -> Result<PathBuf, CommandError> {
+    // Backbone V2 产物在 history-data-pipeline/dist/；legacy 语义库
+    // （data/normalized/）仅在 dist 缺失时作为回退。
+    const CANDIDATES: [&str; 2] = [
+        "history-data-pipeline/dist/history.duckdb",
+        "history-data-pipeline/data/normalized/history.duckdb",
+    ];
     fn find_from(start: PathBuf) -> Option<PathBuf> {
         let mut current = start;
         loop {
-            let candidate = current
-                .join("history-data-pipeline")
-                .join("data")
-                .join("normalized")
-                .join("history.duckdb");
-            if candidate.is_file() {
-                return Some(candidate);
+            for relative in CANDIDATES {
+                let candidate = current.join(relative);
+                if candidate.is_file() {
+                    return Some(candidate);
+                }
             }
             if !current.pop() {
                 return None;
@@ -778,6 +782,7 @@ fn history_home(state: State<'_, AppState>, cursor: u64) -> Result<HistoryHome, 
 struct HistorySemanticHome {
     periods: Vec<devtoolbox_infrastructure::PeriodResult>,
     stories: Vec<devtoolbox_infrastructure::StoryResult>,
+    stats: devtoolbox_infrastructure::DatasetStats,
 }
 
 #[derive(Debug, Serialize)]
@@ -785,6 +790,8 @@ struct HistorySemanticPeriodDetail {
     period: devtoolbox_infrastructure::PeriodResult,
     regimes: Vec<devtoolbox_infrastructure::RegimeResult>,
     stories: Vec<devtoolbox_infrastructure::StoryResult>,
+    events: Vec<devtoolbox_infrastructure::PeriodEventItem>,
+    people: Vec<devtoolbox_infrastructure::PeriodPersonItem>,
 }
 
 #[derive(Debug, Serialize)]
@@ -794,6 +801,7 @@ struct HistorySemanticStoryDetail {
     people: Vec<devtoolbox_infrastructure::EventPersonResult>,
     places: Vec<devtoolbox_infrastructure::EventPlaceResult>,
     historical_texts: Vec<devtoolbox_infrastructure::EventHistoricalTextResult>,
+    evidences: Vec<devtoolbox_infrastructure::EventEvidenceResult>,
     sources: Vec<devtoolbox_infrastructure::SourceResult>,
 }
 
@@ -804,6 +812,7 @@ struct HistorySemanticEventDetail {
     places: Vec<devtoolbox_infrastructure::EventPlaceResult>,
     relations: Vec<devtoolbox_infrastructure::EventRelationResult>,
     historical_texts: Vec<devtoolbox_infrastructure::EventHistoricalTextResult>,
+    evidences: Vec<devtoolbox_infrastructure::EventEvidenceResult>,
     sources: Vec<devtoolbox_infrastructure::SourceResult>,
 }
 
@@ -846,6 +855,7 @@ fn semantic_source_ids(
     people: &[devtoolbox_infrastructure::EventPersonResult],
     places: &[devtoolbox_infrastructure::EventPlaceResult],
     texts: &[devtoolbox_infrastructure::EventHistoricalTextResult],
+    evidences: &[devtoolbox_infrastructure::EventEvidenceResult],
 ) -> Vec<String> {
     let mut ids = std::collections::BTreeSet::new();
     if let Some(story) = story {
@@ -857,6 +867,11 @@ fn semantic_source_ids(
     ids.extend(people.iter().filter_map(|item| item.source_id.clone()));
     ids.extend(places.iter().filter_map(|item| item.source_id.clone()));
     ids.extend(texts.iter().filter_map(|item| item.source_id.clone()));
+    ids.extend(
+        evidences
+            .iter()
+            .filter_map(|item| item.source_id.clone()),
+    );
     ids.into_iter().collect()
 }
 
@@ -873,6 +888,13 @@ fn history_semantic_home(state: State<'_, AppState>) -> Result<HistorySemanticHo
         stories: state
             .history_duckdb
             .get_stories()
+            .map_err(|error| CommandError {
+                code: "history_error",
+                message: error.to_string(),
+            })?,
+        stats: state
+            .history_duckdb
+            .get_dataset_stats()
             .map_err(|error| CommandError {
                 code: "history_error",
                 message: error.to_string(),
@@ -908,6 +930,20 @@ fn history_semantic_period(
         stories: state
             .history_duckdb
             .get_stories_for_period(Some(&period_id))
+            .map_err(|error| CommandError {
+                code: "history_error",
+                message: error.to_string(),
+            })?,
+        events: state
+            .history_duckdb
+            .get_events_for_period(&period_id)
+            .map_err(|error| CommandError {
+                code: "history_error",
+                message: error.to_string(),
+            })?,
+        people: state
+            .history_duckdb
+            .get_people_for_period(&period_id, 24)
             .map_err(|error| CommandError {
                 code: "history_error",
                 message: error.to_string(),
@@ -952,14 +988,28 @@ fn history_semantic_story(
             code: "history_error",
             message: error.to_string(),
         })?;
-    let historical_texts = state
+let historical_texts = state
         .history_duckdb
         .get_story_texts(&story.id)
         .map_err(|error| CommandError {
             code: "history_error",
             message: error.to_string(),
         })?;
-    let ids = semantic_source_ids(Some(&story), &events, &people, &places, &historical_texts);
+    let evidences = state
+        .history_duckdb
+        .get_story_evidences(&story.id)
+        .map_err(|error| CommandError {
+            code: "history_error",
+            message: error.to_string(),
+        })?;
+    let ids = semantic_source_ids(
+        Some(&story),
+        &events,
+        &people,
+        &places,
+        &historical_texts,
+        &evidences,
+    );
     let sources = state
         .history_duckdb
         .get_sources_for_ids(&ids)
@@ -973,6 +1023,7 @@ fn history_semantic_story(
         people,
         places,
         historical_texts,
+        evidences,
         sources,
     }))
 }
@@ -1020,6 +1071,13 @@ fn history_semantic_event(
             code: "history_error",
             message: error.to_string(),
         })?;
+    let evidences = state
+        .history_duckdb
+        .get_event_evidences(&event.id)
+        .map_err(|error| CommandError {
+            code: "history_error",
+            message: error.to_string(),
+        })?;
     let mut ids = std::collections::BTreeSet::new();
     ids.extend(semantic_ids(&event.source_ids));
     ids.extend(people.iter().filter_map(|item| item.source_id.clone()));
@@ -1027,6 +1085,11 @@ fn history_semantic_event(
     ids.extend(relations.iter().filter_map(|item| item.source_id.clone()));
     ids.extend(
         historical_texts
+            .iter()
+            .filter_map(|item| item.source_id.clone()),
+    );
+    ids.extend(
+        evidences
             .iter()
             .filter_map(|item| item.source_id.clone()),
     );
@@ -1043,6 +1106,7 @@ fn history_semantic_event(
         places,
         relations,
         historical_texts,
+        evidences,
         sources,
     }))
 }
