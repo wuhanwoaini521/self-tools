@@ -168,7 +168,9 @@ pub struct EventResult {
     pub regime_id: Option<String>,
     pub summary_zh_cn: Option<String>,
     pub background_zh_cn: Option<String>,
+    pub process_zh_cn: Option<String>,
     pub result_zh_cn: Option<String>,
+    pub impact_zh_cn: Option<String>,
     pub importance: Option<String>,
     pub quality_status: Option<String>,
     pub source_type: Option<String>,
@@ -508,21 +510,55 @@ impl HistoryDuckDbRepository {
                 )
                 .map_err(|error| InfrastructureError::DuckDb(error.to_string()))?;
             let rows = statement
-                .query_map(
-                    params![format!("%{title}%"), limit.clamp(1, 100)],
-                    |row| {
-                        Ok(WorkResult {
-                            id: row.get(0)?,
-                            title: row.get(1)?,
-                            title_zh_cn: row.get(2)?,
-                            source_id: row.get(3)?,
-                            quality_status: row.get(4)?,
-                        })
-                    },
-                )
+                .query_map(params![format!("%{title}%"), limit.clamp(1, 100)], |row| {
+                    Ok(WorkResult {
+                        id: row.get(0)?,
+                        title: row.get(1)?,
+                        title_zh_cn: row.get(2)?,
+                        source_id: row.get(3)?,
+                        quality_status: row.get(4)?,
+                    })
+                })
                 .map_err(|error| InfrastructureError::DuckDb(error.to_string()))?;
             rows.map(|row| row.map_err(|error| InfrastructureError::DuckDb(error.to_string())))
                 .collect()
+        })
+    }
+
+    pub fn get_work_by_id(&self, id: &str) -> Result<Option<WorkResult>, InfrastructureError> {
+        self.with_connection(|connection| {
+            let mut statement = connection
+                .prepare(
+                    "SELECT id,title,title_zh_cn,source_id,quality_status FROM works
+                 WHERE id=?1 ORDER BY id LIMIT 1",
+                )
+                .map_err(|error| InfrastructureError::DuckDb(error.to_string()))?;
+            let mut rows = statement
+                .query(params![id])
+                .map_err(|error| InfrastructureError::DuckDb(error.to_string()))?;
+            let Some(row) = rows
+                .next()
+                .map_err(|error| InfrastructureError::DuckDb(error.to_string()))?
+            else {
+                return Ok(None);
+            };
+            Ok(Some(WorkResult {
+                id: row
+                    .get(0)
+                    .map_err(|e| InfrastructureError::DuckDb(e.to_string()))?,
+                title: row
+                    .get(1)
+                    .map_err(|e| InfrastructureError::DuckDb(e.to_string()))?,
+                title_zh_cn: row
+                    .get(2)
+                    .map_err(|e| InfrastructureError::DuckDb(e.to_string()))?,
+                source_id: row
+                    .get(3)
+                    .map_err(|e| InfrastructureError::DuckDb(e.to_string()))?,
+                quality_status: row
+                    .get(4)
+                    .map_err(|e| InfrastructureError::DuckDb(e.to_string()))?,
+            }))
         })
     }
 
@@ -638,8 +674,8 @@ impl HistoryDuckDbRepository {
     pub fn get_event(&self, query: &str) -> Result<Option<EventResult>, InfrastructureError> {
         self.with_connection(|connection| {
             let mut statement = connection.prepare(
-                "SELECT id,name_zh_cn,event_type,start_year,end_year,date_precision,period_id,regime_id,summary_zh_cn,
-                        background_zh_cn,result_zh_cn,importance,quality_status,source_type,source_ids,period_ids,dynasty_ids,regime_ids,source_reference
+"SELECT id,name_zh_cn,event_type,start_year,end_year,date_precision,period_id,regime_id,summary_zh_cn,
+                        background_zh_cn,process_zh_cn,result_zh_cn,impact_zh_cn,importance,quality_status,source_type,source_ids,period_ids,dynasty_ids,regime_ids,source_reference
                  FROM events WHERE id=?1 OR name_zh_cn=?1 ORDER BY id LIMIT 1",
             ).map_err(|error| InfrastructureError::DuckDb(error.to_string()))?;
             let mut rows = statement.query(params![query]).map_err(|error| InfrastructureError::DuckDb(error.to_string()))?;
@@ -647,7 +683,7 @@ impl HistoryDuckDbRepository {
             Ok(Some(EventResult {
                 id: row.get(0).map_err(|e| InfrastructureError::DuckDb(e.to_string()))?, name_zh_cn: row.get(1).map_err(|e| InfrastructureError::DuckDb(e.to_string()))?, event_type: row.get(2).map_err(|e| InfrastructureError::DuckDb(e.to_string()))?, start_year: row.get(3).map_err(|e| InfrastructureError::DuckDb(e.to_string()))?, end_year: row.get(4).map_err(|e| InfrastructureError::DuckDb(e.to_string()))?,
                 date_precision: row.get(5).map_err(|e| InfrastructureError::DuckDb(e.to_string()))?, period_id: row.get(6).map_err(|e| InfrastructureError::DuckDb(e.to_string()))?, regime_id: row.get(7).map_err(|e| InfrastructureError::DuckDb(e.to_string()))?, summary_zh_cn: row.get(8).map_err(|e| InfrastructureError::DuckDb(e.to_string()))?, background_zh_cn: row.get(9).map_err(|e| InfrastructureError::DuckDb(e.to_string()))?,
-                result_zh_cn: row.get(10).map_err(|e| InfrastructureError::DuckDb(e.to_string()))?, importance: row.get(11).map_err(|e| InfrastructureError::DuckDb(e.to_string()))?, quality_status: row.get(12).map_err(|e| InfrastructureError::DuckDb(e.to_string()))?, source_type: row.get(13).map_err(|e| InfrastructureError::DuckDb(e.to_string()))?, source_ids: row.get(14).map_err(|e| InfrastructureError::DuckDb(e.to_string()))?, period_ids: row.get(15).map_err(|e| InfrastructureError::DuckDb(e.to_string()))?, dynasty_ids: row.get(16).map_err(|e| InfrastructureError::DuckDb(e.to_string()))?, regime_ids: row.get(17).map_err(|e| InfrastructureError::DuckDb(e.to_string()))?, source_reference: row.get(18).map_err(|e| InfrastructureError::DuckDb(e.to_string()))?,
+                process_zh_cn: row.get(10).map_err(|e| InfrastructureError::DuckDb(e.to_string()))?, result_zh_cn: row.get(11).map_err(|e| InfrastructureError::DuckDb(e.to_string()))?, impact_zh_cn: row.get(12).map_err(|e| InfrastructureError::DuckDb(e.to_string()))?, importance: row.get(13).map_err(|e| InfrastructureError::DuckDb(e.to_string()))?, quality_status: row.get(14).map_err(|e| InfrastructureError::DuckDb(e.to_string()))?, source_type: row.get(15).map_err(|e| InfrastructureError::DuckDb(e.to_string()))?, source_ids: row.get(16).map_err(|e| InfrastructureError::DuckDb(e.to_string()))?, period_ids: row.get(17).map_err(|e| InfrastructureError::DuckDb(e.to_string()))?, dynasty_ids: row.get(18).map_err(|e| InfrastructureError::DuckDb(e.to_string()))?, regime_ids: row.get(19).map_err(|e| InfrastructureError::DuckDb(e.to_string()))?, source_reference: row.get(20).map_err(|e| InfrastructureError::DuckDb(e.to_string()))?,
             }))
         })
     }
@@ -678,11 +714,11 @@ impl HistoryDuckDbRepository {
         self.with_connection(|connection| {
             let mut statement = connection.prepare(
                 "SELECT id,name_zh_cn,event_type,start_year,end_year,date_precision,period_id,regime_id,summary_zh_cn,
-                        background_zh_cn,result_zh_cn,importance,quality_status,source_type,source_ids,period_ids,dynasty_ids,regime_ids,source_reference
+                        background_zh_cn,process_zh_cn,result_zh_cn,impact_zh_cn,importance,quality_status,source_type,source_ids,period_ids,dynasty_ids,regime_ids,source_reference
                  FROM events ORDER BY start_year NULLS LAST,id",
             ).map_err(|error| InfrastructureError::DuckDb(error.to_string()))?;
             let rows = statement.query_map([], |row| Ok(EventResult {
-                id: row.get(0)?, name_zh_cn: row.get(1)?, event_type: row.get(2)?, start_year: row.get(3)?, end_year: row.get(4)?, date_precision: row.get(5)?, period_id: row.get(6)?, regime_id: row.get(7)?, summary_zh_cn: row.get(8)?, background_zh_cn: row.get(9)?, result_zh_cn: row.get(10)?, importance: row.get(11)?, quality_status: row.get(12)?, source_type: row.get(13)?, source_ids: row.get(14)?, period_ids: row.get(15)?, dynasty_ids: row.get(16)?, regime_ids: row.get(17)?, source_reference: row.get(18)?,
+                id: row.get(0)?, name_zh_cn: row.get(1)?, event_type: row.get(2)?, start_year: row.get(3)?, end_year: row.get(4)?, date_precision: row.get(5)?, period_id: row.get(6)?, regime_id: row.get(7)?, summary_zh_cn: row.get(8)?, background_zh_cn: row.get(9)?, process_zh_cn: row.get(10)?, result_zh_cn: row.get(11)?, impact_zh_cn: row.get(12)?, importance: row.get(13)?, quality_status: row.get(14)?, source_type: row.get(15)?, source_ids: row.get(16)?, period_ids: row.get(17)?, dynasty_ids: row.get(18)?, regime_ids: row.get(19)?, source_reference: row.get(20)?,
             })).map_err(|error| InfrastructureError::DuckDb(error.to_string()))?;
             rows.map(|row| row.map_err(|error| InfrastructureError::DuckDb(error.to_string()))).collect()
         })
@@ -783,37 +819,37 @@ impl HistoryDuckDbRepository {
         event_id: &str,
     ) -> Result<Vec<EventEvidenceResult>, InfrastructureError> {
         self.with_connection(|connection| {
-            let mut statement = connection.prepare(
-                "SELECT id,event_id,historical_text_id,work,term,chapter_hint,context_keywords,
+            let mut statement = connection
+                .prepare(
+                    "SELECT id,event_id,historical_text_id,work,term,chapter_hint,context_keywords,
                         evidence_role,link_status,link_quality_status,link_confidence,review_note,
                         source_type,source_id,quality_status,rejected_text_ids
                  FROM event_evidence WHERE event_id=?1
                  ORDER BY CASE evidence_role WHEN 'primary' THEN 0 ELSE 1 END,term,id",
-            )
-            .map_err(|error| InfrastructureError::DuckDb(error.to_string()))?;
-            let rows =
-                statement
-                    .query_map(params![event_id], |row| {
-                        Ok(EventEvidenceResult {
-                            id: row.get(0)?,
-                            event_id: row.get(1)?,
-                            historical_text_id: row.get(2)?,
-                            work: row.get(3)?,
-                            term: row.get(4)?,
-                            chapter_hint: row.get(5)?,
-                            context_keywords: row.get(6)?,
-                            evidence_role: row.get(7)?,
-                            link_status: row.get(8)?,
-                            link_quality_status: row.get(9)?,
-                            link_confidence: row.get(10)?,
-                            review_note: row.get(11)?,
-                            source_type: row.get(12)?,
-                            source_id: row.get(13)?,
-                            quality_status: row.get(14)?,
-                            rejected_text_ids: row.get(15)?,
-                        })
+                )
+                .map_err(|error| InfrastructureError::DuckDb(error.to_string()))?;
+            let rows = statement
+                .query_map(params![event_id], |row| {
+                    Ok(EventEvidenceResult {
+                        id: row.get(0)?,
+                        event_id: row.get(1)?,
+                        historical_text_id: row.get(2)?,
+                        work: row.get(3)?,
+                        term: row.get(4)?,
+                        chapter_hint: row.get(5)?,
+                        context_keywords: row.get(6)?,
+                        evidence_role: row.get(7)?,
+                        link_status: row.get(8)?,
+                        link_quality_status: row.get(9)?,
+                        link_confidence: row.get(10)?,
+                        review_note: row.get(11)?,
+                        source_type: row.get(12)?,
+                        source_id: row.get(13)?,
+                        quality_status: row.get(14)?,
+                        rejected_text_ids: row.get(15)?,
                     })
-                    .map_err(|error| InfrastructureError::DuckDb(error.to_string()))?;
+                })
+                .map_err(|error| InfrastructureError::DuckDb(error.to_string()))?;
             rows.map(|row| row.map_err(|error| InfrastructureError::DuckDb(error.to_string())))
                 .collect()
         })
@@ -1104,19 +1140,14 @@ impl HistoryDuckDbRepository {
 mod semantic_tests {
     use super::*;
 
-    /// V2 Backbone 产物路径（`dist/`）；仅在本机有构建产物时运行，
-    /// 缺失时静默跳过（`dist/` 不在 Git 中）。
+    /// V2 Backbone 产物路径（`dist/` 是唯一事实源）；仅在本机有构建产物时运行，
+    /// 缺失时静默跳过（`dist/` 不在 Git 中）。刻意不回退 legacy `data/normalized/`。
     fn available_dist_repository() -> Option<HistoryDuckDbRepository> {
         let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../history-data-pipeline");
-        let dist = root.join("dist").join("history.duckdb");
-        let legacy = root.join("data").join("normalized").join("history.duckdb");
-        let path = if dist.is_file() {
-            dist
-        } else if legacy.is_file() {
-            legacy
-        } else {
+        let path = root.join("dist").join("history.duckdb");
+        if !path.is_file() {
             return None;
-        };
+        }
         Some(HistoryDuckDbRepository::open(path).expect("open semantic database"))
     }
 
@@ -1250,7 +1281,10 @@ mod semantic_tests {
         let relations = repository
             .get_person_relations("cbdb-person-30257")
             .expect("person relation query");
-        assert!(relations.is_empty(), "V2 dist 不应包含 person_relations 数据");
+        assert!(
+            relations.is_empty(),
+            "V2 dist 不应包含 person_relations 数据"
+        );
     }
 
     #[test]
@@ -1269,10 +1303,8 @@ mod semantic_tests {
         assert!(
             events
                 .windows(2)
-                .all(|pair| pair[0]
-                    .start_year
-                    .unwrap_or(i32::MIN)
-                    <= pair[1].start_year.unwrap_or(i32::MIN)), 
+                .all(|pair| pair[0].start_year.unwrap_or(i32::MIN)
+                    <= pair[1].start_year.unwrap_or(i32::MIN)),
             "period events 应按起始年排序"
         );
         assert!(
@@ -1295,7 +1327,9 @@ mod semantic_tests {
             "key people 应按事件数倒序"
         );
         assert!(
-            people.iter().all(|item| !item.canonical_name_zh_cn.is_empty()),
+            people
+                .iter()
+                .all(|item| !item.canonical_name_zh_cn.is_empty()),
             "key people 必须有名字"
         );
     }
@@ -1306,10 +1340,95 @@ mod semantic_tests {
             return;
         };
         let stats = repository.get_dataset_stats().expect("stats query");
-        assert!(stats.events >= 600, "events 总量至少 600，当前 {}", stats.events);
-        assert!(stats.periods >= 31, "periods 至少 31（含上古），当前 {}", stats.periods);
-        assert!(stats.people >= 230, "people 至少 230，当前 {}", stats.people);
-        assert!(stats.event_relations >= 1000, "事件关系至少 1000，当前 {}", stats.event_relations);
-        assert!(stats.event_evidences >= 120, "章节级证据至少 120，当前 {}", stats.event_evidences);
+        assert!(
+            stats.events >= 600,
+            "events 总量至少 600，当前 {}",
+            stats.events
+        );
+        assert!(
+            stats.periods >= 31,
+            "periods 至少 31（含上古），当前 {}",
+            stats.periods
+        );
+        assert!(
+            stats.people >= 230,
+            "people 至少 230，当前 {}",
+            stats.people
+        );
+        assert!(
+            stats.event_relations >= 1000,
+            "事件关系至少 1000，当前 {}",
+            stats.event_relations
+        );
+        assert!(
+            stats.event_evidences >= 120,
+            "章节级证据至少 120，当前 {}",
+            stats.event_evidences
+        );
+    }
+
+    #[test]
+    fn semantic_repository_search_and_navigation_roundtrip() {
+        let Some(repository) = available_dist_repository() else {
+            return;
+        };
+        // 搜索命中 → 按稳定 id 打开：event / person / work
+        let events = repository.search_events("赤壁", 10).expect("search events");
+        assert!(!events.is_empty(), "搜索「赤壁」必须命中事件");
+        let event = repository
+            .get_event(&events[0].id)
+            .expect("event query")
+            .expect("event exists");
+        assert!(!event.name_zh_cn.is_empty());
+
+        let people = repository.search_people("曹操", 10).expect("search people");
+        assert!(!people.is_empty(), "搜索「曹操」必须命中人物");
+        assert!(
+            repository.get_person_relations(&people[0].id).is_ok(),
+            "人物关系可打开"
+        );
+        assert!(
+            repository.get_person_places(&people[0].id).is_ok(),
+            "人物地点可打开"
+        );
+
+        let works = repository.get_work("春秋", 10).expect("search works");
+        assert!(!works.is_empty(), "搜索「春秋」必须命中作品");
+        let work = repository
+            .get_work_by_id(&works[0].id)
+            .expect("work query")
+            .expect("work exists");
+        assert!(!work.id.is_empty());
+        // V2 dist 当前不内置全文（historical_texts 可为 0 行），查询本身不得报错
+        let texts = repository
+            .get_historical_texts(Some(&work.title), 50)
+            .expect("text query");
+
+        // period/regime 导航
+        let regimes = repository
+            .get_regimes_by_period("period-three-kingdoms")
+            .expect("regimes by period");
+        assert!(!regimes.is_empty(), "三国时期应有关键政权");
+        println!(
+            "search→open roundtrip: {} events, {} people, {} works, {} texts, {} regimes",
+            events.len(),
+            people.len(),
+            works.len(),
+            texts.len(),
+            regimes.len()
+        );
+    }
+
+    #[test]
+    fn semantic_repository_missing_database_fails_explicitly() {
+        let missing =
+            std::env::temp_dir().join(format!("zcode-missing-{}.duckdb", std::process::id()));
+        let _ = std::fs::remove_file(&missing);
+        let error = HistoryDuckDbRepository::open(&missing).expect_err("must fail");
+        let message = error.to_string();
+        assert!(
+            message.contains("not found"),
+            "错误信息必须明确提示缺失：{message}"
+        );
     }
 }

@@ -106,7 +106,9 @@ export interface SemanticEvent {
   regime_id?: string | null;
   summary_zh_cn?: string | null;
   background_zh_cn?: string | null;
+  process_zh_cn?: string | null;
   result_zh_cn?: string | null;
+  impact_zh_cn?: string | null;
   importance?: string | null;
   quality_status?: string | null;
   source_type?: string | null;
@@ -328,4 +330,36 @@ export interface SemanticSearchHit {
 export interface SemanticSearchGroup {
   kind: SemanticSearchHit["kind"];
   items: SemanticSearchHit[];
+}
+
+/** 史籍作品（WorkResult 镜像）。 */
+export interface SemanticWork {
+  id: string;
+  title: string;
+  title_zh_cn?: string | null;
+  source_id?: string | null;
+  quality_status?: string | null;
+}
+
+/** 作品下的章节全文（HistoricalTextResult 镜像，未绑定具体事件）。 */
+export interface SemanticWorkText {
+  id: string;
+  title_zh_cn?: string | null;
+  book_id?: string | null;
+  work_title?: string | null;
+  chapter?: string | null;
+  original_text?: string | null;
+  original_simplified?: string | null;
+  translation_zh_cn?: string | null;
+  translation_source?: string | null;
+  alignment_quality?: string | null;
+  source_id?: string | null;
+  quality_status?: string | null;
+  translation_type?: string | null;
+}
+
+export interface SemanticWorkDetail {
+  work: SemanticWork;
+  texts: SemanticWorkText[];
+  sources: SemanticSource[];
 }

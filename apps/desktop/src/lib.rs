@@ -4,7 +4,7 @@
 //! 每个功能模块(文档 / RSS / Travel)的命令各自独立，互不依赖。
 
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
@@ -14,23 +14,22 @@ use devtoolbox_application::language::{
 };
 use devtoolbox_application::{
     ApplicationError, ArticleDto, DocumentDto, FeedDto, GeoCompareView, GeoEntityDetail,
-    GeoSearchGroup, GeographyHome, HistoryHome, HistoryService, RefreshReport,
-    TravelResearchRequest, TravelResearchService, commit_new_feed, commit_refresh,
-    convert_lines_to_tasks, cycle_lines, delete_feed, feed_snapshots, fetch_all_feeds,
-    fetch_new_feed, latest_articles, list_articles, list_feeds, load_document, load_settings,
-    mark_article_read, save_document, save_settings, scan_workspace, validate_feed_url,
+    GeoSearchGroup, GeographyHome, RefreshReport, TravelResearchRequest, TravelResearchService,
+    commit_new_feed, commit_refresh, convert_lines_to_tasks, cycle_lines, delete_feed,
+    feed_snapshots, fetch_all_feeds, fetch_new_feed, latest_articles, list_articles, list_feeds,
+    load_document, load_settings, mark_article_read, save_document, save_settings, scan_workspace,
+    validate_feed_url,
 };
 use devtoolbox_core::{
     geography::GeoEntityType as CoreGeoEntityType,
-    history::{HistoryDetailView, HistoryNode, HistorySearchGroup},
     language::{LearningStateKind, ReviewRating, SpeakingScore},
     travel::{CityGuide, GuideSummary, TravelDateRange, TravelResearchEvent},
 };
 use devtoolbox_infrastructure::{
     AmapPoiProvider, AppSettings, FeedRepository, GeographyStore, HistoryDuckDbRepository,
-    HistoryStore, HttpWebFetcher, LanguageStore, LlmConfig, LlmProvider,
-    OpenAiCompatibleLlmProvider, QWeatherProvider, SettingsStore, TravelDataProvider,
-    TravelDataRequest, TravelStore, WorkspaceFile, build_providers, feed_client, providers_for,
+    HttpWebFetcher, LanguageStore, LlmConfig, LlmProvider, OpenAiCompatibleLlmProvider,
+    QWeatherProvider, SettingsStore, TravelDataProvider, TravelDataRequest, TravelStore,
+    WorkspaceFile, build_providers, feed_client, providers_for,
 };
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager, State};
@@ -53,7 +52,6 @@ impl From<ApplicationError> for CommandError {
             ApplicationError::TravelFailed(_) => "travel_failed",
             ApplicationError::Language { .. } => "language_error",
             ApplicationError::License(_) => "language_license",
-            ApplicationError::History { .. } | ApplicationError::HistoryData(_) => "history_error",
             ApplicationError::Geography { .. } | ApplicationError::GeographyData(_) => {
                 "geography_error"
             }
@@ -90,7 +88,6 @@ pub struct AppState {
     pub store: Mutex<FeedRepository>,
     pub travel_store: Arc<Mutex<TravelStore>>,
     pub travel_sessions: Arc<Mutex<HashMap<String, Arc<Mutex<TravelSession>>>>>,
-    pub history_store: Arc<Mutex<HistoryStore>>,
     pub history_duckdb: Arc<HistoryDuckDbRepository>,
     pub language_store: Arc<Mutex<LanguageStore>>,
     pub geography_store: Arc<Mutex<GeographyStore>>,
@@ -155,7 +152,6 @@ fn project_config_directory(app: &AppHandle) -> Result<PathBuf, CommandError> {
             "settings.json",
             "dashboard.db",
             "travel.db",
-            "history.db",
             "geography.db",
             "language.db",
         ] {
@@ -174,20 +170,15 @@ fn settings_store(app: &AppHandle) -> Result<SettingsStore, CommandError> {
 }
 
 fn semantic_history_path(_app: &AppHandle) -> Result<PathBuf, CommandError> {
-    // Backbone V2 产物在 history-data-pipeline/dist/；legacy 语义库
-    // （data/normalized/）仅在 dist 缺失时作为回退。
-    const CANDIDATES: [&str; 2] = [
-        "history-data-pipeline/dist/history.duckdb",
-        "history-data-pipeline/data/normalized/history.duckdb",
-    ];
-    fn find_from(start: PathBuf) -> Option<PathBuf> {
-        let mut current = start;
+    // V2：唯一事实源是 history-data-pipeline/dist/history.duckdb（build artifact）。
+    // 刻意不再回退到 data/normalized/ 的 legacy 语义库；缺失时明确返回开发错误。
+    const RELATIVE: &str = "history-data-pipeline/dist/history.duckdb";
+    fn find_from(start: &Path) -> Option<PathBuf> {
+        let mut current = start.to_path_buf();
         loop {
-            for relative in CANDIDATES {
-                let candidate = current.join(relative);
-                if candidate.is_file() {
-                    return Some(candidate);
-                }
+            let candidate = current.join(RELATIVE);
+            if candidate.is_file() {
+                return Some(candidate);
             }
             if !current.pop() {
                 return None;
@@ -196,19 +187,21 @@ fn semantic_history_path(_app: &AppHandle) -> Result<PathBuf, CommandError> {
     }
 
     let current_dir = std::env::current_dir().map_err(|error| CommandError {
-        code: "history_data_dir",
+        code: "history_data_missing",
         message: error.to_string(),
     })?;
-    let path = find_from(current_dir.clone()).or_else(|| {
+    let path = find_from(&current_dir).or_else(|| {
         std::env::current_exe()
             .ok()
             .and_then(|path| path.parent().map(PathBuf::from))
-            .and_then(find_from)
+            .and_then(|path| find_from(&path))
     });
     path.ok_or_else(|| CommandError {
-        code: "history_data_dir",
+        code: "history_data_missing",
         message: format!(
-            "History semantic database not found from current directory or executable path: {}",
+            "History data artifact is missing: {} (searched from {} and the executable directory). \
+             Rebuild it with the submodule build command, e.g. `uv run history-data backbone build`.",
+            RELATIVE,
             current_dir.display()
         ),
     })
@@ -769,14 +762,7 @@ fn language_speaking_feedback(
     ))
 }
 
-// ---------- History 模块（离线优先） ----------
-
-#[tauri::command]
-fn history_home(state: State<'_, AppState>, cursor: u64) -> Result<HistoryHome, CommandError> {
-    HistoryService::new(Arc::clone(&state.history_store))
-        .home(cursor)
-        .map_err(CommandError::from)
-}
+// ---------- History 模块（V2：唯一事实源 history-data-pipeline/dist，事件驱动） ----------
 
 #[derive(Debug, Serialize)]
 struct HistorySemanticHome {
@@ -827,6 +813,13 @@ struct HistorySemanticPersonDetail {
 }
 
 #[derive(Debug, Serialize)]
+struct HistorySemanticWorkDetail {
+    work: devtoolbox_infrastructure::WorkResult,
+    texts: Vec<devtoolbox_infrastructure::HistoricalTextResult>,
+    sources: Vec<devtoolbox_infrastructure::SourceResult>,
+}
+
+#[derive(Debug, Serialize)]
 struct HistorySemanticSearchHit {
     id: String,
     kind: String,
@@ -867,11 +860,7 @@ fn semantic_source_ids(
     ids.extend(people.iter().filter_map(|item| item.source_id.clone()));
     ids.extend(places.iter().filter_map(|item| item.source_id.clone()));
     ids.extend(texts.iter().filter_map(|item| item.source_id.clone()));
-    ids.extend(
-        evidences
-            .iter()
-            .filter_map(|item| item.source_id.clone()),
-    );
+    ids.extend(evidences.iter().filter_map(|item| item.source_id.clone()));
     ids.into_iter().collect()
 }
 
@@ -988,7 +977,7 @@ fn history_semantic_story(
             code: "history_error",
             message: error.to_string(),
         })?;
-let historical_texts = state
+    let historical_texts = state
         .history_duckdb
         .get_story_texts(&story.id)
         .map_err(|error| CommandError {
@@ -1088,11 +1077,7 @@ fn history_semantic_event(
             .iter()
             .filter_map(|item| item.source_id.clone()),
     );
-    ids.extend(
-        evidences
-            .iter()
-            .filter_map(|item| item.source_id.clone()),
-    );
+    ids.extend(evidences.iter().filter_map(|item| item.source_id.clone()));
     let sources = state
         .history_duckdb
         .get_sources_for_ids(&ids.into_iter().collect::<Vec<_>>())
@@ -1177,6 +1162,47 @@ fn history_semantic_person(
         places,
         events,
         stories,
+        sources,
+    }))
+}
+
+#[tauri::command]
+fn history_semantic_work(
+    state: State<'_, AppState>,
+    work_id: String,
+) -> Result<Option<HistorySemanticWorkDetail>, CommandError> {
+    let Some(work) = state
+        .history_duckdb
+        .get_work_by_id(&work_id)
+        .map_err(|error| CommandError {
+            code: "history_error",
+            message: error.to_string(),
+        })?
+    else {
+        return Ok(None);
+    };
+    let texts = state
+        .history_duckdb
+        .get_historical_texts(Some(&work.title), 200)
+        .map_err(|error| CommandError {
+            code: "history_error",
+            message: error.to_string(),
+        })?;
+    let mut ids = std::collections::BTreeSet::new();
+    if let Some(id) = work.source_id.clone() {
+        ids.insert(id);
+    }
+    ids.extend(texts.iter().filter_map(|item| item.source_id.clone()));
+    let sources = state
+        .history_duckdb
+        .get_sources_for_ids(&ids.into_iter().collect::<Vec<_>>())
+        .map_err(|error| CommandError {
+            code: "history_error",
+            message: error.to_string(),
+        })?;
+    Ok(Some(HistorySemanticWorkDetail {
+        work,
+        texts,
         sources,
     }))
 }
@@ -1296,43 +1322,6 @@ fn history_semantic_search(
     Ok(groups)
 }
 
-#[tauri::command]
-fn history_search(
-    state: State<'_, AppState>,
-    query: String,
-) -> Result<Vec<HistorySearchGroup>, CommandError> {
-    HistoryService::new(Arc::clone(&state.history_store))
-        .search(&query)
-        .map_err(CommandError::from)
-}
-
-#[tauri::command]
-fn history_period_nodes(
-    state: State<'_, AppState>,
-    period_id: String,
-) -> Result<Vec<HistoryNode>, CommandError> {
-    HistoryService::new(Arc::clone(&state.history_store))
-        .period_nodes(&period_id)
-        .map_err(CommandError::from)
-}
-
-#[tauri::command]
-fn history_detail(
-    state: State<'_, AppState>,
-    id: String,
-) -> Result<Option<HistoryDetailView>, CommandError> {
-    HistoryService::new(Arc::clone(&state.history_store))
-        .detail(&id)
-        .map_err(CommandError::from)
-}
-
-#[tauri::command]
-fn history_toggle_favorite(state: State<'_, AppState>, id: String) -> Result<bool, CommandError> {
-    HistoryService::new(Arc::clone(&state.history_store))
-        .toggle_favorite(&id)
-        .map_err(CommandError::from)
-}
-
 // ---------- Geography Explorer 模块（离线优先） ----------
 
 fn geography_service(state: &State<'_, AppState>) -> devtoolbox_application::GeographyService {
@@ -1415,8 +1404,6 @@ pub fn run() {
                 .expect("open rss database");
             let travel_store = TravelStore::open(config_directory.join("travel.db"))
                 .expect("open travel database");
-            let history_store = HistoryStore::open(config_directory.join("history.db"))
-                .expect("open history database");
             let history_duckdb = HistoryDuckDbRepository::open(
                 semantic_history_path(app.handle())
                     .map_err(|error| std::io::Error::other(error.message))?,
@@ -1431,7 +1418,6 @@ pub fn run() {
                 store: Mutex::new(store),
                 travel_store: Arc::new(Mutex::new(travel_store)),
                 travel_sessions: Arc::new(Mutex::new(HashMap::new())),
-                history_store: Arc::new(Mutex::new(history_store)),
                 history_duckdb: Arc::new(history_duckdb),
                 language_store: Arc::new(Mutex::new(language_store)),
                 geography_store: Arc::new(Mutex::new(geography_store)),
@@ -1462,16 +1448,12 @@ pub fn run() {
             test_travel_llm,
             test_travel_amap,
             test_travel_qweather,
-            history_home,
-            history_search,
-            history_period_nodes,
-            history_detail,
-            history_toggle_favorite,
             history_semantic_home,
             history_semantic_period,
             history_semantic_story,
             history_semantic_event,
             history_semantic_person,
+            history_semantic_work,
             history_semantic_search,
             geography_home,
             geography_search,

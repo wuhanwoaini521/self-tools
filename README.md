@@ -149,7 +149,8 @@ Markdown 的 Focus Mode、Zen Mode 和命令面板：
 
 ## 数据与可追溯性
 
-- 桌面应用的运行时数据统一保存在项目根目录的 `config/`：包括 `settings.json`、RSS 的 `dashboard.db`、Travel 的 `travel.db`、History 的 `history.db`、Geography 的 `geography.db` 和 Language 的 `language.db`；该目录已加入 `.gitignore`，不会提交到 Git。
+- 桌面应用的运行时数据统一保存在项目根目录的 `config/`：包括 `settings.json`、RSS 的 `dashboard.db`、Travel 的 `travel.db`、Geography 的 `geography.db` 和 Language 的 `language.db`；该目录已加入 `.gitignore`，不会提交到 Git。
+- History（V2）是事件驱动的只读知识库：数据源唯一为 `history-data-pipeline/dist/history.duckdb`（Backbone 构建产物，只读），搜索/时间轴/人物/作品详情全部来自它；`dist/` 缺失时应用明确报错而非悄悄回退旧库。产品完整度报告与补全队列见 `history-data-pipeline/reports/`（`PRODUCT_COVERAGE.md` / `ENRICHMENT_QUEUE.json`），由 `history-data backbone coverage` 重新生成。
 - 如果旧版本曾把数据写入系统 AppData，应用首次启动时会把缺失的文件复制到项目 `config/`，不会覆盖已经存在的项目数据，也不会删除旧文件。
 - Language 的词典和例句来自可追溯的开放数据集：Open English WordNet、CMUdict、JMdict、KANJIDIC2、CC-CEDICT、words.hk、CC-Canto 和 Tatoeba。
 - Geography 当前使用小型内置种子数据；正式边界和大规模几何数据会在许可核验后再导入。

@@ -1,8 +1,7 @@
-//! UI 无关的文档、工作区与任务编辑用例。
+﻿//! UI 无关的文档、工作区与任务编辑用例。
 
 pub mod error;
 pub mod geography;
-pub mod history;
 pub mod language;
 pub mod rss_workflows;
 pub mod travel;
@@ -14,7 +13,6 @@ pub use geography::{
     GeoRecommendation, GeoRelation, GeoRelationKind, GeoSearchGroup, GeoSource, GeographyHome,
     GeographyService,
 };
-pub use history::{HistoryHome, HistoryService};
 pub use language::{LanguageInfo, LanguageSearchHit, LanguageService, TodayView};
 pub use rss_workflows::{
     ArticleDto, FeedDto, FeedSnapshot, RefreshReport, commit_new_feed, commit_refresh, delete_feed,

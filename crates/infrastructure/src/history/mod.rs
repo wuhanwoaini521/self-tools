@@ -1,5 +1,4 @@
-pub mod duckdb;
-pub mod store;
+﻿pub mod duckdb;
 
 pub use duckdb::{
     DatasetStats, EventEvidenceResult, EventHistoricalTextResult, EventPersonResult,
@@ -8,4 +7,3 @@ pub use duckdb::{
     PersonPlaceResult, PersonRelationResult, PersonResult, PersonStoryResult, RegimeResult,
     SourceResult, StoryEventResult, StoryResult, WorkResult,
 };
-pub use store::HistoryStore;

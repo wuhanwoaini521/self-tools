@@ -18,9 +18,9 @@ pub use geography::GeographyStore;
 pub use history::{
     DatasetStats, EventEvidenceResult, EventHistoricalTextResult, EventPersonResult,
     EventPlaceResult, EventRelationResult, EventResult, HistoricalTextResult,
-    HistoryDuckDbRepository, HistoryStore, PeriodEventItem, PeriodPersonItem, PeriodResult,
-    PersonEventResult, PersonPlaceResult, PersonRelationResult, PersonResult, PersonStoryResult,
-    RegimeResult, SourceResult, StoryEventResult, StoryResult, WorkResult,
+    HistoryDuckDbRepository, PeriodEventItem, PeriodPersonItem, PeriodResult, PersonEventResult,
+    PersonPlaceResult, PersonRelationResult, PersonResult, PersonStoryResult, RegimeResult,
+    SourceResult, StoryEventResult, StoryResult, WorkResult,
 };
 pub use language::{LanguageStore, SearchHit, sources};
 pub use rss_store::{ArticleRow, FeedRepository, FeedRow, now_unix};

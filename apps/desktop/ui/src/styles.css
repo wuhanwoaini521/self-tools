@@ -7416,6 +7416,10 @@ kbd {
 .history-v2-drawer-section { margin-top: 23px; }
 .history-v2-drawer-section h3 { display: flex; align-items: center; gap: 7px; margin: 0 0 11px; color: var(--history-v2-faint); font-size: 10px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
 .history-v2-drawer-section h3 svg { color: var(--history-v2-accent); }
+.history-v2-narrative { display: grid; gap: 13px; }
+.history-v2-narrative > span { display: grid; gap: 5px; }
+.history-v2-narrative strong { color: var(--history-v2-accent); font-size: 10px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+.history-v2-narrative p { margin: 0; color: var(--history-v2-muted); font-size: 13px; line-height: 1.8; }
 .history-v2-entity-list, .history-v2-text-list, .history-v2-place-list { display: grid; gap: 1px; }
 .history-v2-entity-list button, .history-v2-text-list button { display: grid; grid-template-columns: 1fr auto; gap: 5px 10px; padding: 10px 8px; border: 0; border-bottom: 1px solid var(--history-v2-line); background: transparent; color: var(--text); text-align: left; cursor: pointer; }
 .history-v2-entity-list button:hover, .history-v2-text-list button:hover { background: rgb(126 180 170 / 8%); }
