@@ -1193,7 +1193,9 @@ mod semantic_tests {
         let evidences = repository
             .get_event_evidences("event-feishui-zhizhan")
             .expect("evidence query");
-        assert_eq!(evidences.len(), 3);
+        // 合法数据增长（2026-09-12，source-batch02 Queue 11 重定位 + Ready-43 字段锚）：
+        // 3 → 7 条（1 legacy exact + 6 manual 段落锚，全部 reviewed）。
+        assert_eq!(evidences.len(), 7);
         assert!(
             evidences
                 .iter()
