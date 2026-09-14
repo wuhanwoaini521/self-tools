@@ -12,26 +12,11 @@ use std::sync::OnceLock;
 
 use async_trait::async_trait;
 use regex::Regex;
-use serde::{Deserialize, Serialize};
 use url::Url;
 
 use crate::error::InfrastructureError;
+pub use devtoolbox_core::settings::TravelSearchBackend;
 use devtoolbox_core::travel::SearchResult;
-
-/// 搜索后端配置（来自应用设置，映射前端 TravelSettings）。
-#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum TravelSearchBackend {
-    /// 自动：Bing 国内 > 百度
-    #[default]
-    Auto,
-    /// 本地 SearXNG（需配置 `searxng_url`）
-    Searxng,
-    /// 仅百度
-    Baidu,
-    /// 仅必应
-    Bing,
-}
 
 /// 搜索选项。
 #[derive(Clone, Copy, Debug, Default)]

@@ -1,8 +1,8 @@
-import { invoke } from "@tauri-apps/api/core";
 import { Play } from "@phosphor-icons/react";
 import { useCallback, useEffect, useState } from "react";
 import type { LanguageCode, SentenceRecord } from "../../types";
 import { errorMessage, isTauriRuntime } from "../../utils";
+import { languageClient } from "./languageClient";
 import { speak } from "./tts";
 
 interface ListenPanelProps {
@@ -19,10 +19,7 @@ export function ListenPanel({ language, setNotice }: ListenPanelProps) {
   const reload = useCallback(async () => {
     if (!isTauriRuntime()) return;
     try {
-      const rows = await invoke<SentenceRecord[]>("language_sentences", {
-        language,
-        limit: 20,
-      });
+      const rows = await languageClient.sentences(language, 20);
       setSentences(rows);
       setLoaded(true);
     } catch (error) {

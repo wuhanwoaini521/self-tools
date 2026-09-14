@@ -1,8 +1,8 @@
-import { invoke } from "@tauri-apps/api/core";
 import { ArrowLeft, Heart, Play, Star, X } from "@phosphor-icons/react";
 import { useCallback, useEffect, useState } from "react";
 import type { LearningStateKind, WordDetail } from "../../types";
 import { errorMessage, isTauriRuntime } from "../../utils";
+import { languageClient } from "./languageClient";
 import { speak } from "./tts";
 
 interface WordDetailProps {
@@ -24,9 +24,7 @@ export function WordDetailView({
   const reload = useCallback(async () => {
     if (!isTauriRuntime()) return;
     try {
-      const result = await invoke<WordDetail | null>("language_item", {
-        id: itemId,
-      });
+      const result = await languageClient.item(itemId);
       if (result) setDetail(result);
     } catch (error) {
       setNotice(errorMessage(error));
@@ -53,7 +51,7 @@ export function WordDetailView({
 
   const toggleFavorite = async () => {
     try {
-      await invoke<boolean>("language_toggle_favorite", { itemId: item.id });
+      await languageClient.toggleFavorite(item.id);
       onUpdated();
       void reload();
     } catch (error) {
@@ -63,9 +61,7 @@ export function WordDetailView({
 
   const setState = async (next: LearningStateKind) => {
     try {
-      await invoke<void>("language_set_state", {
-        request: { itemId: item.id, state: next },
-      });
+      await languageClient.setState(item.id, next);
       onUpdated();
       void reload();
     } catch (error) {
@@ -278,7 +274,7 @@ export function WordDetailView({
     // 简单实现：同页加载新词条（通过 key 变化触发 reload）
     setDetail(null);
     // 由 parent 持有 itemId；这里直接重新拉取
-    void invoke<WordDetail | null>("language_item", { id })
+    void languageClient.item(id)
       .then((result) => {
         if (result) setDetail(result);
       })

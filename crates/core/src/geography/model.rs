@@ -237,23 +237,6 @@ pub struct GeographyHome {
     pub map_lines: Vec<GeoMapLine>,
 }
 
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
-pub struct CompareMetric {
-    pub label: String,
-    pub key: String,
-    pub left: Option<String>,
-    pub right: Option<String>,
-    pub unit: Option<String>,
-}
-
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
-pub struct GeoCompareView {
-    pub left: GeoEntity,
-    pub right: GeoEntity,
-    pub metrics: Vec<CompareMetric>,
-    pub explanation: String,
-}
-
 #[cfg(test)]
 mod tests {
     use super::{CoordinateSystem, GeoCoordinate, GeoEntityType, GeoRelationKind};

@@ -1,4 +1,3 @@
-import { invoke } from "@tauri-apps/api/core";
 import { BookOpen, Heart, Star } from "@phosphor-icons/react";
 import { useCallback, useEffect, useState } from "react";
 import type {
@@ -9,6 +8,7 @@ import type {
 } from "../../types";
 import { errorMessage, isTauriRuntime } from "../../utils";
 import type { OpenDetail } from "./ExplorePanel";
+import { languageClient } from "./languageClient";
 import { stateLabel } from "./WordDetail";
 
 interface LibraryPanelProps {
@@ -33,9 +33,9 @@ export function LibraryPanel({
     if (!isTauriRuntime()) return;
     try {
       const [favs, prog, srcs] = await Promise.all([
-        invoke<LanguageItem[]>("language_favorites", { limit: 200 }),
-        invoke<ProgressView>("language_progress"),
-        invoke<SourceInfo[]>("language_sources"),
+        languageClient.favorites(200),
+        languageClient.progress(),
+        languageClient.sources(),
       ]);
       setFavorites(favs);
       setProgress(prog);

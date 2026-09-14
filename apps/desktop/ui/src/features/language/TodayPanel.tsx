@@ -1,4 +1,3 @@
-import { invoke } from "@tauri-apps/api/core";
 import {
   ArrowRight,
   CalendarCheck,
@@ -8,6 +7,7 @@ import {
 import { useCallback, useEffect, useState } from "react";
 import type { LanguageCode, SentenceRecord, TodayView } from "../../types";
 import { errorMessage, isTauriRuntime } from "../../utils";
+import { languageClient } from "./languageClient";
 import { speak } from "./tts";
 
 interface TodayPanelProps {
@@ -31,8 +31,8 @@ export function TodayPanel({
     if (!isTauriRuntime()) return;
     try {
       const [view, sentences] = await Promise.all([
-        invoke<TodayView>("language_today", { language }),
-        invoke<SentenceRecord[]>("language_sentences", { language, limit: 8 }),
+        languageClient.today(language),
+        languageClient.sentences(language, 8),
       ]);
       setToday(view);
       setDaily(sentences[0] ?? null);

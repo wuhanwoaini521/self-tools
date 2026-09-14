@@ -1,9 +1,9 @@
 use std::{
     fs,
-    path::{Path, PathBuf},
+    path::Path,
 };
 
-use serde::{Deserialize, Serialize};
+use devtoolbox_core::workspace::WorkspaceFile;
 
 use crate::{InfrastructureError, error::io_error};
 
@@ -18,12 +18,6 @@ const SKIP_DIRS: &[&str] = &[
     ".idea",
     ".vscode",
 ];
-
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct WorkspaceFile {
-    pub path: PathBuf,
-    pub relative_path: PathBuf,
-}
 
 #[must_use]
 fn is_markdown(path: &Path) -> bool {

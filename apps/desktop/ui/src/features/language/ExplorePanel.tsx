@@ -1,4 +1,3 @@
-import { invoke } from "@tauri-apps/api/core";
 import { MagnifyingGlass } from "@phosphor-icons/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type {
@@ -7,6 +6,7 @@ import type {
   LanguageSearchHit,
 } from "../../types";
 import { errorMessage, isTauriRuntime } from "../../utils";
+import { languageClient } from "./languageClient";
 
 export type OpenDetail = (id: string | null, reset: boolean) => void;
 
@@ -42,11 +42,7 @@ export function ExplorePanel({
       const seq = ++searchSeq.current;
       setSearching(true);
       try {
-        const result = await invoke<LanguageSearchHit[]>("language_search", {
-          language,
-          query: trimmed,
-          limit: 40,
-        });
+        const result = await languageClient.search(language, trimmed, 40);
         if (seq === searchSeq.current) {
           setHits(result);
           setSearched(true);

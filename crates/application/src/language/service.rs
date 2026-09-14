@@ -95,13 +95,6 @@ pub struct SourceInfo {
     pub manifest: Option<DatasetManifest>,
 }
 
-/// 数据包清单视图。
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
-pub struct ManifestInfo {
-    pub manifest: DatasetManifest,
-    pub item_count: i64,
-}
-
 /// 学习进度总览。
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct ProgressView {
@@ -321,22 +314,6 @@ impl LanguageService {
                 source,
                 item_count,
                 manifest,
-            });
-        }
-        Ok(result)
-    }
-
-    pub fn manifests(&self) -> Result<Vec<ManifestInfo>, ApplicationError> {
-        let store = self.store.lock().expect("language store poisoned");
-        let manifests = store.manifests().map_err(language_error)?;
-        let mut result = Vec::new();
-        for manifest in manifests {
-            let item_count = store
-                .count_by_source(&manifest.source_id)
-                .map_err(language_error)?;
-            result.push(ManifestInfo {
-                manifest,
-                item_count,
             });
         }
         Ok(result)

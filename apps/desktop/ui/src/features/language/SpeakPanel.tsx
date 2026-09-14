@@ -1,8 +1,8 @@
-import { invoke } from "@tauri-apps/api/core";
 import { Microphone, Play, Stop } from "@phosphor-icons/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { LanguageCode, SentenceRecord, SpeakingScore } from "../../types";
 import { errorMessage, isTauriRuntime } from "../../utils";
+import { languageClient } from "./languageClient";
 import { estimateSpeechMs, speak } from "./tts";
 
 interface SpeakPanelProps {
@@ -35,10 +35,7 @@ export function SpeakPanel({ language, setNotice }: SpeakPanelProps) {
         return;
       }
       try {
-        const rows = await invoke<SentenceRecord[]>("language_sentences", {
-          language,
-          limit: 12,
-        });
+        const rows = await languageClient.sentences(language, 12);
         const sentence =
           rows[Math.floor(Math.random() * Math.max(1, rows.length))] ?? null;
         setTarget(sentence);
@@ -90,15 +87,13 @@ export function SpeakPanel({ language, setNotice }: SpeakPanelProps) {
     if (!target) return;
     const targetMs = estimateSpeechMs(target.text, target.language);
     try {
-      const result = await invoke<SpeakingScore>("language_speaking_feedback", {
-        request: {
-          target: target.text,
-          transcript: transcript.trim() || target.text,
-          durationMs: recordedMs || targetMs,
-          targetMs,
-          longPausesMs: [],
-        },
-      });
+      const result = await languageClient.speakingFeedback(
+        target.text,
+        transcript.trim() || target.text,
+        recordedMs || targetMs,
+        targetMs,
+        [],
+      );
       setScore(result);
     } catch (error) {
       setNotice(errorMessage(error));

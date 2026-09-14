@@ -1,14 +1,14 @@
-import { invoke } from "@tauri-apps/api/core";
 import { Database, X } from "@phosphor-icons/react";
 import { useCallback, useEffect, useState } from "react";
 import type {
   GeographySettings,
   SourceInfo,
-  StarterReport,
   TravelSearchBackend,
   TravelSettings,
 } from "./types";
 import { loadAmap } from "./features/geography/AmapMap";
+import { languageClient } from "./features/language/languageClient";
+import { travelClient } from "./features/travel/travelClient";
 import { allThemes, getTheme } from "./theme/ThemeManager";
 import { errorMessage, isTauriRuntime } from "./utils";
 
@@ -69,12 +69,10 @@ export function SettingsDialog({
     try {
       const result =
         kind === "llm"
-          ? await invoke<string>("test_travel_llm", {
-              request: {
-                baseUrl: travel.llm_base_url ?? "",
-                apiKey: travel.llm_api_key,
-                model: travel.llm_model ?? "",
-              },
+          ? await travelClient.testLlm({
+              baseUrl: travel.llm_base_url ?? "",
+              apiKey: travel.llm_api_key,
+              model: travel.llm_model ?? "",
             })
           : kind === "geography-amap"
             ? await loadAmap(
@@ -82,14 +80,13 @@ export function SettingsDialog({
                 geography.amap_security_js_code ?? "",
               ).then(() => "Geography 高德 JS API 加载成功")
             : kind === "amap"
-              ? await invoke<string>("test_travel_amap", {
-                  request: { apiKey: travel.amap_api_key ?? "", apiHost: null },
+              ? await travelClient.testAmap({
+                  apiKey: travel.amap_api_key ?? "",
+                  apiHost: null,
                 })
-              : await invoke<string>("test_travel_qweather", {
-                  request: {
-                    apiKey: travel.qweather_api_key ?? "",
-                    apiHost: travel.qweather_api_host,
-                  },
+              : await travelClient.testQweather({
+                  apiKey: travel.qweather_api_key ?? "",
+                  apiHost: travel.qweather_api_host,
                 });
       setTestResults((current) => ({ ...current, [kind]: result }));
     } catch (error) {
@@ -454,7 +451,7 @@ function LanguageDataSection() {
   const reload = useCallback(async () => {
     if (!isTauriRuntime()) return;
     try {
-      setSources(await invoke<SourceInfo[]>("language_sources"));
+      setSources(await languageClient.sources());
     } catch {
       // 设置面板静默失败
     }
@@ -469,9 +466,7 @@ function LanguageDataSection() {
     setInstalling(true);
     setInstallNotice("");
     try {
-      const report = await invoke<StarterReport>("language_install_starter", {
-        only: null,
-      });
+      const report = await languageClient.installStarter();
       setInstallNotice(
         `已安装：+${report.total_inserted} 条，更新 ${report.total_updated} 条`,
       );

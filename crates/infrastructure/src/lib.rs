@@ -24,11 +24,16 @@ pub use history::{
 };
 pub use language::{LanguageStore, SearchHit, sources};
 pub use rss_store::{ArticleRow, FeedRepository, FeedRow, now_unix};
-pub use settings_store::{AppSettings, GeographySettings, SettingsStore, TravelSettings};
+pub use settings_store::SettingsStore;
 pub use travel::{
     AmapPoiProvider, HttpWebFetcher, LlmConfig, LlmProvider, OpenAiCompatibleLlmProvider,
     QWeatherProvider, SearchOptions, SearchProvider, TravelDataProvider, TravelDataRequest,
     TravelRoute, TravelRouteRequest, TravelSearchBackend, TravelStore, WebFetcher, build_providers,
     parse_amap_driving_route, providers_for,
 };
-pub use workspace_scanner::{WorkspaceFile, scan_markdown_files};
+pub use workspace_scanner::scan_markdown_files;
+
+// 应用级中性契约（历史记录 / 设置 / 工作区文件）由 core 持有；
+// 此处保留 re-export，使依赖 infrastructure 的代码无需改动。
+pub use devtoolbox_core::settings::{AppSettings, GeographySettings, TravelSettings};
+pub use devtoolbox_core::workspace::WorkspaceFile;

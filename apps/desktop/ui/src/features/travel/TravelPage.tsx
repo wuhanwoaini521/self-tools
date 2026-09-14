@@ -1,10 +1,10 @@
-import { invoke } from "@tauri-apps/api/core";
 import { ArrowsClockwise, CalendarBlank, Compass, MapPin, Sparkle } from "@phosphor-icons/react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { CityGuide, GuideSummary, TravelDateRange, TravelResearchEvent, TravelResearchSnapshot } from "../../types";
+import type { CityGuide, GuideSummary, TravelDateRange, TravelResearchEvent } from "../../types";
 import { errorMessage, isTauriRuntime } from "../../utils";
 import { TravelGuide } from "./TravelGuide";
 import { TravelProgress } from "./TravelProgress";
+import { travelClient } from "./travelClient";
 
 /**
  * Travel 模块（需求 #十四）：研究一个城市。
@@ -46,7 +46,7 @@ export function TravelPage({ active, setNotice }: TravelPageProps) {
   const reloadHistory = useCallback(async () => {
     if (!isTauriRuntime()) return;
     try {
-      const list = await invoke<GuideSummary[]>("travel_recent_guides");
+      const list = await travelClient.recentGuides();
       setHistory(list);
     } catch {
       // 历史加载失败保持安静
@@ -96,11 +96,11 @@ export function TravelPage({ active, setNotice }: TravelPageProps) {
         preferences,
         force,
       };
-      const id = await invoke<string>("travel_research_start", { request });
+      const id = await travelClient.researchStart(request);
       // 轮询进度直至完成
       const poll = async () => {
         try {
-          const snapshot = await invoke<TravelResearchSnapshot | null>("travel_research_progress", { sessionId: id });
+          const snapshot = await travelClient.researchProgress(id);
           if (!snapshot) { // 会话不存在（异常）→ 结束
             stopPolling(); setState("error"); setError("研究会话丢失，请重试。");
             return;
@@ -127,7 +127,7 @@ export function TravelPage({ active, setNotice }: TravelPageProps) {
   const openHistory = async (summary: GuideSummary) => {
     if (!isTauriRuntime()) return;
     try {
-      const loaded = await invoke<CityGuide | null>("travel_load_guide", { city: summary.city, days: summary.days, dateRange: summary.date_range });
+      const loaded = await travelClient.loadGuide(summary.city, summary.days, summary.date_range);
       if (loaded) { setCity(summary.city); setDays(summary.days); setTripStart(loaded.meta.date_range?.start ?? ""); setTripEnd(loaded.meta.date_range?.end ?? ""); setGuide(loaded); setEvents([]); setState("done"); setFromCache(false); }
       else setNotice("本地没有找到该攻略，可能已被清除。");
     } catch (openError) { setNotice(errorMessage(openError)); }

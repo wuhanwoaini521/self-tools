@@ -8,8 +8,8 @@ pub mod service;
 pub mod starter;
 
 pub use service::{
-    LanguageInfo, LanguageSearchHit, LanguageService, ManifestInfo, ProgressView, ReviewCard,
-    SourceInfo, TodayView, WordDetail,
+    LanguageInfo, LanguageSearchHit, LanguageService, ProgressView, ReviewCard, SourceInfo,
+    TodayView, WordDetail,
 };
 pub use starter::{DatasetReport, StarterReport, install_starter};
 

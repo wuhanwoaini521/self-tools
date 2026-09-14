@@ -1,4 +1,3 @@
-import { invoke } from "@tauri-apps/api/core";
 import { Check, Eye, Star, X } from "@phosphor-icons/react";
 import { useCallback, useEffect, useState } from "react";
 import type {
@@ -9,6 +8,7 @@ import type {
   ReviewRating,
 } from "../../types";
 import { errorMessage, isTauriRuntime } from "../../utils";
+import { languageClient } from "./languageClient";
 import { speak } from "./tts";
 import { stateLabel } from "./WordDetail";
 import type { OpenDetail } from "./ExplorePanel";
@@ -44,9 +44,7 @@ export function ReviewPanel({
     setOutcome(null);
     setRevealed(false);
     try {
-      const next = await invoke<ReviewCard | null>("language_review_next", {
-        language,
-      });
+      const next = await languageClient.reviewNext(language);
       if (next) {
         setCard(next);
         setEmpty(false);
@@ -66,9 +64,7 @@ export function ReviewPanel({
   const rate = async (rating: ReviewRating) => {
     if (!card) return;
     try {
-      const result = await invoke<ReviewOutcome>("language_review_rate", {
-        request: { itemId: card.item.id, rating },
-      });
+      const result = await languageClient.reviewRate(card.item.id, rating);
       setOutcome(result);
       onUpdated();
       // 短延迟后进入下一张
@@ -80,9 +76,7 @@ export function ReviewPanel({
 
   const mark = (state: LearningStateKind) => {
     if (!card) return;
-    void invoke<void>("language_set_state", {
-      request: { itemId: card.item.id, state },
-    }).catch((error) => setNotice(errorMessage(error)));
+    void languageClient.setState(card.item.id, state).catch((error) => setNotice(errorMessage(error)));
     onUpdated();
   };
 

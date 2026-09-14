@@ -4,12 +4,18 @@
 //! 桌面应用和回归测试共同复用。
 
 pub mod geography;
-pub mod history;
+pub mod history_records;
 pub mod language;
 pub mod parser;
+pub mod settings;
 pub mod task_state;
 pub mod travel;
+pub mod workspace;
 
+pub use settings::{
+    AppSettings, GeographySettings, MarkdownView, ThemeMode, TravelSearchBackend, TravelSettings,
+};
+pub use workspace::WorkspaceFile;
 pub use language::{
     LanguageCode, LanguageItem, LanguageItemType, LanguageMetadata, LearningState,
     LearningStateKind, ReviewRating, ReviewScheduler, SourceLicense, kana_to_romaji,

@@ -1,10 +1,10 @@
-import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { ArrowBendUpLeft, ArrowSquareOut, ArrowsClockwise, Check, Plus, Rss, TextT, TrashSimple } from "@phosphor-icons/react";
 import { useCallback, useEffect, useState, type MouseEvent } from "react";
 import type { ArticleDto, FeedDto } from "../../types";
 import { errorMessage, formatDateTime, formatRelativeTime, isTauriRuntime } from "../../utils";
 import { prepareRssContent, stripRssHtml } from "./rssContent";
+import { rssClient } from "./rssClient";
 
 /**
  * RSS Feature:订阅管理 + 文章列表 + 阅读面板。
@@ -54,7 +54,7 @@ export function RssPage({ active, version, refreshing, onRefresh, onFeedsChanged
   const loadFeeds = useCallback(async () => {
     if (!isTauriRuntime()) return;
     try {
-      const list = await invoke<FeedDto[]>("list_rss_feeds");
+      const list = await rssClient.listFeeds();
       setFeeds(list);
       onFeedsChanged(list);
     } catch (error) { setNotice(errorMessage(error)); }
@@ -63,7 +63,7 @@ export function RssPage({ active, version, refreshing, onRefresh, onFeedsChanged
   const loadArticles = useCallback(async (feedId: number) => {
     if (!isTauriRuntime()) return;
     try {
-      setArticles(await invoke<ArticleDto[]>("list_rss_articles", { feedId, limit: 200 }));
+      setArticles(await rssClient.listArticles(feedId, 200));
     } catch (error) { setNotice(errorMessage(error)); }
   }, [setNotice]);
 
@@ -91,7 +91,7 @@ export function RssPage({ active, version, refreshing, onRefresh, onFeedsChanged
   const markRead = useCallback(async (article: ArticleDto) => {
     if (article.is_read) return;
     try {
-      if (isTauriRuntime()) await invoke("mark_rss_article_read", { articleId: article.id });
+      if (isTauriRuntime()) await rssClient.markArticleRead(article.id);
       const readArticle = { ...article, is_read: true };
       setSelectedArticle(readArticle);
       setArticles((previous) => previous.map((item) => (item.id === article.id ? readArticle : item)));
@@ -113,7 +113,7 @@ export function RssPage({ active, version, refreshing, onRefresh, onFeedsChanged
     if (!url) return;
     setAdding(true);
     try {
-      const feed = await invoke<FeedDto>("add_rss_feed", { url });
+      const feed = await rssClient.addFeed(url);
       setNewUrl("");
       setNotice(`已订阅 ${feed.title}`);
       await loadFeeds();
@@ -124,7 +124,7 @@ export function RssPage({ active, version, refreshing, onRefresh, onFeedsChanged
   const deleteFeed = async (feed: FeedDto) => {
     if (!window.confirm(`确定取消订阅「${feed.title}」吗？其文章也会一并删除。`)) return;
     try {
-      await invoke("delete_rss_feed", { feedId: feed.id });
+      await rssClient.deleteFeed(feed.id);
       if (selectedFeedId === feed.id) { setSelectedFeedId(null); setArticles([]); setSelectedArticle(null); }
       setNotice(`已取消订阅 ${feed.title}`);
       await loadFeeds();
@@ -146,7 +146,7 @@ export function RssPage({ active, version, refreshing, onRefresh, onFeedsChanged
     if (!isTauriRuntime()) { window.open(article.url, "_blank"); return; }
     setFetchingArticle(true);
     try {
-      const html = await invoke<string>("fetch_article_url", { url: article.url });
+      const html = await rssClient.fetchArticle(article.url);
       const extracted = extractArticle(html);
       if (extracted.trim().length < 80) {
         setNotice("未能提取正文，页面可能需要登录或依赖脚本渲染。请在浏览器打开原文。");

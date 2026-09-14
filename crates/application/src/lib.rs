@@ -2,6 +2,8 @@
 
 pub mod error;
 pub mod geography;
+pub mod history;
+
 pub mod language;
 pub mod rss_workflows;
 pub mod travel;
@@ -9,9 +11,9 @@ pub mod workflows;
 
 pub use error::ApplicationError;
 pub use geography::{
-    GeoCompareView, GeoEntity, GeoEntityDetail, GeoEntityType, GeoMapLine, GeoMapPoint,
-    GeoRecommendation, GeoRelation, GeoRelationKind, GeoSearchGroup, GeoSource, GeographyHome,
-    GeographyService,
+    GeoEntity, GeoEntityDetail, GeoEntityType, GeoMapLine, GeoMapPoint, GeoRecommendation,
+    GeoRelation, GeoRelationKind, GeoSearchGroup, GeoSource, GeographyHome, GeographyPortError,
+    GeographyQueryPort, GeographyService,
 };
 pub use language::{LanguageInfo, LanguageSearchHit, LanguageService, TodayView};
 pub use rss_workflows::{
@@ -21,6 +23,6 @@ pub use rss_workflows::{
 };
 pub use travel::{TravelResearchRequest, TravelResearchService};
 pub use workflows::{
-    DocumentDto, convert_lines_to_tasks, cycle_lines, load_document, load_settings, save_document,
-    save_settings, scan_workspace,
+    DocumentDto, cycle_lines, load_document, load_settings, save_document, save_settings,
+    scan_workspace,
 };

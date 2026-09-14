@@ -1,4 +1,3 @@
-import { invoke } from "@tauri-apps/api/core";
 import {
   Compass,
   Gear,
@@ -19,7 +18,12 @@ import {
   type MarkdownIntent,
 } from "./features/markdown/MarkdownPage";
 import { RssPage, type RssIntent } from "./features/rss/RssPage";
+import { rssClient } from "./features/rss/rssClient";
+import { languageClient } from "./features/language/languageClient";
+import { settingsClient } from "./settingsClient";
 import { HistoryPage } from "./features/history/HistoryPage";
+import { historyClient } from "./features/history/historyClient";
+import { geographyClient } from "./features/geography/geographyClient";
 import { LanguagePage } from "./features/language/LanguagePage";
 import { TravelPage } from "./features/travel/TravelPage";
 import { GeographyPage } from "./features/geography/GeographyPage";
@@ -142,7 +146,7 @@ export default function App() {
     setSettings(next);
     if (!isTauriRuntime()) return;
     try {
-      await invoke("put_settings", { settings: next });
+      await settingsClient.put(next);
     } catch (error) {
       setNotice(errorMessage(error));
     }
@@ -150,7 +154,8 @@ export default function App() {
 
   useEffect(() => {
     if (!isTauriRuntime()) return;
-    void invoke<AppSettings>("get_settings")
+    void settingsClient
+      .get()
       .then((loaded) => {
         setSettings(loaded);
         setThemeId(getTheme(loaded.ui_theme).id);
@@ -165,9 +170,7 @@ export default function App() {
   const reloadLatest = useCallback(async () => {
     if (!isTauriRuntime()) return;
     try {
-      setLatestArticles(
-        await invoke<ArticleDto[]>("latest_rss_articles", { limit: 6 }),
-      );
+      setLatestArticles(await rssClient.latestArticles(6));
     } catch {
       /* 首页数据加载失败保持安静 */
     }
@@ -176,10 +179,10 @@ export default function App() {
   const reloadHomeKnowledge = useCallback(async () => {
     if (!isTauriRuntime()) return;
     const [geography, history, today, review] = await Promise.allSettled([
-      invoke<GeographyHome>("geography_home", { cursor: 0 }),
-      invoke<SemanticHistoryHome>("history_semantic_home"),
-      invoke<TodayView>("language_today", { language: "jpn" }),
-      invoke<ReviewCard | null>("language_review_next", { language: "jpn" }),
+      geographyClient.home(0),
+      historyClient.home(),
+      languageClient.today("jpn"),
+      languageClient.reviewNext("jpn"),
     ]);
     if (geography.status === "fulfilled") setGeographyHome(geography.value);
     if (history.status === "fulfilled") setHistoryHome(history.value);
@@ -197,8 +200,7 @@ export default function App() {
       if (!isTauriRuntime()) return;
       setRssRefreshing(true);
       try {
-        const report =
-          await invoke<import("./types").RefreshReport>("refresh_rss_feeds");
+        const report = await rssClient.refreshFeeds();
         setRssVersion((value) => value + 1);
         void reloadLatest();
         if (!silent) {

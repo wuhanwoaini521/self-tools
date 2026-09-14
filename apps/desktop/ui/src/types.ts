@@ -76,11 +76,6 @@ export interface RefreshReport {
   failures: { feed_title: string; message: string }[];
 }
 
-export interface CommandFailure {
-  code: string;
-  message: string;
-}
-
 // ---------- Travel ----------
 
 export type ContentState = "full" | "snippet_only" | "unavailable";
@@ -342,164 +337,6 @@ export interface CityGuide {
 
 // ---------- History ----------
 
-export type HistoryNodeKind =
-  | "person"
-  | "event"
-  | "dynasty"
-  | "place"
-  | "war"
-  | "institution"
-  | "artifact"
-  | "culture";
-export type HistoryRelationKind =
-  | "occurred_in"
-  | "participated_in"
-  | "belongs_to"
-  | "cause"
-  | "consequence"
-  | "related_to"
-  | "family"
-  | "political_ally"
-  | "political_opponent"
-  | "monarch_minister"
-  | "military_opponent"
-  | "predecessor"
-  | "successor";
-export type SourceAuthority =
-  | "official"
-  | "museum"
-  | "academic"
-  | "reference"
-  | "general";
-
-export interface HistorySection {
-  title: string;
-  items: string[];
-}
-export interface HistoryPeriod {
-  id: string;
-  name: string;
-  start_year: number;
-  end_year: number;
-  summary: string;
-}
-export interface HistoryNode {
-  id: string;
-  kind: HistoryNodeKind;
-  title: string;
-  period_id: string | null;
-  start_year: number | null;
-  end_year: number | null;
-  summary: string;
-  tags: string[];
-  source_ids: string[];
-}
-export interface HistorySearchGroup {
-  kind: HistoryNodeKind;
-  items: HistoryNode[];
-}
-export interface HistoryRelation {
-  from_id: string;
-  to_id: string;
-  kind: HistoryRelationKind;
-  note: string | null;
-}
-export interface HistoryRelationView {
-  relation: HistoryRelation;
-  node: HistoryNode;
-}
-export interface HistorySource {
-  id: string;
-  title: string;
-  url: string;
-  source_type: string;
-  authority: SourceAuthority;
-  published_at: number | null;
-  fetched_at: number | null;
-}
-export interface DynastyDetail {
-  detail_type: "dynasty";
-  name: string;
-  start_year: number;
-  end_year: number;
-  capital: string | null;
-  regime_type: string;
-  overview: string;
-  sections: HistorySection[];
-}
-export interface PersonDetail {
-  detail_type: "person";
-  name: string;
-  born_year: number | null;
-  died_year: number | null;
-  identities: string[];
-  biography: string[];
-  achievements: string[];
-  controversies: string[];
-}
-export interface EventDetail {
-  detail_type: "event";
-  name: string;
-  start_year: number;
-  end_year: number | null;
-  overview: string;
-  background: string[];
-  trigger: string | null;
-  course: string[];
-  results: string[];
-  impacts: string[];
-  debates: string[];
-}
-export interface PlaceDetail {
-  detail_type: "place";
-  name: string;
-  modern_name: string | null;
-  latitude: number | null;
-  longitude: number | null;
-  overview: string;
-  historical_names: string[];
-}
-export interface InstitutionDetail {
-  detail_type: "institution";
-  name: string;
-  overview: string;
-  key_points: string[];
-}
-export interface ArtifactDetail {
-  detail_type: "artifact";
-  name: string;
-  overview: string;
-  collection: string | null;
-}
-export interface TopicDetail {
-  detail_type: "topic";
-  overview: string;
-  key_points: string[];
-}
-export type HistoryDetail =
-  | DynastyDetail
-  | PersonDetail
-  | EventDetail
-  | PlaceDetail
-  | InstitutionDetail
-  | ArtifactDetail
-  | TopicDetail;
-export interface HistoryDocument {
-  node: HistoryNode;
-  detail: HistoryDetail;
-}
-export interface HistoryDetailView {
-  document: HistoryDocument;
-  relations: HistoryRelationView[];
-  sources: HistorySource[];
-}
-export interface HistoryHome {
-  timeline: HistoryPeriod[];
-  recommendation: HistoryNode;
-  discoveries: HistoryNode[];
-  recent: HistoryNode[];
-  favorite_ids: string[];
-}
 export interface SemanticHistoryHome {
   periods: { id: string; name_zh_cn: string; start_year: number | null; end_year: number | null }[];
   stories: { id: string; title_zh_cn: string; summary_zh_cn?: string | null; usable?: boolean | null }[];
@@ -641,19 +478,6 @@ export interface GeographyHome {
   favorite_ids: string[];
   map_points: GeoMapPoint[];
   map_lines: GeoMapLine[];
-}
-export interface CompareMetric {
-  label: string;
-  key: string;
-  left: string | null;
-  right: string | null;
-  unit: string | null;
-}
-export interface GeoCompareView {
-  left: GeoEntity;
-  right: GeoEntity;
-  metrics: CompareMetric[];
-  explanation: string;
 }
 
 // ---------- Language ----------
@@ -845,10 +669,6 @@ export interface SourceInfo {
   source: LanguageSource;
   item_count: number;
   manifest: DatasetManifest | null;
-}
-export interface ManifestInfo {
-  manifest: DatasetManifest;
-  item_count: number;
 }
 export interface DatasetReport {
   id: string;

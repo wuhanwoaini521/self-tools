@@ -1,4 +1,3 @@
-import { invoke } from "@tauri-apps/api/core";
 import {
   ArrowRight,
   BookmarkSimple,
@@ -29,6 +28,7 @@ import type {
   GeographyHome,
 } from "../../types";
 import { errorMessage, isTauriRuntime } from "../../utils";
+import { geographyClient } from "./geographyClient";
 import { AmapRegionMap } from "./AmapRegionMap";
 import { GeoMap, type GeoMapLayer } from "./GeoMap";
 import { Landform3DViewer } from "./Landform3DViewer";
@@ -886,7 +886,7 @@ export function GeographyPage({
       return;
     }
     try {
-      setHome(await invoke<GeographyHome>("geography_home", { cursor: 0 }));
+      setHome(await geographyClient.home(0));
     } catch (error) {
       setNotice(errorMessage(error));
     }
@@ -902,9 +902,9 @@ export function GeographyPage({
         return;
       }
       try {
-        setDetail(
-          await invoke<GeoEntityDetail | null>("geography_detail", { id }),
-        );
+setDetail(
+        await geographyClient.detail(id),
+      );
       } catch (error) {
         setNotice(errorMessage(error));
       }
@@ -933,11 +933,7 @@ export function GeographyPage({
     }
     try {
       setSearchGroups(
-        await invoke<GeoSearchGroup[]>("geography_search", {
-          query,
-          entityType: null,
-          limit: 30,
-        }),
+        await geographyClient.search(query, null, 30),
       );
     } catch (error) {
       setNotice(errorMessage(error));
@@ -961,9 +957,7 @@ export function GeographyPage({
       return;
     }
     try {
-      const favorite = await invoke<boolean>("geography_toggle_favorite", {
-        id: detail.entity.id,
-      });
+      const favorite = await geographyClient.toggleFavorite(detail.entity.id);
       setDetail({ ...detail, favorite });
       setHome((current) =>
         current

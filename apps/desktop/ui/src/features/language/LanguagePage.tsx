@@ -1,4 +1,3 @@
-import { invoke } from "@tauri-apps/api/core";
 import {
   BookOpen,
   CalendarCheck,
@@ -16,11 +15,10 @@ import type {
   LearningStateKind,
   ReviewRating,
   SpeakingScore,
-  StarterReport,
-  TodayView,
   WordDetail,
 } from "../../types";
 import { errorMessage, isTauriRuntime } from "../../utils";
+import { languageClient } from "./languageClient";
 import { ExplorePanel, type OpenDetail } from "./ExplorePanel";
 import { LibraryPanel } from "./LibraryPanel";
 import { ListenPanel } from "./ListenPanel";
@@ -68,8 +66,8 @@ export function LanguagePage({ active, setNotice, intent }: LanguagePageProps) {
     if (!isTauriRuntime()) return;
     try {
       const [info, today] = await Promise.all([
-        invoke<LanguageInfo[]>("language_languages"),
-        invoke<TodayView>("language_today", { language }),
+        languageClient.languages(),
+        languageClient.today(language),
       ]);
       setLanguages(info);
       setHasData(info.some((item) => item.total > 0));
@@ -93,9 +91,7 @@ export function LanguagePage({ active, setNotice, intent }: LanguagePageProps) {
     if (!isTauriRuntime() || installing) return;
     setInstalling(true);
     try {
-      const report = await invoke<StarterReport>("language_install_starter", {
-        only: null,
-      });
+      const report = await languageClient.installStarter();
       setNotice(
         `Starter Pack 安装完成：+${report.total_inserted} 条（更新 ${report.total_updated}）`,
       );

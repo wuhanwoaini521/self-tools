@@ -2,7 +2,6 @@ import "@fontsource/manrope/400.css";
 import "@fontsource/manrope/500.css";
 import "@fontsource/manrope/600.css";
 import "@fontsource/manrope/700.css";
-import { invoke } from "@tauri-apps/api/core";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import CodeMirror, { type ReactCodeMirrorRef } from "@uiw/react-codemirror";
 import { markdown } from "@codemirror/lang-markdown";
@@ -14,7 +13,9 @@ import {
 } from "@phosphor-icons/react";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import type { AppSettings, DocumentDto, WorkspaceFile } from "../../types";
-import { errorMessage, fileName, isTauriRuntime } from "../../utils";
+import { errorMessage, fileName } from "../../utils";
+import { workspaceClient } from "../../workspaceClient";
+import { markdownClient } from "./markdownClient";
 
 /** ============================================================
  * Markdown Feature：编辑、工作区文件树、任务大纲、快捷键。
@@ -135,7 +136,7 @@ export function MarkdownPage({ settings, onSettingsChange, setNotice, active, in
   /** 正在拖拽的分隔条(驱动 active 高亮,拖动期间保持可见)。 */
   const [resizingBar, setResizingBar] = useState<"sidebar" | "outline" | null>(null);
 
-  const refreshWorkspace = useCallback(async (folder: string | null) => { if (!folder) { setWorkspaceFiles([]); return; } setWorkspaceFiles(await invoke<WorkspaceFile[]>("list_workspace", { path: folder })); }, []);
+  const refreshWorkspace = useCallback(async (folder: string | null) => { if (!folder) { setWorkspaceFiles([]); return; } setWorkspaceFiles(await workspaceClient.list(folder)); }, []);
 
   // 设置加载完成后,一次性初始化工作区(undefined = 设置尚未就绪)。
   useEffect(() => {
@@ -199,7 +200,7 @@ export function MarkdownPage({ settings, onSettingsChange, setNotice, active, in
       return;
     }
     try {
-      await invoke("write_document", { path: target, text: content });
+      await markdownClient.write(target, content);
       const next = { ...settings, recent_files: [target, ...settings.recent_files.filter((item) => item !== target)].slice(0, 10) };
       onSettingsChange(next);
       setDirty(false); setNotice("Saved " + target.split(/[\\/]/).pop());
@@ -209,7 +210,7 @@ export function MarkdownPage({ settings, onSettingsChange, setNotice, active, in
   const loadPath = useCallback(async (selected: string) => {
     try {
       if (dirty && !window.confirm("当前文档有未保存的修改，仍然打开新文档吗？")) return;
-      const document = await invoke<DocumentDto>("read_document", { path: selected });
+      const document = await markdownClient.read(selected);
       setPath(document.path); setText(document.text); setDirty(false);
     } catch (error) { setNotice(errorMessage(error)); }
   }, [dirty, setNotice]);
@@ -241,7 +242,7 @@ export function MarkdownPage({ settings, onSettingsChange, setNotice, active, in
     const source = editor.state.doc.toString(); const lines = source.split("\n"); const line = lines[lineNumber];
     if (line === undefined) return;
     try {
-      const result = await invoke<string[]>("cycle_task_lines", { lines: [line], step: 1 });
+      const result = await markdownClient.cycleTaskLines([line], 1);
       const from = lines.slice(0, lineNumber).reduce((offset, current) => offset + current.length + 1, 0);
       editor.dispatch({ changes: { from, to: from + line.length, insert: result[0] }, selection: { anchor: from }, userEvent: "input.task-cycle" }); editor.focus();
     } catch (error) { setNotice(errorMessage(error)); }

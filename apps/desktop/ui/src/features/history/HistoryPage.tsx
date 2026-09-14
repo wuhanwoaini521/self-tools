@@ -1,9 +1,19 @@
-import { invoke } from "@tauri-apps/api/core";
 import { ArrowLeft, ArrowRight, BookOpen, CalendarBlank, CaretRight, CheckCircle, Clock, Funnel, MagnifyingGlass, MapPin, Scroll, SealCheck, UsersThree, WarningCircle, X } from "@phosphor-icons/react";
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type ReactNode, type RefObject } from "react";
 import { errorMessage, isTauriRuntime } from "../../utils";
+import { historyClient } from "./historyClient";
 import type { SemanticEventDetail, SemanticEventEvidence, SemanticEventPlace, SemanticEventRelation, SemanticHistoricalText, SemanticHome, SemanticPeriod, SemanticPeriodDetail, SemanticPeriodEvent, SemanticPeriodPerson, SemanticPersonDetail, SemanticRegime, SemanticSearchGroup, SemanticSearchHit, SemanticSource, SemanticStory, SemanticStoryDetail, SemanticWorkDetail } from "./semanticTypes";
-import type { HistoryGeoNavigationRequest } from "./types/history";
+
+/** 跨 Feature 的「在地图中查看」请求（低耦合 adapter，不硬编码 Geography 内部）。 */
+export interface HistoryGeoNavigationRequest {
+  mode: "history";
+  entityType: "place" | "war" | "route" | "territory" | "city" | "person";
+  entityId: string;
+  entityName: string;
+  /** 可选经纬度，便于将来直接定位 */
+  longitude?: number | null;
+  latitude?: number | null;
+}
 
 type DrawerState =
   | { kind: "event"; data: SemanticEventDetail }
@@ -66,39 +76,39 @@ export function HistoryPage({ active, setNotice, intent }: { active: boolean; se
   const loadHome = useCallback(async () => {
     if (!isTauriRuntime()) return;
     setLoading(true); setError("");
-    try { setHome(normalizeHome(await invoke<SemanticHome | null>("history_semantic_home"))); }
+    try { setHome(normalizeHome(await historyClient.home())); }
     catch (cause) { const message = errorMessage(cause); setError(message); setNotice(message); }
     finally { setHomeLoaded(true); setLoading(false); }
   }, [setNotice]);
   const loadPeriod = useCallback(async (periodId: string) => {
     if (!isTauriRuntime()) return;
     setPeriodDetail(null);
-    try { setPeriodDetail(normalizePeriodDetail(await invoke<SemanticPeriodDetail | null>("history_semantic_period", { periodId }))); }
+    try { setPeriodDetail(normalizePeriodDetail(await historyClient.periodDetail(periodId))); }
     catch (cause) { setNotice(errorMessage(cause)); }
   }, [setNotice]);
   const loadStory = useCallback(async (storyId: string) => {
     if (!isTauriRuntime()) return;
-    try { const story = await invoke<SemanticStoryDetail | null>("history_semantic_story", { storyId }); if (story) { setSelectedStory(story); setDrawer(null); } }
+    try { const story = await historyClient.storyDetail(storyId); if (story) { setSelectedStory(story); setDrawer(null); } }
     catch (cause) { setNotice(errorMessage(cause)); }
   }, [setNotice]);
   const loadEvent = useCallback(async (eventId: string) => {
     if (!isTauriRuntime()) return;
     setDrawerLoading(true);
-    try { const event = await invoke<SemanticEventDetail | null>("history_semantic_event", { eventId }); if (event) setDrawer({ kind: "event", data: event }); }
+    try { const event = await historyClient.eventDetail(eventId); if (event) setDrawer({ kind: "event", data: event }); }
     catch (cause) { setNotice(errorMessage(cause)); }
     finally { setDrawerLoading(false); }
   }, [setNotice]);
   const loadPerson = useCallback(async (personId: string) => {
     if (!isTauriRuntime()) return;
     setDrawerLoading(true);
-    try { const person = await invoke<SemanticPersonDetail | null>("history_semantic_person", { personId }); if (person) setDrawer({ kind: "person", data: person }); else setNotice("未找到该人物的详情资料。"); }
+    try { const person = await historyClient.personDetail(personId); if (person) setDrawer({ kind: "person", data: person }); else setNotice("未找到该人物的详情资料。"); }
     catch (cause) { setNotice(errorMessage(cause)); }
     finally { setDrawerLoading(false); }
   }, [setNotice]);
   const loadWork = useCallback(async (workId: string) => {
     if (!isTauriRuntime()) return;
     setDrawerLoading(true);
-    try { const work = await invoke<SemanticWorkDetail | null>("history_semantic_work", { workId }); const detail = normalizeWorkDetail(work); if (detail) setDrawer({ kind: "work", data: detail }); else setNotice("未找到该作品的详情资料。"); }
+    try { const work = await historyClient.workDetail(workId); const detail = normalizeWorkDetail(work); if (detail) setDrawer({ kind: "work", data: detail }); else setNotice("未找到该作品的详情资料。"); }
     catch (cause) { setNotice(errorMessage(cause)); }
     finally { setDrawerLoading(false); }
   }, [setNotice]);
@@ -115,7 +125,7 @@ export function HistoryPage({ active, setNotice, intent }: { active: boolean; se
   useEffect(() => { if (!intent?.id || !active || !homeLoaded) return; if (homeStories.some((story) => story.id === intent.id)) void loadStory(intent.id); else void loadEvent(intent.id); }, [active, homeLoaded, homeStories, intent, loadEvent, loadStory]);
   useEffect(() => {
     const text = query.trim(); if (!text || !isTauriRuntime()) { setSearchGroups([]); setSearching(false); return; }
-    let cancelled = false; const timer = window.setTimeout(() => { setSearching(true); void invoke<SemanticSearchGroup[]>("history_semantic_search", { query: text }).then((groups) => { if (!cancelled) setSearchGroups(groups); }).catch((cause) => { if (!cancelled) setNotice(errorMessage(cause)); }).finally(() => { if (!cancelled) setSearching(false); }); }, 180);
+    let cancelled = false; const timer = window.setTimeout(() => { setSearching(true); void historyClient.search(text).then((groups) => { if (!cancelled) setSearchGroups(groups); }).catch((cause) => { if (!cancelled) setNotice(errorMessage(cause)); }).finally(() => { if (!cancelled) setSearching(false); }); }, 180);
     return () => { cancelled = true; window.clearTimeout(timer); };
   }, [query, setNotice]);
   const choosePeriod = useCallback((period: SemanticPeriod) => { setSelectedPeriodId(period.id); setSelectedStory(null); setDrawer(null); }, []);
