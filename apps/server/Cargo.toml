@@ -1,0 +1,23 @@
+[package]
+name = "devtoolbox-server"
+description = "Self Tools 极简 HTTP 服务（Gate 9 试点：只读 History 知识库）"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+devtoolbox-application = { path = "../../crates/application" }
+devtoolbox-core = { path = "../../crates/core" }
+devtoolbox-infrastructure = { path = "../../crates/infrastructure" }
+axum = "0.8"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal", "net"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+[dev-dependencies]
+tower = { version = "0.5", features = ["util"] }
+
+[lints]
+workspace = true

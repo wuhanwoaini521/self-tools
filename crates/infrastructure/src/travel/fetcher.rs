@@ -10,8 +10,7 @@ use std::sync::OnceLock;
 use async_trait::async_trait;
 use regex::Regex;
 
-use crate::error::InfrastructureError;
-use devtoolbox_core::travel::{ContentState, TravelDocument};
+use devtoolbox_core::travel::{ContentState, ProviderError, TravelDocument, WebFetcher};
 
 const FETCH_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(15);
 const MAX_BODY_BYTES: usize = 5 * 1024 * 1024;
@@ -20,12 +19,6 @@ const USER_AGENT: &str = concat!(
     env!("CARGO_PKG_VERSION"),
     " (+travel research)"
 );
-
-/// 网页抓取接口（可 mock）。
-#[async_trait]
-pub trait WebFetcher: Send + Sync {
-    async fn fetch(&self, url: &str) -> Result<TravelDocument, InfrastructureError>;
-}
 
 /// 普通 HTTP 抓取器。
 pub struct HttpWebFetcher {
@@ -41,10 +34,10 @@ impl HttpWebFetcher {
 
 #[async_trait]
 impl WebFetcher for HttpWebFetcher {
-    async fn fetch(&self, url: &str) -> Result<TravelDocument, InfrastructureError> {
+    async fn fetch(&self, url: &str) -> Result<TravelDocument, ProviderError> {
         let trimmed = url.trim().to_string();
         if !(trimmed.starts_with("http://") || trimmed.starts_with("https://")) {
-            return Err(InfrastructureError::TravelFetch(format!(
+            return Err(ProviderError::fetch(format!(
                 "invalid url: {trimmed}"
             )));
         }
@@ -56,9 +49,9 @@ impl WebFetcher for HttpWebFetcher {
             .timeout(FETCH_TIMEOUT)
             .send()
             .await
-            .map_err(|error| InfrastructureError::TravelFetch(error.to_string()))?;
+            .map_err(|error| ProviderError::fetch(error.to_string()))?;
         if !response.status().is_success() {
-            return Err(InfrastructureError::TravelFetch(format!(
+            return Err(ProviderError::fetch(format!(
                 "server returned {}",
                 response.status()
             )));
@@ -66,7 +59,7 @@ impl WebFetcher for HttpWebFetcher {
         let bytes = response
             .bytes()
             .await
-            .map_err(|error| InfrastructureError::TravelFetch(error.to_string()))?;
+            .map_err(|error| ProviderError::fetch(error.to_string()))?;
         let bytes = &bytes[..bytes.len().min(MAX_BODY_BYTES)];
         // 编码探测：BOM > meta charset > 默认 UTF-8（兼容 GBK 中文站）
         let encoding = detect_encoding(bytes);

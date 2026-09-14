@@ -6,18 +6,50 @@
 use std::io::Read;
 use std::path::Path;
 
-use devtoolbox_infrastructure::language::LanguageStore;
-use devtoolbox_infrastructure::language::import::{
+/// 导入工作流错误（Gate 7.5：随 CLI 工作流迁入基础设施层）。
+#[derive(Debug)]
+pub enum ImportingError {
+    /// 许可证 / 解析 / IO 错误（此前 `ApplicationError::License` 的文本语义）。
+    License(String),
+    /// 存储层错误。
+    Store(crate::error::InfrastructureError),
+}
+
+impl std::fmt::Display for ImportingError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::License(text) => write!(formatter, "{text}"),
+            Self::Store(source) => write!(formatter, "{source}"),
+        }
+    }
+}
+
+impl std::error::Error for ImportingError {}
+
+impl From<crate::error::InfrastructureError> for ImportingError {
+    fn from(source: crate::error::InfrastructureError) -> Self {
+        Self::Store(source)
+    }
+}
+
+impl From<ImportError> for ImportingError {
+    fn from(source: ImportError) -> Self {
+        Self::License(source.to_string())
+    }
+}
+
+use crate::language::LanguageStore;
+use crate::language::import::{
     ImportError, ImportReport, cc_canto, cedict, cmudict, import_into, jmdict, kanjidic2, oewn,
     sources, tatoeba, words_hk,
 };
 
-use crate::ApplicationError;
+
 
 /// 读取文件内容；`.gz` 自动解压（flate2），其余按 UTF-8 原样读。
-pub fn read_raw(path: &Path) -> Result<String, ApplicationError> {
+pub fn read_raw(path: &Path) -> Result<String, ImportingError> {
     let bytes =
-        std::fs::read(path).map_err(|error| ApplicationError::License(error.to_string()))?;
+        std::fs::read(path).map_err(|error| ImportingError::License(error.to_string()))?;
     if path
         .extension()
         .and_then(|ext| ext.to_str())
@@ -27,10 +59,10 @@ pub fn read_raw(path: &Path) -> Result<String, ApplicationError> {
         let mut text = String::new();
         decoder
             .read_to_string(&mut text)
-            .map_err(|error| ApplicationError::License(error.to_string()))?;
+            .map_err(|error| ImportingError::License(error.to_string()))?;
         Ok(text)
     } else {
-        String::from_utf8(bytes).map_err(|error| ApplicationError::License(error.to_string()))
+        String::from_utf8(bytes).map_err(|error| ImportingError::License(error.to_string()))
     }
 }
 
@@ -38,17 +70,17 @@ pub fn read_raw(path: &Path) -> Result<String, ApplicationError> {
 type JsonChunks = Vec<(&'static str, String)>;
 
 /// 读取 OEWN zip 内的 JSON 文件（entries-* 与义项文件）。
-fn read_oewn_zip(zip_path: &Path) -> Result<(JsonChunks, JsonChunks), ApplicationError> {
+fn read_oewn_zip(zip_path: &Path) -> Result<(JsonChunks, JsonChunks), ImportingError> {
     let file = std::fs::File::open(zip_path)
-        .map_err(|error| ApplicationError::License(error.to_string()))?;
+        .map_err(|error| ImportingError::License(error.to_string()))?;
     let mut archive =
-        zip::ZipArchive::new(file).map_err(|error| ApplicationError::License(error.to_string()))?;
+        zip::ZipArchive::new(file).map_err(|error| ImportingError::License(error.to_string()))?;
     let mut entries = Vec::new();
     let mut synsets = Vec::new();
     for index in 0..archive.len() {
         let mut member = archive
             .by_index(index)
-            .map_err(|error| ApplicationError::License(error.to_string()))?;
+            .map_err(|error| ImportingError::License(error.to_string()))?;
         let name = member.name().to_string();
         if !name.ends_with(".json") || name.ends_with("frames.json") {
             continue;
@@ -56,7 +88,7 @@ fn read_oewn_zip(zip_path: &Path) -> Result<(JsonChunks, JsonChunks), Applicatio
         let mut content = String::new();
         member
             .read_to_string(&mut content)
-            .map_err(|error| ApplicationError::License(error.to_string()))?;
+            .map_err(|error| ImportingError::License(error.to_string()))?;
         if name.starts_with("entries-") {
             entries.push((leak_name(name.as_str()), content));
         } else {
@@ -64,7 +96,7 @@ fn read_oewn_zip(zip_path: &Path) -> Result<(JsonChunks, JsonChunks), Applicatio
         }
     }
     if entries.is_empty() || synsets.is_empty() {
-        return Err(ApplicationError::License(
+        return Err(ImportingError::License(
             "oewn zip 缺少 entries-*.json 或义项文件".to_string(),
         ));
     }
@@ -76,8 +108,8 @@ fn leak_name(name: &str) -> &'static str {
     Box::leak(name.to_string().into_boxed_str())
 }
 
-fn license_error(error: ImportError) -> ApplicationError {
-    ApplicationError::License(error.to_string())
+fn license_error(error: ImportError) -> ImportingError {
+    ImportingError::License(error.to_string())
 }
 
 /// English Core Pack（OEWN + CMUdict）。
@@ -86,15 +118,15 @@ pub fn import_english(
     oewn_path: &Path,
     cmudict_path: &Path,
     manifest_id: &str,
-) -> Result<(ImportReport, ImportReport), ApplicationError> {
-    let now = devtoolbox_infrastructure::now_unix();
+) -> Result<(ImportReport, ImportReport), ImportingError> {
+    let now = crate::now_unix();
     // OEWN
     let source = sources::open_english_wordnet();
     let (entry_chunks, synset_chunks) = if oewn_path.is_dir() {
         let mut entries = Vec::new();
         let mut synsets = Vec::new();
         let mut names: Vec<_> = std::fs::read_dir(oewn_path)
-            .map_err(|error| ApplicationError::License(error.to_string()))?
+            .map_err(|error| ImportingError::License(error.to_string()))?
             .filter_map(|entry| entry.ok())
             .map(|entry| entry.path())
             .collect();
@@ -132,7 +164,7 @@ pub fn import_english(
         Some(oewn_path.to_string_lossy().as_ref()),
         now,
     )
-    .map_err(ApplicationError::from)?;
+    .map_err(ImportingError::from)?;
     // CMUdict（挂 OEWN 词条 / 独立成词）
     let cmu_content = read_raw(cmudict_path)?;
     let cmu_source = sources::cmudict();
@@ -148,14 +180,14 @@ pub fn import_english(
         let wn_id = format!("wn:{}", base.to_lowercase());
         if store
             .item(&wn_id)
-            .map_err(ApplicationError::from)?
+            .map_err(ImportingError::from)?
             .is_some()
         {
             let mut pronunciation = item.pronunciations[0].clone();
             pronunciation.source = cmu_source.id.clone();
             store
                 .attach_pronunciation(&wn_id, &pronunciation, &cmu_source.id)
-                .map_err(ApplicationError::from)?;
+                .map_err(ImportingError::from)?;
         } else {
             standalone.push(item);
         }
@@ -169,7 +201,7 @@ pub fn import_english(
         Some(cmudict_path.to_string_lossy().as_ref()),
         now,
     )
-    .map_err(ApplicationError::from)?;
+    .map_err(ImportingError::from)?;
     Ok((oewn_report, cmu_report))
 }
 
@@ -177,8 +209,8 @@ pub fn import_japanese(
     store: &mut LanguageStore,
     jmdict_path: &Path,
     manifest_id: &str,
-) -> Result<ImportReport, ApplicationError> {
-    let now = devtoolbox_infrastructure::now_unix();
+) -> Result<ImportReport, ImportingError> {
+    let now = crate::now_unix();
     let source = sources::jmdict();
     let content = read_raw(jmdict_path)?;
     let items = jmdict::parse(&content).map_err(license_error)?;
@@ -191,15 +223,15 @@ pub fn import_japanese(
         Some(jmdict_path.to_string_lossy().as_ref()),
         now,
     )
-    .map_err(ApplicationError::from)
+    .map_err(ImportingError::from)
 }
 
 pub fn import_kanji(
     store: &mut LanguageStore,
     kanjidic2_path: &Path,
     manifest_id: &str,
-) -> Result<ImportReport, ApplicationError> {
-    let now = devtoolbox_infrastructure::now_unix();
+) -> Result<ImportReport, ImportingError> {
+    let now = crate::now_unix();
     let source = sources::kanjidic2();
     let content = read_raw(kanjidic2_path)?;
     let items = kanjidic2::parse(&content).map_err(license_error)?;
@@ -212,15 +244,15 @@ pub fn import_kanji(
         Some(kanjidic2_path.to_string_lossy().as_ref()),
         now,
     )
-    .map_err(ApplicationError::from)
+    .map_err(ImportingError::from)
 }
 
 pub fn import_mandarin(
     store: &mut LanguageStore,
     cedict_path: &Path,
     manifest_id: &str,
-) -> Result<ImportReport, ApplicationError> {
-    let now = devtoolbox_infrastructure::now_unix();
+) -> Result<ImportReport, ImportingError> {
+    let now = crate::now_unix();
     let source = sources::cc_cedict();
     let content = read_raw(cedict_path)?;
     let items = cedict::parse(&content).map_err(license_error)?;
@@ -233,7 +265,7 @@ pub fn import_mandarin(
         Some(cedict_path.to_string_lossy().as_ref()),
         now,
     )
-    .map_err(ApplicationError::from)
+    .map_err(ImportingError::from)
 }
 
 /// Cantonese Core Pack：words.hk word list + (可选) char list / english index / CC-Canto。
@@ -244,8 +276,8 @@ pub fn import_cantonese(
     english_index: Option<&Path>,
     cc_canto: Option<&Path>,
     manifest_id: &str,
-) -> Result<ImportReport, ApplicationError> {
-    let now = devtoolbox_infrastructure::now_unix();
+) -> Result<ImportReport, ImportingError> {
+    let now = crate::now_unix();
     let mut total = ImportReport::default();
     let source = sources::words_hk_word_list();
     let content = read_raw(words_hk_path)?;
@@ -259,7 +291,7 @@ pub fn import_cantonese(
         Some(words_hk_path.to_string_lossy().as_ref()),
         now,
     )
-    .map_err(ApplicationError::from)?;
+    .map_err(ImportingError::from)?;
     accumulate(&mut total, &report);
 
     if let Some(chars_path) = char_list {
@@ -275,7 +307,7 @@ pub fn import_cantonese(
             Some(chars_path.to_string_lossy().as_ref()),
             now,
         )
-        .map_err(ApplicationError::from)?;
+        .map_err(ImportingError::from)?;
         accumulate(&mut total, &report);
     }
     if let Some(index_path) = english_index {
@@ -285,11 +317,11 @@ pub fn import_cantonese(
         if !pairs.is_empty() {
             store
                 .attach_search_terms(&pairs)
-                .map_err(ApplicationError::from)?;
+                .map_err(ImportingError::from)?;
             let source = sources::words_hk_english_index();
             store
                 .upsert_source(&source)
-                .map_err(ApplicationError::from)?;
+                .map_err(ImportingError::from)?;
             store
                 .insert_manifest(&devtoolbox_core::language::DatasetManifest {
                     id: format!("{manifest_id}-english"),
@@ -304,7 +336,7 @@ pub fn import_cantonese(
                     importer_version: 1,
                     imported_at: now,
                 })
-                .map_err(ApplicationError::from)?;
+                .map_err(ImportingError::from)?;
             total.inserted += pairs.len() as i64;
         }
     }
@@ -321,7 +353,7 @@ pub fn import_cantonese(
             Some(cc_canto_path.to_string_lossy().as_ref()),
             now,
         )
-        .map_err(ApplicationError::from)?;
+        .map_err(ImportingError::from)?;
         accumulate(&mut total, &report);
     }
     Ok(total)
@@ -333,8 +365,8 @@ pub fn import_sentences(
     sentences_path: &Path,
     license: &str,
     manifest_id: &str,
-) -> Result<ImportReport, ApplicationError> {
-    let now = devtoolbox_infrastructure::now_unix();
+) -> Result<ImportReport, ImportingError> {
+    let now = crate::now_unix();
     let source = sources::tatoeba();
     let content = read_raw(sentences_path)?;
     let items = tatoeba::parse(&content, license).map_err(license_error)?;
@@ -347,7 +379,7 @@ pub fn import_sentences(
         Some(sentences_path.to_string_lossy().as_ref()),
         now,
     )
-    .map_err(ApplicationError::from)
+    .map_err(ImportingError::from)
 }
 
 fn accumulate(total: &mut ImportReport, report: &ImportReport) {

@@ -1,8 +1,7 @@
 //! History 用例层测试：Fake Port（不启动 DuckDB），验证聚合 / 分组 / 截断 /
 //! 来源 ID 合并 / period 解析 / 空结果与错误传播等用例决策。
 
-use std::cell::RefCell;
-use std::rc::Rc;
+use std::sync::{Arc, Mutex};
 
 use devtoolbox_core::history_records::{
     DatasetStats, EventEvidenceResult, EventHistoricalTextResult, EventPersonResult,
@@ -17,7 +16,7 @@ use super::HistoryQueryPort;
 use super::HistoryService;
 use crate::ApplicationError;
 
-type FakeLink = Rc<RefCell<FakePortData>>;
+type FakeLink = Arc<Mutex<FakePortData>>;
 
 // ---------- Fixture 构造（字段与 infra 结果类型一一对应） ----------
 
@@ -418,7 +417,7 @@ fn err() -> HistoryPortError {
 
 impl HistoryQueryPort for FakeLink {
     fn get_dataset_stats(&self) -> Result<DatasetStats, HistoryPortError> {
-        let mut port = self.borrow_mut();
+        let mut port = self.lock().expect("fake port poisoned");
         port.calls.push("get_dataset_stats");
         if port.fail {
             return Err(err());
@@ -426,7 +425,7 @@ impl HistoryQueryPort for FakeLink {
         Ok(port.stats.clone())
     }
     fn get_periods(&self) -> Result<Vec<PeriodResult>, HistoryPortError> {
-        let mut port = self.borrow_mut();
+        let mut port = self.lock().expect("fake port poisoned");
         port.calls.push("get_periods");
         if port.fail {
             return Err(err());
@@ -437,7 +436,7 @@ impl HistoryQueryPort for FakeLink {
         &self,
         _period_id: &str,
     ) -> Result<Vec<RegimeResult>, HistoryPortError> {
-        let mut port = self.borrow_mut();
+        let mut port = self.lock().expect("fake port poisoned");
         port.calls.push("get_regimes_by_period");
         if port.fail {
             return Err(err());
@@ -448,7 +447,7 @@ impl HistoryQueryPort for FakeLink {
         &self,
         _period_id: &str,
     ) -> Result<Vec<PeriodEventItem>, HistoryPortError> {
-        let mut port = self.borrow_mut();
+        let mut port = self.lock().expect("fake port poisoned");
         port.calls.push("get_events_for_period");
         if port.fail {
             return Err(err());
@@ -460,7 +459,7 @@ impl HistoryQueryPort for FakeLink {
         _period_id: &str,
         limit: i64,
     ) -> Result<Vec<PeriodPersonItem>, HistoryPortError> {
-        let mut port = self.borrow_mut();
+        let mut port = self.lock().expect("fake port poisoned");
         port.calls.push("get_people_for_period");
         port.people_period_limits.push(limit);
         if port.fail {
@@ -469,7 +468,7 @@ impl HistoryQueryPort for FakeLink {
         Ok(port.people_for_period.clone())
     }
     fn get_stories(&self) -> Result<Vec<StoryResult>, HistoryPortError> {
-        let mut port = self.borrow_mut();
+        let mut port = self.lock().expect("fake port poisoned");
         port.calls.push("get_stories");
         if port.fail {
             return Err(err());
@@ -480,7 +479,7 @@ impl HistoryQueryPort for FakeLink {
         &self,
         _period_id: Option<&str>,
     ) -> Result<Vec<StoryResult>, HistoryPortError> {
-        let mut port = self.borrow_mut();
+        let mut port = self.lock().expect("fake port poisoned");
         port.calls.push("get_stories_for_period");
         if port.fail {
             return Err(err());
@@ -488,7 +487,7 @@ impl HistoryQueryPort for FakeLink {
         Ok(port.stories_for_period.clone())
     }
     fn get_story(&self, _story_id: &str) -> Result<Option<StoryResult>, HistoryPortError> {
-        let mut port = self.borrow_mut();
+        let mut port = self.lock().expect("fake port poisoned");
         port.calls.push("get_story");
         if port.fail {
             return Err(err());
@@ -499,7 +498,7 @@ impl HistoryQueryPort for FakeLink {
         &self,
         _story_id: &str,
     ) -> Result<Vec<StoryEventResult>, HistoryPortError> {
-        let mut port = self.borrow_mut();
+        let mut port = self.lock().expect("fake port poisoned");
         port.calls.push("get_story_events");
         if port.fail {
             return Err(err());
@@ -510,7 +509,7 @@ impl HistoryQueryPort for FakeLink {
         &self,
         _story_id: &str,
     ) -> Result<Vec<EventPersonResult>, HistoryPortError> {
-        let mut port = self.borrow_mut();
+        let mut port = self.lock().expect("fake port poisoned");
         port.calls.push("get_story_people");
         if port.fail {
             return Err(err());
@@ -521,7 +520,7 @@ impl HistoryQueryPort for FakeLink {
         &self,
         _story_id: &str,
     ) -> Result<Vec<EventPlaceResult>, HistoryPortError> {
-        let mut port = self.borrow_mut();
+        let mut port = self.lock().expect("fake port poisoned");
         port.calls.push("get_story_places");
         if port.fail {
             return Err(err());
@@ -532,7 +531,7 @@ impl HistoryQueryPort for FakeLink {
         &self,
         _story_id: &str,
     ) -> Result<Vec<EventHistoricalTextResult>, HistoryPortError> {
-        let mut port = self.borrow_mut();
+        let mut port = self.lock().expect("fake port poisoned");
         port.calls.push("get_story_texts");
         if port.fail {
             return Err(err());
@@ -543,7 +542,7 @@ impl HistoryQueryPort for FakeLink {
         &self,
         _story_id: &str,
     ) -> Result<Vec<EventEvidenceResult>, HistoryPortError> {
-        let mut port = self.borrow_mut();
+        let mut port = self.lock().expect("fake port poisoned");
         port.calls.push("get_story_evidences");
         if port.fail {
             return Err(err());
@@ -551,7 +550,7 @@ impl HistoryQueryPort for FakeLink {
         Ok(port.story_evidences.clone())
     }
     fn get_event(&self, _event_id: &str) -> Result<Option<EventResult>, HistoryPortError> {
-        let mut port = self.borrow_mut();
+        let mut port = self.lock().expect("fake port poisoned");
         port.calls.push("get_event");
         if port.fail {
             return Err(err());
@@ -562,7 +561,7 @@ impl HistoryQueryPort for FakeLink {
         &self,
         _event_id: &str,
     ) -> Result<Vec<EventPersonResult>, HistoryPortError> {
-        let mut port = self.borrow_mut();
+        let mut port = self.lock().expect("fake port poisoned");
         port.calls.push("get_event_people");
         if port.fail {
             return Err(err());
@@ -573,7 +572,7 @@ impl HistoryQueryPort for FakeLink {
         &self,
         _event_id: &str,
     ) -> Result<Vec<EventPlaceResult>, HistoryPortError> {
-        let mut port = self.borrow_mut();
+        let mut port = self.lock().expect("fake port poisoned");
         port.calls.push("get_event_places");
         if port.fail {
             return Err(err());
@@ -584,7 +583,7 @@ impl HistoryQueryPort for FakeLink {
         &self,
         _event_id: &str,
     ) -> Result<Vec<EventRelationResult>, HistoryPortError> {
-        let mut port = self.borrow_mut();
+        let mut port = self.lock().expect("fake port poisoned");
         port.calls.push("get_event_relations");
         if port.fail {
             return Err(err());
@@ -595,7 +594,7 @@ impl HistoryQueryPort for FakeLink {
         &self,
         _event_id: &str,
     ) -> Result<Vec<EventHistoricalTextResult>, HistoryPortError> {
-        let mut port = self.borrow_mut();
+        let mut port = self.lock().expect("fake port poisoned");
         port.calls.push("get_event_texts");
         if port.fail {
             return Err(err());
@@ -606,7 +605,7 @@ impl HistoryQueryPort for FakeLink {
         &self,
         _event_id: &str,
     ) -> Result<Vec<EventEvidenceResult>, HistoryPortError> {
-        let mut port = self.borrow_mut();
+        let mut port = self.lock().expect("fake port poisoned");
         port.calls.push("get_event_evidences");
         if port.fail {
             return Err(err());
@@ -614,7 +613,7 @@ impl HistoryQueryPort for FakeLink {
         Ok(port.event_evidences.clone())
     }
     fn get_person(&self, _person_id: &str) -> Result<Option<PersonResult>, HistoryPortError> {
-        let mut port = self.borrow_mut();
+        let mut port = self.lock().expect("fake port poisoned");
         port.calls.push("get_person");
         if port.fail {
             return Err(err());
@@ -625,7 +624,7 @@ impl HistoryQueryPort for FakeLink {
         &self,
         _person_id: &str,
     ) -> Result<Vec<PersonRelationResult>, HistoryPortError> {
-        let mut port = self.borrow_mut();
+        let mut port = self.lock().expect("fake port poisoned");
         port.calls.push("get_person_relations");
         if port.fail {
             return Err(err());
@@ -636,7 +635,7 @@ impl HistoryQueryPort for FakeLink {
         &self,
         _person_id: &str,
     ) -> Result<Vec<PersonPlaceResult>, HistoryPortError> {
-        let mut port = self.borrow_mut();
+        let mut port = self.lock().expect("fake port poisoned");
         port.calls.push("get_person_places");
         if port.fail {
             return Err(err());
@@ -647,7 +646,7 @@ impl HistoryQueryPort for FakeLink {
         &self,
         _person_id: &str,
     ) -> Result<Vec<PersonEventResult>, HistoryPortError> {
-        let mut port = self.borrow_mut();
+        let mut port = self.lock().expect("fake port poisoned");
         port.calls.push("get_person_events");
         if port.fail {
             return Err(err());
@@ -658,7 +657,7 @@ impl HistoryQueryPort for FakeLink {
         &self,
         _person_id: &str,
     ) -> Result<Vec<PersonStoryResult>, HistoryPortError> {
-        let mut port = self.borrow_mut();
+        let mut port = self.lock().expect("fake port poisoned");
         port.calls.push("get_person_stories");
         if port.fail {
             return Err(err());
@@ -666,7 +665,7 @@ impl HistoryQueryPort for FakeLink {
         Ok(port.person_stories.clone())
     }
     fn get_work_by_id(&self, _work_id: &str) -> Result<Option<WorkResult>, HistoryPortError> {
-        let mut port = self.borrow_mut();
+        let mut port = self.lock().expect("fake port poisoned");
         port.calls.push("get_work_by_id");
         if port.fail {
             return Err(err());
@@ -674,7 +673,7 @@ impl HistoryQueryPort for FakeLink {
         Ok(port.work.clone())
     }
     fn get_work(&self, _title: &str, limit: i64) -> Result<Vec<WorkResult>, HistoryPortError> {
-        let mut port = self.borrow_mut();
+        let mut port = self.lock().expect("fake port poisoned");
         port.calls.push("get_work");
         port.search_limits.push(limit);
         if port.fail {
@@ -687,7 +686,7 @@ impl HistoryQueryPort for FakeLink {
         work: Option<&str>,
         limit: i64,
     ) -> Result<Vec<HistoricalTextResult>, HistoryPortError> {
-        let mut port = self.borrow_mut();
+        let mut port = self.lock().expect("fake port poisoned");
         port.calls.push("get_historical_texts");
         port.texts_queries.push((work.map(str::to_owned), limit));
         if port.fail {
@@ -696,7 +695,7 @@ impl HistoryQueryPort for FakeLink {
         Ok(port.historical_texts.clone())
     }
     fn search_people(&self, _query: &str, limit: i64) -> Result<Vec<PersonResult>, HistoryPortError> {
-        let mut port = self.borrow_mut();
+        let mut port = self.lock().expect("fake port poisoned");
         port.calls.push("search_people");
         port.search_limits.push(limit);
         if port.fail {
@@ -705,7 +704,7 @@ impl HistoryQueryPort for FakeLink {
         Ok(port.searched_people.clone())
     }
     fn search_events(&self, _query: &str, limit: i64) -> Result<Vec<EventResult>, HistoryPortError> {
-        let mut port = self.borrow_mut();
+        let mut port = self.lock().expect("fake port poisoned");
         port.calls.push("search_events");
         port.search_limits.push(limit);
         if port.fail {
@@ -714,7 +713,7 @@ impl HistoryQueryPort for FakeLink {
         Ok(port.searched_events.clone())
     }
     fn get_sources_for_ids(&self, ids: &[String]) -> Result<Vec<SourceResult>, HistoryPortError> {
-        let mut port = self.borrow_mut();
+        let mut port = self.lock().expect("fake port poisoned");
         port.calls.push("get_sources_for_ids");
         port.source_requests.push(ids.to_vec());
         if port.fail {
@@ -742,26 +741,26 @@ fn seeded_fake() -> FakePortData {
 
 #[test]
 fn search_with_empty_query_returns_no_groups_without_touching_port() {
-    let fake = Rc::new(RefCell::new(FakePortData::default()));
-    let service = service(Rc::clone(&fake));
+    let fake = Arc::new(Mutex::new(FakePortData::default()));
+    let service = service(Arc::clone(&fake));
     let result = service.search("   ").expect("empty query is not an error");
     assert!(result.is_empty());
     assert!(
-        fake.borrow().calls.is_empty(),
+        fake.lock().unwrap().calls.is_empty(),
         "empty query must not touch the port"
     );
 }
 
 #[test]
 fn search_groups_by_kind_in_fixed_order_and_skips_empty_groups() {
-    let fake = Rc::new(RefCell::new(seeded_fake()));
-    let service = service(Rc::clone(&fake));
+    let fake = Arc::new(Mutex::new(seeded_fake()));
+    let service = service(Arc::clone(&fake));
     let groups = service.search("唐").expect("search succeeds");
 
     // person → story → event → work；search_people/search_events/get_work 各收 limit=8。
     let kinds = groups.iter().map(|group| group.kind.as_str()).collect::<Vec<_>>();
     assert_eq!(kinds, ["person", "story", "event", "work"]);
-    assert_eq!(fake.borrow().search_limits, [8, 8, 8]);
+    assert_eq!(fake.lock().unwrap().search_limits, [8, 8, 8]);
 
     let person_items = &groups[0].items;
     assert_eq!(person_items.len(), 2);
@@ -801,8 +800,8 @@ fn search_matches_story_by_title_or_summary_and_strips_whitespace() {
         story("s-summary", "无关标题", Some("在 贞观 年间……")),
         story("s-nomatch", "完全无关", None),
     ];
-    let fake = Rc::new(RefCell::new(fake));
-    let service = service(Rc::clone(&fake));
+    let fake = Arc::new(Mutex::new(fake));
+    let service = service(Arc::clone(&fake));
     let groups = service.search(" 贞观 ").expect("search succeeds");
     let story_ids = groups
         .iter()
@@ -818,8 +817,8 @@ fn search_truncates_story_group_to_eight() {
     fake.stories = (0..13)
         .map(|index| story(&format!("s{index}"), &format!("贞观{index}"), None))
         .collect();
-    let fake = Rc::new(RefCell::new(fake));
-    let service = service(Rc::clone(&fake));
+    let fake = Arc::new(Mutex::new(fake));
+    let service = service(Arc::clone(&fake));
     let groups = service.search("贞观").expect("search succeeds");
     let story_ids = groups
         .iter()
@@ -836,8 +835,8 @@ fn search_work_hit_uses_title_zh_cn_with_title_fallback() {
         work("w-zh", "ACTUAL_WORKS", Some("贞观政要"), None),
         work("w-raw", "资治通鉴", None, None),
     ];
-    let fake = Rc::new(RefCell::new(fake));
-    let service = service(Rc::clone(&fake));
+    let fake = Arc::new(Mutex::new(fake));
+    let service = service(Arc::clone(&fake));
     let groups = service.search("贞观").expect("search succeeds");
     let titles = groups
         .iter()
@@ -853,8 +852,8 @@ fn home_returns_periods_stories_and_stats() {
     fake.periods = vec![period("tang")];
     fake.stories = vec![story("s1", "唐朝开国", None)];
     fake.stats.events = 618;
-    let fake = Rc::new(RefCell::new(fake));
-    let service = service(Rc::clone(&fake));
+    let fake = Arc::new(Mutex::new(fake));
+    let service = service(Arc::clone(&fake));
     let home = service.home().expect("home succeeds");
     assert_eq!(home.periods.len(), 1);
     assert_eq!(home.stories.len(), 1);
@@ -863,7 +862,7 @@ fn home_returns_periods_stories_and_stats() {
 
 #[test]
 fn period_detail_resolves_period_then_assembles_sections() {
-    let fake = Rc::new(RefCell::new({
+    let fake = Arc::new(Mutex::new({
         let mut data = FakePortData::default();
         data.periods = vec![period("p1"), period("p2")];
         data.regimes = vec![regime("r1"), regime("r2")];
@@ -872,7 +871,7 @@ fn period_detail_resolves_period_then_assembles_sections() {
         data.stories_for_period = vec![story("s1", "唐朝开国", None)];
         data
     }));
-    let service = service(Rc::clone(&fake));
+    let service = service(Arc::clone(&fake));
     let detail = service
         .period_detail("p2")
         .expect("period_detail succeeds")
@@ -883,26 +882,26 @@ fn period_detail_resolves_period_then_assembles_sections() {
     assert_eq!(detail.people.len(), 1);
     assert_eq!(detail.stories.len(), 1);
     assert_eq!(
-        fake.borrow().calls,
+        fake.lock().unwrap().calls,
         ["get_periods", "get_regimes_by_period", "get_stories_for_period", "get_events_for_period", "get_people_for_period"]
     );
-    assert_eq!(fake.borrow().people_period_limits, [24]);
+    assert_eq!(fake.lock().unwrap().people_period_limits, [24]);
 }
 
 #[test]
 fn period_detail_for_unknown_period_returns_none_without_section_queries() {
-    let fake = Rc::new(RefCell::new(FakePortData::default()));
-    let service = service(Rc::clone(&fake));
+    let fake = Arc::new(Mutex::new(FakePortData::default()));
+    let service = service(Arc::clone(&fake));
     let detail = service.period_detail("p-missing").expect("no error");
     assert!(detail.is_none());
-    assert_eq!(fake.borrow().calls, ["get_periods"]);
+    assert_eq!(fake.lock().unwrap().calls, ["get_periods"]);
 }
 
 #[test]
 fn story_detail_merges_sources_across_all_sections() {
     let mut story = story("s1", "唐朝开国", None);
     story.source_ids = Some(r#"["s1","s2"]"#.into());
-    let fake = Rc::new(RefCell::new({
+    let fake = Arc::new(Mutex::new({
         let mut data = FakePortData::default();
         data.story = Some(story);
         data.story_events = vec![story_event("s1", Some(r#"["s3"]"#.into())), story_event("s1", None)];
@@ -913,7 +912,7 @@ fn story_detail_merges_sources_across_all_sections() {
         data.sources = vec![source("s1")];
         data
     }));
-    let service = service(Rc::clone(&fake));
+    let service = service(Arc::clone(&fake));
     let detail = service
         .story_detail("s1")
         .expect("story_detail succeeds")
@@ -921,14 +920,14 @@ fn story_detail_merges_sources_across_all_sections() {
     assert_eq!(detail.events.len(), 2);
     assert_eq!(detail.sources.len(), 1);
     assert_eq!(
-        fake.borrow().source_requests,
+        fake.lock().unwrap().source_requests,
         vec![vec!["s1", "s2", "s3", "s4", "s5", "s6", "s7"]]
     );
 }
 
 #[test]
 fn event_detail_merges_sources_from_all_sections() {
-    let fake = Rc::new(RefCell::new({
+    let fake = Arc::new(Mutex::new({
         let mut data = FakePortData::default();
         data.event = Some(event("e1", "玄武门之变", Some("[\"e1\",\"e2\"]")));
         data.event_people = vec![event_person(Some("e3"))];
@@ -938,14 +937,14 @@ fn event_detail_merges_sources_from_all_sections() {
         data.event_evidences = vec![event_evidence(None)];
         data
     }));
-    let service = service(Rc::clone(&fake));
+    let service = service(Arc::clone(&fake));
     let detail = service
         .event_detail("e1")
         .expect("event_detail succeeds")
         .expect("event exists");
     assert_eq!(detail.relations.len(), 2);
     assert_eq!(
-        fake.borrow().source_requests.last(),
+        fake.lock().unwrap().source_requests.last(),
         Some(&vec![
             "e1".to_owned(), "e2".to_owned(), "e3".to_owned(), "e4".to_owned(), "e5".to_owned(), "e6".to_owned()
         ])
@@ -956,7 +955,7 @@ fn event_detail_merges_sources_from_all_sections() {
 fn person_detail_merges_sources_from_created_relations_and_places() {
     let mut person = person("p1", "李世民");
     person.created_from_source = Some("p1".into());
-    let fake = Rc::new(RefCell::new({
+    let fake = Arc::new(Mutex::new({
         let mut data = FakePortData::default();
         data.person = Some(person);
         data.person_relations = vec![
@@ -968,7 +967,7 @@ fn person_detail_merges_sources_from_created_relations_and_places() {
         data.person_stories = vec![person_story()];
         data
     }));
-    let service = service(Rc::clone(&fake));
+    let service = service(Arc::clone(&fake));
     let detail = service
         .person_detail("p1")
         .expect("person_detail succeeds")
@@ -976,7 +975,7 @@ fn person_detail_merges_sources_from_created_relations_and_places() {
     assert_eq!(detail.events.len(), 1);
     assert_eq!(detail.stories.len(), 1);
     assert_eq!(
-        fake.borrow().source_requests,
+        fake.lock().unwrap().source_requests,
         vec![vec!["p1", "p2", "p3", "p4"]]
     );
 }
@@ -985,7 +984,7 @@ fn person_detail_merges_sources_from_created_relations_and_places() {
 fn work_detail_queries_texts_by_work_title_and_merges_sources() {
     let work = work("w1", "旧唐书", Some("旧唐书"), Some("w1"));
     // 仅 title 参与文本查询（与 cutover 前一致）。
-    let fake = Rc::new(RefCell::new({
+    let fake = Arc::new(Mutex::new({
         let mut data = FakePortData::default();
         data.work = Some(work);
         data.historical_texts = vec![
@@ -994,16 +993,16 @@ fn work_detail_queries_texts_by_work_title_and_merges_sources() {
         ];
         data
     }));
-    let service = service(Rc::clone(&fake));
+    let service = service(Arc::clone(&fake));
     let detail = service
         .work_detail("w1")
         .expect("work_detail succeeds")
         .expect("work exists");
     assert_eq!(detail.texts.len(), 2);
-    assert_eq!(fake.borrow().texts_queries, vec![(Some("旧唐书".into()), 200)]);
+    assert_eq!(fake.lock().unwrap().texts_queries, vec![(Some("旧唐书".into()), 200)]);
     // BTreeSet 合并结果按 id 升序（与 Cutover 前行为一致）。
     assert_eq!(
-        fake.borrow().source_requests,
+        fake.lock().unwrap().source_requests,
         vec![vec!["t2".to_owned(), "w1".to_owned()]]
     );
 }
@@ -1011,38 +1010,38 @@ fn work_detail_queries_texts_by_work_title_and_merges_sources() {
 #[test]
 fn missing_entities_return_none_without_related_queries() {
     // 故事不存在 → 不查任何关联。
-    let fake = Rc::new(RefCell::new(FakePortData::default()));
-    let story_service = service(Rc::clone(&fake));
+    let fake = Arc::new(Mutex::new(FakePortData::default()));
+    let story_service = service(Arc::clone(&fake));
     assert!(story_service.story_detail("s1").expect("no error").is_none());
-    assert_eq!(fake.borrow().calls, ["get_story"]);
+    assert_eq!(fake.lock().unwrap().calls, ["get_story"]);
 
     // 事件不存在。
-    let fake = Rc::new(RefCell::new(FakePortData::default()));
-    let event_service = service(Rc::clone(&fake));
+    let fake = Arc::new(Mutex::new(FakePortData::default()));
+    let event_service = service(Arc::clone(&fake));
     assert!(event_service.event_detail("e1").expect("no error").is_none());
-    assert_eq!(fake.borrow().calls, ["get_event"]);
+    assert_eq!(fake.lock().unwrap().calls, ["get_event"]);
 
     // 人物不存在。
-    let fake = Rc::new(RefCell::new(FakePortData::default()));
-    let person_service = service(Rc::clone(&fake));
+    let fake = Arc::new(Mutex::new(FakePortData::default()));
+    let person_service = service(Arc::clone(&fake));
     assert!(person_service.person_detail("p1").expect("no error").is_none());
-    assert_eq!(fake.borrow().calls, ["get_person"]);
+    assert_eq!(fake.lock().unwrap().calls, ["get_person"]);
 
     // 作品不存在。
-    let fake = Rc::new(RefCell::new(FakePortData::default()));
-    let work_service = service(Rc::clone(&fake));
+    let fake = Arc::new(Mutex::new(FakePortData::default()));
+    let work_service = service(Arc::clone(&fake));
     assert!(work_service.work_detail("w1").expect("no error").is_none());
-    assert_eq!(fake.borrow().calls, ["get_work_by_id"]);
+    assert_eq!(fake.lock().unwrap().calls, ["get_work_by_id"]);
 }
 
 #[test]
 fn empty_related_data_still_builds_story_view_with_empty_sources() {
-    let fake = Rc::new(RefCell::new({
+    let fake = Arc::new(Mutex::new({
         let mut data = FakePortData::default();
         data.story = Some(story("s1", "唐朝开国", None));
         data
     }));
-    let service = service(Rc::clone(&fake));
+    let service = service(Arc::clone(&fake));
     let detail = service
         .story_detail("s1")
         .expect("story_detail succeeds")
@@ -1054,17 +1053,17 @@ fn empty_related_data_still_builds_story_view_with_empty_sources() {
     assert!(detail.evidences.is_empty());
     assert!(detail.sources.is_empty());
     // 仍会以空 id 集合请求来源（与 Cutover 前行为一致）。
-    assert_eq!(fake.borrow().source_requests, vec![Vec::<String>::new()]);
+    assert_eq!(fake.lock().unwrap().source_requests, vec![Vec::<String>::new()]);
 }
 
 #[test]
 fn port_failure_maps_to_history_application_error() {
-    let fake = Rc::new(RefCell::new({
+    let fake = Arc::new(Mutex::new({
         let mut data = FakePortData::default();
         data.fail = true;
         data
     }));
-    let service = service(Rc::clone(&fake));
+    let service = service(Arc::clone(&fake));
     let error = service.home().expect_err("port failure propagates");
     match error {
         ApplicationError::History(HistoryPortError(message)) => {

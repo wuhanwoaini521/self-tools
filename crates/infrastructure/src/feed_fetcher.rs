@@ -11,33 +11,14 @@ use std::time::Duration;
 
 use feed_rs::model::{Feed as ParsedFeed, Text};
 use feed_rs::parser;
-use serde::{Deserialize, Serialize};
 
 use crate::error::InfrastructureError;
+pub use devtoolbox_core::rss::{FetchedEntry, FetchedFeed};
 
 const FETCH_TIMEOUT: Duration = Duration::from_secs(15);
 const USER_AGENT: &str = concat!("DevToolbox/", env!("CARGO_PKG_VERSION"), " (+rss reader)");
 
-/// 归一化后的一篇文章(来自 RSS item 或 Atom entry)。
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct FetchedEntry {
-    /// 去重主键:id → url → title+published 三级回退
-    pub guid: String,
-    pub url: String,
-    pub title: String,
-    /// Unix 秒
-    pub published_at: Option<i64>,
-    /// 展示正文:content 优先、summary 兜底(可能含 HTML,由前端净化后渲染)
-    pub summary: Option<String>,
-}
 
-/// 归一化后的一个 Feed。
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct FetchedFeed {
-    pub title: String,
-    pub site_url: Option<String>,
-    pub entries: Vec<FetchedEntry>,
-}
 
 fn text_content(text: Option<Text>) -> Option<String> {
     text.map(|value| value.content.trim().to_string())

@@ -1,6 +1,6 @@
 //! LanguageService：搜索 / 词详情 / Today / Review / 收藏 / 统计（#48-#68 的用例层）。
 
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 
@@ -9,10 +9,12 @@ use devtoolbox_core::language::{
     LanguageSource, LearningState, LearningStateKind, Meaning, Pronunciation, ReviewOutcome,
     ReviewRating, SentenceRecord, SpeakingScore, TodayPlan, score as score_speaking,
 };
-use devtoolbox_infrastructure::language::{ItemDetailRows, LanguageStore, gate_license};
-use devtoolbox_infrastructure::now_unix;
-
+use crate::time::now_unix;
 use crate::ApplicationError;
+
+use super::ports::{
+    LanguageDetailRows, LanguageStorePort, verify_source_license,
+};
 
 /// 语言信息（含条目统计，#90）。
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -106,21 +108,21 @@ pub struct ProgressView {
 }
 
 pub struct LanguageService {
-    store: Arc<Mutex<LanguageStore>>,
+    store: Arc<dyn LanguageStorePort>,
 }
 
-fn language_error(source: devtoolbox_infrastructure::InfrastructureError) -> ApplicationError {
-    ApplicationError::Language { source }
+fn language_error(message: String) -> ApplicationError {
+    ApplicationError::Language { message }
 }
 
 impl LanguageService {
     #[must_use]
-    pub fn new(store: Arc<Mutex<LanguageStore>>) -> Self {
+    pub fn new(store: Arc<dyn LanguageStorePort>) -> Self {
         Self { store }
     }
 
     pub fn languages(&self) -> Result<Vec<LanguageInfo>, ApplicationError> {
-        let store = self.store.lock().expect("language store poisoned");
+        let store = &*self.store;
         let counts = store.language_counts().map_err(language_error)?;
         let mut table: std::collections::HashMap<LanguageCode, (i64, i64, i64, i64)> =
             std::collections::HashMap::new();
@@ -161,7 +163,7 @@ impl LanguageService {
         query: &str,
         limit: usize,
     ) -> Result<Vec<LanguageSearchHit>, ApplicationError> {
-        let store = self.store.lock().expect("language store poisoned");
+        let store = &*self.store;
         let lang = language.and_then(LanguageCode::from_code);
         let hits = store.search(lang, query, limit).map_err(language_error)?;
         Ok(hits
@@ -175,8 +177,8 @@ impl LanguageService {
 
     /// 词详情（#63）。
     pub fn detail(&self, id: &str) -> Result<Option<WordDetail>, ApplicationError> {
-        let store = self.store.lock().expect("language store poisoned");
-        let rows: ItemDetailRows = store.item_detail(id).map_err(language_error)?;
+        let store = &*self.store;
+        let rows: LanguageDetailRows = store.item_detail(id).map_err(language_error)?;
         let Some(item) = rows.item.clone() else {
             return Ok(None);
         };
@@ -224,7 +226,7 @@ impl LanguageService {
     /// Today（#61）。
     pub fn today(&self, language: &str) -> Result<TodayView, ApplicationError> {
         let languages = self.languages()?;
-        let store = self.store.lock().expect("language store poisoned");
+        let store = &*self.store;
         let code = LanguageCode::from_code(language).unwrap_or(LanguageCode::Eng);
         let plan = store.today_plan(code, now_unix()).map_err(language_error)?;
         Ok(TodayView {
@@ -236,7 +238,7 @@ impl LanguageService {
 
     /// 下一张复习卡（到期优先，其次新词）。
     pub fn review_next(&self, language: &str) -> Result<Option<ReviewCard>, ApplicationError> {
-        let store = self.store.lock().expect("language store poisoned");
+        let store = &*self.store;
         let code = LanguageCode::from_code(language).unwrap_or(LanguageCode::Eng);
         let item = store
             .review_next(code, now_unix())
@@ -256,21 +258,21 @@ impl LanguageService {
         item_id: &str,
         rating: ReviewRating,
     ) -> Result<ReviewOutcome, ApplicationError> {
-        let mut store = self.store.lock().expect("language store poisoned");
+        let store = &*self.store;
         store
             .rate_review(item_id, rating, now_unix())
             .map_err(language_error)
     }
 
     pub fn toggle_favorite(&self, item_id: &str) -> Result<bool, ApplicationError> {
-        let store = self.store.lock().expect("language store poisoned");
+        let store = &*self.store;
         store
             .toggle_favorite(item_id, now_unix())
             .map_err(language_error)
     }
 
     pub fn favorites(&self, limit: usize) -> Result<Vec<LanguageItem>, ApplicationError> {
-        let store = self.store.lock().expect("language store poisoned");
+        let store = &*self.store;
         store.favorites(limit).map_err(language_error)
     }
 
@@ -279,14 +281,14 @@ impl LanguageService {
         item_id: &str,
         state: LearningStateKind,
     ) -> Result<(), ApplicationError> {
-        let store = self.store.lock().expect("language store poisoned");
+        let store = &*self.store;
         store
             .set_learning_state(item_id, state, now_unix())
             .map_err(language_error)
     }
 
     pub fn progress(&self) -> Result<ProgressView, ApplicationError> {
-        let store = self.store.lock().expect("language store poisoned");
+        let store = &*self.store;
         let value = store.progress().map_err(language_error)?;
         let favorites = store.favorites_count().map_err(language_error)?;
         Ok(ProgressView {
@@ -300,7 +302,7 @@ impl LanguageService {
 
     /// Settings → Language Data（#90）。
     pub fn sources(&self) -> Result<Vec<SourceInfo>, ApplicationError> {
-        let store = self.store.lock().expect("language store poisoned");
+        let store = &*self.store;
         let sources = store.sources().map_err(language_error)?;
         let manifests = store.manifests().map_err(language_error)?;
         let mut result = Vec::new();
@@ -338,7 +340,7 @@ impl LanguageService {
         language: &str,
         limit: usize,
     ) -> Result<Vec<SentenceRecord>, ApplicationError> {
-        let store = self.store.lock().expect("language store poisoned");
+        let store = &*self.store;
         let code = LanguageCode::from_code(language).unwrap_or(LanguageCode::Eng);
         store
             .sentences_by_language(code, limit)
@@ -347,12 +349,12 @@ impl LanguageService {
 
     /// 许可证 Gate 转发（供 Tauri/CLI 使用）。
     pub fn verify_source(&self, source: &LanguageSource) -> Result<(), ApplicationError> {
-        gate_license(source).map_err(|error| ApplicationError::License(error.to_string()))
+        verify_source_license(source).map_err(|error| ApplicationError::License(error.to_string()))
     }
 
     /// 全部词条语言（帮助前端构建语言下拉）。
     pub fn available_languages(&self) -> Result<Vec<String>, ApplicationError> {
-        let store = self.store.lock().expect("language store poisoned");
+        let store = &*self.store;
         let mut languages: Vec<String> = store
             .language_counts()
             .map_err(language_error)?

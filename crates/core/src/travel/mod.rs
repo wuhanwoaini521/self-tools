@@ -9,6 +9,7 @@ pub mod dedup;
 pub mod guide;
 pub mod llm_parse;
 pub mod model;
+pub mod provider;
 pub mod quality;
 pub mod query_planner;
 pub mod ranking;
@@ -28,6 +29,11 @@ pub use llm_parse::{TravelParseError, extract_json, parse_facts_json, parse_guid
 pub use model::{
     ContentState, FactCategory, MapCoordinates, ResearchPhase, SearchResult, SourceLevel,
     StepStatus, TravelDocument, TravelFact, TravelResearchEvent, TravelSource,
+};
+pub use provider::{
+    AMAP_SOURCE_URL, LlmProvider, ProviderError, ProviderErrorKind, QWEATHER_SOURCE_URL, SearchOptions,
+    SearchProvider, TravelDataProvider, TravelDataRequest, TravelRoute, TravelRouteRequest,
+    WebFetcher,
 };
 pub use quality::{QualityReport, apply_quality_gate, normalize_entity_name};
 pub use query_planner::{

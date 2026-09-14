@@ -14,28 +14,8 @@ use async_trait::async_trait;
 use regex::Regex;
 use url::Url;
 
-use crate::error::InfrastructureError;
-pub use devtoolbox_core::settings::TravelSearchBackend;
-use devtoolbox_core::travel::SearchResult;
-
-/// 搜索选项。
-#[derive(Clone, Copy, Debug, Default)]
-pub struct SearchOptions {
-    /// 期望的结果数量上限（Provider 尽力而为）。
-    pub count: usize,
-}
-
-/// 统一搜索接口。`Box<dyn>` 使用，需 `Send + Sync`。
-#[async_trait]
-pub trait SearchProvider: Send + Sync {
-    fn name(&self) -> &'static str;
-
-    async fn search(
-        &self,
-        query: &str,
-        options: SearchOptions,
-    ) -> Result<Vec<SearchResult>, InfrastructureError>;
-}
+use devtoolbox_core::settings::TravelSearchBackend;
+use devtoolbox_core::travel::{ProviderError, SearchOptions, SearchProvider, SearchResult};
 
 /// 依据配置构建有序 Provider 链（Auto 先 Bing 后百度；上层按序 fallback）。
 #[must_use]
@@ -96,9 +76,9 @@ impl SearchProvider for BingChinaSearchProvider {
         &self,
         query: &str,
         options: SearchOptions,
-    ) -> Result<Vec<SearchResult>, InfrastructureError> {
+    ) -> Result<Vec<SearchResult>, ProviderError> {
         let url = Url::parse_with_params("https://cn.bing.com/search", &[("q", query)])
-            .map_err(|error| InfrastructureError::TravelSearch(error.to_string()))?;
+            .map_err(|error| ProviderError::search(error.to_string()))?;
         let response = self
             .client
             .get(url)
@@ -107,9 +87,9 @@ impl SearchProvider for BingChinaSearchProvider {
             .timeout(SEARCH_TIMEOUT)
             .send()
             .await
-            .map_err(|error| InfrastructureError::TravelSearch(error.to_string()))?;
+            .map_err(|error| ProviderError::search(error.to_string()))?;
         if !response.status().is_success() {
-            return Err(InfrastructureError::TravelSearch(format!(
+            return Err(ProviderError::search(format!(
                 "bing returned {}",
                 response.status()
             )));
@@ -117,7 +97,7 @@ impl SearchProvider for BingChinaSearchProvider {
         let bytes = response
             .bytes()
             .await
-            .map_err(|error| InfrastructureError::TravelSearch(error.to_string()))?;
+            .map_err(|error| ProviderError::search(error.to_string()))?;
         Ok(parse_bing_html(
             &String::from_utf8_lossy(&bytes),
             options.count,
@@ -148,9 +128,9 @@ impl SearchProvider for BaiduSearchProvider {
         &self,
         query: &str,
         options: SearchOptions,
-    ) -> Result<Vec<SearchResult>, InfrastructureError> {
+    ) -> Result<Vec<SearchResult>, ProviderError> {
         let url = Url::parse_with_params("https://www.baidu.com/s", &[("wd", query)])
-            .map_err(|error| InfrastructureError::TravelSearch(error.to_string()))?;
+            .map_err(|error| ProviderError::search(error.to_string()))?;
         let response = self
             .client
             .get(url)
@@ -159,9 +139,9 @@ impl SearchProvider for BaiduSearchProvider {
             .timeout(SEARCH_TIMEOUT)
             .send()
             .await
-            .map_err(|error| InfrastructureError::TravelSearch(error.to_string()))?;
+            .map_err(|error| ProviderError::search(error.to_string()))?;
         if !response.status().is_success() {
-            return Err(InfrastructureError::TravelSearch(format!(
+            return Err(ProviderError::search(format!(
                 "baidu returned {}",
                 response.status()
             )));
@@ -169,7 +149,7 @@ impl SearchProvider for BaiduSearchProvider {
         let bytes = response
             .bytes()
             .await
-            .map_err(|error| InfrastructureError::TravelSearch(error.to_string()))?;
+            .map_err(|error| ProviderError::search(error.to_string()))?;
         Ok(parse_baidu_html(
             &String::from_utf8_lossy(&bytes),
             options.count,
@@ -204,12 +184,12 @@ impl SearchProvider for SearXngSearchProvider {
         &self,
         query: &str,
         options: SearchOptions,
-    ) -> Result<Vec<SearchResult>, InfrastructureError> {
+    ) -> Result<Vec<SearchResult>, ProviderError> {
         let url = Url::parse_with_params(
             &format!("{}/search", self.base),
             &[("q", query), ("format", "json")],
         )
-        .map_err(|error| InfrastructureError::TravelSearch(error.to_string()))?;
+        .map_err(|error| ProviderError::search(error.to_string()))?;
         let response = self
             .client
             .get(url)
@@ -217,9 +197,9 @@ impl SearchProvider for SearXngSearchProvider {
             .timeout(SEARCH_TIMEOUT)
             .send()
             .await
-            .map_err(|error| InfrastructureError::TravelSearch(error.to_string()))?;
+            .map_err(|error| ProviderError::search(error.to_string()))?;
         if !response.status().is_success() {
-            return Err(InfrastructureError::TravelSearch(format!(
+            return Err(ProviderError::search(format!(
                 "searxng returned {} (JSON API 可能被禁用，请检查 SearXNG 设置)",
                 response.status()
             )));
@@ -227,7 +207,7 @@ impl SearchProvider for SearXngSearchProvider {
         let bytes = response
             .bytes()
             .await
-            .map_err(|error| InfrastructureError::TravelSearch(error.to_string()))?;
+            .map_err(|error| ProviderError::search(error.to_string()))?;
         parse_searxng_json(&bytes, options.count, now_unix())
     }
 }
@@ -339,14 +319,14 @@ pub fn parse_searxng_json(
     bytes: &[u8],
     count: usize,
     fetched_at: i64,
-) -> Result<Vec<SearchResult>, InfrastructureError> {
+) -> Result<Vec<SearchResult>, ProviderError> {
     let value: serde_json::Value = serde_json::from_slice(bytes)
-        .map_err(|error| InfrastructureError::TravelSearch(error.to_string()))?;
+        .map_err(|error| ProviderError::search(error.to_string()))?;
     let results = value
         .get("results")
         .and_then(serde_json::Value::as_array)
         .ok_or_else(|| {
-            InfrastructureError::TravelSearch("searxng response missing results".to_string())
+            ProviderError::search("searxng response missing results".to_string())
         })?;
     Ok(results
         .iter()

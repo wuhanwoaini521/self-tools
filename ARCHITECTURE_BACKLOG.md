@@ -126,11 +126,11 @@
 
 | 优先级 | 项 | 现状 | 处置 |
 |---|---|---|---|
-| **P0** | `application → infrastructure` Cargo 依赖 | 仍存在（deferred 模块使用） | HTTP server 落地前必须清零；已有倒置模块代码层零引用（`grep devtoolbox_infrastructure:: crates/application/src` 仅剩 language/rss/travel） |
-| **P0** | Travel 模块倒置 | `travel/service.rs` 直引 infra provider 常量/SessionStore；`travel_research_start` 为唯一 FAT 命令 | 下一 Gate 候选（Application Boundary B for Travel / 命令变薄） |
-| **P1** | Language 模块倒置 | `LanguageService`/`starter`/`importing` 共 16 处直引 `LanguageStore`、`now_unix` | 同 Port 模式倒置（`LanguageStorePort` + adapter），随 application boundary gate |
-| **P1** | RSS async 边界 | `rss_workflows` 直引 `FeedRepository`/`fetch_feed`/`ArticleRow` | 同 Port 模式倒置；async 边界保留在 application（futures/ reqwest 属应用内获取） |
-| **P2** | `application/src/bin/language_data.rs` | CLI 随 lib 编译，server 归属未定 | server gate 决定 |
+| ~~**P0**~~ | `application → infrastructure` Cargo 依赖 | ✅ **已拆除**（Gate 8） | 闭：`grep devtoolbox_infrastructure crates/application/src` = 0，Cargo.toml 依赖移除 |
+| ~~**P0**~~ | Travel 模块倒置 | ✅ **已倒置**（Gate 8：provider 契约入 core，`TravelStorePort` 入 application，desktop 适配器注入） | 闭合：见 CURRENT_ARCHITECTURE §6.1（Gate 8） |
+| ~~**P1**~~ | Language 模块依赖 | ✅ **已倒置**（Gate 7.5：`LanguageStorePort` + `now_unix` 入 application） | 关闭 |
+| ~~**P1**~~ | RSS async 边界 | ✅ **已倒置**（Gate 7.6：`RssRepositoryPort` / `FeedFetcherPort` + models 入 core） | 关闭 |
+| **P2** | `application/src/bin/language_data.rs` | CLI 随 lib 编译，server 归属未定 | Gate 9 未纳入；保持 TODO（server 或独立 bin） |
 | **P2** | 组合根增长监测 | `composition.rs` 64 行 + 两个 `*_query.rs` | 若超单文件 ~150 行，拆为 `composition/` 目录（每域一文件），避免 God Object |
 
 
@@ -207,5 +207,39 @@ Tauri command
 3. **Pipeline retention 实现**（Gate I 提案）在未来 submodule 仓库内进行;
 4. **PWA/browser preview**：前端裸 `invoke` 已在 Gate 6 清零；后续重点改为 `HttpTransport` / capability guard 设计，而不是继续迁 client；
 5. **Server 上线前置**:先把 HISTORY 作为第一 REST 模块（契约 = 现有 command signature）。
+
+
+## 9. Gate 8 — Travel 应用边界（实施，2026-09-15 ✅）
+
+见 [CURRENT_ARCHITECTURE §8](CURRENT_ARCHITECTURE.md)（先于本轮追加）。
+
+- `crates/core/src/travel/provider.rs`：4 个 Provider 契约 + `ProviderError`
+  （Display 与原 `InfrastructureError::Travel*` 逐字一致）；infra 只实现（re-export）；
+- `crates/application/src/travel/ports.rs`：`TravelStorePort`（6 方法）；
+  `travel/tests.rs` 改为 FakeTravelStore（内存），无 SQLite、无临时目录；
+- `ApplicationError::Travel(TravelFailure{kind,message})`；desktop 错误 code 映射不变；
+- 验证：`cargo check --workspace --all-targets` ✅ / `cargo test --workspace` 222 ✅ /
+  `npm --prefix apps/desktop/ui run build` ✅ / `grep devtoolbox_infrastructure crates/application/src` = 0 ✅。
+
+## 10. Gate 9 / 9.5 — HTTP 只读 History 试点（已实现，2026-09-15 ✅）
+
+见 [CURRENT_ARCHITECTURE §9](CURRENT_ARCHITECTURE.md)。`apps/server`（axum 0.8）
+与 desktop 零互通：
+
+- 7 个只读 History 端点 + `/health`；错误契约 `{code,message}` 源自 `ApplicationError`；
+- 无鉴权；未注册 CORS（默认无跨源）；默认绑定 `127.0.0.1:8080`，
+  `SELF_TOOLS_BIND` / `--bind` 可改；`SELF_TOOLS_HISTORY_DB` / `--history-db` 配置
+  duckdb 路径，缺失 = 启动失败（exit 1，无静音 fallback）；`RUST_LOG` 控日志；
+  SIGINT / SIGTERM 优雅退出；
+- 测试：routes×oneshot（无真实端口）7 个全覆盖；真机冒烟（health / home 真实数据 /
+  400 / 404 / SIGTERM 退出 0 / 无残留进程）✅。
+
+## 11. 更新后的下批建议优先（2026-09-15）
+
+1. **HTTP Profile 面扩展**（Gate 10 / 10.1）：travel / rss / language 只读 REST，可选 CORS allowlist env；
+2. **前端 `HttpTransport`**：Gate 6 已把 invoke 收敛到 transport 层，PWA 只换实现；
+3. **Pipeline retention**（Gate I）：仍在 pipeline 仓库内推进；
+4. **`language_data.rs` CLI 归属**：随下一 server gate 定案；
+5. **Directory health**：组合根与 server 的边界再复核（Gate 12 候选）。
 
 （全文完）

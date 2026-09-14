@@ -1,17 +1,20 @@
 //! Language Learning Hub 的用例编排（DTO 直接给 React）。
 //!
-//! `LanguageService` 持 `Arc<Mutex<LanguageStore>>`（与 History 服务同款模式），
-//! 所有方法同步；导入工作流在 `starter`（内置数据包）与 `importing`（CLI 读原始文件）。
+//! Gate 7.5：`LanguageService` 只依赖 `LanguageStorePort`（本模块 `ports.rs`），
+//! 不再直接 import 基础设施的 `LanguageStore` / `now_unix` / 导入工具。
+//! Starter 与原始文件导入工作流已迁入 infrastructure 的 `language` 模块
+//! （`starter` / `importing`），应用层不再持有导入功能。
 
-pub mod importing;
+pub mod ports;
 pub mod service;
-pub mod starter;
 
+pub use ports::{LanguageCount, LanguageDetailRows, LanguageExample, LanguageStorePort, SearchHitModel};
 pub use service::{
     LanguageInfo, LanguageSearchHit, LanguageService, ProgressView, ReviewCard, SourceInfo,
     TodayView, WordDetail,
 };
-pub use starter::{DatasetReport, StarterReport, install_starter};
 
+#[cfg(test)]
+mod mocks;
 #[cfg(test)]
 mod tests;

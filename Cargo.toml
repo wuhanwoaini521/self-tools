@@ -1,12 +1,14 @@
 [workspace]
 members = [
     "apps/desktop",
+    "apps/server",
     "crates/application",
     "crates/core",
     "crates/infrastructure",
 ]
 default-members = [
     "apps/desktop",
+    "apps/server",
     "crates/application",
     "crates/core",
     "crates/infrastructure",

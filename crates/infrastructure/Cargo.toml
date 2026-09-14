@@ -13,6 +13,7 @@ duckdb = { version = "1.4", features = ["bundled"] }
 devtoolbox-core = { path = "../core" }
 encoding_rs = "0.8"
 feed-rs.workspace = true
+flate2.workspace = true
 quick-xml.workspace = true
 regex.workspace = true
 reqwest.workspace = true
@@ -22,6 +23,7 @@ serde_json.workspace = true
 tempfile.workspace = true
 thiserror.workspace = true
 url.workspace = true
+zip.workspace = true
 
 [lints]
 workspace = true

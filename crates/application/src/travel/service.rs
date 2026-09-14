@@ -18,7 +18,7 @@
 //! - 网络阶段与存储阶段分离（rusqlite Connection 非 Sync，短锁不跨 await）。
 
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use futures_util::future::join_all;
 use serde::{Deserialize, Serialize};
@@ -33,12 +33,18 @@ use devtoolbox_core::travel::{
     dedup_entity_facts, dedup_facts, dedup_search_results, host_of, normalize_url,
     parse_facts_json, parse_guide_json, rate_source_for, verify_facts_with_states,
 };
-use devtoolbox_infrastructure::{
-    InfrastructureError, LlmProvider, SearchOptions, SearchProvider, TravelDataProvider,
-    TravelDataRequest, TravelRouteRequest, TravelStore, WebFetcher, now_unix,
+
+// Gate 8：Provider 契约位于 core（infrastructure 实现、application 消费），
+// application 不再依赖 infrastructure。
+use devtoolbox_core::travel::{
+    AMAP_SOURCE_URL, LlmProvider, ProviderError, ProviderErrorKind, QWEATHER_SOURCE_URL,
+    SearchOptions, SearchProvider, TravelDataProvider, TravelDataRequest, TravelRouteRequest,
+    WebFetcher,
 };
 
-use crate::ApplicationError;
+use crate::time::now_unix;
+use crate::travel::ports::TravelStorePort;
+use crate::{ApplicationError, TravelErrorKind, TravelFailure};
 
 /// 每次搜索期望的结果数（Provider 尽力而为）。
 const RESULTS_PER_QUERY: usize = 8;
@@ -60,13 +66,24 @@ pub struct TravelResearchRequest {
     pub force: bool,
 }
 
+/// `research_city` 的结构化结果：攻略本体 + 缓存命中决策。
+///
+/// Gate 7：缓存决策走结构化字段（`from_cache`），不再由外层对事件文案
+/// （如「命中缓存攻略」）做字符串匹配；用户可见文案语义保持不变。
+#[derive(Clone, Debug)]
+pub struct ResearchOutcome {
+    pub guide: CityGuide,
+    pub from_cache: bool,
+}
+
 /// Travel 研究服务。依赖全部注入，便于测试替换为 Mock。
 pub struct TravelResearchService {
     search_providers: Vec<Box<dyn SearchProvider>>,
     fetcher: Box<dyn WebFetcher>,
     llm: Option<Box<dyn LlmProvider>>,
     data_providers: Vec<Box<dyn TravelDataProvider>>,
-    store: Arc<Mutex<TravelStore>>,
+    /// Gate 8：缓存走 `TravelStorePort`（SQLite 由组合根适配，测试用内存 Fake）。
+    store: Arc<dyn TravelStorePort>,
 }
 
 impl TravelResearchService {
@@ -77,7 +94,7 @@ impl TravelResearchService {
         fetcher: Box<dyn WebFetcher>,
         llm: Option<Box<dyn LlmProvider>>,
         data_providers: Vec<Box<dyn TravelDataProvider>>,
-        store: Arc<Mutex<TravelStore>>,
+        store: Arc<dyn TravelStorePort>,
     ) -> Self {
         Self {
             search_providers,
@@ -94,7 +111,7 @@ impl TravelResearchService {
         &self,
         request: &TravelResearchRequest,
         progress: &(dyn Fn(TravelResearchEvent) + Sync),
-    ) -> Result<CityGuide, ApplicationError> {
+    ) -> Result<ResearchOutcome, ApplicationError> {
         let now = now_unix();
         let mut seq = 0_u64;
         let mut notes: Vec<String> = Vec::new();
@@ -122,10 +139,7 @@ impl TravelResearchService {
 
         // 2. 攻略缓存（24h；force 跳过）。缓存损坏视为 miss，不阻塞研究。
         if !request.force && request.date_range.is_none() {
-            let cached = {
-                let store = self.store.lock().expect("travel store poisoned");
-                store.get_guide(&city, request.days, now).ok().flatten()
-            };
+            let cached = self.store.get_guide(&city, request.days, now).ok().flatten();
             if let Some(guide) = cached {
                 emit(
                     ResearchPhase::IdentifyCity,
@@ -137,7 +151,10 @@ impl TravelResearchService {
                     StepStatus::Done,
                     "直接返回缓存结果".to_string(),
                 );
-                return Ok(guide);
+                return Ok(ResearchOutcome {
+                    guide,
+                    from_cache: true,
+                });
             }
         }
         emit(
@@ -541,8 +558,10 @@ impl TravelResearchService {
             "保存到本地缓存".to_string(),
         );
         // 日期范围作为独立键持久化，避免覆盖同城同天数的普通攻略。
-        let store = self.store.lock().expect("travel store poisoned");
-        let stored = store.upsert_guide(&guide, now).map_err(travel)?;
+        let stored = self
+            .store
+            .upsert_guide(&guide, now)
+            .map_err(travel_store)?;
         emit(
             ResearchPhase::SaveGuide,
             StepStatus::Done,
@@ -554,38 +573,37 @@ impl TravelResearchService {
                 })
             ),
         );
-        Ok(stored)
+        Ok(ResearchOutcome {
+            guide: stored,
+            from_cache: false,
+        })
     }
 
-    /// 单查询搜索：先查 24h 缓存（损坏视为 miss），再按 Provider 链顺序 fallback。
+/// 单查询搜索：先查 24h 缓存（损坏视为 miss），再按 Provider 链顺序 fallback。
     async fn search_query(
         &self,
         query: &str,
         now: i64,
     ) -> Result<Vec<SearchResult>, ApplicationError> {
-        if let Some(cached) = {
-            let store = self.store.lock().expect("travel store poisoned");
-            store.get_search_results(query, now).ok().flatten()
-        } {
+        if let Some(cached) = self.store.get_search_results(query, now).ok().flatten() {
             return Ok(cached);
         }
         if self.search_providers.is_empty() {
-            return Err(travel(InfrastructureError::TravelSearch(
-                "no search provider configured".to_string(),
+            return Err(travel_error(ProviderError::search(
+                "no search provider configured",
             )));
         }
         let options = SearchOptions {
             count: RESULTS_PER_QUERY,
         };
-        let mut last_error: Option<InfrastructureError> = None;
+        let mut last_error: Option<ProviderError> = None;
         let mut any_provider_responded = false;
         for provider in &self.search_providers {
             match provider.search(query, options).await {
                 Ok(results) if !results.is_empty() => {
-                    let store = self.store.lock().expect("travel store poisoned");
-                    store
+                    self.store
                         .put_search_results(query, &results, now)
-                        .map_err(travel)?;
+                        .map_err(travel_store)?;
                     return Ok(results);
                 }
                 Ok(_) => {
@@ -595,11 +613,11 @@ impl TravelResearchService {
             }
         }
         if any_provider_responded {
-            // 没有匹配结果是正常搜索结果，不应被前端误报为“搜索失败”。
+            // 没有匹配结果是正常搜索,不应被前端误报为「搜索失败」。
             return Ok(Vec::new());
         }
-        Err(travel(last_error.unwrap_or_else(|| {
-            InfrastructureError::TravelSearch("all providers failed".to_string())
+        Err(travel_error(last_error.unwrap_or_else(|| {
+            ProviderError::search("all providers failed")
         })))
     }
 
@@ -621,14 +639,7 @@ impl TravelResearchService {
     }
 
     async fn fetch_one(&self, result: &SearchResult, now: i64) -> TravelDocument {
-        if let Some(cached) = {
-            let store = self.store.lock().expect("travel store poisoned");
-            store
-                .get_document(&result.url, now)
-                .map_err(travel)
-                .ok()
-                .flatten()
-        } {
+        if let Some(cached) = self.store.get_document(&result.url, now).ok().flatten() {
             return cached;
         }
         match self.fetcher.fetch(&result.url).await {
@@ -636,8 +647,7 @@ impl TravelResearchService {
                 if let Some(published) = result.published_at {
                     document.published_at = Some(published);
                 }
-                let store = self.store.lock().expect("travel store poisoned");
-                let _ = store.put_document(&document, now);
+                let _ = self.store.put_document(&document, now);
                 document
             }
             Err(_) => TravelDocument {
@@ -899,8 +909,19 @@ enum GuideGenError {
     Unavailable,
 }
 
-fn travel(source: InfrastructureError) -> ApplicationError {
-    ApplicationError::Travel { source }
+fn travel_error(error: ProviderError) -> ApplicationError {
+    let kind = match error.kind {
+        ProviderErrorKind::Search => TravelErrorKind::Search,
+        ProviderErrorKind::Fetch => TravelErrorKind::Fetch,
+        ProviderErrorKind::Llm => TravelErrorKind::Llm,
+        ProviderErrorKind::Data => TravelErrorKind::Data,
+    };
+    ApplicationError::Travel(TravelFailure::new(kind, error.message))
+}
+
+/// 本地缓存错误（组合根适配器返回原始文本；无额外前缀，与既有 Display 一致）。
+fn travel_store(message: String) -> ApplicationError {
+    ApplicationError::Travel(TravelFailure::new(TravelErrorKind::Store, message))
 }
 
 fn validate_date_range(range: Option<&TravelDateRange>) -> Result<(), ApplicationError> {
@@ -948,10 +969,8 @@ fn is_llm_transport_error(error: &str) -> bool {
 /// 数据源 Provider 名 → 其 Sources 展示地址（同时是事实 source_id，保证权威权重可匹配）。
 fn data_source_url(provider_name: &str) -> String {
     match provider_name {
-        "amap-poi" => devtoolbox_infrastructure::travel::data_provider::AMAP_SOURCE_URL.to_string(),
-        "qweather" => {
-            devtoolbox_infrastructure::travel::data_provider::QWEATHER_SOURCE_URL.to_string()
-        }
+        "amap-poi" => AMAP_SOURCE_URL.to_string(),
+        "qweather" => QWEATHER_SOURCE_URL.to_string(),
         other => format!("https://data.{other}"),
     }
 }
@@ -1393,7 +1412,7 @@ fn merge_food_fact(guide: &mut CityGuide, fact: &VerifiedFact, facts: &[TravelFa
         candidate.category == FactCategory::Food && candidate.subject == fact.subject
     });
     let is_amap = source.is_some_and(|candidate| {
-        candidate.source_id == devtoolbox_infrastructure::travel::data_provider::AMAP_SOURCE_URL
+        candidate.source_id == AMAP_SOURCE_URL
             && (candidate.coordinates.is_some()
                 || candidate.poi_id.is_some()
                 || candidate.area.is_some()

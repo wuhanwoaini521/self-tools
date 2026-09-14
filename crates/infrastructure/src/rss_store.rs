@@ -7,30 +7,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use rusqlite::{Connection, OptionalExtension};
 
 use crate::error::InfrastructureError;
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct FeedRow {
-    pub id: i64,
-    pub title: String,
-    pub url: String,
-    pub site_url: Option<String>,
-    pub last_updated: Option<i64>,
-    pub last_error: Option<String>,
-    pub unread_count: i64,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ArticleRow {
-    pub id: i64,
-    pub feed_id: i64,
-    pub feed_title: String,
-    pub guid: String,
-    pub url: String,
-    pub title: String,
-    pub published_at: Option<i64>,
-    pub summary: Option<String>,
-    pub is_read: bool,
-}
+pub use devtoolbox_core::rss::{ArticleRow, FeedRow};
 
 pub fn now_unix() -> i64 {
     SystemTime::now()

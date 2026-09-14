@@ -29,7 +29,8 @@ impl fmt::Display for HistoryPortError {
 impl std::error::Error for HistoryPortError {}
 
 /// History 知识库（只读查询面）的端口契约。
-pub trait HistoryQueryPort {
+/// `Send + Sync`：用例服务会被跨线程共享（桌面 Tauri / HTTP 服务 State）。
+pub trait HistoryQueryPort: Send + Sync {
     fn get_dataset_stats(&self) -> Result<DatasetStats, HistoryPortError>;
     fn get_periods(&self) -> Result<Vec<PeriodResult>, HistoryPortError>;
     fn get_regimes_by_period(

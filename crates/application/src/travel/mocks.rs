@@ -1,16 +1,16 @@
 //! 测试用 Mock Provider（仅在 `cfg(test)` 下编译）。
 //!
 //! 需求 #二十五：测试不得依赖真实百度 / 携程 / 第三方网站。
+//! Gate 8：Provider 契约在 core，Mock 直接实现 core 契约（无基础设施依赖）。
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
 
-use devtoolbox_core::travel::{ContentState, SearchResult, TravelDocument, TravelFact};
-use devtoolbox_infrastructure::{
-    InfrastructureError, LlmProvider, SearchOptions, SearchProvider, TravelDataProvider,
-    TravelDataRequest, WebFetcher,
+use devtoolbox_core::travel::{
+    ContentState, LlmProvider, ProviderError, SearchOptions, SearchProvider, SearchResult,
+    TravelDataProvider, TravelDataRequest, TravelDocument, TravelFact, WebFetcher,
 };
 
 /// 可编程搜索 Provider：
@@ -46,14 +46,14 @@ impl SearchProvider for MockSearchProvider {
         &self,
         query: &str,
         _options: SearchOptions,
-    ) -> Result<Vec<SearchResult>, InfrastructureError> {
+    ) -> Result<Vec<SearchResult>, ProviderError> {
         self.calls
             .lock()
             .expect("calls poisoned")
             .push(query.to_string());
         // 精确查询失败优先；"*" 为全量失败（模拟整个 Provider 不可用）
         if let Some(message) = self.errors.get(query).or_else(|| self.errors.get("*")) {
-            return Err(InfrastructureError::TravelSearch(message.clone()));
+            return Err(ProviderError::search(message.clone()));
         }
         if let Some(results) = self.queries.get(query) {
             return Ok(results.clone());
@@ -108,7 +108,7 @@ impl Default for MockWebFetcher {
 
 #[async_trait]
 impl WebFetcher for MockWebFetcher {
-    async fn fetch(&self, url: &str) -> Result<TravelDocument, InfrastructureError> {
+    async fn fetch(&self, url: &str) -> Result<TravelDocument, ProviderError> {
         self.calls
             .lock()
             .expect("calls poisoned")
@@ -124,10 +124,8 @@ impl WebFetcher for MockWebFetcher {
                 fetched_at: 1_700_000_000,
                 provider: Some("mock".to_string()),
             }),
-            Some(Err(message)) => Err(InfrastructureError::TravelFetch(message.clone())),
-            None => Err(InfrastructureError::TravelFetch(
-                "page not configured".to_string(),
-            )),
+            Some(Err(message)) => Err(ProviderError::fetch(message.clone())),
+            None => Err(ProviderError::fetch("page not configured")),
         }
     }
 }
@@ -150,7 +148,7 @@ impl MockLlmProvider {
 
 #[async_trait]
 impl LlmProvider for MockLlmProvider {
-    async fn complete(&self, _system: &str, _user: &str) -> Result<String, InfrastructureError> {
+    async fn complete(&self, _system: &str, _user: &str) -> Result<String, ProviderError> {
         let mut calls = self.calls.lock().expect("calls poisoned");
         *calls += 1;
         let next = self
@@ -159,13 +157,11 @@ impl LlmProvider for MockLlmProvider {
             .expect("responses poisoned")
             .pop_front();
         match next {
-            Some(raw) if raw.starts_with("ERR:") => Err(InfrastructureError::TravelLlm(
-                raw.trim_start_matches("ERR:").to_string(),
-            )),
+            Some(raw) if raw.starts_with("ERR:") => {
+                Err(ProviderError::llm(raw.trim_start_matches("ERR:")))
+            }
             Some(raw) => Ok(raw),
-            None => Err(InfrastructureError::TravelLlm(
-                "mock llm queue exhausted".to_string(),
-            )),
+            None => Err(ProviderError::llm("mock llm queue exhausted")),
         }
     }
 }
@@ -204,19 +200,16 @@ impl TravelDataProvider for MockDataProvider {
         self.name
     }
 
-    async fn fetch(
-        &self,
-        request: TravelDataRequest,
-    ) -> Result<Vec<TravelFact>, InfrastructureError> {
+    async fn fetch(&self, request: TravelDataRequest) -> Result<Vec<TravelFact>, ProviderError> {
         match self.responses.get(request.kind) {
             Some(Ok(facts)) => Ok(facts.clone()),
-            Some(Err(message)) => Err(InfrastructureError::TravelData(message.clone())),
+            Some(Err(message)) => Err(ProviderError::data(message.clone())),
             None => Ok(Vec::new()),
         }
     }
 }
 
-/// 便捷构造搜索结果。
+/// 便捷构造搜索。
 #[must_use]
 pub fn search_result(url: &str, title: &str, snippet: &str) -> SearchResult {
     SearchResult {

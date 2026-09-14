@@ -6,11 +6,72 @@ use devtoolbox_core::travel::{
     CityGuide, CityInfo, FactCategory, GuideMeta, MapCoordinates, ResearchPhase, StepStatus,
     TravelDateRange, TravelFact, TravelResearchEvent,
 };
-use devtoolbox_infrastructure::TravelStore;
 
 use crate::travel::mocks::{
     MockDataProvider, MockLlmProvider, MockSearchProvider, MockWebFetcher, search_result,
 };
+use crate::travel::ports::TravelStorePort;
+use devtoolbox_core::travel::{SearchResult, TravelDocument};
+
+/// 内存版 Travel 存储（Gate 8：测试不再依赖 SQLite；语义与 SQLite 缓存一致）。
+#[derive(Default)]
+pub struct FakeTravelStore {
+    guides: std::sync::Mutex<std::collections::HashMap<(String, u8), CityGuide>>,
+    search_results: std::sync::Mutex<std::collections::HashMap<String, Vec<SearchResult>>>,
+    documents: std::sync::Mutex<std::collections::HashMap<String, TravelDocument>>,
+}
+
+impl TravelStorePort for FakeTravelStore {
+    fn get_guide(&self, city: &str, days: u8, _now: i64) -> Result<Option<CityGuide>, String> {
+        let guides = self.guides.lock().expect("guides poisoned");
+        Ok(guides.get(&(city.to_string(), days)).cloned())
+    }
+
+    fn upsert_guide(&self, guide: &CityGuide, now: i64) -> Result<CityGuide, String> {
+        let mut stored = guide.clone();
+        stored.meta.updated_at = now;
+        self.guides.lock().expect("guides poisoned").insert(
+            (stored.city.name.clone(), stored.meta.days),
+            stored.clone(),
+        );
+        Ok(stored)
+    }
+
+    fn get_search_results(
+        &self,
+        query: &str,
+        _now: i64,
+    ) -> Result<Option<Vec<SearchResult>>, String> {
+        let results = self.search_results.lock().expect("search poisoned");
+        Ok(results.get(query).cloned())
+    }
+
+    fn put_search_results(
+        &self,
+        query: &str,
+        results: &[SearchResult],
+        _now: i64,
+    ) -> Result<(), String> {
+        self.search_results
+            .lock()
+            .expect("search poisoned")
+            .insert(query.to_string(), results.to_vec());
+        Ok(())
+    }
+
+    fn get_document(&self, url: &str, _now: i64) -> Result<Option<TravelDocument>, String> {
+        let documents = self.documents.lock().expect("documents poisoned");
+        Ok(documents.get(url).cloned())
+    }
+
+    fn put_document(&self, document: &TravelDocument, _now: i64) -> Result<(), String> {
+        self.documents
+            .lock()
+            .expect("documents poisoned")
+            .insert(document.url.clone(), document.clone());
+        Ok(())
+    }
+}
 use crate::travel::service::TravelResearchService;
 use crate::{ApplicationError, travel::TravelResearchRequest};
 
@@ -41,35 +102,30 @@ fn fushun_request() -> TravelResearchRequest {
 
 /// 构造服务 + 事件收集器。
 fn harness(
-    providers: Vec<Box<dyn devtoolbox_infrastructure::SearchProvider>>,
-    fetcher: Box<dyn devtoolbox_infrastructure::WebFetcher>,
-    llm: Option<Box<dyn devtoolbox_infrastructure::LlmProvider>>,
+    providers: Vec<Box<dyn devtoolbox_core::travel::SearchProvider>>,
+    fetcher: Box<dyn devtoolbox_core::travel::WebFetcher>,
+    llm: Option<Box<dyn devtoolbox_core::travel::LlmProvider>>,
 ) -> (
     TravelResearchService,
     Arc<Mutex<Vec<TravelResearchEvent>>>,
-    tempfile::TempDir,
 ) {
     harness_with_data(providers, fetcher, llm, Vec::new())
 }
 
 /// 构造服务 + 事件收集器（带结构化数据 Provider）。
 fn harness_with_data(
-    providers: Vec<Box<dyn devtoolbox_infrastructure::SearchProvider>>,
-    fetcher: Box<dyn devtoolbox_infrastructure::WebFetcher>,
-    llm: Option<Box<dyn devtoolbox_infrastructure::LlmProvider>>,
-    data_providers: Vec<Box<dyn devtoolbox_infrastructure::TravelDataProvider>>,
+    providers: Vec<Box<dyn devtoolbox_core::travel::SearchProvider>>,
+    fetcher: Box<dyn devtoolbox_core::travel::WebFetcher>,
+    llm: Option<Box<dyn devtoolbox_core::travel::LlmProvider>>,
+    data_providers: Vec<Box<dyn devtoolbox_core::travel::TravelDataProvider>>,
 ) -> (
     TravelResearchService,
     Arc<Mutex<Vec<TravelResearchEvent>>>,
-    tempfile::TempDir,
 ) {
-    let directory = tempfile::tempdir().expect("temp dir");
-    let store: Arc<Mutex<TravelStore>> = Arc::new(Mutex::new(
-        TravelStore::open(directory.path().join("travel.db")).expect("open"),
-    ));
+    let store: Arc<dyn TravelStorePort> = Arc::new(FakeTravelStore::default());
     let events: Arc<Mutex<Vec<TravelResearchEvent>>> = Arc::new(Mutex::new(Vec::new()));
     let service = TravelResearchService::new(providers, fetcher, llm, data_providers, store);
-    (service, events, directory)
+    (service, events)
 }
 
 fn guide_json(summary: &str) -> String {
@@ -128,7 +184,7 @@ fn happy_fetcher() -> MockWebFetcher {
 
 #[tokio::test]
 async fn full_research_produces_structured_guide() {
-    let (service, events, _dir) = harness(
+    let (service, events) = harness(
         vec![Box::new(happy_provider())],
         Box::new(happy_fetcher()),
         Some(Box::new(happy_llm_queue())),
@@ -139,7 +195,7 @@ async fn full_research_produces_structured_guide() {
             collector.lock().expect("poisoned").push(event);
         })
         .await
-        .expect("research");
+        .expect("research").guide;
 
     assert_eq!(guide.city.name, "杭州");
     assert_eq!(guide.city.name_en.as_deref(), Some("Hangzhou"));
@@ -197,7 +253,7 @@ async fn provider_failure_falls_back_to_secondary() {
         vec![search_result(OFFICIAL_URL, "杭州 介绍", "snippet")],
     );
     let secondary_calls = secondary.calls.clone();
-    let (service, _events, _dir) = harness(
+    let (service, _events) = harness(
         vec![Box::new(primary), Box::new(secondary)],
         Box::new(happy_fetcher()),
         None,
@@ -205,7 +261,7 @@ async fn provider_failure_falls_back_to_secondary() {
     let guide = service
         .research_city(&request("杭州"), &|_| {})
         .await
-        .expect("research with fallback");
+        .expect("research with fallback").guide;
     // 主 Provider 全挂时备选 Provider 顶上，研究仍成功
     assert!(!guide.sources.is_empty());
     assert!(!secondary_calls.lock().expect("poisoned").is_empty());
@@ -215,7 +271,7 @@ async fn provider_failure_falls_back_to_secondary() {
 async fn all_providers_failing_fails_research() {
     let mut failing = MockSearchProvider::new("broken", vec![]);
     failing.errors.insert("*".to_string(), "down".to_string());
-    let (service, events, _dir) = harness(
+    let (service, events) = harness(
         vec![Box::new(failing)],
         Box::new(MockWebFetcher::new()),
         None,
@@ -247,7 +303,7 @@ async fn partial_page_failures_keep_snippets() {
         r#"[{"category":"food","subject":"B","value":"小吃"}]"#.to_string(),
         guide_json("部分页面不可用。").to_string(),
     ]);
-    let (service, _events, _dir) = harness(
+    let (service, _events) = harness(
         vec![Box::new(provider)],
         Box::new(fetcher),
         Some(Box::new(llm)),
@@ -255,7 +311,7 @@ async fn partial_page_failures_keep_snippets() {
     let guide = service
         .research_city(&request("杭州"), &|_| {})
         .await
-        .expect("partial success");
+        .expect("partial success").guide;
     // 失败页面仍以「仅摘要」出现在来源里
     let snippet_source = guide
         .sources
@@ -272,7 +328,7 @@ async fn partial_page_failures_keep_snippets() {
 #[tokio::test]
 async fn llm_failure_falls_back_to_sources_only() {
     let llm = MockLlmProvider::new(["ERR:service unavailable".to_string()]);
-    let (service, _events, _dir) = harness(
+    let (service, _events) = harness(
         vec![Box::new(happy_provider())],
         Box::new(happy_fetcher()),
         Some(Box::new(llm)),
@@ -280,7 +336,7 @@ async fn llm_failure_falls_back_to_sources_only() {
     let guide = service
         .research_city(&request("杭州"), &|_| {})
         .await
-        .expect("research keeps working without llm");
+        .expect("research keeps working without llm").guide;
     assert!(!guide.meta.llm_used);
     assert!(!guide.sources.is_empty());
     // 降级说明写入 notes，不编造 AI 内容：summary 为降级文案
@@ -292,7 +348,7 @@ async fn llm_failure_falls_back_to_sources_only() {
 
 #[tokio::test]
 async fn no_llm_configured_still_returns_sources() {
-    let (service, events, _dir) = harness(
+    let (service, events) = harness(
         vec![Box::new(happy_provider())],
         Box::new(happy_fetcher()),
         None,
@@ -303,7 +359,7 @@ async fn no_llm_configured_still_returns_sources() {
             collector.lock().expect("poisoned").push(event);
         })
         .await
-        .expect("research without llm");
+        .expect("research without llm").guide;
     assert!(!guide.meta.llm_used);
     assert!(guide.sources.len() >= 2);
     assert!(guide.meta.notes.iter().any(|n| n.contains("未配置 LLM")));
@@ -324,7 +380,7 @@ async fn illegal_llm_json_is_tolerated() {
         r#"[{"category":"food","subject":"龙井虾仁","value":"杭帮菜"}]"#.to_string(),
         guide_json("攻略依然生成。").to_string(),
     ]);
-    let (service, _events, _dir) = harness(
+    let (service, _events) = harness(
         vec![Box::new(happy_provider())],
         Box::new(happy_fetcher()),
         Some(Box::new(llm)),
@@ -332,7 +388,7 @@ async fn illegal_llm_json_is_tolerated() {
     let guide = service
         .research_city(&request("杭州"), &|_| {})
         .await
-        .expect("illegal json tolerated");
+        .expect("illegal json tolerated").guide;
     assert!(guide.meta.llm_used, "guide 由 LLM 生成");
     assert_eq!(guide.summary, "攻略依然生成。");
     // LLM 攻略里没有龙井虾仁，但合并层应把已验证事实补进去（food 类暂不强制，至少不报错）
@@ -358,7 +414,7 @@ async fn conflicting_facts_resolve_by_authority() {
         facts_json(false).to_string(),
         r#"{"city":{"name":"杭州"},"attractions":[{"name":"西湖"}]}"#.to_string(),
     ]);
-    let (service, _events, _dir) = harness(
+    let (service, _events) = harness(
         vec![Box::new(provider)],
         Box::new(fetcher),
         Some(Box::new(llm)),
@@ -366,7 +422,7 @@ async fn conflicting_facts_resolve_by_authority() {
     let guide = service
         .research_city(&request("杭州"), &|_| {})
         .await
-        .expect("conflict resolved");
+        .expect("conflict resolved").guide;
     let attraction = guide
         .attractions
         .iter()
@@ -385,11 +441,8 @@ async fn conflicting_facts_resolve_by_authority() {
 
 #[tokio::test]
 async fn cache_hit_skips_network() {
-    let directory = tempfile::tempdir().expect("temp dir");
-    let store: Arc<Mutex<TravelStore>> = Arc::new(Mutex::new(
-        TravelStore::open(directory.path().join("travel.db")).expect("open"),
-    ));
-    let now = devtoolbox_infrastructure::now_unix();
+    let store: Arc<dyn TravelStorePort> = Arc::new(FakeTravelStore::default());
+    let now = crate::time::now_unix();
     let cached_guide = CityGuide {
         city: CityInfo {
             name: "杭州".to_string(),
@@ -406,11 +459,7 @@ async fn cache_hit_skips_network() {
         summary: "缓存中的攻略".to_string(),
         ..CityGuide::default()
     };
-    store
-        .lock()
-        .expect("poisoned")
-        .upsert_guide(&cached_guide, now)
-        .expect("seed cache");
+    store.upsert_guide(&cached_guide, now).expect("seed cache");
 
     let cache_hit_provider = MockSearchProvider::new("should-not-be-called", vec![]);
     let service = TravelResearchService::new(
@@ -420,17 +469,18 @@ async fn cache_hit_skips_network() {
         Vec::new(),
         store,
     );
-    let _keep = directory;
-    let guide = service
+    let outcome = service
         .research_city(&request("杭州"), &|_| {})
         .await
         .expect("cache hit");
-    assert_eq!(guide.summary, "缓存中的攻略");
+    // Gate 7：缓存决策是结构化字段，不依赖事件文案匹配。
+    assert!(outcome.from_cache);
+    assert_eq!(outcome.guide.summary, "缓存中的攻略");
 }
 
 #[tokio::test]
 async fn empty_city_is_rejected() {
-    let (service, _events, _dir) = harness(
+    let (service, _events) = harness(
         vec![Box::new(MockSearchProvider::new("mock", vec![]))],
         Box::new(MockWebFetcher::new()),
         None,
@@ -441,7 +491,7 @@ async fn empty_city_is_rejected() {
 
 #[tokio::test]
 async fn no_search_results_fails_cleanly() {
-    let (service, _events, _dir) = harness(
+    let (service, _events) = harness(
         vec![Box::new(MockSearchProvider::new("empty", vec![]))],
         Box::new(MockWebFetcher::new()),
         None,
@@ -511,7 +561,7 @@ async fn fushun_two_day_guide_is_curated_and_deduplicated() {
         r#"{{"city":{{"name":"抚顺"}},"summary":"工业历史与满族文化，配合东北本地美食。","attractions":[{attraction_json}],"accommodation_areas":[{{"name":"新抚区","note":"市区交通方便"}},{{"name":"顺城区"}},{{"name":"东洲区"}},{{"name":"不应展示的区域"}}],"restaurants":[{{"name":"本地麻辣拌","area":"新抚区"}}]}}"#
     );
     let llm = MockLlmProvider::new(["[]".to_string(), "[]".to_string(), guide_json]);
-    let (service, _events, _dir) = harness(
+    let (service, _events) = harness(
         vec![Box::new(provider)],
         Box::new(fetcher),
         Some(Box::new(llm)),
@@ -519,7 +569,7 @@ async fn fushun_two_day_guide_is_curated_and_deduplicated() {
     let guide = service
         .research_city(&fushun_request(), &|_| {})
         .await
-        .expect("fushun guide");
+        .expect("fushun guide").guide;
     assert_eq!(guide.meta.days, 2);
     assert!(guide.attractions.len() <= 6);
     assert_eq!(guide.itinerary_days.len(), 2);
@@ -593,7 +643,7 @@ async fn data_provider_facts_enrich_guide_and_sources() {
         r#"[]"#.to_string(),
         r#"{"city":{"name":"杭州"},"summary":"基本攻略"}"#.to_string(),
     ]);
-    let (service, _events, _dir) = harness_with_data(
+    let (service, _events) = harness_with_data(
         vec![Box::new(happy_provider())],
         Box::new(happy_fetcher()),
         Some(Box::new(llm)),
@@ -602,7 +652,7 @@ async fn data_provider_facts_enrich_guide_and_sources() {
     let guide = service
         .research_city(&request("杭州"), &|_| {})
         .await
-        .expect("research with data providers");
+        .expect("research with data providers").guide;
     // 只有经过编辑补齐理由/时长/区域的条目进入主推荐；裸 POI 作为备选保留
     assert!(
         guide.alternatives.iter().any(|a| a.name.contains("龙井村")),
@@ -689,7 +739,7 @@ async fn amap_poi_fallback_keeps_fushun_itinerary_and_restaurants_readable() {
         },
     ];
     let data = MockDataProvider::new("amap-poi").with_facts("poi", poi);
-    let (service, _events, _dir) = harness_with_data(
+    let (service, _events) = harness_with_data(
         vec![Box::new(happy_provider())],
         Box::new(happy_fetcher()),
         None,
@@ -698,7 +748,7 @@ async fn amap_poi_fallback_keeps_fushun_itinerary_and_restaurants_readable() {
     let guide = service
         .research_city(&fushun_request(), &|_| {})
         .await
-        .expect("fallback guide");
+        .expect("fallback guide").guide;
 
     assert!(!guide.meta.llm_used);
     assert!(!guide.attractions.is_empty());
@@ -721,7 +771,7 @@ async fn amap_poi_fallback_keeps_fushun_itinerary_and_restaurants_readable() {
 #[tokio::test]
 async fn data_provider_failure_is_partial_success() {
     let data = MockDataProvider::new("amap-poi").with_error("poi", "invalid key");
-    let (service, events, _dir) = harness_with_data(
+    let (service, events) = harness_with_data(
         vec![Box::new(happy_provider())],
         Box::new(happy_fetcher()),
         None,
@@ -733,7 +783,7 @@ async fn data_provider_failure_is_partial_success() {
             collector.lock().expect("poisoned").push(event);
         })
         .await
-        .expect("data provider failure must not abort research");
+        .expect("data provider failure must not abort research").guide;
     assert!(!guide.sources.is_empty());
     assert!(
         guide
@@ -753,7 +803,7 @@ async fn data_provider_failure_is_partial_success() {
 #[tokio::test]
 async fn without_data_keys_providers_skipped() {
     // 未配置 Key → 无数据 Provider → 阶段跳过，攻略照常
-    let (service, events, _dir) = harness(
+    let (service, events) = harness(
         vec![Box::new(happy_provider())],
         Box::new(happy_fetcher()),
         None,
@@ -764,7 +814,7 @@ async fn without_data_keys_providers_skipped() {
             collector.lock().expect("poisoned").push(event);
         })
         .await
-        .expect("research without keys");
+        .expect("research without keys").guide;
     assert!(!guide.sources.is_empty());
     assert!(
         guide
@@ -790,7 +840,7 @@ async fn llm_transport_failure_stops_remaining_requests() {
         "ERR:error decoding response body".to_string(),
     ]);
     let calls = llm.calls.clone();
-    let (service, _events, _dir) = harness(
+    let (service, _events) = harness(
         vec![Box::new(happy_provider())],
         Box::new(happy_fetcher()),
         Some(Box::new(llm)),
@@ -798,7 +848,7 @@ async fn llm_transport_failure_stops_remaining_requests() {
     let guide = service
         .research_city(&request("杭州"), &|_| {})
         .await
-        .expect("fallback guide");
+        .expect("fallback guide").guide;
     assert_eq!(
         *calls.lock().expect("calls"),
         2,

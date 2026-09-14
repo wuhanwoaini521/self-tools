@@ -7,7 +7,7 @@
 use async_trait::async_trait;
 use serde::Serialize;
 
-use crate::error::InfrastructureError;
+use devtoolbox_core::travel::{LlmProvider, ProviderError};
 
 /// LLM 配置（来自应用设置）。
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize)]
@@ -31,13 +31,6 @@ impl LlmConfig {
     }
 }
 
-/// LLM 调用接口（可 mock）。
-#[async_trait]
-pub trait LlmProvider: Send + Sync {
-    /// 单轮对话，返回模型原始输出文本。
-    async fn complete(&self, system: &str, user: &str) -> Result<String, InfrastructureError>;
-}
-
 /// OpenAI-Compatible `/chat/completions` 实现。
 pub struct OpenAiCompatibleLlmProvider {
     client: reqwest::Client,
@@ -55,9 +48,9 @@ const LLM_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(120);
 
 #[async_trait]
 impl LlmProvider for OpenAiCompatibleLlmProvider {
-    async fn complete(&self, system: &str, user: &str) -> Result<String, InfrastructureError> {
+    async fn complete(&self, system: &str, user: &str) -> Result<String, ProviderError> {
         if !self.config.is_configured() {
-            return Err(InfrastructureError::TravelLlm(
+            return Err(ProviderError::llm(
                 "llm is not configured".to_string(),
             ));
         }
@@ -99,11 +92,11 @@ impl LlmProvider for OpenAiCompatibleLlmProvider {
         let response = builder
             .send()
             .await
-            .map_err(|error| InfrastructureError::TravelLlm(error.to_string()))?;
+            .map_err(|error| ProviderError::llm(error.to_string()))?;
         if !response.status().is_success() {
             let status = response.status();
             let body = response.text().await.unwrap_or_default();
-            return Err(InfrastructureError::TravelLlm(format!(
+            return Err(ProviderError::llm(format!(
                 "llm returned {status}: {}",
                 body.chars().take(200).collect::<String>()
             )));
@@ -111,8 +104,8 @@ impl LlmProvider for OpenAiCompatibleLlmProvider {
         let body = response
             .bytes()
             .await
-            .map_err(|error| InfrastructureError::TravelLlm(error.to_string()))?;
-        extract_chat_content(&body).map_err(InfrastructureError::TravelLlm)
+            .map_err(|error| ProviderError::llm(error.to_string()))?;
+        extract_chat_content(&body).map_err(ProviderError::llm)
     }
 }
 

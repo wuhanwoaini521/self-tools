@@ -8,6 +8,7 @@ authors.workspace = true
 description = "DevToolbox UI-independent Markdown task domain rules."
 
 [dependencies]
+async-trait = "0.1"
 regex.workspace = true
 serde.workspace = true
 serde_json.workspace = true

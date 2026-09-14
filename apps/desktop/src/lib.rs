@@ -1,24 +1,25 @@
 //! `Tauri` command adapter。业务规则位于 workspace 的 application/core crates。
 //!
-//! 全局 `AppState` 持有各模块的 SQLite 存储器、Travel 的缓存与共享 HTTP 客户端；
-//! 每个功能模块(文档 / RSS / Travel)的命令各自独立，互不依赖。
+//! 全局 `AppState` 持有各模块的 SQLite 存储器、Travel 会话注册表与共享 HTTP
+//! 客户端；每个功能模块(文档 / RSS / Travel)的命令各自独立，互不依赖。
 
-use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
 use devtoolbox_application::language::{
     LanguageInfo, LanguageSearchHit, LanguageService, ProgressView, ReviewCard, SourceInfo,
-    TodayView, WordDetail, starter,
+    TodayView, WordDetail,
 };
 use devtoolbox_application::{
     ApplicationError, ArticleDto, DocumentDto, FeedDto, GeoEntityDetail, GeoSearchGroup,
-    GeographyHome, RefreshReport, TravelResearchRequest, TravelResearchService, commit_new_feed,
-    commit_refresh, cycle_lines, delete_feed, feed_snapshots, fetch_all_feeds, fetch_new_feed,
-    latest_articles, list_articles, list_feeds, load_document, load_settings,
-    mark_article_read, save_document, save_settings, scan_workspace, validate_feed_url,
+    GeographyHome, RefreshReport, RssErrorKind, RssRepositoryPort, TravelErrorKind,
+    TravelResearchRequest, commit_new_feed, commit_refresh,
+    cycle_lines, delete_feed, feed_snapshots, fetch_all_feeds, fetch_new_feed, latest_articles,
+    list_articles, list_feeds, load_document, load_settings, mark_article_read, save_document,
+    save_settings, scan_workspace, validate_feed_url,
 };
+use devtoolbox_application::travel::session::TravelSessionRegistry;
+use devtoolbox_infrastructure::language::starter::{self, StarterReport};
 use devtoolbox_core::{
     AppSettings, WorkspaceFile,
     geography::GeoEntityType as CoreGeoEntityType,
@@ -26,10 +27,8 @@ use devtoolbox_core::{
     travel::{CityGuide, GuideSummary, TravelDateRange, TravelResearchEvent},
 };
 use devtoolbox_infrastructure::{
-    AmapPoiProvider, FeedRepository, GeographyStore, HistoryDuckDbRepository, HttpWebFetcher,
-    LanguageStore, LlmConfig, LlmProvider, OpenAiCompatibleLlmProvider, QWeatherProvider,
-    SettingsStore, TravelDataProvider, TravelDataRequest, TravelStore, build_providers,
-    feed_client, providers_for,
+    FeedRepository, GeographyStore, HistoryDuckDbRepository, LanguageStore, LlmProvider,
+    SettingsStore, TravelDataProvider, TravelDataRequest, TravelStore, feed_client,
 };
 
 // lib 已不再直接使用 serde_json（History 用例迁入 application）；保留空导入以消除 unused warning。
@@ -59,23 +58,17 @@ impl From<ApplicationError> for CommandError {
                 "geography_error"
             }
             ApplicationError::History(_) => "history_error",
-            ApplicationError::Travel { source } => match source {
-                devtoolbox_infrastructure::InfrastructureError::TravelSearch(_) => {
-                    "travel_search_failed"
-                }
-                devtoolbox_infrastructure::InfrastructureError::TravelFetch(_) => {
-                    "travel_fetch_failed"
-                }
-                devtoolbox_infrastructure::InfrastructureError::TravelLlm(_) => "travel_llm_failed",
-                devtoolbox_infrastructure::InfrastructureError::TravelData(_) => {
-                    "travel_data_failed"
-                }
-                _ => "travel_error",
+            ApplicationError::Travel(failure) => match failure.kind {
+                TravelErrorKind::Search => "travel_search_failed",
+                TravelErrorKind::Fetch => "travel_fetch_failed",
+                TravelErrorKind::Llm => "travel_llm_failed",
+                TravelErrorKind::Data => "travel_data_failed",
+                TravelErrorKind::Store => "travel_error",
             },
-            ApplicationError::Rss { source } => match source {
-                devtoolbox_infrastructure::InfrastructureError::FeedFetch(_) => "rss_fetch_failed",
-                devtoolbox_infrastructure::InfrastructureError::FeedParse(_) => "rss_parse_failed",
-                _ => "infrastructure_error",
+            ApplicationError::Rss { kind, .. } => match kind {
+                RssErrorKind::Fetch => "rss_fetch_failed",
+                RssErrorKind::Parse => "rss_parse_failed",
+                RssErrorKind::Repository => "infrastructure_error",
             },
             ApplicationError::Infrastructure { .. } => "infrastructure_error",
         };
@@ -86,27 +79,39 @@ impl From<ApplicationError> for CommandError {
     }
 }
 
-/// 应用级共享状态：RSS 存储 + Travel 缓存 + 研究会话 + HTTP 客户端。
+/// 旅行缓存命令的错误映射（存储层直出错误；code/text 与
+/// `ApplicationError::Travel` 旧形态完全一致）。
+fn store_command_error(source: devtoolbox_infrastructure::InfrastructureError) -> CommandError {
+    let code = match &source {
+        devtoolbox_infrastructure::InfrastructureError::TravelSearch(_) => "travel_search_failed",
+        devtoolbox_infrastructure::InfrastructureError::TravelFetch(_) => "travel_fetch_failed",
+        devtoolbox_infrastructure::InfrastructureError::TravelLlm(_) => "travel_llm_failed",
+        devtoolbox_infrastructure::InfrastructureError::TravelData(_) => "travel_data_failed",
+        _ => "travel_error",
+    };
+    CommandError {
+        code,
+        message: format!("travel error: {source}"),
+    }
+}
+
+/// 应用级共享状态：RSS 存储 + Travel 缓存 + 会话注册表 + HTTP 客户端。
+///
+/// Gate 7：Travel 会话生命周期属于 application（`TravelSessionRegistry` 是应用层
+/// 类型，内存态）；Tauri 不再持有/管理会话容器。
 pub struct AppState {
-    pub store: Mutex<FeedRepository>,
+    /// RSS：应用层端口（adapters 在组合根装配；不直接暴露 SQLite/reqwest）。
+    pub rss_repository: Arc<dyn RssRepositoryPort>,
+    pub rss_fetcher: composition::FeedFetcherAdapter,
     pub travel_store: Arc<Mutex<TravelStore>>,
-    pub travel_sessions: Arc<Mutex<HashMap<String, Arc<Mutex<TravelSession>>>>>,
+    pub travel_registry: TravelSessionRegistry,
     pub history_duckdb: Arc<HistoryDuckDbRepository>,
     pub language_store: Arc<Mutex<LanguageStore>>,
     pub geography_store: Arc<Mutex<GeographyStore>>,
     pub client: reqwest::Client,
 }
 
-/// 一次旅行研究的后台会话（前端按 session 轮询进度）。
-pub struct TravelSession {
-    pub events: Vec<TravelResearchEvent>,
-    pub done: bool,
-    pub error: Option<String>,
-    pub guide: Option<CityGuide>,
-    pub from_cache: bool,
-}
-
-/// 轮询快照（Serialize 给前端）。
+/// 轮询快照（Serialize 给前端；命令契约形状保持不变）。
 #[derive(Debug, Serialize)]
 pub struct TravelResearchSnapshot {
     pub session_id: String,
@@ -213,6 +218,7 @@ fn semantic_history_path(_app: &AppHandle) -> Result<PathBuf, CommandError> {
 // ---------- 文档 / Markdown 模块 ----------
 
 mod composition;
+mod travel_providers;
 
 #[tauri::command]
 fn read_document(path: String) -> Result<DocumentDto, CommandError> {
@@ -254,23 +260,19 @@ fn put_settings(app: AppHandle, settings: AppSettings) -> Result<(), CommandErro
 async fn add_rss_feed(state: State<'_, AppState>, url: String) -> Result<FeedDto, CommandError> {
     // 两段式：先无锁抓取(可跨 await),再短锁落库。
     let normalized = validate_feed_url(&url).map_err(CommandError::from)?;
-    let fetched = fetch_new_feed(&normalized, &state.client)
+    let fetched = fetch_new_feed(&normalized, &state.rss_fetcher)
         .await
         .map_err(CommandError::from)?;
-    let store = state.store.lock().expect("rss store poisoned");
-    commit_new_feed(&store, &normalized, fetched).map_err(CommandError::from)
+    commit_new_feed(state.rss_repository.as_ref(), &normalized, fetched)
+        .map_err(CommandError::from)
 }
 
 #[tauri::command]
 async fn refresh_rss_feeds(state: State<'_, AppState>) -> Result<RefreshReport, CommandError> {
     // 快照 → 并发抓取(无锁) → 短锁落库;单个 Feed 失败不影响其他。
-    let snapshots = {
-        let store = state.store.lock().expect("rss store poisoned");
-        feed_snapshots(&store).map_err(CommandError::from)?
-    };
-    let results = fetch_all_feeds(&snapshots, &state.client).await;
-    let store = state.store.lock().expect("rss store poisoned");
-    commit_refresh(&store, results).map_err(CommandError::from)
+    let snapshots = feed_snapshots(state.rss_repository.as_ref()).map_err(CommandError::from)?;
+    let results = fetch_all_feeds(&snapshots, &state.rss_fetcher).await;
+    commit_refresh(state.rss_repository.as_ref(), results).map_err(CommandError::from)
 }
 
 /// 按需抓取单篇文章页面原始 HTML(由前端抽取并净化正文)。
@@ -318,8 +320,7 @@ async fn fetch_article_url(
 
 #[tauri::command]
 fn list_rss_feeds(state: State<'_, AppState>) -> Result<Vec<FeedDto>, CommandError> {
-    let store = state.store.lock().expect("rss store poisoned");
-    list_feeds(&store).map_err(CommandError::from)
+    list_feeds(state.rss_repository.as_ref()).map_err(CommandError::from)
 }
 
 #[tauri::command]
@@ -328,8 +329,8 @@ fn list_rss_articles(
     feed_id: i64,
     limit: Option<i64>,
 ) -> Result<Vec<ArticleDto>, CommandError> {
-    let store = state.store.lock().expect("rss store poisoned");
-    list_articles(&store, feed_id, limit.unwrap_or(200)).map_err(CommandError::from)
+    list_articles(state.rss_repository.as_ref(), feed_id, limit.unwrap_or(200))
+        .map_err(CommandError::from)
 }
 
 #[tauri::command]
@@ -337,32 +338,26 @@ fn latest_rss_articles(
     state: State<'_, AppState>,
     limit: Option<i64>,
 ) -> Result<Vec<ArticleDto>, CommandError> {
-    let store = state.store.lock().expect("rss store poisoned");
-    latest_articles(&store, limit.unwrap_or(5)).map_err(CommandError::from)
+    latest_articles(state.rss_repository.as_ref(), limit.unwrap_or(5))
+        .map_err(CommandError::from)
 }
 
 #[tauri::command]
 fn mark_rss_article_read(state: State<'_, AppState>, article_id: i64) -> Result<(), CommandError> {
-    let store = state.store.lock().expect("rss store poisoned");
-    mark_article_read(&store, article_id).map_err(CommandError::from)
+    mark_article_read(state.rss_repository.as_ref(), article_id).map_err(CommandError::from)
 }
 
 #[tauri::command]
 fn delete_rss_feed(state: State<'_, AppState>, feed_id: i64) -> Result<(), CommandError> {
-    let store = state.store.lock().expect("rss store poisoned");
-    delete_feed(&store, feed_id).map_err(CommandError::from)
+    delete_feed(state.rss_repository.as_ref(), feed_id).map_err(CommandError::from)
 }
 
 // ---------- Travel 模块 ----------
 
-static SESSION_COUNTER: AtomicU64 = AtomicU64::new(0);
-
-fn next_session_id() -> String {
-    let n = SESSION_COUNTER.fetch_add(1, Ordering::Relaxed);
-    format!("t{}", n + 1)
-}
-
 /// 开启一次城市研究（后台任务）。立即返回 session_id，进度由 `travel_research_progress` 轮询。
+///
+/// Gate 7：命令保持「薄」——会话由应用层注册表分配，provider 由组合根
+/// (`travel_providers`) 装配；命令只做参数校验、登记会话、调度后台任务。
 #[tauri::command]
 fn travel_research_start(
     app: AppHandle,
@@ -372,76 +367,37 @@ fn travel_research_start(
     if request.city.trim().is_empty() {
         return Err(ApplicationError::EmptyCity.into());
     }
-    let session_id = next_session_id();
-    // 会话登记（克隆进后台任务）
-    let session = Arc::new(Mutex::new(TravelSession {
-        events: Vec::new(),
-        done: false,
-        error: None,
-        guide: None,
-        from_cache: false,
-    }));
-    state
-        .travel_sessions
-        .lock()
-        .expect("travel sessions poisoned")
-        .insert(session_id.clone(), Arc::clone(&session));
+    let (session_id, session) = state.travel_registry.register();
 
     let client = state.client.clone();
     let store = Arc::clone(&state.travel_store);
-    let from_cache = Arc::new(AtomicBool::new(false));
-    let from_cache_flag = Arc::clone(&from_cache);
-
     tauri::async_runtime::spawn(async move {
-        // 依赖全部来自设置（未配置项自动降级，保持模块可用）
-        let settings = settings_store(&app)
-            .and_then(|store| load_settings(&composition::SettingsStoreAdapter::new(store)).map_err(CommandError::from));
-        let travel = settings.map_or_else(|_| Default::default(), |settings| settings.travel);
-        let providers = build_providers(
-            travel.search_backend.clone(),
-            travel.searxng_url.clone(),
-            &client,
-        );
-        let fetcher = HttpWebFetcher::new(client.clone());
-        let llm = if travel.llm_base_url.is_some() || travel.llm_model.is_some() {
-            Some(Box::new(OpenAiCompatibleLlmProvider::new(
-                client.clone(),
-                LlmConfig {
-                    base_url: travel.llm_base_url.clone(),
-                    api_key: travel.llm_api_key.clone(),
-                    model: travel.llm_model.clone(),
-                },
-            ))
-                as Box<dyn devtoolbox_infrastructure::LlmProvider>)
-        } else {
-            None
-        };
-        let data_providers = providers_for(
-            travel.amap_api_key.clone(),
-            travel.qweather_api_key.clone(),
-            travel.qweather_api_host.clone(),
-            travel.baidu_map_api_key.clone(),
-            &client,
-        );
-        let service =
-            TravelResearchService::new(providers, Box::new(fetcher), llm, data_providers, store);
+        // 运行时配置：provider 装配在组合根按设置完成（未配置项自动降级）。
+        let travel = settings_store(&app)
+            .ok()
+            .and_then(|settings_store| {
+                load_settings(&composition::SettingsStoreAdapter::new(settings_store)).ok()
+            })
+            .map(|settings| settings.travel)
+            .unwrap_or_default();
+        let service = travel_providers::travel_research_service(&client, &travel, store);
 
-        let session_events = Arc::clone(&session);
+        let session_handle = Arc::clone(&session);
         let progress = move |event: TravelResearchEvent| {
-            if event.message.contains("命中缓存攻略") {
-                from_cache_flag.store(true, Ordering::Relaxed);
-            }
-            let mut session = session_events.lock().expect("travel session poisoned");
-            session.events.push(event);
+            session_handle
+                .lock()
+                .expect("travel session poisoned")
+                .push_event(event);
         };
-        let result = service.research_city(&request, &progress).await;
-
-        let mut session = session.lock().expect("travel session poisoned");
-        session.from_cache = from_cache.load(Ordering::Relaxed);
-        session.done = true;
-        match result {
-            Ok(guide) => session.guide = Some(guide),
-            Err(error) => session.error = Some(error.to_string()),
+        match service.research_city(&request, &progress).await {
+            Ok(outcome) => session
+                .lock()
+                .expect("travel session poisoned")
+                .finish(outcome.guide, outcome.from_cache),
+            Err(error) => session
+                .lock()
+                .expect("travel session poisoned")
+                .fail(error.to_string()),
         }
     });
     Ok(session_id)
@@ -475,14 +431,8 @@ async fn test_travel_llm(
     state: State<'_, AppState>,
     request: TravelLlmTestRequest,
 ) -> Result<String, CommandError> {
-    let provider = OpenAiCompatibleLlmProvider::new(
-        state.client.clone(),
-        LlmConfig {
-            base_url: Some(request.base_url),
-            api_key: request.api_key,
-            model: Some(request.model),
-        },
-    );
+    let provider =
+        travel_providers::llm_test_provider(&state.client, request.base_url, request.api_key, request.model);
     let answer = provider
         .complete("You are a connectivity test.", "Reply with OK.")
         .await
@@ -499,7 +449,7 @@ async fn test_travel_amap(
     state: State<'_, AppState>,
     request: TravelKeyTestRequest,
 ) -> Result<String, CommandError> {
-    let provider = AmapPoiProvider::new(state.client.clone(), request.api_key);
+    let provider = travel_providers::amap_test_provider(&state.client, request.api_key);
     let facts = provider
         .fetch(TravelDataRequest {
             city: "北京".to_string(),
@@ -523,7 +473,7 @@ async fn test_travel_qweather(
             code: "travel_qweather_test_failed",
             message: "请先填写和风天气 API Host".to_string(),
         })?;
-    let provider = QWeatherProvider::new(state.client.clone(), request.api_key, host);
+    let provider = travel_providers::qweather_test_provider(&state.client, request.api_key, host);
     let facts = provider
         .fetch(TravelDataRequest {
             city: "北京".to_string(),
@@ -545,21 +495,18 @@ fn travel_research_progress(
     state: State<'_, AppState>,
     session_id: String,
 ) -> Result<Option<TravelResearchSnapshot>, CommandError> {
-    let sessions = state
-        .travel_sessions
-        .lock()
-        .expect("travel sessions poisoned");
-    let Some(session) = sessions.get(&session_id) else {
+    let Some(session) = state.travel_registry.get(&session_id) else {
         return Ok(None);
     };
     let session = session.lock().expect("travel session poisoned");
+    let view = session.view();
     Ok(Some(TravelResearchSnapshot {
         session_id,
-        done: session.done,
-        error: session.error.clone(),
-        from_cache: session.from_cache,
-        events: session.events.clone(),
-        guide: session.guide.clone(),
+        done: view.done,
+        error: view.error,
+        from_cache: view.from_cache,
+        events: view.events,
+        guide: view.guide,
     }))
 }
 
@@ -569,7 +516,7 @@ fn travel_recent_guides(state: State<'_, AppState>) -> Result<Vec<GuideSummary>,
     let store = state.travel_store.lock().expect("travel store poisoned");
     let summaries = store
         .list_guides(20)
-        .map_err(|source| CommandError::from(ApplicationError::Travel { source }))?;
+        .map_err(store_command_error)?;
     Ok(summaries)
 }
 
@@ -584,14 +531,16 @@ fn travel_load_guide(
     let store = state.travel_store.lock().expect("travel store poisoned");
     let guide = store
         .load_guide(&city, days, date_range.as_ref())
-        .map_err(|source| CommandError::from(ApplicationError::Travel { source }))?;
+        .map_err(store_command_error)?;
     Ok(guide)
 }
 
 // ---------- Language 模块（离线优先；数据包安装不联网） ----------
 
 fn language_service(state: &State<'_, AppState>) -> LanguageService {
-    LanguageService::new(Arc::clone(&state.language_store))
+    LanguageService::new(Arc::new(composition::LanguageStoreAdapter::new(Arc::clone(
+        &state.language_store,
+    ))))
 }
 
 #[tauri::command]
@@ -724,12 +673,21 @@ fn language_sources(state: State<'_, AppState>) -> Result<Vec<SourceInfo>, Comma
 fn language_install_starter(
     state: State<'_, AppState>,
     only: Option<String>,
-) -> Result<starter::StarterReport, CommandError> {
+) -> Result<StarterReport, CommandError> {
     let mut store = state
         .language_store
         .lock()
         .expect("language store poisoned");
-    starter::install_starter(&mut store, only.as_deref()).map_err(CommandError::from)
+    starter::install_starter(&mut store, only.as_deref()).map_err(|error| match error {
+        starter::StarterError::License(_) => CommandError {
+            code: "language_license",
+            message: "language license error: starter pack data source not permitted".into(),
+        },
+        starter::StarterError::Store(_) => CommandError {
+            code: "language_error",
+            message: "language error: starter pack installation failed".into(),
+        },
+    })
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -916,10 +874,14 @@ pub fn run() {
             let geography_store = GeographyStore::open(config_directory.join("geography.db"))
                 .expect("open geography database");
             let client = feed_client().expect("build http client");
+            let rss_repository: Arc<dyn RssRepositoryPort> = Arc::new(
+                composition::RssRepositoryAdapter::new(Arc::new(Mutex::new(store))),
+            );
             app.manage(AppState {
-                store: Mutex::new(store),
+                rss_repository,
+                rss_fetcher: composition::FeedFetcherAdapter::new(client.clone()),
                 travel_store: Arc::new(Mutex::new(travel_store)),
-                travel_sessions: Arc::new(Mutex::new(HashMap::new())),
+                travel_registry: TravelSessionRegistry::new(),
                 history_duckdb: Arc::new(history_duckdb),
                 language_store: Arc::new(Mutex::new(language_store)),
                 geography_store: Arc::new(Mutex::new(geography_store)),

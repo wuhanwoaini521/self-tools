@@ -1,4 +1,4 @@
-# CURRENT_ARCHITECTURE — Self Tools 现状基线（Gate 0 + 2 + 3 + 3B + 4 + 5.5 + 6）
+# CURRENT_ARCHITECTURE — Self Tools 现状基线（Gate 0–9，2026-09-15）
 
 > 基线日期：2026-09-13（Overnight Architecture Consolidation 收尾 + Gate 5.5 实施）+ 2026-09-14（Gate 6 实施）
 > 方法：所有结论来自真实调用链、文件行号与本次实际执行的验证命令，非文件名推断。
@@ -13,6 +13,17 @@
 
 History V2 Cutover 已经**真实完成**：V1 legacy 在代码中已全部消失，History 只剩
 `dist/history.duckdb` 一个只读事实源，缺失时明确报错。
+
+**Gate 8（2026-09-15）**：Travel 依赖倒置完成 —— Provider 契约（Search / WebFetcher /
+Llm / TravelData + `ProviderError`）上移到 `crates/core::travel::provider`，infrastructure
+只实现、application 只消费；`application → infrastructure` Cargo 依赖清零（实测
+`grep devtoolbox_infrastructure crates/application/src` = 0）。
+
+**Gate 9 / 9.5（2026-09-15）**：新增第二个组合根 `apps/server`（axum 0.8）—— 极简
+HTTP 运行时，只暴露 History **只读**查询面（7 个 `/api/v1/history/*` 路由 + `/health`），
+与桌面端零互通；错误契约 `{"code","message"}` 来自 `ApplicationError`（无 CommandError）；
+无鉴权、默认无 CORS；duckdb 路径经 `SELF_TOOLS_HISTORY_DB` / `--history-db` 配置，
+缺失即启动失败；默认绑定 `127.0.0.1:8080`，`SELF_TOOLS_BIND` 控制监听地址。
 
 **Gate 2（History Application Boundary，2026-09-12）**：语义聚合从 `apps/desktop/src/lib.rs` 迁入
 `crates/application/src/history/`，命令变薄转发，adapter 只留序列化与错误映射（reference 实现）。
@@ -87,6 +98,9 @@ crates/application/         use case + 端口定义：workflows / rss_workflows 
   history/ports.rs          HistoryQueryPort（31 方法）+ HistoryPortError（reference）
   geography/ports.rs        GeographyQueryPort（10 方法）+ GeographyPortError（Gate 5.5）
   workflows/ports.rs        DocumentStorePort（3）+ SettingsStorePort（3）+ errors + #[cfg(test)] fakes（Gate 5.5）
+  language/ports.rs         LanguageStorePort（Gate 7.5）
+  rss/ports.rs              RssRepositoryPort / FeedFetcherPort（Gate 7.6）
+  travel/ports.rs           TravelStorePort（Gate 8）+ mocks/tests（FakeStore，无 SQLite）
   src/bin/language_data.rs  CLI（随 lib 编译，server 化时再定归属）
 crates/infrastructure/      SQLite / DuckDB / 文件 / HTTP / 数据导入（只实现，不持端口/不持契约）
 history-data-pipeline/      独立 submodule（Python），产出 dist/history.duckdb
@@ -165,9 +179,9 @@ GeographyStore（SQLite，用户数据；infra 只实现）
 ```
 
 - **端口**只存在于 application（用例消费者侧）；实现（SQLite/DuckDB/文件）在 infra；
-- **适配器 + 组合**只存在于 `apps/desktop` —— 这是全局组合点（ru·v 门）；
-- **模型真相**：上述 4 组模块在 application 侧对 `devtoolbox_infrastructure` **零引用**
-  （grep 验证：仅 language / rss / travel 的 deferred 文件仍引用 infra 类型）；
+- **适配器 + 组合**存在于两个平台组合根：`apps/desktop`（Tauri）与 `apps/server`（Gate 9）；
+- **模型真相**：Gate 8 后 application 对 `devtoolbox_infrastructure` **零引用**
+  （`grep -rn devtoolbox_infrastructure crates/application/src` = 0），无 deferred；
 - **fakes**位于端口对（`workflows/ports.rs#[cfg(test)]`），应用测试不触真实文件系统（fake port 驱动）。
 
 ---
@@ -179,19 +193,20 @@ GeographyStore（SQLite，用户数据；infra 只实现）
 ```text
 devtoolbox-core            → regex / serde / serde_json / thiserror（无内部依赖）
 devtoolbox-infrastructure  → devtoolbox-core
-devtoolbox-application     → devtoolbox-core + devtoolbox-infrastructure   ← 仅存的重依赖（§2.2）
+devtoolbox-application     → devtoolbox-core（Gate 8：infra 依赖已拆除）
 devtoolbox-desktop         → application + core + infrastructure + tauri
+devtoolbox-server          → application + core + infrastructure + axum 0.8 + tokio（Gate 9，与 desktop 互不依赖）
 ```
 
 ### 2.2 与目标架构的偏差（已核实 + 处置，语义同 BACKLOG §6.2）
 
 | 目标 | 现状 | 处置 |
 |---|---|---|
-| Application → Core；Infrastructure 实现 Port | **Geography / Documents / Settings / Workspace / History 已倒置**（状态见 §1.5） | ✅ Gate 5.5 完成；application 内倒置模块对 infra 零引用 |
-| 同上，rss/language/travel | application 仍直引 `FeedRepository` / `LanguageStore` / travel providers 等 infra 类型 | **Deferred（已文档化）**：P1（RSS/Language）、P0（Travel）；尚未形成 application boundary |
-| `application → infrastructure` Cargo 依赖 | 保留（deferred 模块的 path dep） | P0 待澄清：最终应拆分或消除（HTTP server 前置） |
-| Tauri command = deserialize → service → serialize | Travel 不符合（`travel_research_start` FAT 82 行） | BACKLOG G#1 → P0（Travel Application Boundary） |
-| 组合根唯一 | ✅ desktop 唯一，adapter 按域拆文件（composition.rs + 2 × *_query.rs），无 God Object（64 行） | 达成；增长监测见 BACKLOG §6.2 P2 |
+| Application → Core；Infrastructure 只做实现 | **全部模块已倒置**（History / Geography / Workflows / Language / RSS / Travel） | ✅ Gate 5.5 + 7.5 + 7.6 + 8；`application` 对 infra 零引用（grep = 0） |
+| `application → infrastructure` Cargo 依赖 | **不存在**（Gate 8 从 Cargo.toml 拆除） | ✅ 关闭（原 P0；HTTP server 前置条件已满足） |
+| 命令分层 | Travel 命令已变薄（Gate 7 session 入 application） | ✅ Gate 7 + 8 |
+| 平台组合根 | desktop 与 server（Gate 9）两个根，互不依赖 | ✅ Gate 9 |
+| 平台错误契约 | Tauri=CommandError（桌面）；HTTP=`{"code","message"}`（服务端映射 ApplicationError） | ✅ Gate 9 |
 
 ### 2.3 命令分层（2026-09-13 实测）
 
@@ -287,7 +302,7 @@ Tauri command
 | Gate 4 Legacy Cleanup | ✅ 全 | §6 删除清单；零引用搜索 + 编译 + 212→214 测试 |
 | Gate 5 Server-ready Audit | ✅ 审计（无代码） | BACKLOG §5：HTTP:MOSTLY |
 | **Gate 5.5 Dependency Inversion & Composition Root** | ✅ **实施完成** | ADR-001；四组端口+适配器；DTO 归 core；214 tests 全绿；倒置模块 infra 零引用 |
-| **Gate 6 Remaining Frontend Client Boundary** | ✅ **实施完成** | 6 个新 client（rss/language/travel/markdown/workspace/settings）；44 裸 invoke → 0；`@tauri-apps/api/core` import 仅 transport.ts；browser preview 行为不变；build/cargo 全绿 |
+| `application → infrastructure` Cargo 依赖 | **不存在**（Gate 8 从 Cargo.toml 拆除） | ✅ 关闭（原 P0；HTTP server 前置条件已满足） |
 | Gate F/G/H/I 审计 | ✅ 只读 | BACKLOG |
 | 下一步（BACKLOG §6.2） | ⏳ | P0：Travel 边界（FAT→MOD）；P1：Language/RSS 倒置；前端裸 invoke 迁移已完成（P2 关闭） |
 
@@ -318,22 +333,69 @@ Tauri command
 
 ---
 
-## 8. 下一个 Gate 建议（唯一推荐）
+## 8. Gate 8 — Travel 依赖倒置完成（2026-09-15 验证）
 
-**Gate 7 — Travel Application Boundary**（Travel 后端边界，BACKLOG §6.2 P0 首位）：
-`travel_research_start`（FAT 82 行）状态机 + travel provider 装配迁入 `crates/application`，
-消除 5 个 FAT 命令中 4 个 Travel 的来源（`test_travel_llm` / `test_travel_amap` /
-`test_travel_qweather` / `travel_research_progress`），模板是对照 History 的
-「application 持 Port + desktop 适配器」reference 链（Gate 2 / 5.5 已就绪）。
+**状态：✅ PASS**
 
-> 候选（顺序在后）：
-> - **Language / RSS 倒置**（P1）：`LanguageService` / `rss_workflows` 直引 infra 类型，
->   模式和 Gate 5.5 的 Documents/Settings 相同（ports + desktop adapter + infra 实现）。
-> - ~~前端裸 invoke 迁移（P2）~~ 已在 Gate 6 关闭。
+目标（backlog §6.2 P0）：消除 `application → devtoolbox-infrastructure` 最后的重依赖。
+
+### 8.1 实施事实（本次验证）
+
+- **契约上移 core**：`crates/core/src/travel/provider.rs`（新增）持有 `SearchProvider` /
+  `WebFetcher` / `LlmProvider` / `TravelDataProvider`、`SearchOptions` /
+  `TravelDataRequest` / `TravelRouteRequest` / `TravelRoute`、`ProviderError{ kind, message }`
+  （Display 前缀与原 `InfrastructureError::Travel*` 逐字一致，`is_llm_transport_error`
+  等字符串判定不改）；infra `travel/mod.rs` 改为 re-export，实现文件零自定义契约；
+- **存储端口**：`crates/application/src/travel/ports.rs` —— `TravelStorePort`（6 方法，String 错误）；
+- **错误模型**：`ApplicationError::Travel(TravelFailure { kind: TravelErrorKind, message })`
+  （Search / Fetch / Llm / Data / Store）；`error.rs` 不再引入 infra 类型；
+- **测试**：`travel/tests.rs` 重写为 FakeTravelStore（内存），无 SQLite、无临时目录；
+- **组合**：desktop `TravelStoreAdapter`（composition.rs）绑定 `TravelStorePort`，
+  `travel_research_service` 经适配器注入；命令错误 code 映射不变
+  （Search→travel_search_failed / Fetch→travel_fetch_failed / Llm→travel_llm_failed /
+  Data→travel_data_failed / Store→travel_error）。
+
+### 8.2 验证
+
+- `grep -rn devtoolbox_infrastructure crates/application/src` → **0**；应用 Cargo 依赖已移除；
+- `cargo check --workspace --all-targets` 零错误零警告；`cargo test --workspace` 222 passed / 0 failed；
+- `cargo check -p devtoolbox-server`（新成员）通过。
 
 ---
 
-## 10. 复核方法（可自行重跑）
+## 9. Gate 9 / 9.5 — HTTP 只读 History 试点（apps/server，2026-09-15 验证）
+
+**状态：✅ PASS**
+
+### 9.1 交付面（与桌面零互通）
+
+| 契约 | 实现 |
+|---|---|
+| 路由 | `GET /health`、`GET /api/v1/history/{home,search,periods/:id,events/:id,people/:id,works/:id,stories/:id}`（只读） |
+| 错误契约 | `{code,message}`，源自 `ApplicationError`；HTTP 层绝不出现 CommandError；404/400 同契约 |
+| 鉴权 / CORS | 无鉴权（Gate 边界）；未注册 CORS → 默认无跨源（仅显式 allowlist 才可能放行，当前不提供） |
+| duckdb 路径 | `SELF_TOOLS_HISTORY_DB` 或 `--history-db`；**缺失 = 启动失败**（exit 1），无静音 fallback |
+| 绑定 | 默认 `127.0.0.1:8080`；`SELF_TOOLS_BIND`（env）或 `--bind`（CLI）可改 |
+| 日志 | `RUST_LOG`（默认 info）：启动 / 绑定 / 知识库就绪 / 请求错误 / 关闭，无密钥 |
+| 关闭 | SIGINT / SIGTERM 优雅退出（axum graceful_shutdown） |
+| 测试 | 路由 × oneshot（无真 TCP）7 passed：/health、home、search（含缺参 400）、5 个明细 404、查询失败 500、未知路由 404 |
+
+### 9.2 冒烟（真进程）
+
+默认 8080 + `dist/history.duckdb` 起服 → `/health` `{"status":"ok"}` → `/home`（真实「夏」
+period JSON）→ 缺参 400 契约 → 无效 id 404 → SIGTERM 退出码 0 → 无残留进程（`ps comm` 无
+devtoolbox-server）。缺失文件路径同理拒绝（exit 1）。
+
+---
+
+## 10. 下一个 Gate 建议（更新，2026-09-15）
+
+- **Gate 10 / 10.1（Overnight 门册后续）**：HTTP Profile 面扩展（travel/rss/language 只读
+  REST）与可选 CORS allowlist env；
+- 前端 `HttpTransport`（Gate 6 已收敛 transport 层，可插拔）；
+- `application/src/bin/language_data.rs` CLI 归属（server / 独立 bin）保持 TODO。
+
+## 11. 复核方法（可自行重跑）
 
 ```bash
 git status --short && git submodule status

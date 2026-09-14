@@ -4,6 +4,7 @@
 //! 桌面应用和回归测试共同复用。
 
 pub mod geography;
+pub mod rss;
 pub mod history_records;
 pub mod language;
 pub mod parser;

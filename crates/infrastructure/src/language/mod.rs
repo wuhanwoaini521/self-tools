@@ -4,6 +4,8 @@
 //! 许可证 Gate 在 `import::gate_license`（未知/非商业 → 拒绝导入）。
 
 pub mod import;
+pub mod importing;
+pub mod starter;
 pub mod store;
 
 pub use import::{
@@ -12,3 +14,8 @@ pub use import::{
     sources,
 };
 pub use store::{ItemDetailRows, LanguageStore, SearchHit};
+pub use importing::{
+    ImportingError, import_cantonese, import_english, import_japanese, import_kanji,
+    import_mandarin, import_sentences, read_raw,
+};
+pub use starter::{DatasetReport, StarterError, StarterReport, install_starter};

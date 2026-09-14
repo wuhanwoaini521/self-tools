@@ -6,14 +6,38 @@
 
 use serde::{Deserialize, Serialize};
 
-use devtoolbox_infrastructure::language::LanguageStore;
-use devtoolbox_infrastructure::language::import::{
+use crate::language::LanguageStore;
+use crate::language::import::{
     ImportReport, ImportedItem, cc_canto, cedict, cmudict, import_into, jmdict, kanjidic2, oewn,
     sources, tatoeba, words_hk,
 };
-use devtoolbox_infrastructure::now_unix;
+use crate::now_unix;
 
-use crate::ApplicationError;
+/// Starter 安装错误（Gate 7.5：随 Starter 工作流迁入基础设施层）。
+#[derive(Debug)]
+pub enum StarterError {
+    /// 许可证 / 解析错误（对应此前应用层 `ApplicationError::License`）。
+    License(String),
+    /// 存储层错误。
+    Store(crate::error::InfrastructureError),
+}
+
+impl std::fmt::Display for StarterError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            StarterError::License(message) => write!(formatter, "{message}"),
+            StarterError::Store(source) => write!(formatter, "{source}"),
+        }
+    }
+}
+
+impl std::error::Error for StarterError {}
+
+impl From<crate::error::InfrastructureError> for StarterError {
+    fn from(source: crate::error::InfrastructureError) -> Self {
+        Self::Store(source)
+    }
+}
 
 const EN_WORDNET_ENTRIES: &str =
     include_str!("../../../../tests/fixtures/language/en/wordnet-entries.json");
@@ -77,7 +101,7 @@ fn dataset_report(
 pub fn install_starter(
     store: &mut LanguageStore,
     only_language: Option<&str>,
-) -> Result<StarterReport, ApplicationError> {
+) -> Result<StarterReport, StarterError> {
     let now = now_unix();
     let only = only_language.map(str::to_ascii_lowercase);
     let mut report = StarterReport::default();
@@ -90,7 +114,7 @@ pub fn install_starter(
             &[("entries.json", EN_WORDNET_ENTRIES.to_string())],
             &[("synsets.json", EN_WORDNET_SYNSETS.to_string())],
         )
-        .map_err(|error| ApplicationError::License(error.to_string()))?;
+        .map_err(|error| StarterError::License(error.to_string()))?;
         let result = import_into(
             store,
             &source,
@@ -100,13 +124,13 @@ pub fn install_starter(
             Some("tests/fixtures/language/en/*.json"),
             now,
         )
-        .map_err(ApplicationError::from)?;
+        .map_err(StarterError::from)?;
         let dataset = dataset_report("starter-oewn", "Open English WordNet", result, &mut report);
         report.datasets.push(dataset);
 
         // CMUdict：优先挂到 OEWN 同名词条（enrichment），其余独立成词
         let cmu_items = cmudict::parse(EN_CMUDICT)
-            .map_err(|error| ApplicationError::License(error.to_string()))?;
+            .map_err(|error| StarterError::License(error.to_string()))?;
         let cmu_source = sources::cmudict();
         let mut standalone: Vec<ImportedItem> = Vec::new();
         let mut attached = 0i64;
@@ -118,13 +142,13 @@ pub fn install_starter(
                 .and_then(serde_json::Value::as_str)
                 .unwrap_or(&item.text);
             let wn_id = format!("wn:{}", base.to_lowercase());
-            let exists = store.item(&wn_id).map_err(ApplicationError::from)?;
+            let exists = store.item(&wn_id).map_err(StarterError::from)?;
             let mut pronunciation = item.pronunciations[0].clone();
             pronunciation.source = cmu_source.id.clone();
             if exists.is_some() {
                 if store
                     .attach_pronunciation(&wn_id, &pronunciation, &cmu_source.id)
-                    .map_err(ApplicationError::from)?
+                    .map_err(StarterError::from)?
                 {
                     attached += 1;
                 }
@@ -141,7 +165,7 @@ pub fn install_starter(
             Some("tests/fixtures/language/en/cmudict.dict"),
             now,
         )
-        .map_err(ApplicationError::from)?;
+        .map_err(StarterError::from)?;
         let mut with_attached = result.clone();
         if attached > 0 {
             with_attached.inserted += attached;
@@ -154,7 +178,7 @@ pub fn install_starter(
     if want("jpn") {
         let source = sources::jmdict();
         let items = jmdict::parse(JP_JMDICT)
-            .map_err(|error| ApplicationError::License(error.to_string()))?;
+            .map_err(|error| StarterError::License(error.to_string()))?;
         let result = import_into(
             store,
             &source,
@@ -164,13 +188,13 @@ pub fn install_starter(
             Some("tests/fixtures/language/jp/jmdict.xml"),
             now,
         )
-        .map_err(ApplicationError::from)?;
+        .map_err(StarterError::from)?;
         let dataset = dataset_report("starter-jmdict", "JMdict", result, &mut report);
         report.datasets.push(dataset);
 
         let source = sources::kanjidic2();
         let items = kanjidic2::parse(JP_KANJIDIC2)
-            .map_err(|error| ApplicationError::License(error.to_string()))?;
+            .map_err(|error| StarterError::License(error.to_string()))?;
         let result = import_into(
             store,
             &source,
@@ -180,7 +204,7 @@ pub fn install_starter(
             Some("tests/fixtures/language/jp/kanjidic2.xml"),
             now,
         )
-        .map_err(ApplicationError::from)?;
+        .map_err(StarterError::from)?;
         let dataset = dataset_report("starter-kanjidic2", "KANJIDIC2", result, &mut report);
         report.datasets.push(dataset);
     }
@@ -189,7 +213,7 @@ pub fn install_starter(
     if want("cmn") {
         let source = sources::cc_cedict();
         let items = cedict::parse(ZH_CEDICT)
-            .map_err(|error| ApplicationError::License(error.to_string()))?;
+            .map_err(|error| StarterError::License(error.to_string()))?;
         let result = import_into(
             store,
             &source,
@@ -199,7 +223,7 @@ pub fn install_starter(
             Some("tests/fixtures/language/zh/cedict.txt"),
             now,
         )
-        .map_err(ApplicationError::from)?;
+        .map_err(StarterError::from)?;
         let dataset = dataset_report("starter-cedict", "CC-CEDICT", result, &mut report);
         report.datasets.push(dataset);
     }
@@ -208,7 +232,7 @@ pub fn install_starter(
     if want("yue") {
         let source = sources::words_hk_word_list();
         let items = words_hk::parse_word_list(YUE_WORDS)
-            .map_err(|error| ApplicationError::License(error.to_string()))?;
+            .map_err(|error| StarterError::License(error.to_string()))?;
         let result = import_into(
             store,
             &source,
@@ -218,13 +242,13 @@ pub fn install_starter(
             Some("tests/fixtures/language/yue/words_hk_wordlist.json"),
             now,
         )
-        .map_err(ApplicationError::from)?;
+        .map_err(StarterError::from)?;
         let dataset = dataset_report("starter-words-hk", "words.hk 詞表", result, &mut report);
         report.datasets.push(dataset);
 
         let source = sources::words_hk_char_list();
         let items = words_hk::parse_char_list(YUE_CHARS)
-            .map_err(|error| ApplicationError::License(error.to_string()))?;
+            .map_err(|error| StarterError::License(error.to_string()))?;
         let result = import_into(
             store,
             &source,
@@ -234,7 +258,7 @@ pub fn install_starter(
             Some("tests/fixtures/language/yue/words_hk_charlist.json"),
             now,
         )
-        .map_err(ApplicationError::from)?;
+        .map_err(StarterError::from)?;
         let dataset = dataset_report(
             "starter-words-hk-chars",
             "words.hk 字表",
@@ -244,14 +268,14 @@ pub fn install_starter(
         report.datasets.push(dataset);
 
         let pairs = words_hk::parse_english_index(YUE_ENGLISH_INDEX, &items)
-            .map_err(|error| ApplicationError::License(error.to_string()))?;
+            .map_err(|error| StarterError::License(error.to_string()))?;
         let _attached = store
             .attach_search_terms(&pairs)
-            .map_err(ApplicationError::from)?;
+            .map_err(StarterError::from)?;
         let source = sources::words_hk_english_index();
         store
             .upsert_source(&source)
-            .map_err(ApplicationError::from)?;
+            .map_err(StarterError::from)?;
         store
             .insert_manifest(&devtoolbox_core::language::DatasetManifest {
                 id: "starter-words-hk-english".to_string(),
@@ -268,7 +292,7 @@ pub fn install_starter(
                 importer_version: 1,
                 imported_at: now,
             })
-            .map_err(ApplicationError::from)?;
+            .map_err(StarterError::from)?;
         report.total_inserted += pairs.len() as i64;
         report.datasets.push(DatasetReport {
             id: "starter-words-hk-english".to_string(),
@@ -279,7 +303,7 @@ pub fn install_starter(
 
         let source = sources::cc_canto();
         let items = cc_canto::parse(YUE_CCCANTO)
-            .map_err(|error| ApplicationError::License(error.to_string()))?;
+            .map_err(|error| StarterError::License(error.to_string()))?;
         let result = import_into(
             store,
             &source,
@@ -289,7 +313,7 @@ pub fn install_starter(
             Some("tests/fixtures/language/yue/cccanto.txt"),
             now,
         )
-        .map_err(ApplicationError::from)?;
+        .map_err(StarterError::from)?;
         let dataset = dataset_report("starter-cc-canto", "CC-Canto", result, &mut report);
         report.datasets.push(dataset);
     }
@@ -299,7 +323,7 @@ pub fn install_starter(
         let source = sources::tatoeba();
         let mut all_items = Vec::new();
         let cc0 = tatoeba::parse(SENT_CC0, "CC0 1.0")
-            .map_err(|error| ApplicationError::License(error.to_string()))?;
+            .map_err(|error| StarterError::License(error.to_string()))?;
         all_items.extend(cc0);
         let ccby = [
             ("jpn", SENT_JPN),
@@ -311,7 +335,7 @@ pub fn install_starter(
         .filter(|(lang, _)| only.as_deref().is_none_or(|filter| filter == *lang))
         .map(|(_, content)| {
             tatoeba::parse(content, "CC BY 2.0 FR")
-                .map_err(|error| ApplicationError::License(error.to_string()))
+                .map_err(|error| StarterError::License(error.to_string()))
         })
         .collect::<Result<Vec<_>, _>>()?
         .into_iter()
@@ -327,7 +351,7 @@ pub fn install_starter(
             Some("tests/fixtures/language/sentences/*"),
             now,
         )
-        .map_err(ApplicationError::from)?;
+        .map_err(StarterError::from)?;
         let dataset = dataset_report("starter-tatoeba", "Tatoeba", result, &mut report);
         report.datasets.push(dataset);
     }

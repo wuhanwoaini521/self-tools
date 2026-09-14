@@ -9,56 +9,13 @@
 
 use async_trait::async_trait;
 
-use crate::error::InfrastructureError;
-use devtoolbox_core::travel::{FactCategory, MapCoordinates, TravelFact};
+use devtoolbox_core::travel::{
+    AMAP_SOURCE_URL, FactCategory, MapCoordinates, ProviderError, QWEATHER_SOURCE_URL,
+    TravelDataProvider, TravelDataRequest, TravelRoute, TravelRouteRequest, TravelFact,
+};
 
 const DATA_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
 const USER_AGENT: &str = concat!("DevToolbox/", env!("CARGO_PKG_VERSION"), " (+travel data)");
-
-/// 高德 POI 在 Sources 中的展示地址（也是事实 source_id，供权威权重匹配）。
-pub const AMAP_SOURCE_URL: &str = "https://restapi.amap.com";
-/// 和风天气在 Sources 中的展示地址。
-pub const QWEATHER_SOURCE_URL: &str = "https://devapi.qweather.com";
-
-/// 结构化数据请求。
-#[derive(Clone, Debug)]
-pub struct TravelDataRequest {
-    pub city: String,
-    /// 查询类别（"poi" / "weather"，V2 可扩展）。
-    pub kind: &'static str,
-}
-
-/// 两个 POI 之间的驾车路线请求。
-#[derive(Clone, Debug)]
-pub struct TravelRouteRequest {
-    pub origin: MapCoordinates,
-    pub destination: MapCoordinates,
-}
-
-/// 路线服务返回的可读结果。距离来自道路路径，不是坐标直线距离。
-#[derive(Clone, Debug, Default)]
-pub struct TravelRoute {
-    pub distance_km: f32,
-    pub duration_minutes: u32,
-}
-
-/// 数据 Provider 接口。
-#[async_trait]
-pub trait TravelDataProvider: Send + Sync {
-    fn name(&self) -> &'static str;
-
-    async fn fetch(
-        &self,
-        request: TravelDataRequest,
-    ) -> Result<Vec<TravelFact>, InfrastructureError>;
-
-    async fn driving_route(
-        &self,
-        _request: TravelRouteRequest,
-    ) -> Result<Option<TravelRoute>, InfrastructureError> {
-        Ok(None)
-    }
-}
 
 /// 依据设置装配数据 Provider。Key 未配置 → 不生成对应 Provider，核心流程不受影响。
 #[must_use]
@@ -98,16 +55,16 @@ async fn get_json(
     client: &reqwest::Client,
     url: &str,
     provider: &str,
-) -> Result<serde_json::Value, InfrastructureError> {
+) -> Result<serde_json::Value, ProviderError> {
     let response = client
         .get(url)
         .header(reqwest::header::USER_AGENT, USER_AGENT)
         .timeout(DATA_TIMEOUT)
         .send()
         .await
-        .map_err(|error| InfrastructureError::TravelData(format!("{provider}: {error}")))?;
+        .map_err(|error| ProviderError::data(format!("{provider}: {error}")))?;
     if !response.status().is_success() {
-        return Err(InfrastructureError::TravelData(format!(
+        return Err(ProviderError::data(format!(
             "{provider}: server returned {}",
             response.status()
         )));
@@ -115,9 +72,9 @@ async fn get_json(
     let bytes = response
         .bytes()
         .await
-        .map_err(|error| InfrastructureError::TravelData(format!("{provider}: {error}")))?;
+        .map_err(|error| ProviderError::data(format!("{provider}: {error}")))?;
     serde_json::from_slice(&bytes)
-        .map_err(|error| InfrastructureError::TravelData(format!("{provider}: bad json: {error}")))
+        .map_err(|error| ProviderError::data(format!("{provider}: bad json: {error}")))
 }
 
 // ---------- 高德 POI ----------
@@ -151,7 +108,7 @@ impl TravelDataProvider for AmapPoiProvider {
     async fn fetch(
         &self,
         request: TravelDataRequest,
-    ) -> Result<Vec<TravelFact>, InfrastructureError> {
+    ) -> Result<Vec<TravelFact>, ProviderError> {
         if request.kind != "poi" {
             return Ok(Vec::new());
         }
@@ -177,7 +134,7 @@ impl TravelDataProvider for AmapPoiProvider {
             }
         }
         if facts.is_empty() && !failures.is_empty() {
-            return Err(InfrastructureError::TravelData(failures.join("；")));
+            return Err(ProviderError::data(failures.join("；")));
         }
         Ok(facts)
     }
@@ -185,7 +142,7 @@ impl TravelDataProvider for AmapPoiProvider {
     async fn driving_route(
         &self,
         request: TravelRouteRequest,
-    ) -> Result<Option<TravelRoute>, InfrastructureError> {
+    ) -> Result<Option<TravelRoute>, ProviderError> {
         let url = format!(
             "https://restapi.amap.com/v3/direction/driving?origin={origin_lon},{origin_lat}&destination={destination_lon},{destination_lat}&extensions=base&key={key}",
             origin_lon = request.origin.longitude,
@@ -217,7 +174,7 @@ pub fn parse_amap_pois(
     body: &serde_json::Value,
     category: FactCategory,
     fetched_at: i64,
-) -> Result<Vec<TravelFact>, InfrastructureError> {
+) -> Result<Vec<TravelFact>, ProviderError> {
     let status = body
         .get("status")
         .and_then(serde_json::Value::as_str)
@@ -231,7 +188,7 @@ pub fn parse_amap_pois(
             .get("info")
             .and_then(serde_json::Value::as_str)
             .unwrap_or_default();
-        return Err(InfrastructureError::TravelData(format!(
+        return Err(ProviderError::data(format!(
             "amap: status={status} infocode={infocode} info={info}"
         )));
     }
@@ -299,7 +256,7 @@ fn parse_amap_coordinates(value: &str) -> Option<MapCoordinates> {
 /// 解析高德驾车路径第一条方案（离线可单测）。
 pub fn parse_amap_driving_route(
     body: &serde_json::Value,
-) -> Result<Option<TravelRoute>, InfrastructureError> {
+) -> Result<Option<TravelRoute>, ProviderError> {
     let status = body
         .get("status")
         .and_then(serde_json::Value::as_str)
@@ -309,7 +266,7 @@ pub fn parse_amap_driving_route(
             .get("info")
             .and_then(serde_json::Value::as_str)
             .unwrap_or_default();
-        return Err(InfrastructureError::TravelData(format!(
+        return Err(ProviderError::data(format!(
             "amap driving: status={status} info={info}"
         )));
     }
@@ -377,7 +334,7 @@ impl TravelDataProvider for QWeatherProvider {
     async fn fetch(
         &self,
         request: TravelDataRequest,
-    ) -> Result<Vec<TravelFact>, InfrastructureError> {
+    ) -> Result<Vec<TravelFact>, ProviderError> {
         if request.kind != "weather" {
             return Ok(Vec::new());
         }
@@ -390,7 +347,7 @@ impl TravelDataProvider for QWeatherProvider {
         );
         let lookup = get_json(&self.client, &lookup_url, "qweather").await?;
         let location_id = parse_qweather_location(&lookup).ok_or_else(|| {
-            InfrastructureError::TravelData(format!(
+            ProviderError::data(format!(
                 "qweather: city not found for {}",
                 request.city
             ))
@@ -433,9 +390,9 @@ pub fn parse_qweather_daily(
     body: &serde_json::Value,
     city: &str,
     fetched_at: i64,
-) -> Result<Vec<TravelFact>, InfrastructureError> {
+) -> Result<Vec<TravelFact>, ProviderError> {
     if body.get("code").and_then(serde_json::Value::as_str) != Some("200") {
-        return Err(InfrastructureError::TravelData(
+        return Err(ProviderError::data(
             "qweather: daily code != 200".to_string(),
         ));
     }
