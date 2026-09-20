@@ -90,6 +90,8 @@ pub struct AppSettings {
     pub travel: TravelSettings,
     /// Geography 模块设置（全部 Optional，未配置时模块仍可运行）。
     pub geography: GeographySettings,
+    /// Personal AI 模块设置（V4；全部 Optional，未配置时 AI Panel 显示未配置状态）。
+    pub ai: AiSettings,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -122,6 +124,46 @@ impl Default for AppSettings {
             markdown_default_view: MarkdownView::Split,
             travel: TravelSettings::default(),
             geography: GeographySettings::default(),
+            ai: AiSettings::default(),
         }
+    }
+}
+
+/// Personal AI 模型配置（V4 §28）。与 Travel 的 LLM 配置同先例：
+/// 存于 gitignored `config/settings.json`，永不进 git / 日志 / 前端。
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(default)]
+pub struct AiSettings {
+    /// 提供方标识（当前仅 `openai-compatible`；缺省按该路线处理）。
+    pub provider: Option<String>,
+    /// 模型名（如 `deepseek-chat` / `qwen-plus` / `gpt-4o-mini`）。
+    pub model: Option<String>,
+    /// OpenAI-Compatible API base（如 `https://api.deepseek.com/v1` 或 `http://localhost:11434/v1`）。
+    pub base_url: Option<String>,
+    /// API key（本地 Ollama 可留空）。
+    pub api_key: Option<String>,
+    /// 模型调用超时（秒）；缺省 120。
+    pub timeout_secs: Option<u64>,
+}
+
+impl Default for AiSettings {
+    fn default() -> Self {
+        Self {
+            provider: None,
+            model: None,
+            base_url: None,
+            api_key: None,
+            timeout_secs: None,
+        }
+    }
+}
+
+impl AiSettings {
+    /// 是否具备发起模型调用的条件（base + model 齐全）。
+    #[must_use]
+    pub fn is_configured(&self) -> bool {
+        let base = self.base_url.as_deref().unwrap_or_default().trim();
+        let model = self.model.as_deref().unwrap_or_default().trim();
+        !base.is_empty() && !model.is_empty()
     }
 }

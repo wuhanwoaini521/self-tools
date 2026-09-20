@@ -5,6 +5,7 @@ pub mod geography;
 pub mod history;
 
 pub mod language;
+pub mod personal_ai;
 pub(crate) mod time;
 pub mod rss;
 pub mod travel;

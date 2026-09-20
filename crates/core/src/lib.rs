@@ -4,6 +4,7 @@
 //! 桌面应用和回归测试共同复用。
 
 pub mod geography;
+pub mod personal_ai;
 pub mod rss;
 pub mod history_records;
 pub mod language;
@@ -13,8 +14,17 @@ pub mod task_state;
 pub mod travel;
 pub mod workspace;
 
+pub use personal_ai::{
+    Action, ActionKind, AgentError, AgentErrorKind, AgentMessage, AgentRequest, AgentResponse,
+    AgentUsage, AppContext, ChatMessage, ChatModelProvider, ChatRequest, ChatResponse, ChatRole,
+    ChatToolCall, ChatToolSpec, ChatUsage, EntityRef, ModuleDescriptor, ProviderError,
+    ProviderErrorKind, SelectionRef, ToolCallRequest, ToolResult, ToolRisk, ToolSpec,
+    ToolTraceEntry, UiBlock, UiBlockKind,
+};
+
 pub use settings::{
-    AppSettings, GeographySettings, MarkdownView, ThemeMode, TravelSearchBackend, TravelSettings,
+    AiSettings, AppSettings, GeographySettings, MarkdownView, ThemeMode, TravelSearchBackend,
+    TravelSettings,
 };
 pub use workspace::WorkspaceFile;
 pub use language::{

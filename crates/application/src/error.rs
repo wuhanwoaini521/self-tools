@@ -30,6 +30,9 @@ pub enum ApplicationError {
     /// 由 HistoryService 用 `map_err(ApplicationError::History)` 显式构造。
     #[error(transparent)]
     History(HistoryPortError),
+    /// Personal AI 层错误（V4）。code 稳定映射到前端可分类展示。
+    #[error("personal ai error: {0}")]
+    PersonalAi(devtoolbox_core::AgentError),
     #[error("operation failed for {path}: {message}")]
     Infrastructure {
         path: PathBuf,
