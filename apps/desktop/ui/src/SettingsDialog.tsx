@@ -1,6 +1,7 @@
 import { Database, X } from "@phosphor-icons/react";
 import { useCallback, useEffect, useState } from "react";
 import type {
+  AiSettings,
   GeographySettings,
   SourceInfo,
   TravelSearchBackend,
@@ -21,6 +22,8 @@ interface SettingsDialogProps {
   onTravelChange: (travel: TravelSettings) => void;
   geography: GeographySettings;
   onGeographyChange: (geography: GeographySettings) => void;
+  ai: AiSettings;
+  onAiChange: (ai: AiSettings) => void;
   onClose: () => void;
 }
 
@@ -47,6 +50,8 @@ export function SettingsDialog({
   onTravelChange,
   geography,
   onGeographyChange,
+  ai,
+  onAiChange,
   onClose,
 }: SettingsDialogProps) {
   const current = getTheme(themeId);
@@ -58,6 +63,8 @@ export function SettingsDialog({
   >({});
   const updateTravel = (patch: Partial<TravelSettings>) =>
     onTravelChange({ ...travel, ...patch });
+  const updateAi = (patch: Partial<AiSettings>) =>
+    onAiChange({ ...ai, ...patch });
   const updateGeography = (patch: Partial<GeographySettings>) =>
     onGeographyChange({ ...geography, ...patch });
   const runTest = async (
@@ -336,6 +343,83 @@ export function SettingsDialog({
                 {testResults.llm}
               </p>
             ) : null}
+          </section>
+          <section className="settings-section">
+            <label className="settings-label">Ask AI（Personal AI）</label>
+            <p className="settings-hint">
+              全局 AI 助手配置（OpenAI Compatible：DeepSeek / Qwen / OpenAI /
+              本地 Ollama http://localhost:11434/v1）。未配置时 AI 面板显示未配置
+              状态，其余功能不受影响。Key 仅保存在本地 settings.json，不会进入
+              日志或同步到任何服务。
+            </p>
+            <label className="settings-label" htmlFor="ai-base">
+              API Base URL
+            </label>
+            <input
+              className="settings-select"
+              id="ai-base"
+              type="text"
+              placeholder="https://api.deepseek.com/v1"
+              value={ai.base_url ?? ""}
+              onChange={(event) =>
+                updateAi({ base_url: event.target.value || null })
+              }
+            />
+            <label
+              className="settings-label"
+              htmlFor="ai-model"
+              style={{ marginTop: 10 }}
+            >
+              模型
+            </label>
+            <input
+              className="settings-select"
+              id="ai-model"
+              type="text"
+              placeholder="deepseek-chat / qwen-plus / qwen2.5:7b"
+              value={ai.model ?? ""}
+              onChange={(event) =>
+                updateAi({ model: event.target.value || null })
+              }
+            />
+            <label
+              className="settings-label"
+              htmlFor="ai-key"
+              style={{ marginTop: 10 }}
+            >
+              API Key（本地 Ollama 可留空）
+            </label>
+            <input
+              className="settings-select"
+              id="ai-key"
+              type="password"
+              placeholder="sk-..."
+              value={ai.api_key ?? ""}
+              onChange={(event) =>
+                updateAi({ api_key: event.target.value || null })
+              }
+            />
+            <label
+              className="settings-label"
+              htmlFor="ai-timeout"
+              style={{ marginTop: 10 }}
+            >
+              超时（秒，可选）
+            </label>
+            <input
+              className="settings-select"
+              id="ai-timeout"
+              type="number"
+              min={1}
+              placeholder="120"
+              value={ai.timeout_secs ?? ""}
+              onChange={(event) => {
+                const value = event.target.value.trim();
+                updateAi({
+                  timeout_secs: value ? Number(value) : null,
+                });
+              }}
+            />
           </section>
           <section className="settings-section">
             <label className="settings-label">Travel · 可选数据源 Key</label>

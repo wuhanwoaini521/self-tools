@@ -6,11 +6,12 @@ import {
   Notebook,
   Rss,
   Scroll,
+  Sparkle,
   Translate,
   Wrench,
   X,
 } from "@phosphor-icons/react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SettingsDialog } from "./SettingsDialog";
 import { HomePage } from "./features/home/HomePage";
 import {
@@ -25,6 +26,8 @@ import { HistoryPage } from "./features/history/HistoryPage";
 import { historyClient } from "./features/history/historyClient";
 import { geographyClient } from "./features/geography/geographyClient";
 import { LanguagePage } from "./features/language/LanguagePage";
+import { AIPanel } from "./features/ai/AIPanel";
+import type { AgentAction, AppContextPayload } from "./features/ai/aiTypes";
 import { TravelPage } from "./features/travel/TravelPage";
 import { GeographyPage } from "./features/geography/GeographyPage";
 import { applyTheme, getTheme, storeThemeId } from "./theme/ThemeManager";
@@ -98,6 +101,13 @@ const defaultSettings: AppSettings = {
     baidu_map_api_key: null,
   },
   geography: { amap_api_key: null, amap_security_js_code: null },
+  ai: {
+    provider: null,
+    model: null,
+    base_url: null,
+    api_key: null,
+    timeout_secs: null,
+  },
 };
 
 export default function App() {
@@ -107,7 +117,9 @@ export default function App() {
   const [themeId, setThemeId] = useState("default");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [notice, setNotice] = useState("");
-
+  const [aiOpen, setAiOpen] = useState(false);
+  /** AI 的 App Context（Frontend 负责“我在哪”；History 页报告当前实体）。 */
+  const [aiContext, setAiContext] = useState<AppContextPayload | null>(null);
   const [rssRefreshing, setRssRefreshing] = useState(false);
   const [rssVersion, setRssVersion] = useState(0);
   const [unreadTotal, setUnreadTotal] = useState(0);
@@ -115,7 +127,9 @@ export default function App() {
   const [geographyHome, setGeographyHome] = useState<GeographyHome | null>(
     null,
   );
-  const [historyHome, setHistoryHome] = useState<SemanticHistoryHome | null>(null);
+  const [historyHome, setHistoryHome] = useState<SemanticHistoryHome | null>(
+    null,
+  );
   const [todayView, setTodayView] = useState<TodayView | null>(null);
   const [reviewCard, setReviewCard] = useState<ReviewCard | null>(null);
   const [markdownIntent, setMarkdownIntent] = useState<MarkdownIntent | null>(
@@ -128,6 +142,7 @@ export default function App() {
   } | null>(null);
   const [historyIntent, setHistoryIntent] = useState<{
     id: string;
+    kind?: "event" | "person" | "story";
     nonce: number;
   } | null>(null);
   const [languageIntent, setLanguageIntent] = useState<{
@@ -275,14 +290,75 @@ export default function App() {
     setPage("geography");
     if (id) setGeographyIntent({ entityId: id, nonce: Date.now() });
   }, []);
-  const openHistory = useCallback((id?: string) => {
-    setPage("history");
-    if (id) setHistoryIntent({ id, nonce: Date.now() });
-  }, []);
+  const openHistory = useCallback(
+    (id?: string, kind?: "event" | "person" | "story") => {
+      setPage("history");
+      if (id)
+        setHistoryIntent({ id, kind: kind ?? "event", nonce: Date.now() });
+    },
+    [],
+  );
   const openLanguage = useCallback((id?: string) => {
     setPage("language");
     if (id) setLanguageIntent({ id, nonce: Date.now() });
   }, []);
+
+  /** 执行 AI 的 Action 请求（V4 §51：Frontend 决定是否执行）。 */
+  const handleAiNavigate = useCallback(
+    (action: AgentAction) => {
+      const target = (action.target ?? {}) as {
+        kind?: string;
+        id?: string;
+        entityId?: string;
+      };
+      const id = target.id ?? target.entityId;
+      switch (action.module) {
+        case "history": {
+          if (id) {
+            const kind =
+              target.kind === "person"
+                ? "person"
+                : target.kind === "story"
+                  ? "story"
+                  : "event";
+            openHistory(id, kind);
+          } else {
+            setPage("history");
+          }
+          break;
+        }
+        case "geography":
+          if (id) openGeography(id);
+          else setPage("geography");
+          break;
+        case "travel":
+          setPage("travel");
+          break;
+        case "language":
+          if (id) openLanguage(id);
+          else setPage("language");
+          break;
+        case "markdown":
+          setPage("markdown");
+          break;
+        default:
+          setPage("home");
+      }
+    },
+    [openHistory, openGeography, openLanguage],
+  );
+
+  /** 上下文 chip 文案（如 “History · 毛泽东”）；无上下文 = General。 */
+  const aiContextLabel = useMemo(() => {
+    if (!aiContext) return null;
+    const moduleName = aiContext.module
+      ? aiContext.module.charAt(0).toUpperCase() + aiContext.module.slice(1)
+      : null;
+    const entityName =
+      aiContext.entity?.label ?? aiContext.entity?.id ?? null;
+    if (moduleName && entityName) return `${moduleName} · ${entityName}`;
+    return entityName ?? moduleName;
+  }, [aiContext]);
 
   return (
     <div className="app-shell">
@@ -298,6 +374,13 @@ export default function App() {
           onClick={() => setSettingsOpen(true)}
         >
           <Gear size={19} />
+        </button>
+        <button
+          className="app-bar-ai"
+          title="Ask AI"
+          onClick={() => setAiOpen(true)}
+        >
+          <Sparkle size={18} weight="fill" />
         </button>
       </header>
       <div className="app-body">
@@ -418,6 +501,7 @@ export default function App() {
               active={page === "history"}
               setNotice={setNotice}
               intent={historyIntent}
+              onContextChange={(ctx) => setAiContext(ctx)}
               onNavigateToGeography={(request) =>
                 openGeography(request.entityId)
               }
@@ -443,6 +527,15 @@ export default function App() {
           <X size={16} />
         </button>
       ) : null}
+      <AIPanel
+        open={aiOpen}
+        onClose={() => setAiOpen(false)}
+        context={aiContext}
+        contextLabel={aiContextLabel}
+        onClearContext={() => setAiContext(null)}
+        onNavigate={handleAiNavigate}
+        onOpenSettings={() => setSettingsOpen(true)}
+      />
       {settingsOpen ? (
         <SettingsDialog
           themeId={themeId}
@@ -456,6 +549,10 @@ export default function App() {
           geography={settings.geography}
           onGeographyChange={(next) =>
             void updateSettings({ ...settings, geography: next })
+          }
+          ai={settings.ai}
+          onAiChange={(next) =>
+            void updateSettings({ ...settings, ai: next })
           }
           onClose={() => setSettingsOpen(false)}
         />

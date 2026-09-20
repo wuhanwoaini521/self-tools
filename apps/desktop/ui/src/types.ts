@@ -21,6 +21,14 @@ export interface GeographySettings {
   amap_security_js_code: string | null;
 }
 
+export interface AiSettings {
+  provider: string | null;
+  model: string | null;
+  base_url: string | null;
+  api_key: string | null;
+  timeout_secs: number | null;
+}
+
 export interface AppSettings {
   schema_version: number;
   recent_files: string[];
@@ -37,6 +45,8 @@ export interface AppSettings {
   travel: TravelSettings;
   /** Geography 模块设置（全部可选，未配置时模块仍可用） */
   geography: GeographySettings;
+  /** Personal AI 设置（全部可选，未配置时 AI Panel 显示未配置状态） */
+  ai: AiSettings;
 }
 
 export interface DocumentDto {

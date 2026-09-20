@@ -16,6 +16,7 @@ import {
   X,
 } from "@phosphor-icons/react";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
+import type { AppContextPayload } from "../ai/aiTypes";
 import { errorMessage, isTauriRuntime } from "../../utils";
 import { historyClient } from "./historyClient";
 import { PeriodDetail } from "./PeriodDetail";
@@ -132,10 +133,16 @@ export function HistoryPage({
   active,
   setNotice,
   intent,
+  onContextChange,
 }: {
   active: boolean;
   setNotice: (message: string) => void;
-  intent?: { id: string; nonce: number } | null;
+  intent?: {
+    id: string;
+    kind?: "event" | "person" | "story";
+    nonce: number;
+  } | null;
+  onContextChange?: (ctx: AppContextPayload | null) => void;
   onNavigateToGeography?: (request: HistoryGeoNavigationRequest) => void;
 }) {
   const [home, setHome] = useState<SemanticHome>(EMPTY_HOME);
@@ -265,10 +272,59 @@ export function HistoryPage({
   }, [selectedPeriod?.id, loadPeriod]);
   useEffect(() => {
     if (!intent?.id || !active || !homeLoaded) return;
+    if (intent.kind === "person") {
+      void loadPerson(intent.id);
+      return;
+    }
+    if (intent.kind === "story") {
+      void loadStory(intent.id);
+      return;
+    }
+    if (intent.kind === "event") {
+      void loadEvent(intent.id);
+      return;
+    }
     if (homeStories.some((story) => story.id === intent.id))
       void loadStory(intent.id);
     else void loadEvent(intent.id);
-  }, [active, homeLoaded, homeStories, intent, loadEvent, loadStory]);
+  }, [active, homeLoaded, homeStories, intent, loadEvent, loadPerson, loadStory]);
+  /** AI AppContext 桥（V4 §24/§40）：Frontend 报告“我在哪”，实体由 History 页维护。 */
+  useEffect(() => {
+    if (!onContextChange) return;
+    if (drawer?.kind === "event") {
+      onContextChange({
+        module: "history",
+        page: "event-detail",
+        entity: {
+          kind: "event",
+          id: drawer.data.event.id,
+          label: drawer.data.event.name_zh_cn,
+        },
+      });
+    } else if (drawer?.kind === "person") {
+      onContextChange({
+        module: "history",
+        page: "person-detail",
+        entity: {
+          kind: "person",
+          id: drawer.data.person.id,
+          label: drawer.data.person.canonical_name_zh_cn,
+        },
+      });
+    } else if (drawer?.kind === "work") {
+      onContextChange({
+        module: "history",
+        page: "work-detail",
+        entity: {
+          kind: "work",
+          id: drawer.data.work.id,
+          label: drawer.data.work.title_zh_cn ?? drawer.data.work.title,
+        },
+      });
+    } else {
+      onContextChange({ module: "history" });
+    }
+  }, [drawer, onContextChange]);
   useEffect(() => {
     const text = query.trim();
     if (!text || !isTauriRuntime()) {
