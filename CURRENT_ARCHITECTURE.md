@@ -395,6 +395,38 @@ devtoolbox-server）。缺失文件路径同理拒绝（exit 1）。
 - 前端 `HttpTransport`（Gate 6 已收敛 transport 层，可插拔）；
 - `application/src/bin/language_data.rs` CLI 归属（server / 独立 bin）保持 TODO。
 
+---
+
+## 12. V4 · Personal AI Hub（2026-09-16 实施，Gates 0-9）
+
+**状态：✅ PASS**（详见 `docs/personal-ai/PERSONAL_AI_HUB_V4.md` /
+`V4_OVERNIGHT_STATUS.md` / `ADR-003-personal-ai-hub.md`）
+
+- **契约层** `crates/core/src/personal_ai/`：AgentRequest/AgentResponse/Tool/ToolResult/
+  ModuleDescriptor/AppContext/Action/UiBlock + `AgentError`（9 个稳定 code）+ `ChatModelProvider`
+  （OpenAI-Compatible 路线，messages + tools + usage）；`settings.rs` 新增 `AiSettings`
+  （`serde(default)` 向后兼容旧 settings.json）。
+- **应用层** `crates/application/src/personal_ai/`：`PersonalAgent`（工具循环，
+  max_tool_rounds=4，受控工具错误）、`ModuleRegistry` + `ToolRegistry`（schema 校验 +
+  风险门禁只允许 Read）、AppContext 解析（ContextBudget）、内存 SessionStore、
+  `history.rs` 标准模块（search/get_event/get_person/get_context，全部 Read，
+  复用 V3 `HistoryService`，零写 canonical —— V3 无 on-demand enrichment，不注册
+  `ensure_enrichment`）。application 对 infra 仍为零引用（V4 新增代码同样遵守）。
+- **实现层** `crates/infrastructure/src/personal_ai/llm.rs`：
+  `OpenAiCompatibleChatModelProvider`（与 travel 的 LlmProvider 平行，V5 候选统一）。
+- **组合根** `apps/desktop/src/personal_ai.rs`：Provider 按设置装配（未配置 → 降级桩），
+  Hub 注册 History 模块；`lib.rs` 新增 2 条命令 `personal_ai_status` /
+  `personal_ai_chat`（配置按调用读取，改设置即生效）；`ApplicationError::PersonalAi`
+  映射 AgentError code。
+- **前端** `apps/desktop/ui/src/features/ai/`：`aiTypes`（冻结契约）/ `aiClient` /
+  `AIPanel`（上下文 chip + 清除、states ready/loading/error/unconfigured、工具调用轨迹、
+  EntityList UI Block、Navigate/OpenEntity 动作执行边界）；顶栏 Ask AI 入口；
+  HistoryPage 上报当前实体上下文（AppContext 桥）；SettingsDialog 增加 Ask AI 配置区；
+  窄屏全宽降级。
+- **验证**：core 75 / application 94 / infrastructure 104 / server 7 全绿；
+  `npm run build`（tsc + vite）PASS；History V3 pipeline `uv run pytest` 265 passed
+  （V3 零回归）；无 API key 时全部普通功能正常（`configured=false` 面板提示）。
+
 ## 11. 复核方法（可自行重跑）
 
 ```bash
