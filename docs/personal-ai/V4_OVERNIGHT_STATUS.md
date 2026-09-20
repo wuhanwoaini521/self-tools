@@ -4,7 +4,7 @@
 
 ## Current Gate
 
-**Gate 9（文档 + ADR + 架构审核）** — 进行中（本文件落盘后派 reviewer 独立核验）。
+**Gate 9（文档 + ADR + 架构审核）** — ✅ 完成（reviewer 独立核验 OK-with-notes，2 个 P2 已修复并提交 db3c289）。
 
 ## Completed
 
@@ -23,7 +23,16 @@
 
 ## In Progress
 
-- Gate 9：独立 reviewer 架构核验（依赖方向 / 可扩展性 / V3 回归 / offline / 安全 / 测试覆盖）。
+无（全部 Mandatory Gates PASS）。
+
+## Reviewer 核验结论（Gate 9）
+
+独立 reviewer（§93 Subagent F）10 项检查全部 PASS：单一 Agent / 注册表无 if-else /
+前端只消费契约 / 不造假+canonical 只读 / Read 门禁 / 无 key 门槛 / Context 先于 Memory /
+工具循环+受控错误 / 依赖方向（application 对 infra 零引用）/ V3 未触碰
+（pipeline submodule 仍为 8c6cf71）。两个 P2：核心 prompt 硬编码 history 工具名、
+风险门禁未在注册点强制 —— 已修复（prompt 通用化 + `ToolRegistry::register` 强制执行门禁
++ 拒绝注册测试）。
 
 ## Blocked
 
