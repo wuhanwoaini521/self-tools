@@ -54,9 +54,11 @@ impl ToolRegistry {
         Self { tools: HashMap::new() }
     }
 
-    /// 注册工具。重复 name 或含 `/` 分隔符 → 返回错误（名字必须 `module.action`）。
+    /// 注册工具。重复 name 或含 `/` 分隔符 → 返回错误（名字必须 `module.action`）；
+    /// 同时执行**风险门禁**：只允许当前策略容错的 risk（V4 §14/§21）。
     pub fn register(&mut self, tool: Arc<dyn ToolExecutor>) -> Result<(), AgentError> {
-        let name = tool.spec().name.clone();
+        let spec = tool.spec();
+        let name = spec.name.clone();
         if self.tools.contains_key(&name) {
             return Err(AgentError::tool_invalid_argument(format!(
                 "tool already registered: {name}"
@@ -65,6 +67,12 @@ impl ToolRegistry {
         if !name.contains('.') {
             return Err(AgentError::tool_invalid_argument(format!(
                 "tool name must be `module.action`, got: {name}"
+            )));
+        }
+        if !allowed_risk(spec.risk) {
+            return Err(AgentError::tool_invalid_argument(format!(
+                "tool `{name}` risk `{:?}` is not allowed by the current risk gate (Read only in V4)",
+                spec.risk
             )));
         }
         self.tools.insert(name, tool);
@@ -407,6 +415,26 @@ mod tests {
         assert!(!allowed_risk(ToolRisk::SafeWrite));
         assert!(!allowed_risk(ToolRisk::SensitiveWrite));
         assert!(!allowed_risk(ToolRisk::System));
+    }
+
+    #[test]
+    fn risk_gate_rejects_non_read_at_registration() {
+        let mut registry = ToolRegistry::new();
+        let error = registry
+            .register(Arc::new(FakeTool {
+                spec: ToolSpec {
+                    name: "evil.write".into(),
+                    description: "d".into(),
+                    input_schema: json!({}),
+                    risk: ToolRisk::SafeWrite,
+                    module: "evil".into(),
+                },
+                fail: false,
+            }))
+            .unwrap_err();
+        assert_eq!(error.code(), "personal_ai_tool_invalid_argument");
+        assert!(error.message.contains("risk gate"));
+        assert_eq!(registry.len(), 0);
     }
 
     // ---- minimal provider for module registry test ----
