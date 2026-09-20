@@ -6,6 +6,7 @@ pub mod feed_fetcher;
 pub mod geography;
 pub mod history;
 pub mod language;
+pub mod personal_ai;
 pub mod rss_store;
 pub mod settings_store;
 pub mod travel;
@@ -23,6 +24,7 @@ pub use history::{
     SourceResult, StoryEventResult, StoryResult, WorkResult,
 };
 pub use language::{LanguageStore, SearchHit, sources};
+pub use personal_ai::{AiModelConfig, OpenAiCompatibleChatModelProvider, parse_chat_response};
 pub use rss_store::{ArticleRow, FeedRepository, FeedRow, now_unix};
 pub use settings_store::SettingsStore;
 pub use travel::{

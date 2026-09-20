@@ -58,6 +58,7 @@ impl From<ApplicationError> for CommandError {
                 "geography_error"
             }
             ApplicationError::History(_) => "history_error",
+            ApplicationError::PersonalAi(error) => error.code(),
             ApplicationError::Travel(failure) => match failure.kind {
                 TravelErrorKind::Search => "travel_search_failed",
                 TravelErrorKind::Fetch => "travel_fetch_failed",
@@ -109,6 +110,10 @@ pub struct AppState {
     pub language_store: Arc<Mutex<LanguageStore>>,
     pub geography_store: Arc<Mutex<GeographyStore>>,
     pub client: reqwest::Client,
+    /// Personal AI 注册中心（Gates 2/5：History 标准模块已注册）。
+    pub ai: Arc<PersonalHub>,
+    /// Personal AI 会话存储（V4 §34，内存；P1 再持久化）。
+    pub ai_session: Arc<InMemorySessionStore>,
 }
 
 /// 轮询快照（Serialize 给前端；命令契约形状保持不变）。
@@ -720,12 +725,16 @@ fn language_speaking_feedback(
 // 本文件只做 Tauri 命令转发，不做聚合决策。
 
 mod history_query;
+mod personal_ai;
 
 use devtoolbox_application::history::{
     HistorySemanticEventDetail, HistorySemanticHome, HistorySemanticPeriodDetail,
     HistorySemanticPersonDetail, HistorySemanticSearchGroup, HistorySemanticStoryDetail,
     HistorySemanticWorkDetail, HistoryService,
 };
+use devtoolbox_application::personal_ai::{InMemorySessionStore, PersonalHub};
+use devtoolbox_core::personal_ai::{AgentRequest, AgentResponse, ModuleDescriptor};
+use devtoolbox_core::ToolSpec;
 
 fn history_service(
     state: &State<'_, AppState>,
@@ -851,6 +860,68 @@ fn geography_toggle_favorite(state: State<'_, AppState>, id: String) -> Result<b
         .map_err(CommandError::from)
 }
 
+// ---------------------------------------------------------------------------
+// Personal AI（V4 Gate 6）：状态查询 + 对话（配置按每次调用读取，改设置即生效）
+// ---------------------------------------------------------------------------
+
+/// AI 面板状态（不含任何 key）。
+#[derive(Debug, Serialize)]
+struct PersonalAiStatus {
+    configured: bool,
+    provider: Option<String>,
+    model: Option<String>,
+    modules: Vec<ModuleDescriptor>,
+    tools: Vec<ToolSpec>,
+}
+
+fn load_ai_settings(app: &AppHandle) -> Result<devtoolbox_core::settings::AiSettings, CommandError> {
+    let store = settings_store(app)?;
+    load_settings(&composition::SettingsStoreAdapter::new(store))
+        .map(|settings| settings.ai)
+        .map_err(CommandError::from)
+}
+
+#[tauri::command]
+fn personal_ai_status(
+    app: AppHandle,
+    state: State<'_, AppState>,
+) -> Result<PersonalAiStatus, CommandError> {
+    let ai = load_ai_settings(&app)?;
+    Ok(PersonalAiStatus {
+        configured: ai.is_configured(),
+        provider: if ai.is_configured() { Some("openai-compatible".to_string()) } else { None },
+        model: ai.model.clone(),
+        modules: state.ai.modules.descriptors(),
+        tools: state.ai.tools.specs(),
+    })
+}
+
+#[tauri::command]
+async fn personal_ai_chat(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    request: AgentRequest,
+) -> Result<AgentResponse, CommandError> {
+    if request.message.trim().is_empty() {
+        return Err(CommandError {
+            code: "personal_ai_empty_message",
+            message: "消息不能为空".to_string(),
+        });
+    }
+    let ai = load_ai_settings(&app)?;
+    let provider = personal_ai::build_provider(state.client.clone(), &ai);
+    let agent = personal_ai::build_agent(
+        provider,
+        Arc::clone(&state.ai),
+        Arc::clone(&state.ai_session),
+    );
+    agent
+        .run(request)
+        .await
+        .map_err(ApplicationError::PersonalAi)
+        .map_err(CommandError::from)
+}
+
 /// 应用入口。前端需要的权限被限制在文件选择器、command API 与打开原文链接；
 /// 不暴露任意 shell 执行能力。
 pub fn run() {
@@ -877,15 +948,18 @@ pub fn run() {
             let rss_repository: Arc<dyn RssRepositoryPort> = Arc::new(
                 composition::RssRepositoryAdapter::new(Arc::new(Mutex::new(store))),
             );
+            let history_repo = Arc::new(history_duckdb);
             app.manage(AppState {
                 rss_repository,
                 rss_fetcher: composition::FeedFetcherAdapter::new(client.clone()),
                 travel_store: Arc::new(Mutex::new(travel_store)),
                 travel_registry: TravelSessionRegistry::new(),
-                history_duckdb: Arc::new(history_duckdb),
+                history_duckdb: Arc::clone(&history_repo),
                 language_store: Arc::new(Mutex::new(language_store)),
                 geography_store: Arc::new(Mutex::new(geography_store)),
                 client,
+                ai: personal_ai::build_hub(history_repo),
+                ai_session: Arc::new(InMemorySessionStore::new()),
             });
             Ok(())
         })
@@ -922,6 +996,8 @@ pub fn run() {
             geography_search,
             geography_detail,
             geography_toggle_favorite,
+            personal_ai_status,
+            personal_ai_chat,
             language_languages,
             language_search,
             language_item,

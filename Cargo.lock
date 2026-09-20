@@ -1138,6 +1138,7 @@ dependencies = [
 name = "devtoolbox-desktop"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "devtoolbox-application",
  "devtoolbox-core",
  "devtoolbox-infrastructure",
