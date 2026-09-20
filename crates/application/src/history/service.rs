@@ -26,6 +26,22 @@ pub struct HistorySemanticHome {
     pub stats: DatasetStats,
 }
 
+/// Period Detail 的历史阶段（data-driven 分段）。
+///
+/// 由本时期事件的 `importance == "critical"` 锚点驱动：每个阶段以关键事件
+/// 开启，延伸到下一个锚点年前一年（末段延伸到时期结束）。锚点年份相距 ≤2 年时
+/// 合并为同一章。标题与叙事链完全由真实事件名组成，不引入硬编码历史叙述。
+#[derive(Debug, Serialize)]
+pub struct HistoryPeriodStage {
+    pub index: i64,
+    pub start_year: i32,
+    pub end_year: i32,
+    pub opening_event_id: String,
+    pub opening_event_name: String,
+    pub opening_event_type: Option<String>,
+    pub event_count: i64,
+}
+
 #[derive(Debug, Serialize)]
 pub struct HistorySemanticPeriodDetail {
     pub period: PeriodResult,
@@ -33,6 +49,10 @@ pub struct HistorySemanticPeriodDetail {
     pub stories: Vec<StoryResult>,
     pub events: Vec<PeriodEventItem>,
     pub people: Vec<PeriodPersonItem>,
+    /// data-driven 历史阶段（空 = 该时期缺少足够锚点，前端隐藏阶段模块）。
+    pub stages: Vec<HistoryPeriodStage>,
+    /// 时期关系池：至少一端属于本时期的事件关系（含事件名）。
+    pub relations: Vec<EventRelationResult>,
 }
 
 #[derive(Debug, Serialize)]
@@ -127,6 +147,101 @@ pub struct HistoryService {
     port: Box<dyn HistoryQueryPort>,
 }
 
+/// 关键锚点：`importance == "critical"` 且有确定年份的事件，按年份升序。
+fn critical_anchors(events: &[PeriodEventItem]) -> Vec<&PeriodEventItem> {
+    let mut anchors = events
+        .iter()
+        .filter(|event| event.importance.as_deref() == Some("critical"))
+        .filter_map(|event| event.start_year.map(|year| (year, event)))
+        .collect::<Vec<_>>();
+    anchors.sort_by_key(|item| item.0);
+    anchors.into_iter().map(|item| item.1).collect()
+}
+
+/// data-driven 阶段分段（详见 `HistoryPeriodStage` 注释）：
+/// 1) 只取 critical 锚点；2) 年份相距 ≤2 年的锚点合并为一章（取最早者）；
+/// 3) 每章从锚点年延伸到下一锚点年前一年（末章到时期结束）；
+/// 4) 首个锚点前的空档（如有真实事件）作为单独「开端章」。
+/// 锚点不足（<2）时返回空 —— 前端据此隐藏阶段模块。
+fn derive_stages(
+    events: &[PeriodEventItem],
+    period_start: Option<i32>,
+    period_end: Option<i32>,
+) -> Vec<HistoryPeriodStage> {
+    let mut anchors = critical_anchors(events);
+    if anchors.len() < 2 {
+        return Vec::new();
+    }
+    // 合并同年/相邻年锚点：窗口内保留最早者。
+    let mut merged: Vec<&PeriodEventItem> = Vec::new();
+    for anchor in anchors.drain(..) {
+        let Some(year) = anchor.start_year else {
+            continue;
+        };
+        if let Some(last) = merged.last()
+            && year - last.start_year.unwrap_or(i32::MIN) <= 2
+        {
+            continue;
+        }
+        merged.push(anchor);
+    }
+
+    let span = |from: i32, to: i32| -> i64 {
+        events
+            .iter()
+            .filter(|event| {
+                event
+                    .start_year
+                    .is_some_and(|year| (from..=to).contains(&year))
+            })
+            .count() as i64
+    };
+    let mut stages = Vec::new();
+    let mut index = 0i64;
+    let Some(first_year) = merged[0].start_year else {
+        return Vec::new();
+    };
+    // 开端章：时期开始到首个锚点前，且确有事件存在。
+    if let Some(start) = period_start
+        && start < first_year
+        && span(start, first_year - 1) > 0
+    {
+        index += 1;
+        stages.push(HistoryPeriodStage {
+            index,
+            start_year: start,
+            end_year: first_year - 1,
+            opening_event_id: String::new(),
+            opening_event_name: String::new(),
+            opening_event_type: None,
+            event_count: span(start, first_year - 1),
+        });
+    }
+    for (position, anchor) in merged.iter().enumerate() {
+        let Some(start) = anchor.start_year else {
+            continue;
+        };
+        let end = match merged.get(position + 1) {
+            Some(next) => next
+                .start_year
+                .map(|year| (year - 1).max(start))
+                .unwrap_or(start),
+            None => period_end.filter(|end| *end >= start).unwrap_or(start),
+        };
+        index += 1;
+        stages.push(HistoryPeriodStage {
+            index,
+            start_year: start,
+            end_year: end,
+            opening_event_id: anchor.id.clone(),
+            opening_event_name: anchor.name_zh_cn.clone(),
+            opening_event_type: anchor.event_type.clone(),
+            event_count: span(start, end),
+        });
+    }
+    stages
+}
+
 impl HistoryService {
     pub fn new(port: Box<dyn HistoryQueryPort>) -> Self {
         Self { port }
@@ -137,11 +252,15 @@ impl HistoryService {
         Ok(HistorySemanticHome {
             periods: self.port.get_periods().map_err(ApplicationError::History)?,
             stories: self.port.get_stories().map_err(ApplicationError::History)?,
-            stats: self.port.get_dataset_stats().map_err(ApplicationError::History)?,
+            stats: self
+                .port
+                .get_dataset_stats()
+                .map_err(ApplicationError::History)?,
         })
     }
 
-    /// 时期详情：按 id 解析时期，再装配朝代、故事、事件与核心人物。
+    /// 时期详情：按 id 解析时期，再装配朝代、故事、事件、核心人物，
+    /// 以及 data-driven 历史阶段与时期关系池。
     pub fn period_detail(
         &self,
         period_id: &str,
@@ -155,6 +274,15 @@ impl HistoryService {
         let Some(period) = period else {
             return Ok(None);
         };
+        let events = self
+            .port
+            .get_events_for_period(period_id)
+            .map_err(ApplicationError::History)?;
+        let stages = derive_stages(&events, period.start_year, period.end_year);
+        let relations = self
+            .port
+            .get_relations_for_period(period_id)
+            .map_err(ApplicationError::History)?;
         Ok(Some(HistorySemanticPeriodDetail {
             regimes: self
                 .port
@@ -164,15 +292,14 @@ impl HistoryService {
                 .port
                 .get_stories_for_period(Some(period_id))
                 .map_err(ApplicationError::History)?,
-            events: self
-                .port
-                .get_events_for_period(period_id)
-                .map_err(ApplicationError::History)?,
+            events,
             people: self
                 .port
                 .get_people_for_period(period_id, PERIOD_PEOPLE_LIMIT)
                 .map_err(ApplicationError::History)?,
             period,
+            stages,
+            relations,
         }))
     }
 

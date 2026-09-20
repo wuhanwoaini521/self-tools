@@ -347,9 +347,15 @@ pub struct PeriodEventItem {
 }
 
 /// 时期页的核心人物（按参与事件数倒序）。
+///
+/// `birth_year` / `death_year` / `intro_zh_cn` 为 2026-09 Period Detail 重构新增
+/// （原型列来自 `people` 表，供「核心人物」模块展示身份/活跃年代，不改变既有计数逻辑）。
 #[derive(Debug, Clone, Serialize)]
 pub struct PeriodPersonItem {
     pub person_id: String,
     pub canonical_name_zh_cn: String,
     pub event_count: i64,
+    pub birth_year: Option<i32>,
+    pub death_year: Option<i32>,
+    pub intro_zh_cn: Option<String>,
 }

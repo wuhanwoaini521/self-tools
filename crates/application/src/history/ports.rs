@@ -33,10 +33,8 @@ impl std::error::Error for HistoryPortError {}
 pub trait HistoryQueryPort: Send + Sync {
     fn get_dataset_stats(&self) -> Result<DatasetStats, HistoryPortError>;
     fn get_periods(&self) -> Result<Vec<PeriodResult>, HistoryPortError>;
-    fn get_regimes_by_period(
-        &self,
-        period_id: &str,
-    ) -> Result<Vec<RegimeResult>, HistoryPortError>;
+    fn get_regimes_by_period(&self, period_id: &str)
+    -> Result<Vec<RegimeResult>, HistoryPortError>;
     fn get_events_for_period(
         &self,
         period_id: &str,
@@ -46,24 +44,20 @@ pub trait HistoryQueryPort: Send + Sync {
         period_id: &str,
         limit: i64,
     ) -> Result<Vec<PeriodPersonItem>, HistoryPortError>;
+    /// 时期关系池（至少一端属于该时期），供 Period Detail 叙事链使用。
+    fn get_relations_for_period(
+        &self,
+        period_id: &str,
+    ) -> Result<Vec<EventRelationResult>, HistoryPortError>;
     fn get_stories(&self) -> Result<Vec<StoryResult>, HistoryPortError>;
     fn get_stories_for_period(
         &self,
         period_id: Option<&str>,
     ) -> Result<Vec<StoryResult>, HistoryPortError>;
     fn get_story(&self, story_id: &str) -> Result<Option<StoryResult>, HistoryPortError>;
-    fn get_story_events(
-        &self,
-        story_id: &str,
-    ) -> Result<Vec<StoryEventResult>, HistoryPortError>;
-    fn get_story_people(
-        &self,
-        story_id: &str,
-    ) -> Result<Vec<EventPersonResult>, HistoryPortError>;
-    fn get_story_places(
-        &self,
-        story_id: &str,
-    ) -> Result<Vec<EventPlaceResult>, HistoryPortError>;
+    fn get_story_events(&self, story_id: &str) -> Result<Vec<StoryEventResult>, HistoryPortError>;
+    fn get_story_people(&self, story_id: &str) -> Result<Vec<EventPersonResult>, HistoryPortError>;
+    fn get_story_places(&self, story_id: &str) -> Result<Vec<EventPlaceResult>, HistoryPortError>;
     fn get_story_texts(
         &self,
         story_id: &str,
@@ -73,14 +67,8 @@ pub trait HistoryQueryPort: Send + Sync {
         story_id: &str,
     ) -> Result<Vec<EventEvidenceResult>, HistoryPortError>;
     fn get_event(&self, event_id: &str) -> Result<Option<EventResult>, HistoryPortError>;
-    fn get_event_people(
-        &self,
-        event_id: &str,
-    ) -> Result<Vec<EventPersonResult>, HistoryPortError>;
-    fn get_event_places(
-        &self,
-        event_id: &str,
-    ) -> Result<Vec<EventPlaceResult>, HistoryPortError>;
+    fn get_event_people(&self, event_id: &str) -> Result<Vec<EventPersonResult>, HistoryPortError>;
+    fn get_event_places(&self, event_id: &str) -> Result<Vec<EventPlaceResult>, HistoryPortError>;
     fn get_event_relations(
         &self,
         event_id: &str,
@@ -117,18 +105,8 @@ pub trait HistoryQueryPort: Send + Sync {
         work: Option<&str>,
         limit: i64,
     ) -> Result<Vec<HistoricalTextResult>, HistoryPortError>;
-    fn search_people(
-        &self,
-        query: &str,
-        limit: i64,
-    ) -> Result<Vec<PersonResult>, HistoryPortError>;
-    fn search_events(
-        &self,
-        query: &str,
-        limit: i64,
-    ) -> Result<Vec<EventResult>, HistoryPortError>;
-    fn get_sources_for_ids(
-        &self,
-        ids: &[String],
-    ) -> Result<Vec<SourceResult>, HistoryPortError>;
+    fn search_people(&self, query: &str, limit: i64)
+    -> Result<Vec<PersonResult>, HistoryPortError>;
+    fn search_events(&self, query: &str, limit: i64) -> Result<Vec<EventResult>, HistoryPortError>;
+    fn get_sources_for_ids(&self, ids: &[String]) -> Result<Vec<SourceResult>, HistoryPortError>;
 }

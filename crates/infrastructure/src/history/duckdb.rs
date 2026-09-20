@@ -128,7 +128,7 @@ impl HistoryDuckDbRepository {
                         CASE WHEN pr.person_a_id=?1 THEN rtd.relation_name_zh_cn ELSE rtd.inverse_relation_name_zh_cn END,
                         rtd.relation_category
                  FROM person_relations pr LEFT JOIN people a ON a.id=pr.person_a_id LEFT JOIN people b ON b.id=pr.person_b_id
-                 LEFT JOIN relation_type_dictionary rtd ON rtd.source_dataset='cbdb' AND rtd.source_relation_code=pr.relation_type
+                 LEFT JOIN relation_type_dictionary rtd ON rtd.source_dataset IN ('cbdb','curated') AND rtd.source_relation_code=pr.relation_type
                  WHERE pr.person_a_id=?1 OR pr.person_b_id=?1 ORDER BY pr.relation_type,pr.person_a_id,pr.person_b_id",
             ).map_err(|error| InfrastructureError::DuckDb(error.to_string()))?;
             let rows = statement.query_map(params![person_id], |row| Ok(PersonRelationResult {
@@ -774,12 +774,13 @@ impl HistoryDuckDbRepository {
     ) -> Result<Vec<PeriodPersonItem>, InfrastructureError> {
         self.with_connection(|connection| {
             let mut statement = connection.prepare(
-                "SELECT p.id, p.canonical_name_zh_cn, COUNT(DISTINCT ep.event_id) AS event_count
+                "SELECT p.id, p.canonical_name_zh_cn, COUNT(DISTINCT ep.event_id) AS event_count,
+                        p.birth_year, p.death_year, p.intro_zh_cn
                  FROM event_person ep
                  JOIN events e ON e.id = ep.event_id
                  JOIN people p ON p.id = ep.person_id
                  WHERE e.period_id = ?1
-                 GROUP BY p.id, p.canonical_name_zh_cn
+                 GROUP BY p.id, p.canonical_name_zh_cn, p.birth_year, p.death_year, p.intro_zh_cn
                  ORDER BY event_count DESC, p.canonical_name_zh_cn
                  LIMIT ?2",
             )
@@ -790,9 +791,38 @@ impl HistoryDuckDbRepository {
                         person_id: row.get(0)?,
                         canonical_name_zh_cn: row.get(1)?,
                         event_count: row.get(2)?,
+                        birth_year: row.get(3)?,
+                        death_year: row.get(4)?,
+                        intro_zh_cn: row.get(5)?,
                     })
                 })
                 .map_err(|error| InfrastructureError::DuckDb(error.to_string()))?;
+            rows.map(|row| row.map_err(|error| InfrastructureError::DuckDb(error.to_string())))
+                .collect()
+        })
+    }
+
+    /// 时期页关系池：至少一端属于该时期的全部事件关系（含事件名）。
+    ///
+    /// 供 Period Detail 的时序链利用：turning point 的「它连接到了什么」、
+    /// Timeline 每事件的主叙事关系都从这里取，避免 N+1 逐事件查询。
+    pub fn get_relations_for_period(
+        &self,
+        period_id: &str,
+    ) -> Result<Vec<EventRelationResult>, InfrastructureError> {
+        self.with_connection(|connection| {
+            let mut statement = connection.prepare(
+                "SELECT er.source_event_id,er.target_event_id,er.relation_type,er.confidence,er.description_zh_cn,er.source_id,er.quality_status,
+                        se.name_zh_cn,te.name_zh_cn FROM event_relations er
+                 LEFT JOIN events se ON se.id=er.source_event_id LEFT JOIN events te ON te.id=er.target_event_id
+                 WHERE se.period_id=?1 OR te.period_id=?1
+                 ORDER BY se.period_id,te.period_id,er.source_event_id,er.target_event_id,er.relation_type",
+            )
+            .map_err(|error| InfrastructureError::DuckDb(error.to_string()))?;
+            let rows = statement.query_map(params![period_id], |row| Ok(EventRelationResult {
+                source_event_id: row.get(0)?, target_event_id: row.get(1)?, relation_type: row.get(2)?, confidence: row.get(3)?,
+                description_zh_cn: row.get(4)?, source_id: row.get(5)?, quality_status: row.get(6)?, source_event_name: row.get(7)?, target_event_name: row.get(8)?,
+            })).map_err(|error| InfrastructureError::DuckDb(error.to_string()))?;
             rows.map(|row| row.map_err(|error| InfrastructureError::DuckDb(error.to_string())))
                 .collect()
         })

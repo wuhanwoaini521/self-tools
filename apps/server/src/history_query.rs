@@ -42,13 +42,19 @@ impl HistoryQueryPort for HistoryQueryAdapter {
         self.repository.get_periods().map_err(map_err)
     }
 
-    fn get_regimes_by_period(&self, period_id: &str) -> Result<Vec<RegimeResult>, HistoryPortError> {
+    fn get_regimes_by_period(
+        &self,
+        period_id: &str,
+    ) -> Result<Vec<RegimeResult>, HistoryPortError> {
         self.repository
             .get_regimes_by_period(period_id)
             .map_err(map_err)
     }
 
-    fn get_events_for_period(&self, period_id: &str) -> Result<Vec<PeriodEventItem>, HistoryPortError> {
+    fn get_events_for_period(
+        &self,
+        period_id: &str,
+    ) -> Result<Vec<PeriodEventItem>, HistoryPortError> {
         self.repository
             .get_events_for_period(period_id)
             .map_err(map_err)
@@ -64,6 +70,15 @@ impl HistoryQueryPort for HistoryQueryAdapter {
             .map_err(map_err)
     }
 
+    fn get_relations_for_period(
+        &self,
+        period_id: &str,
+    ) -> Result<Vec<EventRelationResult>, HistoryPortError> {
+        self.repository
+            .get_relations_for_period(period_id)
+            .map_err(map_err)
+    }
+
     fn get_stories(&self) -> Result<Vec<StoryResult>, HistoryPortError> {
         self.repository.get_stories().map_err(map_err)
     }
@@ -72,7 +87,9 @@ impl HistoryQueryPort for HistoryQueryAdapter {
         &self,
         period_id: Option<&str>,
     ) -> Result<Vec<StoryResult>, HistoryPortError> {
-        self.repository.get_stories_for_period(period_id).map_err(map_err)
+        self.repository
+            .get_stories_for_period(period_id)
+            .map_err(map_err)
     }
 
     fn get_story(&self, story_id: &str) -> Result<Option<StoryResult>, HistoryPortError> {
@@ -80,30 +97,28 @@ impl HistoryQueryPort for HistoryQueryAdapter {
     }
 
     fn get_story_events(&self, story_id: &str) -> Result<Vec<StoryEventResult>, HistoryPortError> {
-        self.repository
-            .get_story_events(story_id)
-            .map_err(map_err)
+        self.repository.get_story_events(story_id).map_err(map_err)
     }
 
     fn get_story_people(&self, story_id: &str) -> Result<Vec<EventPersonResult>, HistoryPortError> {
-        self.repository
-            .get_story_people(story_id)
-            .map_err(map_err)
+        self.repository.get_story_people(story_id).map_err(map_err)
     }
 
     fn get_story_places(&self, story_id: &str) -> Result<Vec<EventPlaceResult>, HistoryPortError> {
-        self.repository
-            .get_story_places(story_id)
-            .map_err(map_err)
+        self.repository.get_story_places(story_id).map_err(map_err)
     }
 
-    fn get_story_texts(&self, story_id: &str) -> Result<Vec<EventHistoricalTextResult>, HistoryPortError> {
-        self.repository
-            .get_story_texts(story_id)
-            .map_err(map_err)
+    fn get_story_texts(
+        &self,
+        story_id: &str,
+    ) -> Result<Vec<EventHistoricalTextResult>, HistoryPortError> {
+        self.repository.get_story_texts(story_id).map_err(map_err)
     }
 
-    fn get_story_evidences(&self, story_id: &str) -> Result<Vec<EventEvidenceResult>, HistoryPortError> {
+    fn get_story_evidences(
+        &self,
+        story_id: &str,
+    ) -> Result<Vec<EventEvidenceResult>, HistoryPortError> {
         self.repository
             .get_story_evidences(story_id)
             .map_err(map_err)
@@ -114,30 +129,33 @@ impl HistoryQueryPort for HistoryQueryAdapter {
     }
 
     fn get_event_people(&self, event_id: &str) -> Result<Vec<EventPersonResult>, HistoryPortError> {
-        self.repository
-            .get_event_people(event_id)
-            .map_err(map_err)
+        self.repository.get_event_people(event_id).map_err(map_err)
     }
 
     fn get_event_places(&self, event_id: &str) -> Result<Vec<EventPlaceResult>, HistoryPortError> {
-        self.repository
-            .get_event_places(event_id)
-            .map_err(map_err)
+        self.repository.get_event_places(event_id).map_err(map_err)
     }
 
-    fn get_event_relations(&self, event_id: &str) -> Result<Vec<EventRelationResult>, HistoryPortError> {
+    fn get_event_relations(
+        &self,
+        event_id: &str,
+    ) -> Result<Vec<EventRelationResult>, HistoryPortError> {
         self.repository
             .get_event_relations(event_id)
             .map_err(map_err)
     }
 
-    fn get_event_texts(&self, event_id: &str) -> Result<Vec<EventHistoricalTextResult>, HistoryPortError> {
-        self.repository
-            .get_event_texts(event_id)
-            .map_err(map_err)
+    fn get_event_texts(
+        &self,
+        event_id: &str,
+    ) -> Result<Vec<EventHistoricalTextResult>, HistoryPortError> {
+        self.repository.get_event_texts(event_id).map_err(map_err)
     }
 
-    fn get_event_evidences(&self, event_id: &str) -> Result<Vec<EventEvidenceResult>, HistoryPortError> {
+    fn get_event_evidences(
+        &self,
+        event_id: &str,
+    ) -> Result<Vec<EventEvidenceResult>, HistoryPortError> {
         self.repository
             .get_event_evidences(event_id)
             .map_err(map_err)
@@ -156,19 +174,28 @@ impl HistoryQueryPort for HistoryQueryAdapter {
             .map_err(map_err)
     }
 
-    fn get_person_places(&self, person_id: &str) -> Result<Vec<PersonPlaceResult>, HistoryPortError> {
+    fn get_person_places(
+        &self,
+        person_id: &str,
+    ) -> Result<Vec<PersonPlaceResult>, HistoryPortError> {
         self.repository
             .get_person_places(person_id)
             .map_err(map_err)
     }
 
-    fn get_person_events(&self, person_id: &str) -> Result<Vec<PersonEventResult>, HistoryPortError> {
+    fn get_person_events(
+        &self,
+        person_id: &str,
+    ) -> Result<Vec<PersonEventResult>, HistoryPortError> {
         self.repository
             .get_person_events(person_id)
             .map_err(map_err)
     }
 
-    fn get_person_stories(&self, person_id: &str) -> Result<Vec<PersonStoryResult>, HistoryPortError> {
+    fn get_person_stories(
+        &self,
+        person_id: &str,
+    ) -> Result<Vec<PersonStoryResult>, HistoryPortError> {
         self.repository
             .get_person_stories(person_id)
             .map_err(map_err)
@@ -200,11 +227,7 @@ impl HistoryQueryPort for HistoryQueryAdapter {
         self.repository.search_people(query, limit).map_err(map_err)
     }
 
-    fn search_events(
-        &self,
-        query: &str,
-        limit: i64,
-    ) -> Result<Vec<EventResult>, HistoryPortError> {
+    fn search_events(&self, query: &str, limit: i64) -> Result<Vec<EventResult>, HistoryPortError> {
         self.repository.search_events(query, limit).map_err(map_err)
     }
 

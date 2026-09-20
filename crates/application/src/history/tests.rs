@@ -11,9 +11,9 @@ use devtoolbox_core::history_records::{
     WorkResult,
 };
 
-use super::ports::HistoryPortError;
 use super::HistoryQueryPort;
 use super::HistoryService;
+use super::ports::HistoryPortError;
 use crate::ApplicationError;
 
 type FakeLink = Arc<Mutex<FakePortData>>;
@@ -342,6 +342,9 @@ fn period_person_item(id: &str) -> PeriodPersonItem {
         person_id: id.into(),
         canonical_name_zh_cn: "人物".into(),
         event_count: 0,
+        birth_year: None,
+        death_year: None,
+        intro_zh_cn: None,
     }
 }
 
@@ -372,6 +375,7 @@ struct FakePortData {
     regimes: Vec<RegimeResult>,
     events_for_period: Vec<PeriodEventItem>,
     people_for_period: Vec<PeriodPersonItem>,
+    relations_for_period: Vec<EventRelationResult>,
     stories: Vec<StoryResult>,
     stories_for_period: Vec<StoryResult>,
     story: Option<StoryResult>,
@@ -467,6 +471,17 @@ impl HistoryQueryPort for FakeLink {
         }
         Ok(port.people_for_period.clone())
     }
+    fn get_relations_for_period(
+        &self,
+        _period_id: &str,
+    ) -> Result<Vec<EventRelationResult>, HistoryPortError> {
+        let mut port = self.lock().expect("fake port poisoned");
+        port.calls.push("get_relations_for_period");
+        if port.fail {
+            return Err(err());
+        }
+        Ok(port.relations_for_period.clone())
+    }
     fn get_stories(&self) -> Result<Vec<StoryResult>, HistoryPortError> {
         let mut port = self.lock().expect("fake port poisoned");
         port.calls.push("get_stories");
@@ -494,10 +509,7 @@ impl HistoryQueryPort for FakeLink {
         }
         Ok(port.story.clone())
     }
-    fn get_story_events(
-        &self,
-        _story_id: &str,
-    ) -> Result<Vec<StoryEventResult>, HistoryPortError> {
+    fn get_story_events(&self, _story_id: &str) -> Result<Vec<StoryEventResult>, HistoryPortError> {
         let mut port = self.lock().expect("fake port poisoned");
         port.calls.push("get_story_events");
         if port.fail {
@@ -516,10 +528,7 @@ impl HistoryQueryPort for FakeLink {
         }
         Ok(port.story_people.clone())
     }
-    fn get_story_places(
-        &self,
-        _story_id: &str,
-    ) -> Result<Vec<EventPlaceResult>, HistoryPortError> {
+    fn get_story_places(&self, _story_id: &str) -> Result<Vec<EventPlaceResult>, HistoryPortError> {
         let mut port = self.lock().expect("fake port poisoned");
         port.calls.push("get_story_places");
         if port.fail {
@@ -568,10 +577,7 @@ impl HistoryQueryPort for FakeLink {
         }
         Ok(port.event_people.clone())
     }
-    fn get_event_places(
-        &self,
-        _event_id: &str,
-    ) -> Result<Vec<EventPlaceResult>, HistoryPortError> {
+    fn get_event_places(&self, _event_id: &str) -> Result<Vec<EventPlaceResult>, HistoryPortError> {
         let mut port = self.lock().expect("fake port poisoned");
         port.calls.push("get_event_places");
         if port.fail {
@@ -694,7 +700,11 @@ impl HistoryQueryPort for FakeLink {
         }
         Ok(port.historical_texts.clone())
     }
-    fn search_people(&self, _query: &str, limit: i64) -> Result<Vec<PersonResult>, HistoryPortError> {
+    fn search_people(
+        &self,
+        _query: &str,
+        limit: i64,
+    ) -> Result<Vec<PersonResult>, HistoryPortError> {
         let mut port = self.lock().expect("fake port poisoned");
         port.calls.push("search_people");
         port.search_limits.push(limit);
@@ -703,7 +713,11 @@ impl HistoryQueryPort for FakeLink {
         }
         Ok(port.searched_people.clone())
     }
-    fn search_events(&self, _query: &str, limit: i64) -> Result<Vec<EventResult>, HistoryPortError> {
+    fn search_events(
+        &self,
+        _query: &str,
+        limit: i64,
+    ) -> Result<Vec<EventResult>, HistoryPortError> {
         let mut port = self.lock().expect("fake port poisoned");
         port.calls.push("search_events");
         port.search_limits.push(limit);
@@ -758,7 +772,10 @@ fn search_groups_by_kind_in_fixed_order_and_skips_empty_groups() {
     let groups = service.search("唐").expect("search succeeds");
 
     // person → story → event → work；search_people/search_events/get_work 各收 limit=8。
-    let kinds = groups.iter().map(|group| group.kind.as_str()).collect::<Vec<_>>();
+    let kinds = groups
+        .iter()
+        .map(|group| group.kind.as_str())
+        .collect::<Vec<_>>();
     assert_eq!(kinds, ["person", "story", "event", "work"]);
     assert_eq!(fake.lock().unwrap().search_limits, [8, 8, 8]);
 
@@ -806,7 +823,13 @@ fn search_matches_story_by_title_or_summary_and_strips_whitespace() {
     let story_ids = groups
         .iter()
         .find(|group| group.kind == "story")
-        .map(|group| group.items.iter().map(|item| item.id.clone()).collect::<Vec<_>>())
+        .map(|group| {
+            group
+                .items
+                .iter()
+                .map(|item| item.id.clone())
+                .collect::<Vec<_>>()
+        })
         .expect("story group exists");
     assert_eq!(story_ids, ["s-summary"]);
 }
@@ -823,7 +846,13 @@ fn search_truncates_story_group_to_eight() {
     let story_ids = groups
         .iter()
         .find(|group| group.kind == "story")
-        .map(|group| group.items.iter().map(|item| item.id.clone()).collect::<Vec<_>>())
+        .map(|group| {
+            group
+                .items
+                .iter()
+                .map(|item| item.id.clone())
+                .collect::<Vec<_>>()
+        })
         .expect("story group is present");
     assert_eq!(story_ids.len(), 8);
 }
@@ -841,7 +870,13 @@ fn search_work_hit_uses_title_zh_cn_with_title_fallback() {
     let titles = groups
         .iter()
         .find(|group| group.kind == "work")
-        .map(|group| group.items.iter().map(|item| item.title.clone()).collect::<Vec<_>>())
+        .map(|group| {
+            group
+                .items
+                .iter()
+                .map(|item| item.title.clone())
+                .collect::<Vec<_>>()
+        })
         .expect("work group is present");
     assert_eq!(titles, ["贞观政要", "资治通鉴"]);
 }
@@ -883,9 +918,133 @@ fn period_detail_resolves_period_then_assembles_sections() {
     assert_eq!(detail.stories.len(), 1);
     assert_eq!(
         fake.lock().unwrap().calls,
-        ["get_periods", "get_regimes_by_period", "get_stories_for_period", "get_events_for_period", "get_people_for_period"]
+        [
+            "get_periods",
+            "get_events_for_period",
+            "get_relations_for_period",
+            "get_regimes_by_period",
+            "get_stories_for_period",
+            "get_people_for_period"
+        ]
     );
     assert_eq!(fake.lock().unwrap().people_period_limits, [24]);
+}
+
+#[test]
+fn period_detail_derives_stages_from_critical_anchors() {
+    let mut data = FakePortData::default();
+    data.periods = vec![PeriodResult {
+        id: "period-republic".into(),
+        name_zh_cn: "中华民国".into(),
+        start_year: Some(1912),
+        end_year: Some(1949),
+        ..period("period-republic")
+    }];
+    // 锚点：1912（南北议和）、1919（五四）、1936（西安）、1937（七七）→ 1936/1937 合并；1945（日本投降）。
+    let anchors = vec![
+        ("e-1912", "南北议和与清帝退位", 1912, "critical"),
+        ("e-1919", "五四运动", 1919, "critical"),
+        ("e-1931", "九一八事变", 1931, "critical"),
+        ("e-1936", "西安事变", 1936, "critical"),
+        ("e-1937", "七七事变", 1937, "critical"),
+        ("e-1945", "日本宣布投降", 1945, "critical"),
+    ];
+    let mut events = Vec::new();
+    for (id, name, year, importance) in anchors {
+        let mut event = period_event_item(id);
+        event.name_zh_cn = name.into();
+        event.start_year = Some(year);
+        event.importance = Some(importance.into());
+        events.push(event);
+    }
+    let mut fill = period_event_item("e-fill");
+    fill.start_year = Some(1940);
+    fill.importance = Some("major".into());
+    events.push(fill);
+    data.events_for_period = events;
+    data.people_for_period = vec![period_person_item("pe1")];
+    let fake = Arc::new(Mutex::new(data));
+    let detail = service(Arc::clone(&fake))
+        .period_detail("period-republic")
+        .expect("period_detail succeeds")
+        .expect("period exists");
+    let stages = &detail.stages;
+    assert_eq!(stages.len(), 5);
+    assert_eq!(
+        stages
+            .iter()
+            .map(|stage| (
+                stage.start_year,
+                stage.end_year,
+                stage.opening_event_name.as_str()
+            ))
+            .collect::<Vec<_>>(),
+        [
+            (1912, 1918, "南北议和与清帝退位"),
+            (1919, 1930, "五四运动"),
+            (1931, 1935, "九一八事变"),
+            (1936, 1944, "西安事变"),
+            (1945, 1949, "日本宣布投降"),
+        ]
+    );
+    assert_eq!(
+        stages[3].event_count, 3,
+        "1936–1944 章含 西安事变 + 七七事变 + 1940 填充事件"
+    );
+}
+
+#[test]
+fn period_detail_derives_front_stage_when_anchor_comes_late() {
+    // 战国式：首个 critical 锚点（-403 三家分晋）晚于时期开始（-475），
+    // 前有真实事件 → 生成空白「开端章」（index 1，无 opening event）。
+    let mut data = FakePortData::default();
+    data.periods = vec![PeriodResult {
+        id: "period-warring".into(),
+        name_zh_cn: "战国".into(),
+        start_year: Some(-475),
+        end_year: Some(-221),
+        ..period("period-warring")
+    }];
+    let mut pre = period_event_item("e-pre");
+    pre.start_year = Some(-450);
+    pre.importance = Some("major".into());
+    let mut a1 = period_event_item("e-a1");
+    a1.start_year = Some(-403);
+    a1.importance = Some("critical".into());
+    let mut a2 = period_event_item("e-a2");
+    a2.start_year = Some(-260);
+    a2.importance = Some("critical".into());
+    data.events_for_period = vec![pre, a1, a2];
+    let fake = Arc::new(Mutex::new(data));
+    let detail = service(Arc::clone(&fake))
+        .period_detail("period-warring")
+        .expect("period_detail succeeds")
+        .expect("period exists");
+    let stages = &detail.stages;
+    assert_eq!(stages.len(), 3, "开端章 + 2 锚点章");
+    assert_eq!(stages[0].index, 1);
+    assert_eq!(stages[0].start_year, -475);
+    assert_eq!(stages[0].end_year, -404);
+    assert!(stages[0].opening_event_id.is_empty(), "开端章无锚点事件");
+    assert_eq!(stages[0].event_count, 1);
+    assert_eq!(stages[1].index, 2);
+    assert_eq!(stages[1].opening_event_name, "事件", "锚点章以关键事件命名");
+}
+
+#[test]
+fn period_detail_without_critical_anchors_has_no_stages() {
+    let mut data = FakePortData::default();
+    data.periods = vec![period("p1")];
+    let mut event = period_event_item("e1");
+    event.start_year = Some(1912);
+    event.importance = Some("major".into());
+    data.events_for_period = vec![event];
+    let fake = Arc::new(Mutex::new(data));
+    let detail = service(Arc::clone(&fake))
+        .period_detail("p1")
+        .expect("period_detail succeeds")
+        .expect("period exists");
+    assert!(detail.stages.is_empty(), "无 critical 锚点 → 隐藏阶段模块");
 }
 
 #[test]
@@ -904,7 +1063,10 @@ fn story_detail_merges_sources_across_all_sections() {
     let fake = Arc::new(Mutex::new({
         let mut data = FakePortData::default();
         data.story = Some(story);
-        data.story_events = vec![story_event("s1", Some(r#"["s3"]"#.into())), story_event("s1", None)];
+        data.story_events = vec![
+            story_event("s1", Some(r#"["s3"]"#.into())),
+            story_event("s1", None),
+        ];
         data.story_people = vec![event_person(Some("s4")), event_person(None)];
         data.story_places = vec![event_place(Some("s5"))];
         data.story_texts = vec![event_text(Some("s6"))];
@@ -946,7 +1108,12 @@ fn event_detail_merges_sources_from_all_sections() {
     assert_eq!(
         fake.lock().unwrap().source_requests.last(),
         Some(&vec![
-            "e1".to_owned(), "e2".to_owned(), "e3".to_owned(), "e4".to_owned(), "e5".to_owned(), "e6".to_owned()
+            "e1".to_owned(),
+            "e2".to_owned(),
+            "e3".to_owned(),
+            "e4".to_owned(),
+            "e5".to_owned(),
+            "e6".to_owned()
         ])
     );
 }
@@ -999,7 +1166,10 @@ fn work_detail_queries_texts_by_work_title_and_merges_sources() {
         .expect("work_detail succeeds")
         .expect("work exists");
     assert_eq!(detail.texts.len(), 2);
-    assert_eq!(fake.lock().unwrap().texts_queries, vec![(Some("旧唐书".into()), 200)]);
+    assert_eq!(
+        fake.lock().unwrap().texts_queries,
+        vec![(Some("旧唐书".into()), 200)]
+    );
     // BTreeSet 合并结果按 id 升序（与 Cutover 前行为一致）。
     assert_eq!(
         fake.lock().unwrap().source_requests,
@@ -1012,19 +1182,34 @@ fn missing_entities_return_none_without_related_queries() {
     // 故事不存在 → 不查任何关联。
     let fake = Arc::new(Mutex::new(FakePortData::default()));
     let story_service = service(Arc::clone(&fake));
-    assert!(story_service.story_detail("s1").expect("no error").is_none());
+    assert!(
+        story_service
+            .story_detail("s1")
+            .expect("no error")
+            .is_none()
+    );
     assert_eq!(fake.lock().unwrap().calls, ["get_story"]);
 
     // 事件不存在。
     let fake = Arc::new(Mutex::new(FakePortData::default()));
     let event_service = service(Arc::clone(&fake));
-    assert!(event_service.event_detail("e1").expect("no error").is_none());
+    assert!(
+        event_service
+            .event_detail("e1")
+            .expect("no error")
+            .is_none()
+    );
     assert_eq!(fake.lock().unwrap().calls, ["get_event"]);
 
     // 人物不存在。
     let fake = Arc::new(Mutex::new(FakePortData::default()));
     let person_service = service(Arc::clone(&fake));
-    assert!(person_service.person_detail("p1").expect("no error").is_none());
+    assert!(
+        person_service
+            .person_detail("p1")
+            .expect("no error")
+            .is_none()
+    );
     assert_eq!(fake.lock().unwrap().calls, ["get_person"]);
 
     // 作品不存在。
@@ -1053,7 +1238,10 @@ fn empty_related_data_still_builds_story_view_with_empty_sources() {
     assert!(detail.evidences.is_empty());
     assert!(detail.sources.is_empty());
     // 仍会以空 id 集合请求来源（与 Cutover 前行为一致）。
-    assert_eq!(fake.lock().unwrap().source_requests, vec![Vec::<String>::new()]);
+    assert_eq!(
+        fake.lock().unwrap().source_requests,
+        vec![Vec::<String>::new()]
+    );
 }
 
 #[test]
