@@ -40,6 +40,20 @@ export interface SemanticPeriodPerson {
   person_id: string;
   canonical_name_zh_cn: string;
   event_count: number;
+  birth_year?: number | null;
+  death_year?: number | null;
+  intro_zh_cn?: string | null;
+}
+
+/** 时期页历史阶段（data-driven：critical 锚点分段）。 */
+export interface SemanticPeriodStage {
+  index: number;
+  start_year: number;
+  end_year: number;
+  opening_event_id: string;
+  opening_event_name: string;
+  opening_event_type?: string | null;
+  event_count: number;
 }
 
 /** 全库统计（DatasetStats 镜像）。 */
@@ -287,6 +301,8 @@ export interface SemanticPeriodDetail {
   stories: SemanticStory[];
   events: SemanticPeriodEvent[];
   people: SemanticPeriodPerson[];
+  stages: SemanticPeriodStage[];
+  relations: SemanticEventRelation[];
 }
 
 export interface SemanticStoryDetail {
