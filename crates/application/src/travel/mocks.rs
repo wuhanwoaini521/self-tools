@@ -12,8 +12,8 @@ use devtoolbox_core::personal_ai::{
     ChatModelProvider, ChatRequest, ChatResponse, ProviderError as ChatProviderError,
 };
 use devtoolbox_core::travel::{
-    ContentState, ProviderError, SearchOptions, SearchProvider, SearchResult,
-    TravelDataProvider, TravelDataRequest, TravelDocument, TravelFact, WebFetcher,
+    ContentState, ProviderError, SearchOptions, SearchProvider, SearchResult, TravelDataProvider,
+    TravelDataRequest, TravelDocument, TravelFact, WebFetcher,
 };
 
 /// 可编程搜索 Provider：

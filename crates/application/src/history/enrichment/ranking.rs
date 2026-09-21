@@ -9,7 +9,10 @@ pub fn normalize_domain(url: &str) -> String {
     let without_scheme = url
         .trim_start_matches("https://")
         .trim_start_matches("http://");
-    let host = without_scheme.split(['/', '?', '#']).next().unwrap_or_default();
+    let host = without_scheme
+        .split(['/', '?', '#'])
+        .next()
+        .unwrap_or_default();
     let host = host.split(':').next().unwrap_or_default();
     host.trim_start_matches("www.").to_lowercase()
 }
@@ -42,27 +45,68 @@ pub fn dedupe_key(url: &str) -> String {
 pub fn classify_source(domain: &str, title: &str) -> SourceType {
     let domain = domain.to_lowercase();
     let title = title.to_lowercase();
-    let any = |needles: &[&str]| needles.iter().any(|needle| domain.contains(needle) || title.contains(needle));
+    let any = |needles: &[&str]| {
+        needles
+            .iter()
+            .any(|needle| domain.contains(needle) || title.contains(needle))
+    };
 
     if any(&[
-        ".gov.", ".gov.cn", "gov.", "state.", "mod.", "cctv", "people.cn", "xinhuanet",
-        "政府", "官网", "official", "ministry",
+        ".gov.",
+        ".gov.cn",
+        "gov.",
+        "state.",
+        "mod.",
+        "cctv",
+        "people.cn",
+        "xinhuanet",
+        "政府",
+        "官网",
+        "official",
+        "ministry",
     ]) {
         return SourceType::Official;
     }
-    if any(&["museum", "gallery", "heritage", "博物馆", "美术馆", "texas"]) && domain.contains("museum") || title.contains("博物馆") || domain.contains("gallery") {
+    if any(&["museum", "gallery", "heritage", "博物馆", "美术馆", "texas"])
+        && domain.contains("museum")
+        || title.contains("博物馆")
+        || domain.contains("gallery")
+    {
         return SourceType::Museum;
     }
     if any(&[".archive.org", "archive", "digital archive", "档案", "馆藏"]) {
         return SourceType::Archive;
     }
-    if any(&[".edu", ".edu.cn", "university", "ac.cn", "大学", "学院", "研究所"]) {
+    if any(&[
+        ".edu",
+        ".edu.cn",
+        "university",
+        "ac.cn",
+        "大学",
+        "学院",
+        "研究所",
+    ]) {
         return SourceType::University;
     }
-    if any(&[".ac.", "academic", "期刊", "学报", "china-scholar", "cass", "社科"]) {
+    if any(&[
+        ".ac.",
+        "academic",
+        "期刊",
+        "学报",
+        "china-scholar",
+        "cass",
+        "社科",
+    ]) {
         return SourceType::Academic;
     }
-    if any(&["baike", "wikipedia", "百科", "encyclopedia", "dict.", "cidian"]) {
+    if any(&[
+        "baike",
+        "wikipedia",
+        "百科",
+        "encyclopedia",
+        "dict.",
+        "cidian",
+    ]) {
         return SourceType::Reference;
     }
     SourceType::General
@@ -99,7 +143,11 @@ pub fn rank_sources(sources: Vec<SourceEvidence>, limit: usize) -> Vec<SourceEvi
         ranked.push((source, weight));
     }
     ranked.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.title.cmp(&b.0.title)));
-    ranked.into_iter().take(limit).map(|(source, _)| source).collect()
+    ranked
+        .into_iter()
+        .take(limit)
+        .map(|(source, _)| source)
+        .collect()
 }
 
 /// 把证据包转成给模型的来源列表文本（id = url；模型只引用提供的 url）。
@@ -108,7 +156,8 @@ pub fn sources_to_prompt_block(sources: &[SourceEvidence]) -> String {
     if sources.is_empty() {
         return "[sources]（无外部来源。仅可基于以下 canonical/evidence 回答，并如实标注信息局限。）".to_string();
     }
-    let mut lines = vec!["[sources] 以下为检索到的来源，按其 url（作为 source_id）引用：".to_string()];
+    let mut lines =
+        vec!["[sources] 以下为检索到的来源，按其 url（作为 source_id）引用：".to_string()];
     for (index, source) in sources.iter().enumerate() {
         lines.push(format!(
             "{}. {} | {} | {} | {}",
@@ -116,7 +165,10 @@ pub fn sources_to_prompt_block(sources: &[SourceEvidence]) -> String {
             source.url,
             source.domain,
             source.title,
-            source.published_at.map(|ts| format!("published:{ts}")).unwrap_or_default()
+            source
+                .published_at
+                .map(|ts| format!("published:{ts}"))
+                .unwrap_or_default()
         ));
         let snippet: String = source.snippet.chars().take(500).collect();
         lines.push(format!("   excerpt: {snippet}"));
@@ -142,7 +194,10 @@ mod tests {
     #[test]
     fn domain_normalization() {
         assert_eq!(normalize_domain("https://www.Museum.cn:443/a"), "museum.cn");
-        assert_eq!(normalize_domain("http://gov.example.com/x"), "gov.example.com");
+        assert_eq!(
+            normalize_domain("http://gov.example.com/x"),
+            "gov.example.com"
+        );
     }
 
     #[test]
@@ -155,11 +210,26 @@ mod tests {
     #[test]
     fn source_classification_priorities() {
         assert_eq!(classify_source("www.gov.cn", "通知"), SourceType::Official);
-        assert_eq!(classify_source("museum.example.com", "馆藏"), SourceType::Museum);
-        assert_eq!(classify_source("archive.example.org", "档案"), SourceType::Archive);
-        assert_eq!(classify_source("peking.edu.cn", "论文"), SourceType::University);
-        assert_eq!(classify_source("baike.example.com", "词条"), SourceType::Reference);
-        assert_eq!(classify_source("blog.example.com", "随想"), SourceType::General);
+        assert_eq!(
+            classify_source("museum.example.com", "馆藏"),
+            SourceType::Museum
+        );
+        assert_eq!(
+            classify_source("archive.example.org", "档案"),
+            SourceType::Archive
+        );
+        assert_eq!(
+            classify_source("peking.edu.cn", "论文"),
+            SourceType::University
+        );
+        assert_eq!(
+            classify_source("baike.example.com", "词条"),
+            SourceType::Reference
+        );
+        assert_eq!(
+            classify_source("blog.example.com", "随想"),
+            SourceType::General
+        );
     }
 
     #[test]

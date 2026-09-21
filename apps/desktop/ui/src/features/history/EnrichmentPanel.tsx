@@ -8,7 +8,14 @@
  * - GENERATING：轮询状态直至结束。
  * - 搜索/模型未配置 → FAILED 状态展示「不可用」，Canonical 一切照常。
  */
-import { ArrowsClockwise, CaretDown, CaretRight, CheckCircle, Sparkle, Warning } from "@phosphor-icons/react";
+import {
+  ArrowsClockwise,
+  CaretDown,
+  CaretRight,
+  CheckCircle,
+  Sparkle,
+  Warning,
+} from "@phosphor-icons/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { errorMessage, isTauriRuntime } from "../../utils";
 import type {
@@ -19,11 +26,12 @@ import type {
 } from "../ai/aiTypes";
 import { enrichmentClient } from "./enrichmentClient";
 
-const SECTIONS: { key: "overview" | "background" | "impact"; label: string }[] = [
-  { key: "overview", label: "概述" },
-  { key: "background", label: "背景" },
-  { key: "impact", label: "影响" },
-];
+const SECTIONS: { key: "overview" | "background" | "impact"; label: string }[] =
+  [
+    { key: "overview", label: "概述" },
+    { key: "background", label: "背景" },
+    { key: "impact", label: "影响" },
+  ];
 
 const STATE_LABEL: Record<EnrichmentState, string> = {
   MISSING: "未生成",
@@ -42,7 +50,9 @@ export function EnrichmentPanel({
   locale?: string;
 }) {
   const [sections, setSections] = useState<EnrichmentSectionInfo[]>([]);
-  const [busy, setBusy] = useState<"overview" | "background" | "impact" | null>(null);
+  const [busy, setBusy] = useState<"overview" | "background" | "impact" | null>(
+    null,
+  );
   const [notice, setNotice] = useState("");
   const timerRef = useRef<number | null>(null);
 
@@ -81,7 +91,10 @@ export function EnrichmentPanel({
   }, [sections, reload]);
 
   const run = useCallback(
-    async (section: "overview" | "background" | "impact", mode: "ensure" | "refresh") => {
+    async (
+      section: "overview" | "background" | "impact",
+      mode: "ensure" | "refresh",
+    ) => {
       setNotice("");
       setBusy(section);
       try {
@@ -211,7 +224,11 @@ function EnrichmentRow({
           disabled={busy || !isTauriRuntime()}
           onClick={onGenerate}
         >
-          {busy ? <ArrowsClockwise size={13} className="spin" /> : <Sparkle size={13} />}
+          {busy ? (
+            <ArrowsClockwise size={13} className="spin" />
+          ) : (
+            <Sparkle size={13} />
+          )}
           {busy ? "生成中…" : "生成 AI 解读"}
         </button>
       </div>
@@ -226,12 +243,21 @@ function EnrichmentRow({
     );
   }
   const payload: EnrichmentPayloadDto | null = view.payload;
-  const sourceCount = payload ? payload.claims.reduce((total, claim) => total + claim.source_ids.length, 0) : 0;
+  const sourceCount = payload
+    ? payload.claims.reduce(
+        (total, claim) => total + claim.source_ids.length,
+        0,
+      )
+    : 0;
   return (
-    <div className={`history-enrichment-row filled ${view.state.toLowerCase()}`}>
+    <div
+      className={`history-enrichment-row filled ${view.state.toLowerCase()}`}
+    >
       <div className="history-enrichment-row-head">
         <span className="history-enrichment-label">{label}</span>
-        <span className={`history-enrichment-state ${view.state.toLowerCase()}`}>
+        <span
+          className={`history-enrichment-state ${view.state.toLowerCase()}`}
+        >
           {STATE_LABEL[view.state]}
         </span>
         <span className="history-enrichment-actions">
@@ -240,7 +266,12 @@ function EnrichmentRow({
               <CheckCircle size={12} weight="fill" /> 已审定
             </span>
           ) : null}
-          <button type="button" title="重新整理" onClick={onRefresh} disabled={busy}>
+          <button
+            type="button"
+            title="重新整理"
+            onClick={onRefresh}
+            disabled={busy}
+          >
             <ArrowsClockwise size={13} className={busy ? "spin" : ""} />
           </button>
           <button
@@ -251,26 +282,35 @@ function EnrichmentRow({
           >
             <CheckCircle size={13} />
           </button>
-          <button type="button" title={expanded ? "收起" : "展开"} onClick={() => setExpanded((value) => !value)}>
+          <button
+            type="button"
+            title={expanded ? "收起" : "展开"}
+            onClick={() => setExpanded((value) => !value)}
+          >
             {expanded ? <CaretDown size={13} /> : <CaretRight size={13} />}
           </button>
         </span>
       </div>
       {view.state === "STALE" ? (
         <p className="history-enrichment-stale-hint">
-          <Warning size={12} /> 内容可能已过期（Canonical 或缓存配置变化）——旧内容保持可读，可点击重新整理更新。
+          <Warning size={12} /> 内容可能已过期（Canonical
+          或缓存配置变化）——旧内容保持可读，可点击重新整理更新。
         </p>
       ) : null}
       {expanded ? (
         <div className="history-enrichment-body">
-          {payload?.content ? <p className="history-enrichment-content">{payload.content}</p> : null}
+          {payload?.content ? (
+            <p className="history-enrichment-content">{payload.content}</p>
+          ) : null}
           {payload && payload.uncertainties.length > 0 ? (
             <p className="history-enrichment-limit">
               资料局限：{payload.uncertainties.join("；")}
             </p>
           ) : null}
           {payload && payload.controversies.length > 0 ? (
-            <p className="history-enrichment-limit">争议：{payload.controversies.join("；")}</p>
+            <p className="history-enrichment-limit">
+              争议：{payload.controversies.join("；")}
+            </p>
           ) : null}
           {sourceCount > 0 ? (
             <div className="history-enrichment-sources">
@@ -280,7 +320,11 @@ function EnrichmentRow({
                 onClick={() => setExpandedSources((value) => !value)}
               >
                 来源 ({sourceCount})
-                {expandedSources ? <CaretDown size={12} /> : <CaretRight size={12} />}
+                {expandedSources ? (
+                  <CaretDown size={12} />
+                ) : (
+                  <CaretRight size={12} />
+                )}
               </button>
               {expandedSources ? (
                 <ul>
@@ -336,5 +380,8 @@ function prettyUrl(url: string): string {
 
 function formatTs(seconds: number): string {
   const date = new Date(seconds * 1000);
-  return date.toLocaleString("zh-CN", { dateStyle: "short", timeStyle: "short" });
+  return date.toLocaleString("zh-CN", {
+    dateStyle: "short",
+    timeStyle: "short",
+  });
 }

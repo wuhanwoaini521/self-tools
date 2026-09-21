@@ -54,7 +54,9 @@ export function LanguagePage({
   setNotice,
   intent,
   onContextChange,
-}: LanguagePageProps & { onContextChange?: (ctx: AppContextPayload | null) => void }) {
+}: LanguagePageProps & {
+  onContextChange?: (ctx: AppContextPayload | null) => void;
+}) {
   const [tab, setTab] = useState<LanguageTab>("today");
   const [language, setLanguage] = useState<LanguageCode>("jpn");
   const [languages, setLanguages] = useState<LanguageInfo[]>([]);
@@ -126,28 +128,32 @@ export function LanguagePage({
 
   useEffect(() => {
     // V5 AppContext 桥：上报语言 / 选中词条（§52-§53：选中句子的指代解析）
-  useEffect(() => {
-    if (!onContextChange) return;
-    if (!selected) {
-      onContextChange({ module: "language", page: tab, view_state: { language } });
-      return;
-    }
-    onContextChange({
-      module: "language",
-      page: tab,
-      entity: {
-        kind: "word",
-        id: selected.item.id,
-        label: selected.item.text,
-      },
-      view_state: {
-        language,
-        reading: selected.item.reading,
-        romanization: selected.item.romanization,
-      },
-    });
-  }, [selected, tab, language, onContextChange]);
-  if (active && intent?.id && hasData) openDetail(intent.id, false);
+    useEffect(() => {
+      if (!onContextChange) return;
+      if (!selected) {
+        onContextChange({
+          module: "language",
+          page: tab,
+          view_state: { language },
+        });
+        return;
+      }
+      onContextChange({
+        module: "language",
+        page: tab,
+        entity: {
+          kind: "word",
+          id: selected.item.id,
+          label: selected.item.text,
+        },
+        view_state: {
+          language,
+          reading: selected.item.reading,
+          romanization: selected.item.romanization,
+        },
+      });
+    }, [selected, tab, language, onContextChange]);
+    if (active && intent?.id && hasData) openDetail(intent.id, false);
   }, [active, hasData, intent, openDetail]);
 
   const onDetailUpdated = useCallback(() => {

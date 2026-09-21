@@ -56,10 +56,7 @@ impl EnrichmentSearchPort for EnrichmentSearchAdapter {
         );
         let mut last_error = String::new();
         for provider in &providers {
-            match provider
-                .search(query, SearchOptions { count: limit })
-                .await
-            {
+            match provider.search(query, SearchOptions { count: limit }).await {
                 Ok(results) if !results.is_empty() => {
                     let mut evidence: Vec<SourceEvidence> = results
                         .into_iter()
@@ -177,30 +174,60 @@ impl EnrichmentStoreAdapter {
 }
 
 impl EnrichmentStore for EnrichmentStoreAdapter {
-    fn load_best(&self, key: &EnrichmentKey) -> Result<Option<devtoolbox_core::history_enrichment::EnrichmentRecord>, String> {
-        self.store.lock().expect("enrichment store poisoned").load_best(key)
+    fn load_best(
+        &self,
+        key: &EnrichmentKey,
+    ) -> Result<Option<devtoolbox_core::history_enrichment::EnrichmentRecord>, String> {
+        self.store
+            .lock()
+            .expect("enrichment store poisoned")
+            .load_best(key)
     }
     fn load_revision(
         &self,
         key: &EnrichmentKey,
         revision: u32,
     ) -> Result<Option<devtoolbox_core::history_enrichment::EnrichmentRecord>, String> {
-        self.store.lock().expect("enrichment store poisoned").load_revision(key, revision)
+        self.store
+            .lock()
+            .expect("enrichment store poisoned")
+            .load_revision(key, revision)
     }
-    fn list_revisions(&self, key: &EnrichmentKey) -> Result<Vec<devtoolbox_core::history_enrichment::EnrichmentRecord>, String> {
-        self.store.lock().expect("enrichment store poisoned").list_revisions(key)
+    fn list_revisions(
+        &self,
+        key: &EnrichmentKey,
+    ) -> Result<Vec<devtoolbox_core::history_enrichment::EnrichmentRecord>, String> {
+        self.store
+            .lock()
+            .expect("enrichment store poisoned")
+            .list_revisions(key)
     }
     fn next_revision(&self, key: &EnrichmentKey) -> Result<u32, String> {
-        self.store.lock().expect("enrichment store poisoned").next_revision(key)
+        self.store
+            .lock()
+            .expect("enrichment store poisoned")
+            .next_revision(key)
     }
-    fn put(&self, record: &devtoolbox_core::history_enrichment::EnrichmentRecord) -> Result<(), String> {
-        self.store.lock().expect("enrichment store poisoned").put(record)
+    fn put(
+        &self,
+        record: &devtoolbox_core::history_enrichment::EnrichmentRecord,
+    ) -> Result<(), String> {
+        self.store
+            .lock()
+            .expect("enrichment store poisoned")
+            .put(record)
     }
     fn mark_reviewed(&self, key: &EnrichmentKey, revision: u32) -> Result<(), String> {
-        self.store.lock().expect("enrichment store poisoned").mark_reviewed(key, revision)
+        self.store
+            .lock()
+            .expect("enrichment store poisoned")
+            .mark_reviewed(key, revision)
     }
     fn delete_revision(&self, key: &EnrichmentKey, revision: u32) -> Result<(), String> {
-        self.store.lock().expect("enrichment store poisoned").delete_revision(key, revision)
+        self.store
+            .lock()
+            .expect("enrichment store poisoned")
+            .delete_revision(key, revision)
     }
 }
 
@@ -234,7 +261,10 @@ impl EnrichmentRunner {
     fn service(&self, ai: devtoolbox_core::settings::AiSettings) -> HistoryEnrichmentService {
         HistoryEnrichmentService::new(
             Arc::new(EnrichmentStoreAdapter::new(Arc::clone(&self.store))),
-            Arc::new(EnrichmentSearchAdapter::new(self.client.clone(), Arc::clone(&self.settings))),
+            Arc::new(EnrichmentSearchAdapter::new(
+                self.client.clone(),
+                Arc::clone(&self.settings),
+            )),
             Arc::new(EnrichmentLlmAdapter::new(self.client.clone(), ai)),
             Arc::clone(&self.entity),
             EnrichmentConfig::default(),
@@ -268,7 +298,10 @@ impl EnrichmentRunnerPort for EnrichmentRunner {
             let ai = settings.ai;
             self.service(ai).ensure(key).await
         };
-        self.in_flight.lock().expect("enrichment flight poisoned").remove(key);
+        self.in_flight
+            .lock()
+            .expect("enrichment flight poisoned")
+            .remove(key);
         result
     }
 
@@ -290,7 +323,10 @@ impl EnrichmentRunnerPort for EnrichmentRunner {
             let ai = settings.ai;
             self.service(ai).refresh(key).await
         };
-        self.in_flight.lock().expect("enrichment flight poisoned").remove(key);
+        self.in_flight
+            .lock()
+            .expect("enrichment flight poisoned")
+            .remove(key);
         result
     }
 
@@ -305,7 +341,8 @@ impl EnrichmentRunnerPort for EnrichmentRunner {
     }
 
     fn mark_reviewed(&self, key: &EnrichmentKey) -> Result<(), String> {
-        self.service((self.settings)().unwrap_or_default().ai).mark_reviewed(key)
+        self.service((self.settings)().unwrap_or_default().ai)
+            .mark_reviewed(key)
     }
 }
 

@@ -53,7 +53,10 @@ pub fn validate(
         errors.push("claims exist but none carries a resolvable source".to_string());
     }
 
-    ValidationReport { valid: errors.is_empty(), errors }
+    ValidationReport {
+        valid: errors.is_empty(),
+        errors,
+    }
 }
 
 #[cfg(test)]

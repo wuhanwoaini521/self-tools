@@ -6,10 +6,10 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use devtoolbox_core::history_records::EventResult;
 use devtoolbox_core::history_enrichment::{
     EnrichmentKey, EnrichmentRecord, EnrichmentSection, EnrichmentState, EnrichmentView,
 };
+use devtoolbox_core::history_records::EventResult;
 
 use crate::history::HistoryQueryPort;
 
@@ -83,7 +83,11 @@ pub trait EnrichmentStore: Send + Sync {
     /// 读最佳记录（已审定行优先，否则最高 revision）。
     fn load_best(&self, key: &EnrichmentKey) -> Result<Option<EnrichmentRecord>, String>;
     /// 读指定 revision。
-    fn load_revision(&self, key: &EnrichmentKey, revision: u32) -> Result<Option<EnrichmentRecord>, String>;
+    fn load_revision(
+        &self,
+        key: &EnrichmentKey,
+        revision: u32,
+    ) -> Result<Option<EnrichmentRecord>, String>;
     /// 列出该 entity+section 的所有 revision（供 UI / 审计）。
     fn list_revisions(&self, key: &EnrichmentKey) -> Result<Vec<EnrichmentRecord>, String>;
     /// 下一可用 revision（已审定行重生成 = 新 candidate，§20）。
@@ -128,7 +132,9 @@ impl HistoryEntityPort {
     }
 
     fn event(&self, event_id: &str) -> Result<Option<EventResult>, String> {
-        self.port.get_event(event_id).map_err(|error| error.to_string())
+        self.port
+            .get_event(event_id)
+            .map_err(|error| error.to_string())
     }
 }
 
@@ -138,7 +144,9 @@ impl EnrichmentEntityPort for HistoryEntityPort {
     }
 
     fn event_revision(&self, event_id: &str) -> Result<Option<String>, String> {
-        Ok(self.event(event_id)?.map(|event| event_revision_fingerprint(&event)))
+        Ok(self
+            .event(event_id)?
+            .map(|event| event_revision_fingerprint(&event)))
     }
 
     fn event_canonical(&self, event_id: &str) -> Result<Option<CanonicalEventRef>, String> {

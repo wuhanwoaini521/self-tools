@@ -4,8 +4,8 @@
 //! search 失败 canonical 可用 / 非法输出→FAILED / canonical revision 变化→stale。
 
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::{Arc, Mutex};
 
 use devtoolbox_core::history_enrichment::{
     ENRICHMENT_SCHEMA_VERSION, EnrichmentKey, EnrichmentMetadata, EnrichmentPayload,
@@ -99,8 +99,17 @@ impl EnrichmentStore for FakeStore {
             .or_else(|| records.iter().max_by_key(|record| record.revision))
             .cloned())
     }
-    fn load_revision(&self, key: &EnrichmentKey, revision: u32) -> Result<Option<EnrichmentRecord>, String> {
-        Ok(self.rows.lock().unwrap().get(&(key.clone(), revision)).cloned())
+    fn load_revision(
+        &self,
+        key: &EnrichmentKey,
+        revision: u32,
+    ) -> Result<Option<EnrichmentRecord>, String> {
+        Ok(self
+            .rows
+            .lock()
+            .unwrap()
+            .get(&(key.clone(), revision))
+            .cloned())
     }
     fn list_revisions(&self, key: &EnrichmentKey) -> Result<Vec<EnrichmentRecord>, String> {
         let mut records: Vec<_> = self
@@ -169,7 +178,12 @@ impl EnrichmentEntityPort for FakeEntity {
 // ---------------------------------------------------------------------------
 
 fn key() -> EnrichmentKey {
-    EnrichmentKey::new("event", "zunyi_meeting", EnrichmentSection::Overview, "zh-CN")
+    EnrichmentKey::new(
+        "event",
+        "zunyi_meeting",
+        EnrichmentSection::Overview,
+        "zh-CN",
+    )
 }
 
 fn sources() -> Vec<SourceEvidence> {
@@ -244,7 +258,11 @@ fn service(
 #[tokio::test]
 async fn case1_missing_to_ready() {
     let store = Arc::new(FakeStore::default());
-    let search = FakeSearch { configured: true, result: sources(), ..FakeSearch::default() };
+    let search = FakeSearch {
+        configured: true,
+        result: sources(),
+        ..FakeSearch::default()
+    };
     let llm = FakeLlm::with(vec![valid_envelope()]);
     let service = service(search, llm, store.clone(), demo_entity());
 
@@ -264,7 +282,11 @@ async fn case1_missing_to_ready() {
 #[tokio::test]
 async fn case2_ready_is_cache_hit() {
     let store = Arc::new(FakeStore::default());
-    let search = FakeSearch { configured: true, result: sources(), ..FakeSearch::default() };
+    let search = FakeSearch {
+        configured: true,
+        result: sources(),
+        ..FakeSearch::default()
+    };
     let llm = FakeLlm::with(vec![valid_envelope()]);
     let service = service(search, llm, store.clone(), demo_entity());
 
@@ -309,7 +331,11 @@ async fn case3_stale_old_content_then_refresh() {
     };
     store.put(&stale).unwrap();
 
-    let search = FakeSearch { configured: true, result: sources(), ..FakeSearch::default() };
+    let search = FakeSearch {
+        configured: true,
+        result: sources(),
+        ..FakeSearch::default()
+    };
     let llm = FakeLlm::with(vec![valid_envelope()]);
     let entity = demo_entity(); // revision rev-1 与 stale 一致 → 仅 TTL 过期
     let service = service(search, llm, store.clone(), entity);
@@ -356,7 +382,11 @@ async fn case4_reviewed_not_overwritten() {
     };
     store.put(&reviewed).unwrap();
 
-    let search = FakeSearch { configured: true, result: sources(), ..FakeSearch::default() };
+    let search = FakeSearch {
+        configured: true,
+        result: sources(),
+        ..FakeSearch::default()
+    };
     let llm = FakeLlm::with(vec![valid_envelope()]);
     let service = service(search, llm, Arc::clone(&store), demo_entity());
 
@@ -371,7 +401,11 @@ async fn case4_reviewed_not_overwritten() {
 #[tokio::test]
 async fn case5_single_flight_concurrent_ensure() {
     let store = Arc::new(FakeStore::default());
-    let search = Arc::new(FakeSearch { configured: true, result: sources(), ..FakeSearch::default() });
+    let search = Arc::new(FakeSearch {
+        configured: true,
+        result: sources(),
+        ..FakeSearch::default()
+    });
     let llm = Arc::new(FakeLlm::with(vec![valid_envelope()]));
     let entity = Arc::new(demo_entity());
     let service = Arc::new(HistoryEnrichmentService::new(
@@ -379,7 +413,13 @@ async fn case5_single_flight_concurrent_ensure() {
         search.clone(),
         llm.clone(),
         entity,
-        EnrichmentConfig { ttl_secs: 3600, prompt_version: "t".into(), search_limit: 10, max_sources: 6, canonical_chars: 2000 },
+        EnrichmentConfig {
+            ttl_secs: 3600,
+            prompt_version: "t".into(),
+            search_limit: 10,
+            max_sources: 6,
+            canonical_chars: 2000,
+        },
     ));
 
     let key = key();
@@ -390,16 +430,32 @@ async fn case5_single_flight_concurrent_ensure() {
     );
     let states = [a.unwrap().state, b.unwrap().state, c.unwrap().state];
     // 至少一个 Running/Ready；管线计数只有 1
-    assert!(states.iter().any(|s| *s == EnrichmentState::Ready || *s == EnrichmentState::Generating));
-    assert_eq!(search.calls.load(Ordering::SeqCst), 1, "single-flight: exactly one search");
-    assert_eq!(llm.calls.load(Ordering::SeqCst), 1, "single-flight: exactly one generation");
+    assert!(
+        states
+            .iter()
+            .any(|s| *s == EnrichmentState::Ready || *s == EnrichmentState::Generating)
+    );
+    assert_eq!(
+        search.calls.load(Ordering::SeqCst),
+        1,
+        "single-flight: exactly one search"
+    );
+    assert_eq!(
+        llm.calls.load(Ordering::SeqCst),
+        1,
+        "single-flight: exactly one generation"
+    );
 }
 
 // Case 6：search 失败 → canonical 照常（get 走零依赖路径；ensure 受控失败，不 panic）
 #[tokio::test]
 async fn case6_search_failure_keeps_canonical() {
     let store = Arc::new(FakeStore::default());
-    let search = FakeSearch { configured: true, fail: true, ..FakeSearch::default() };
+    let search = FakeSearch {
+        configured: true,
+        fail: true,
+        ..FakeSearch::default()
+    };
     let llm = FakeLlm::with(vec![valid_envelope()]);
     let service = service(search, llm, store.clone(), demo_entity());
 
@@ -416,24 +472,40 @@ async fn case6_search_failure_keeps_canonical() {
 #[tokio::test]
 async fn case6b_unconfigured_pipeline_marks_failed() {
     let store = Arc::new(FakeStore::default());
-    let search = FakeSearch { configured: false, ..FakeSearch::default() };
-    let llm = FakeLlm { configured: false, outputs: Mutex::new(std::collections::VecDeque::new()), calls: AtomicU32::new(0) };
+    let search = FakeSearch {
+        configured: false,
+        ..FakeSearch::default()
+    };
+    let llm = FakeLlm {
+        configured: false,
+        outputs: Mutex::new(std::collections::VecDeque::new()),
+        calls: AtomicU32::new(0),
+    };
     let service = service(search, llm, store.clone(), demo_entity());
 
     let view = service.ensure(&key()).await.unwrap();
     assert_eq!(view.state, EnrichmentState::Failed);
     assert!(view.error.unwrap().contains("not configured"));
-    assert_eq!(store.load_best(&key()).unwrap().unwrap().state, EnrichmentState::Failed);
+    assert_eq!(
+        store.load_best(&key()).unwrap().unwrap().state,
+        EnrichmentState::Failed
+    );
 }
 
 // Case 7：非法 LLM 输出 → FAILED（不存 READY）
 #[tokio::test]
 async fn case7_invalid_llm_output_fails() {
     let store = Arc::new(FakeStore::default());
-    let search = FakeSearch { configured: true, result: sources(), ..FakeSearch::default() };
+    let search = FakeSearch {
+        configured: true,
+        result: sources(),
+        ..FakeSearch::default()
+    };
     let llm = FakeLlm {
         configured: true,
-        outputs: Mutex::new(std::collections::VecDeque::from(vec!["一大段 Markdown".to_string()])),
+        outputs: Mutex::new(std::collections::VecDeque::from(vec![
+            "一大段 Markdown".to_string(),
+        ])),
         calls: AtomicU32::new(0),
     };
     let service = service(search, llm, store.clone(), demo_entity());
@@ -479,13 +551,25 @@ async fn case8_canonical_revision_change_stales() {
     store.put(&record).unwrap();
 
     // entity revision 变了（canonical 更新）
-    let entity = FakeEntity { exists: true, revision: Some("rev-new".into()), canonical: demo_entity().canonical };
-    let search = FakeSearch { configured: true, result: sources(), ..FakeSearch::default() };
+    let entity = FakeEntity {
+        exists: true,
+        revision: Some("rev-new".into()),
+        canonical: demo_entity().canonical,
+    };
+    let search = FakeSearch {
+        configured: true,
+        result: sources(),
+        ..FakeSearch::default()
+    };
     let llm = FakeLlm::with(vec![valid_envelope()]);
     let service = service(search, llm, store.clone(), entity);
 
     let view = service.get(&key()).unwrap();
-    assert_eq!(view.state, EnrichmentState::Stale, "canonical revision changed → stale");
+    assert_eq!(
+        view.state,
+        EnrichmentState::Stale,
+        "canonical revision changed → stale"
+    );
     // 旧内容仍在（stale-while-revalidate）
     assert_eq!(view.payload.unwrap().content, "基于旧 canonical");
 }
@@ -494,10 +578,18 @@ async fn case8_canonical_revision_change_stales() {
 #[tokio::test]
 async fn validation_gate_rejects_unknown_citation() {
     let store = Arc::new(FakeStore::default());
-    let search = FakeSearch { configured: true, result: sources(), ..FakeSearch::default() };
+    let search = FakeSearch {
+        configured: true,
+        result: sources(),
+        ..FakeSearch::default()
+    };
     // envelope 引用了提供列表之外的 url → 校验失败
     let bad = r#"{"section":"overview","content":"x","claims":[{"text":"c","source_ids":["https://ghost.example.com/y"]}],"uncertainties":[],"controversies":[]}"#.to_string();
-    let llm = FakeLlm { configured: true, outputs: Mutex::new(std::collections::VecDeque::from(vec![bad])), calls: AtomicU32::new(0) };
+    let llm = FakeLlm {
+        configured: true,
+        outputs: Mutex::new(std::collections::VecDeque::from(vec![bad])),
+        calls: AtomicU32::new(0),
+    };
     let service = service(search, llm, store.clone(), demo_entity());
 
     let view = service.ensure(&key()).await.unwrap();

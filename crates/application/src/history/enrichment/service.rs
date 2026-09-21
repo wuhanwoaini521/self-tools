@@ -4,22 +4,20 @@
 //! Canonical 只读；富化写入独立缓存。无网络/无模型时 Canonical 照常（get 路径零依赖）。
 
 use std::collections::HashSet;
-use std::sync::Mutex;
 use std::sync::Arc;
+use std::sync::Mutex;
 
 use crate::history::enrichment::generation::{parse_generation, system_prompt, user_prompt};
-use devtoolbox_core::history_enrichment::{
-    ENRICHMENT_SCHEMA_VERSION, EnrichmentKey, EnrichmentMetadata,
-    EnrichmentRecord, EnrichmentSection, EnrichmentState, EnrichmentView,
-};
 use crate::history::enrichment::ports::{
     EnrichmentEntityPort, EnrichmentLlmPort, EnrichmentSearchPort, EnrichmentStore,
 };
-use crate::history::enrichment::ranking::{
-    rank_sources, sources_to_prompt_block,
-};
+use crate::history::enrichment::ranking::{rank_sources, sources_to_prompt_block};
 use crate::history::enrichment::validation::validate;
 use crate::time::now_unix;
+use devtoolbox_core::history_enrichment::{
+    ENRICHMENT_SCHEMA_VERSION, EnrichmentKey, EnrichmentMetadata, EnrichmentRecord,
+    EnrichmentSection, EnrichmentState, EnrichmentView,
+};
 
 /// 富化配置（组合根可调）。
 #[derive(Clone, Debug)]
@@ -69,7 +67,14 @@ impl HistoryEnrichmentService {
         entity: Arc<dyn EnrichmentEntityPort>,
         config: EnrichmentConfig,
     ) -> Self {
-        Self { store, search, llm, entity, config, in_flight: Mutex::new(HashSet::new()) }
+        Self {
+            store,
+            search,
+            llm,
+            entity,
+            config,
+            in_flight: Mutex::new(HashSet::new()),
+        }
     }
 
     // ------------------------------------------------------------------
@@ -100,9 +105,11 @@ impl HistoryEnrichmentService {
         locale: &str,
     ) -> Result<Vec<(EnrichmentSection, EnrichmentState)>, String> {
         let mut out = Vec::new();
-        for section in
-            [EnrichmentSection::Overview, EnrichmentSection::Background, EnrichmentSection::Impact]
-        {
+        for section in [
+            EnrichmentSection::Overview,
+            EnrichmentSection::Background,
+            EnrichmentSection::Impact,
+        ] {
             let key = EnrichmentKey::new(entity_type, entity_id, section.clone(), locale);
             let view = self.get(&key)?;
             out.push((section, view.state));
@@ -142,7 +149,10 @@ impl HistoryEnrichmentService {
             }
         }
         let result = self.generate_inner(key).await;
-        self.in_flight.lock().expect("in-flight poisoned").remove(key);
+        self.in_flight
+            .lock()
+            .expect("in-flight poisoned")
+            .remove(key);
         result
     }
 
@@ -155,7 +165,10 @@ impl HistoryEnrichmentService {
             }
         }
         let result = self.generate_inner(key).await;
-        self.in_flight.lock().expect("in-flight poisoned").remove(key);
+        self.in_flight
+            .lock()
+            .expect("in-flight poisoned")
+            .remove(key);
         result
     }
 
@@ -195,8 +208,13 @@ impl HistoryEnrichmentService {
         //    已存在 Failed 记录则直接复用（避免重复 ensure 让缓存表逐行膨胀，reviewer note）。
         if !self.search.configured() || !self.llm.configured() {
             if let Some(existing) = self.store.load_best(key)?
-                && existing.state == EnrichmentState::Failed {
-                return Ok(to_view(existing, &self.config, self.canonical_revision(key)?));
+                && existing.state == EnrichmentState::Failed
+            {
+                return Ok(to_view(
+                    existing,
+                    &self.config,
+                    self.canonical_revision(key)?,
+                ));
             }
             let record = EnrichmentRecord {
                 key: key.clone(),
@@ -214,7 +232,9 @@ impl HistoryEnrichmentService {
                     source_ids: Vec::new(),
                     generation_count: revision,
                 }),
-                error: Some("enrichment unavailable: search or model is not configured".to_string()),
+                error: Some(
+                    "enrichment unavailable: search or model is not configured".to_string(),
+                ),
                 reviewed: false,
             };
             self.store.put(&record)?;
@@ -238,20 +258,32 @@ impl HistoryEnrichmentService {
         let (provider, model) = self.llm.describe();
         let raw_output = self
             .llm
-            .generate(system_prompt(), &user_prompt(
-                &key.entity_type,
-                &key.entity_id,
-                &self.entity_label(key).unwrap_or_else(|_| key.entity_id.clone()),
-                key.section.as_str(),
-                &canonical_block,
-                &sources_block,
-            ))
+            .generate(
+                system_prompt(),
+                &user_prompt(
+                    &key.entity_type,
+                    &key.entity_id,
+                    &self
+                        .entity_label(key)
+                        .unwrap_or_else(|_| key.entity_id.clone()),
+                    key.section.as_str(),
+                    &canonical_block,
+                    &sources_block,
+                ),
+            )
             .await
             .map_err(|error| error.to_string())?;
         let payload = match parse_generation(&raw_output, key.section.as_str()) {
             Ok(payload) => payload,
             Err(error) => {
-                self.store.put(&failed_record(key, revision, now, &format!("generation parse: {error}"), self.canonical_revision(key)?, self.config.prompt_version.clone()))?;
+                self.store.put(&failed_record(
+                    key,
+                    revision,
+                    now,
+                    &format!("generation parse: {error}"),
+                    self.canonical_revision(key)?,
+                    self.config.prompt_version.clone(),
+                ))?;
                 return self.get(key);
             }
         };
@@ -295,10 +327,12 @@ impl HistoryEnrichmentService {
     }
 
     fn search_query(&self, key: &EnrichmentKey) -> String {
-        let label = self.entity_label(key).unwrap_or_else(|_| key.entity_id.clone());
+        let label = self
+            .entity_label(key)
+            .unwrap_or_else(|_| key.entity_id.clone());
         match key.section {
             EnrichmentSection::Overview => {
-                format!("{label} 历史 事件 概述") 
+                format!("{label} 历史 事件 概述")
             }
             EnrichmentSection::Background => {
                 format!("{label} 历史 背景 起因")
@@ -330,8 +364,14 @@ impl HistoryEnrichmentService {
                     "canonical event `{}`（{}）\n- 时间: {}–{}\n- 重要性: {}\n- 质量状态: {}\n- 来源: {}\n- {}",
                     event.id,
                     event.name_zh_cn,
-                    event.start_year.map(|y| y.to_string()).unwrap_or_else(|| "?".into()),
-                    event.end_year.map(|y| y.to_string()).unwrap_or_else(|| "?".into()),
+                    event
+                        .start_year
+                        .map(|y| y.to_string())
+                        .unwrap_or_else(|| "?".into()),
+                    event
+                        .end_year
+                        .map(|y| y.to_string())
+                        .unwrap_or_else(|| "?".into()),
                     event.importance.unwrap_or_default(),
                     event.quality_status.unwrap_or_default(),
                     event.source_reference.unwrap_or_default(),
@@ -339,7 +379,12 @@ impl HistoryEnrichmentService {
                 );
                 if let Some(summary) = event.summary_zh_cn {
                     text.push_str("\n- 摘要: ");
-                    text.push_str(&summary.chars().take(self.config.canonical_chars).collect::<String>());
+                    text.push_str(
+                        &summary
+                            .chars()
+                            .take(self.config.canonical_chars)
+                            .collect::<String>(),
+                    );
                 }
                 Ok(text)
             }
@@ -404,13 +449,21 @@ fn effective_state(
             let fresh = now_unix() - metadata.refreshed_at <= config.ttl_secs
                 && metadata.schema_version == ENRICHMENT_SCHEMA_VERSION
                 && metadata.canonical_revision == current_canonical_revision;
-            if fresh { EnrichmentState::Ready } else { EnrichmentState::Stale }
+            if fresh {
+                EnrichmentState::Ready
+            } else {
+                EnrichmentState::Stale
+            }
         }
         other => other,
     }
 }
 
-fn to_view(record: EnrichmentRecord, config: &EnrichmentConfig, revision: Option<String>) -> EnrichmentView {
+fn to_view(
+    record: EnrichmentRecord,
+    config: &EnrichmentConfig,
+    revision: Option<String>,
+) -> EnrichmentView {
     let state = effective_state(&record, config, revision);
     let key = record.key.clone();
     EnrichmentView {

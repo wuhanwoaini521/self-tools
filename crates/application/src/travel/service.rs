@@ -781,11 +781,9 @@ impl TravelResearchService {
                     &guide_user_prompt(city, &input_brief(request), &facts_block, &docs_block),
                 )
                 .await;
-                raw.map_err(GuideGenError::Llm)
-                    .and_then(|raw| {
-                        parse_guide_json(&raw)
-                            .map_err(|error| GuideGenError::Parse(error.to_string()))
-                    })
+                raw.map_err(GuideGenError::Llm).and_then(|raw| {
+                    parse_guide_json(&raw).map_err(|error| GuideGenError::Parse(error.to_string()))
+                })
             } else {
                 Err(GuideGenError::Unavailable)
             }

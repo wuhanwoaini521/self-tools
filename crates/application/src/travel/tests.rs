@@ -879,16 +879,23 @@ async fn llm_transport_failure_stops_remaining_requests() {
 /// `is_llm_transport_error` 判定与迁移前一致（模型 Provider 统一不改用户体验）。
 #[tokio::test]
 async fn llm_error_prefix_frozen_after_provider_migration() {
-    let llm = Arc::new(MockChatProvider::new(["ERR:service unavailable".to_string()]));
-    let error = crate::travel::service::travel_complete(llm.as_ref(), "s", "u").await.unwrap_err();
-    assert!(error.starts_with("travel llm request failed: "), "prefix lost: {error}");
+    let llm = Arc::new(MockChatProvider::new([
+        "ERR:service unavailable".to_string()
+    ]));
+    let error = crate::travel::service::travel_complete(llm.as_ref(), "s", "u")
+        .await
+        .unwrap_err();
+    assert!(
+        error.starts_with("travel llm request failed: "),
+        "prefix lost: {error}"
+    );
     assert!(crate::travel::service::is_llm_transport_error(&error));
 }
 
 /// 模型返回空内容 → 受控错误（也是 `travel llm request failed` 语义）。
 #[tokio::test]
 async fn travel_complete_empty_content_is_controlled_error() {
-    let llm = Arc::new(MockChatProvider::new(["" .to_string()]));
+    let llm = Arc::new(MockChatProvider::new(["".to_string()]));
     // 空字符串仍视为有效内容（与迁移前一致：模型输出空串由 parse 层决定）。
     let ok = crate::travel::service::travel_complete(llm.as_ref(), "s", "u").await;
     assert!(ok.is_ok());

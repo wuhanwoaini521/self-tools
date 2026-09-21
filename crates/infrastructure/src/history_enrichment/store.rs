@@ -9,8 +9,7 @@ use rusqlite::Connection;
 
 use crate::error::InfrastructureError;
 use devtoolbox_core::history_enrichment::{
-    EnrichmentKey, EnrichmentRecord,
-    EnrichmentSection, EnrichmentState,
+    EnrichmentKey, EnrichmentRecord, EnrichmentSection, EnrichmentState,
 };
 
 /// 读状态（库内列），与派生 STALE 无关。
@@ -123,27 +122,49 @@ impl EnrichmentSqliteStore {
         Ok(())
     }
 
-    fn row_to_record(
-        row: &rusqlite::Row<'_>,
-    ) -> Result<EnrichmentRecord, InfrastructureError> {
-        let entity_type: String = row.get(0).map_err(|e| InfrastructureError::Sqlite(e.to_string()))?;
-        let entity_id: String = row.get(1).map_err(|e| InfrastructureError::Sqlite(e.to_string()))?;
-        let section_raw: String = row.get(2).map_err(|e| InfrastructureError::Sqlite(e.to_string()))?;
-        let locale: String = row.get(3).map_err(|e| InfrastructureError::Sqlite(e.to_string()))?;
-        let schema_version: u16 = row.get(4).map_err(|e| InfrastructureError::Sqlite(e.to_string()))?;
-        let revision: u32 = row.get(5).map_err(|e| InfrastructureError::Sqlite(e.to_string()))?;
-        let state: String = row.get(6).map_err(|e| InfrastructureError::Sqlite(e.to_string()))?;
-        let payload_json: Option<String> = row.get(7).map_err(|e| InfrastructureError::Sqlite(e.to_string()))?;
-        let metadata_json: Option<String> = row.get(8).map_err(|e| InfrastructureError::Sqlite(e.to_string()))?;
-        let error: Option<String> = row.get(9).map_err(|e| InfrastructureError::Sqlite(e.to_string()))?;
-        let reviewed: u8 = row.get(10).map_err(|e| InfrastructureError::Sqlite(e.to_string()))?;
+    fn row_to_record(row: &rusqlite::Row<'_>) -> Result<EnrichmentRecord, InfrastructureError> {
+        let entity_type: String = row
+            .get(0)
+            .map_err(|e| InfrastructureError::Sqlite(e.to_string()))?;
+        let entity_id: String = row
+            .get(1)
+            .map_err(|e| InfrastructureError::Sqlite(e.to_string()))?;
+        let section_raw: String = row
+            .get(2)
+            .map_err(|e| InfrastructureError::Sqlite(e.to_string()))?;
+        let locale: String = row
+            .get(3)
+            .map_err(|e| InfrastructureError::Sqlite(e.to_string()))?;
+        let schema_version: u16 = row
+            .get(4)
+            .map_err(|e| InfrastructureError::Sqlite(e.to_string()))?;
+        let revision: u32 = row
+            .get(5)
+            .map_err(|e| InfrastructureError::Sqlite(e.to_string()))?;
+        let state: String = row
+            .get(6)
+            .map_err(|e| InfrastructureError::Sqlite(e.to_string()))?;
+        let payload_json: Option<String> = row
+            .get(7)
+            .map_err(|e| InfrastructureError::Sqlite(e.to_string()))?;
+        let metadata_json: Option<String> = row
+            .get(8)
+            .map_err(|e| InfrastructureError::Sqlite(e.to_string()))?;
+        let error: Option<String> = row
+            .get(9)
+            .map_err(|e| InfrastructureError::Sqlite(e.to_string()))?;
+        let reviewed: u8 = row
+            .get(10)
+            .map_err(|e| InfrastructureError::Sqlite(e.to_string()))?;
 
         let section = match section_raw.as_str() {
             "overview" => EnrichmentSection::Overview,
             "background" => EnrichmentSection::Background,
             "impact" => EnrichmentSection::Impact,
             other => {
-                return Err(InfrastructureError::Sqlite(format!("unknown section: {other}")));
+                return Err(InfrastructureError::Sqlite(format!(
+                    "unknown section: {other}"
+                )));
             }
         };
         Ok(EnrichmentRecord {
@@ -283,7 +304,8 @@ impl EnrichmentSqliteStore {
     }
 
     pub fn delete_revision(&self, key: &EnrichmentKey, revision: u32) -> Result<(), String> {
-        self.delete(key, revision).map_err(|error| error.to_string())
+        self.delete(key, revision)
+            .map_err(|error| error.to_string())
     }
 }
 
@@ -296,7 +318,12 @@ mod tests {
     };
 
     fn key() -> EnrichmentKey {
-        EnrichmentKey::new("event", "zunyi_meeting", EnrichmentSection::Overview, "zh-CN")
+        EnrichmentKey::new(
+            "event",
+            "zunyi_meeting",
+            EnrichmentSection::Overview,
+            "zh-CN",
+        )
     }
 
     fn ready_record(key: EnrichmentKey, revision: u32) -> EnrichmentRecord {
@@ -307,7 +334,10 @@ mod tests {
             payload: Some(EnrichmentPayload {
                 section: "overview".into(),
                 content: "内容".into(),
-                claims: vec![EnrichmentClaim { text: "x".into(), source_ids: vec!["u".into()] }],
+                claims: vec![EnrichmentClaim {
+                    text: "x".into(),
+                    source_ids: vec!["u".into()],
+                }],
                 uncertainties: vec![],
                 controversies: vec![],
             }),

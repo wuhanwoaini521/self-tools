@@ -53,7 +53,12 @@ pub struct EnrichmentKey {
 
 impl EnrichmentKey {
     #[must_use]
-    pub fn new(entity_type: &str, entity_id: &str, section: EnrichmentSection, locale: &str) -> Self {
+    pub fn new(
+        entity_type: &str,
+        entity_id: &str,
+        section: EnrichmentSection,
+        locale: &str,
+    ) -> Self {
         Self {
             entity_type: entity_type.to_string(),
             entity_id: entity_id.to_string(),
@@ -133,7 +138,12 @@ mod tests {
 
     #[test]
     fn key_round_trip_and_defaults() {
-        let key = EnrichmentKey::new("event", "zunyi_meeting", EnrichmentSection::Overview, "zh-CN");
+        let key = EnrichmentKey::new(
+            "event",
+            "zunyi_meeting",
+            EnrichmentSection::Overview,
+            "zh-CN",
+        );
         let json = serde_json::to_string(&key).unwrap();
         let back: EnrichmentKey = serde_json::from_str(&json).unwrap();
         assert_eq!(back, key);

@@ -12,7 +12,8 @@ use devtoolbox_core::travel::SearchOptions;
 use devtoolbox_infrastructure::{TravelStore, build_providers};
 
 /// 设置读取器（与 enrichment 同型）。
-pub type SettingsLoader = Arc<dyn Fn() -> Result<devtoolbox_core::settings::AppSettings, String> + Send + Sync>;
+pub type SettingsLoader =
+    Arc<dyn Fn() -> Result<devtoolbox_core::settings::AppSettings, String> + Send + Sync>;
 
 fn normalize_domain(url: &str) -> String {
     let host = url
@@ -37,7 +38,11 @@ impl TravelAiAdapter {
         settings: SettingsLoader,
         store: Arc<Mutex<TravelStore>>,
     ) -> Self {
-        Self { client, settings, store }
+        Self {
+            client,
+            settings,
+            store,
+        }
     }
 
     fn find_guide(&self, city: &str) -> Option<devtoolbox_core::travel::CityGuide> {

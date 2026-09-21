@@ -874,7 +874,9 @@ export function GeographyPage({
   amapSecurityJsCode,
   intent,
   onContextChange,
-}: GeographyPageProps & { onContextChange?: (ctx: AppContextPayload | null) => void }) {
+}: GeographyPageProps & {
+  onContextChange?: (ctx: AppContextPayload | null) => void;
+}) {
   const [home, setHome] = useState<GeographyHome | null>(null);
   const [query, setQuery] = useState("");
   const [searchGroups, setSearchGroups] = useState<GeoSearchGroup[]>([]);
@@ -904,9 +906,7 @@ export function GeographyPage({
         return;
       }
       try {
-setDetail(
-        await geographyClient.detail(id),
-      );
+        setDetail(await geographyClient.detail(id));
       } catch (error) {
         setNotice(errorMessage(error));
       }
@@ -952,9 +952,7 @@ setDetail(
       return;
     }
     try {
-      setSearchGroups(
-        await geographyClient.search(query, null, 30),
-      );
+      setSearchGroups(await geographyClient.search(query, null, 30));
     } catch (error) {
       setNotice(errorMessage(error));
     }

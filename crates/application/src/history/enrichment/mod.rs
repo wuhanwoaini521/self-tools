@@ -16,9 +16,10 @@ pub use ports::{
     EnrichmentSearchPort, EnrichmentStore, HistoryEntityPort, SourceEvidence, SourceType,
     entity_port_from_history,
 };
-pub use ranking::{authority_weight, classify_source, normalize_domain, rank_sources, sources_to_prompt_block};
+pub use ranking::{
+    authority_weight, classify_source, normalize_domain, rank_sources, sources_to_prompt_block,
+};
 pub use service::{EnrichmentConfig, HistoryEnrichmentService};
 
 #[cfg(test)]
 mod tests;
-

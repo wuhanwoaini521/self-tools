@@ -58,8 +58,8 @@ pub fn parse_generation(raw: &str, expected_section: &str) -> Result<EnrichmentP
     } else {
         trimmed
     };
-    let value: serde_json::Value =
-        serde_json::from_str(candidate).map_err(|error| format!("invalid generation json: {error}"))?;
+    let value: serde_json::Value = serde_json::from_str(candidate)
+        .map_err(|error| format!("invalid generation json: {error}"))?;
     let object = value
         .as_object()
         .ok_or_else(|| "generation must be a JSON object".to_string())?;

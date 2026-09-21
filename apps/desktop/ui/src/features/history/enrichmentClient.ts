@@ -5,10 +5,7 @@
  */
 import type { CommandTransport } from "../../transport";
 import { tauriTransport } from "../../transport";
-import type {
-  EnrichmentSectionInfo,
-  EnrichmentViewDto,
-} from "../ai/aiTypes";
+import type { EnrichmentSectionInfo, EnrichmentViewDto } from "../ai/aiTypes";
 
 export interface EnrichmentClient {
   /** 各 section 状态（首次渲染只读；不触发搜索/生成）。 */
