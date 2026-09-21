@@ -77,7 +77,7 @@ impl ToolRegistry {
         }
         if !allowed_risk(spec.risk) {
             return Err(AgentError::tool_invalid_argument(format!(
-                "tool `{name}` risk `{:?}` is not allowed by the current risk gate (Read only in V4)",
+                "tool `{name}` risk `{:?}` is not allowed by the current risk gate (Read + SafeWrite only)",
                 spec.risk
             )));
         }

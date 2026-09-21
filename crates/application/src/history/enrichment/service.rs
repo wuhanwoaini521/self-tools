@@ -191,8 +191,13 @@ impl HistoryEnrichmentService {
         let revision = self.store.next_revision(key)?;
         let now = now_unix();
 
-        // 1) 未配置搜索 / 生成 → 受控 Unavailable 失败（Canonical 不受影响，§63/§64）
+        // 1) 未配置搜索 / 生成 → 受控 Unavailable 失败（Canonical 不受影响，§63/§64）。
+        //    已存在 Failed 记录则直接复用（避免重复 ensure 让缓存表逐行膨胀，reviewer note）。
         if !self.search.configured() || !self.llm.configured() {
+            if let Some(existing) = self.store.load_best(key)?
+                && existing.state == EnrichmentState::Failed {
+                return Ok(to_view(existing, &self.config, self.canonical_revision(key)?));
+            }
             let record = EnrichmentRecord {
                 key: key.clone(),
                 revision,
