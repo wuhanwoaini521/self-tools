@@ -10,6 +10,7 @@ pub mod language;
 pub mod memory;
 pub mod personal_ai;
 pub mod rss;
+pub mod server;
 pub(crate) mod text;
 pub(crate) mod time;
 pub mod travel;

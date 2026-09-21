@@ -78,6 +78,7 @@ impl From<ApplicationError> for CommandError {
             ApplicationError::Documents { .. } => "documents_error",
             ApplicationError::Files { .. } => "files_error",
             ApplicationError::Knowledge { .. } => "knowledge_error",
+            ApplicationError::Server { .. } => "server_error",
             ApplicationError::Infrastructure { .. } => "infrastructure_error",
         };
         Self {

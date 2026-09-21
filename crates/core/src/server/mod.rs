@@ -12,8 +12,6 @@
 
 use std::path::{Component, Path};
 
-use serde::{Deserialize, Serialize};
-
 pub mod action;
 pub mod health;
 pub mod logs;
@@ -21,14 +19,18 @@ pub mod metrics;
 pub mod registry;
 
 pub use action::{
-    ActionAuthorizationDecision, ActionOutcome, ActionRequest, ActionRiskPolicy, AuditEntry,
-    Confirmation, ConfirmationState, RegisteredAction, SessionTrust,
+    ActionAuthorizationDecision, ActionOutcome, ActionRequest, ActionRisk,
+    ActionRiskPolicy, AuditEntry, Confirmation, ConfirmationState, DefaultActionRiskPolicy,
+    RegisteredAction, SessionTrust,
 };
-pub use health::{HealthReason, HealthReport, HealthStatus, Thresholds};
+pub use health::{
+    HealthReason, HealthReport, HealthStatus, Thresholds, evaluate_memory, evaluate_storage,
+};
 pub use logs::{LogReadRequest, LogReadResult, LogWindow};
 pub use metrics::{CpuMetrics, MemoryMetrics, Platform, StorageMetrics, SystemMetrics, VolumeKind};
 pub use registry::{
-    ApplicationDescriptor, LogSource, ServiceDescriptor, ServiceProviderType,
+    ApplicationDescriptor, ApplicationStatus, HealthCheckKind, LogSource, ServiceDescriptor,
+    ServiceProviderType, ServiceStatus,
 };
 
 /// 服务 / 应用 / automation 的稳定 id 校验（V7 §35/§36/§155）。

@@ -1118,6 +1118,7 @@ dependencies = [
  "devtoolbox-core",
  "futures-util",
  "parking_lot",
+ "regex",
  "serde",
  "serde_json",
  "thiserror 2.0.20",

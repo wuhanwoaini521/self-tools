@@ -70,6 +70,9 @@ pub enum ApplicationError {
     /// Knowledge 检索失败（V6）。
     #[error("knowledge error: {message}")]
     Knowledge { message: String },
+    /// 家庭服务器失败（V7）。`reason` 为稳定拒绝码，消息面向用户且不含内容。
+    #[error("server error ({reason}): {message}")]
+    Server { reason: String, message: String },
 }
 
 /// RSS 失败分类（与端口 `FeedFetchErrorKind` 对齐，存储错误归为 `Repository`）。
