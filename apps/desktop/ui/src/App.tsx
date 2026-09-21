@@ -2,6 +2,7 @@ import {
   Brain,
   Compass,
   Gear,
+  HardDrives,
   House,
   MapTrifold,
   Notebook,
@@ -35,11 +36,13 @@ import {
   type KnowledgeIntent,
 } from "./features/knowledge/KnowledgePage";
 import { knowledgeClient } from "./features/knowledge/knowledgeClient";
+import { serverClient } from "./features/server/serverClient";
 import type {
   ConfirmMemoryTarget,
   OpenDocumentTarget,
   OpenFileTarget,
 } from "./features/knowledge/knowledgeTypes";
+import { ServerPage } from "./features/server/ServerPage";
 import { TravelPage } from "./features/travel/TravelPage";
 import { GeographyPage } from "./features/geography/GeographyPage";
 import { applyTheme, getTheme, storeThemeId } from "./theme/ThemeManager";
@@ -71,6 +74,7 @@ type PageId =
   | "history"
   | "language"
   | "knowledge"
+  | "server"
   | "tools";
 
 interface NavItem {
@@ -90,6 +94,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: "history", label: "History", icon: Scroll },
   { id: "language", label: "Language", icon: Translate },
   { id: "knowledge", label: "Knowledge", icon: Brain },
+  { id: "server", label: "Server", icon: HardDrives },
   { id: "tools", label: "Tools", icon: Wrench, disabled: true },
 ];
 
@@ -129,6 +134,21 @@ const defaultSettings: AppSettings = {
     max_read_chars: 20_000,
     max_indexed_files: 5_000,
     startup_sync: false,
+  },
+  server: {
+    services: [],
+    applications: [],
+    thresholds: {
+      disk_warn_ratio: 0.8,
+      disk_critical_ratio: 0.92,
+      memory_warn_ratio: 0.85,
+      cpu_warn_ratio: 0.9,
+    },
+    confirmation_ttl_secs: 60,
+    cooldown_secs: 60,
+    max_system_per_session: 5,
+    audit_max_entries: 500,
+    audit_retention_days: 30,
   },
 };
 
@@ -572,6 +592,14 @@ export default function App() {
               onContextChange={(ctx) => setAiContext(ctx)}
             />
           </section>
+          <section
+            className={
+              "page-pane server-pane" +
+              (page === "server" ? "" : " page-hidden")
+            }
+          >
+            <ServerPage active={page === "server"} setNotice={setNotice} />
+          </section>
         </main>
       </div>
       {notice ? (
@@ -621,6 +649,22 @@ export default function App() {
           });
           setPage("knowledge");
         }}
+        onConfirmSystemAction={async (confirmation, decision) => {
+          if (decision === "cancel") {
+            await serverClient.cancelAction(confirmation.confirmation_id);
+            setNotice("已取消");
+            return;
+          }
+          const result = await serverClient.confirmAction(
+            confirmation.confirmation_id,
+            confirmation.target_id,
+          );
+          setNotice(
+            result.outcome === "success"
+              ? `已重启 ${confirmation.target_id}`
+              : `操作结果：${result.outcome}`,
+          );
+        }}
       />
       {settingsOpen ? (
         <SettingsDialog
@@ -641,6 +685,10 @@ export default function App() {
           knowledge={settings.knowledge}
           onKnowledgeChange={(next) =>
             void updateSettings({ ...settings, knowledge: next })
+          }
+          server={settings.server}
+          onServerChange={(next) =>
+            void updateSettings({ ...settings, server: next })
           }
           onClose={() => setSettingsOpen(false)}
         />

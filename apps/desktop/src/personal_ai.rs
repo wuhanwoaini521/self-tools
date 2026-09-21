@@ -13,7 +13,7 @@ use async_trait::async_trait;
 use devtoolbox_application::personal_ai::{
     AgentConfig, InMemorySessionStore, PersonalAgent, PersonalHub, register_documents,
     register_files, register_geography, register_history, register_knowledge, register_language,
-    register_memory, register_travel,
+    register_memory, register_server, register_travel,
 };
 use devtoolbox_core::personal_ai::{ChatModelProvider, ChatRequest, ChatResponse, ProviderError};
 use devtoolbox_core::settings::AiSettings;
@@ -69,6 +69,7 @@ pub fn build_hub(
     language_store: Arc<dyn devtoolbox_application::language::LanguageStorePort>,
     language_llm: Option<Arc<dyn ChatModelProvider>>,
     knowledge: &crate::knowledge::KnowledgeRuntime,
+    server: &crate::server::ServerRuntime,
 ) -> Arc<PersonalHub> {
     let port: Arc<dyn devtoolbox_application::history::HistoryQueryPort> =
         Arc::new(HistoryQueryAdapter::new(history));

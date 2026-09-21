@@ -12,10 +12,12 @@
 import {
   ArrowClockwise,
   PaperPlaneTilt,
+  ShieldWarning,
   Sparkle,
   X,
 } from "@phosphor-icons/react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { errorMessage, formatRelativeTime } from "../../utils";
 import { MemoryConfirmCard } from "../knowledge/MemoryConfirmCard";
 import {
@@ -27,6 +29,7 @@ import {
   type OpenDocumentTarget,
   type OpenFileTarget,
 } from "../knowledge/knowledgeTypes";
+import type { ConfirmationDto } from "../server/serverTypes";
 import { aiClient } from "./aiClient";
 import {
   type AgentAction,
@@ -66,7 +69,25 @@ export interface AIPanelProps {
   onOpenFile?: (target: OpenFileTarget) => void;
   /** 跳转 Knowledge 页并打开文档（`open_document` Action）。 */
   onOpenDocument?: (target: OpenDocumentTarget) => void;
+  /**
+   * V7：SYSTEM 操作确认卡（`confirm_action`）。前端负责调用
+   * `confirm_action` / `cancel_action` 命令；**模型不参与执行**（§68/§69）。
+   */
+  onConfirmSystemAction?: (
+    confirmation: ConfirmationDto,
+    decision: "confirm" | "cancel",
+  ) => Promise<void>;
   onOpenSettings: () => void;
+}
+
+/** `confirm_action` 的 target（后端 Action.target 形状）。 */
+interface SystemConfirmTarget {
+  confirmation_id: string;
+  action_type: string;
+  target_id: string;
+  risk: string;
+  expires_at: number;
+  label?: string;
 }
 
 /** 记忆候选的稳定 key（同一候选只渲染一张确认卡）。 */
@@ -75,6 +96,22 @@ function confirmKey(target: ConfirmMemoryTarget): string {
 }
 
 /** Action / UI Block 里的记忆候选是否形状完整（后端适配器产出，宽松校验）。 */
+function asConfirmActionTarget(raw: unknown): SystemConfirmTarget | null {
+  if (!raw || typeof raw !== "object") return null;
+  const record = raw as Record<string, unknown>;
+  if (typeof record.confirmation_id !== "string") return null;
+  if (typeof record.action_type !== "string") return null;
+  if (typeof record.target_id !== "string") return null;
+  return {
+    confirmation_id: record.confirmation_id,
+    action_type: record.action_type,
+    target_id: record.target_id,
+    risk: typeof record.risk === "string" ? record.risk : "system",
+    expires_at: typeof record.expires_at === "number" ? record.expires_at : 0,
+    label: typeof record.label === "string" ? record.label : undefined,
+  };
+}
+
 function asConfirmTarget(raw: unknown): ConfirmMemoryTarget | null {
   if (!raw || typeof raw !== "object") return null;
   const record = raw as Record<string, unknown>;
@@ -114,6 +151,7 @@ export function AIPanel({
   onDismissMemory,
   onOpenFile,
   onOpenDocument,
+  onConfirmSystemAction,
   onOpenSettings,
 }: AIPanelProps) {
   const [status, setStatus] = useState<AiPanelState>("ready");
@@ -152,6 +190,16 @@ export function AIPanel({
   const enqueueConfirm = useCallback((target: ConfirmMemoryTarget) => {
     setPendingConfirms((current) =>
       current.some((entry) => confirmKey(entry) === confirmKey(target))
+        ? current
+        : [...current, target],
+    );
+  }, []);
+
+  /** V7：SYSTEM 确认卡队列（同一票据只显示一张）。 */
+  const [systemConfirms, setSystemConfirms] = useState<SystemConfirmTarget[]>([]);
+  const enqueueSystemConfirm = useCallback((target: SystemConfirmTarget) => {
+    setSystemConfirms((current) =>
+      current.some((entry) => entry.confirmation_id === target.confirmation_id)
         ? current
         : [...current, target],
     );
@@ -197,14 +245,24 @@ export function AIPanel({
       setToolTrace(response.tool_trace ?? []);
       setBlocks(response.ui_blocks ?? []);
       // V6：知识类 Action —— 确认记忆在面板内联确认，打开文件/文档交给外壳执行。
+      // V7：`confirm_action` 进服务器确认卡（SYSTEM 操作，§56）；`open_app`
+      // 用系统默认浏览器打开注册表内的 URL（§46）。
       for (const action of response.actions ?? []) {
         if (action.type === "confirm_memory") {
           const target = asConfirmTarget(action.target);
           if (target) enqueueConfirm(target);
+        } else if (action.type === "confirm_action") {
+          const target = asConfirmActionTarget(action.target);
+          if (target) enqueueSystemConfirm(target);
         } else if (action.type === "open_file" && onOpenFile) {
           onOpenFile(action.target as unknown as OpenFileTarget);
         } else if (action.type === "open_document" && onOpenDocument) {
           onOpenDocument(action.target as unknown as OpenDocumentTarget);
+        } else if (action.type === "open_app") {
+          const target = action.target as { url?: string | null };
+          if (typeof target.url === "string" && target.url) {
+            void openUrl(target.url);
+          }
         }
       }
       setStatus("ready");
@@ -380,6 +438,36 @@ export function AIPanel({
                   busy={confirmBusy === confirmKey(target)}
                   onConfirm={() => void resolveConfirm(target, true)}
                   onDismiss={() => void resolveConfirm(target, false)}
+                />
+              ))}
+            </div>
+          ) : null}
+          {systemConfirms.length > 0 ? (
+            <div className="ai-panel-confirms">
+              {systemConfirms.map((target) => (
+                <SystemConfirmCard
+                  key={target.confirmation_id}
+                  target={target}
+                  onDecide={(decision) => {
+                    if (!onConfirmSystemAction) return;
+                    const dto: ConfirmationDto = {
+                      confirmation_id: target.confirmation_id,
+                      action_type: target.action_type,
+                      target_id: target.target_id,
+                      summary: target.label ?? target.target_id,
+                      risk: target.risk as ConfirmationDto["risk"],
+                      created_at: Math.floor(Date.now() / 1000),
+                      expires_at: target.expires_at,
+                    };
+                    void onConfirmSystemAction(dto, decision).finally(() => {
+                      setSystemConfirms((current) =>
+                        current.filter(
+                          (entry) =>
+                            entry.confirmation_id !== target.confirmation_id,
+                        ),
+                      );
+                    });
+                  }}
                 />
               ))}
             </div>
@@ -813,4 +901,62 @@ function formatValue(entry: unknown): string {
     }
   }
   return String(entry);
+}
+
+/**
+ * V7 SYSTEM 操作确认卡（§56/§82）。
+ *
+ * 与 Server Dashboard 的确认卡同语义：显示目标 / 风险 / 影响 / 过期倒计时；
+ * 没有「跳过确认直接执行」的路径。
+ */
+function SystemConfirmCard({
+  target,
+  onDecide,
+}: {
+  target: {
+    confirmation_id: string;
+    action_type: string;
+    target_id: string;
+    risk: string;
+    expires_at: number;
+    label?: string;
+  };
+  onDecide: (decision: "confirm" | "cancel") => void;
+}) {
+  const secondsLeft = () =>
+    Math.max(0, target.expires_at - Math.floor(Date.now() / 1000));
+  const [remaining, setRemaining] = useState(secondsLeft);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setRemaining(secondsLeft()), 1_000);
+    return () => window.clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [target.expires_at]);
+
+  return (
+    <section className="ai-system-confirm" role="dialog" aria-label="确认系统操作">
+      <header>
+        <ShieldWarning size={15} />
+        AI 请求执行系统操作
+      </header>
+      <p className="ai-system-confirm-summary">
+        重启服务「{target.label ?? target.target_id}」
+      </p>
+      <p className="ai-system-confirm-meta">
+        {target.action_type} · {target.target_id} · 风险 {target.risk} ·{" "}
+        {remaining > 0 ? `${remaining} 秒后失效` : "已过期"}
+      </p>
+      <p className="ai-system-confirm-impact">影响：服务将短暂停止后重新启动</p>
+      <div className="ai-system-confirm-actions">
+        <button
+          className="danger"
+          disabled={remaining <= 0}
+          onClick={() => onDecide("confirm")}
+        >
+          确认执行
+        </button>
+        <button onClick={() => onDecide("cancel")}>取消</button>
+      </div>
+    </section>
+  );
 }

@@ -11,7 +11,13 @@ pub mod registry;
 pub mod service;
 
 pub use action::{
-    ActionAuditPort, ConfirmationStorePort, SafeActionService, ServiceControlPort,
+    ActionAuditPort, ActionPlan, ConfirmationStorePort, InMemoryConfirmationStore,
+    SafeActionConfig, SafeActionService, ServiceControlPort, restart_request,
+};
+// core 契约经 application 一并暴露（组合根只依赖 application + core）。
+pub use devtoolbox_core::server::{
+    ActionOutcome, ActionRequest, ActionRisk, AuditEntry, Confirmation, ConfirmationState,
+    RegisteredAction, SessionTrust,
 };
 pub use logs::LogRedactor;
 pub use ports::{

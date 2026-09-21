@@ -5,6 +5,9 @@ import type {
   GeographySettings,
   KnowledgeRoot,
   KnowledgeSettings,
+  ServerApplicationDescriptor,
+  ServerServiceDescriptor,
+  ServerSettings,
   SourceInfo,
   TravelSearchBackend,
   TravelSettings,
@@ -28,6 +31,8 @@ interface SettingsDialogProps {
   onAiChange: (ai: AiSettings) => void;
   knowledge: KnowledgeSettings;
   onKnowledgeChange: (knowledge: KnowledgeSettings) => void;
+  server: ServerSettings;
+  onServerChange: (server: ServerSettings) => void;
   onClose: () => void;
 }
 
@@ -58,6 +63,8 @@ export function SettingsDialog({
   onAiChange,
   knowledge,
   onKnowledgeChange,
+  server,
+  onServerChange,
   onClose,
 }: SettingsDialogProps) {
   const current = getTheme(themeId);
@@ -532,6 +539,7 @@ export function SettingsDialog({
             knowledge={knowledge}
             onChange={updateKnowledge}
           />
+          <ServerSection server={server} onChange={onServerChange} />
         </div>
       </section>
     </div>
@@ -762,4 +770,293 @@ function KnowledgeSection({
       {notice ? <p className="settings-hint">{notice}</p> : null}
     </section>
   );
+}
+
+/**
+ * Home Server 注册表（V7 §26/§42）。
+ *
+ * 显式注册：空 = AI 无可操作目标（fail-closed）。`provider_ref`
+ * （launchd label）由 infrastructure 映射，模型永远看不到（§36）。
+ */
+function ServerSection({
+  server,
+  onChange,
+}: {
+  server: ServerSettings;
+  onChange: (server: ServerSettings) => void;
+}) {
+  const [serviceDraft, setServiceDraft] = useState({
+    id: "",
+    displayName: "",
+    providerRef: "",
+  });
+  const [appDraft, setAppDraft] = useState({ id: "", name: "", url: "" });
+  const [notice, setNotice] = useState<string | null>(null);
+
+  const patch = (next: Partial<ServerSettings>) => onChange({ ...server, ...next });
+
+  const addService = () => {
+    const id = serviceDraft.id.trim();
+    const providerRef = serviceDraft.providerRef.trim();
+    if (!/^[a-z0-9][a-z0-9._-]{0,63}$/.test(id)) {
+      setNotice("服务 id 只能用小写字母/数字/._-（且以字母或数字开头）");
+      return;
+    }
+    if (!providerRef) {
+      setNotice("请填写 launchd label（provider_ref）");
+      return;
+    }
+    if (server.services.some((service) => service.id === id)) {
+      setNotice("该服务 id 已存在");
+      return;
+    }
+    patch({
+      services: [
+        ...server.services,
+        {
+          id,
+          display_name: serviceDraft.displayName.trim() || id,
+          description: "",
+          provider_type: "launchd",
+          provider_ref: providerRef,
+          health_check: { kind: "launchd" },
+          log_sources: [],
+          allowed_actions: ["restart"],
+          tags: [],
+        } satisfies ServerServiceDescriptor,
+      ],
+    });
+    setServiceDraft({ id: "", displayName: "", providerRef: "" });
+    setNotice(null);
+  };
+
+  const removeService = (id: string) =>
+    patch({ services: server.services.filter((service) => service.id !== id) });
+
+  const toggleServiceAction = (id: string) =>
+    patch({
+      services: server.services.map((service) =>
+        service.id === id
+          ? {
+              ...service,
+              allowed_actions: service.allowed_actions.includes("restart")
+                ? service.allowed_actions.filter((action) => action !== "restart")
+                : [...service.allowed_actions, "restart"],
+            }
+          : service,
+      ),
+    });
+
+  const addApp = () => {
+    const id = appDraft.id.trim();
+    const url = appDraft.url.trim();
+    if (!/^[a-z0-9][a-z0-9._-]{0,63}$/.test(id)) {
+      setNotice("应用 id 只能用小写字母/数字/._-（且以字母或数字开头）");
+      return;
+    }
+    if (!/^https?:\/\/\S+$/i.test(url)) {
+      setNotice("URL 必须以 http:// 或 https:// 开头");
+      return;
+    }
+    if (server.applications.some((app) => app.id === id)) {
+      setNotice("该应用 id 已存在");
+      return;
+    }
+    patch({
+      applications: [
+        ...server.applications,
+        {
+          id,
+          name: appDraft.name.trim() || id,
+          description: "",
+          url,
+          health_url: null,
+          service_id: null,
+          category: "",
+          tags: [],
+        } satisfies ServerApplicationDescriptor,
+      ],
+    });
+    setAppDraft({ id: "", name: "", url: "" });
+    setNotice(null);
+  };
+
+  const removeApp = (id: string) =>
+    patch({ applications: server.applications.filter((app) => app.id !== id) });
+
+  return (
+    <section className="settings-section">
+      <label className="settings-label">Home Server · 注册服务与应用</label>
+      <p className="settings-hint">
+        只管理<strong>显式注册</strong>的目标：未注册的服务/应用 AI
+        一律拒绝操作。系统修改（如重启）必须经过确认卡，且全程审计。
+      </p>
+
+      <div className="settings-subsection">
+        <span className="settings-label">服务（launchd）</span>
+        {server.services.length === 0 ? (
+          <p className="settings-hint">尚未注册服务。</p>
+        ) : (
+          <ul className="settings-roots">
+            {server.services.map((service) => (
+              <li key={service.id}>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={service.allowed_actions.includes("restart")}
+                    onChange={() => toggleServiceAction(service.id)}
+                  />
+                  {service.display_name || service.id}
+                  <code>{service.provider_ref}</code>
+                </label>
+                <button
+                  className="settings-test-button"
+                  onClick={() => removeService(service.id)}
+                >
+                  移除
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        <div className="settings-root-form">
+          <input
+            className="settings-select"
+            type="text"
+            placeholder="服务 id（如 self-tools）"
+            value={serviceDraft.id}
+            onChange={(event) =>
+              setServiceDraft({ ...serviceDraft, id: event.target.value })
+            }
+          />
+          <input
+            className="settings-select"
+            type="text"
+            placeholder="显示名（可选）"
+            value={serviceDraft.displayName}
+            onChange={(event) =>
+              setServiceDraft({ ...serviceDraft, displayName: event.target.value })
+            }
+          />
+          <input
+            className="settings-select"
+            type="text"
+            placeholder="launchd label（com.example.app）"
+            value={serviceDraft.providerRef}
+            onChange={(event) =>
+              setServiceDraft({ ...serviceDraft, providerRef: event.target.value })
+            }
+          />
+          <button className="settings-test-button" onClick={addService}>
+            添加服务
+          </button>
+        </div>
+      </div>
+
+      <div className="settings-subsection">
+        <span className="settings-label">个人应用</span>
+        {server.applications.length === 0 ? (
+          <p className="settings-hint">尚未注册应用。</p>
+        ) : (
+          <ul className="settings-roots">
+            {server.applications.map((app) => (
+              <li key={app.id}>
+                <label>
+                  {app.name || app.id}
+                  <code>{app.url}</code>
+                </label>
+                <button
+                  className="settings-test-button"
+                  onClick={() => removeApp(app.id)}
+                >
+                  移除
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        <div className="settings-root-form">
+          <input
+            className="settings-select"
+            type="text"
+            placeholder="应用 id（如 geo-explorer）"
+            value={appDraft.id}
+            onChange={(event) => setAppDraft({ ...appDraft, id: event.target.value })}
+          />
+          <input
+            className="settings-select"
+            type="text"
+            placeholder="名称（可选）"
+            value={appDraft.name}
+            onChange={(event) => setAppDraft({ ...appDraft, name: event.target.value })}
+          />
+          <input
+            className="settings-select"
+            type="text"
+            placeholder="http://127.0.0.1:8080"
+            value={appDraft.url}
+            onChange={(event) => setAppDraft({ ...appDraft, url: event.target.value })}
+          />
+          <button className="settings-test-button" onClick={addApp}>
+            添加应用
+          </button>
+        </div>
+      </div>
+
+      <div className="settings-inline">
+        <label className="settings-label">确认有效期（秒，30–120）</label>
+        <input
+          className="settings-select"
+          type="number"
+          min={30}
+          max={120}
+          value={server.confirmation_ttl_secs}
+          onChange={(event) =>
+            patch({
+              confirmation_ttl_secs: clampNumber(
+                event.target.value,
+                30,
+                120,
+                60,
+              ),
+            })
+          }
+        />
+        <label className="settings-label">同一目标冷却（秒）</label>
+        <input
+          className="settings-select"
+          type="number"
+          min={0}
+          value={server.cooldown_secs}
+          onChange={(event) =>
+            patch({ cooldown_secs: clampNumber(event.target.value, 0, 3_600, 60) })
+          }
+        />
+        <label className="settings-label">每会话系统操作上限</label>
+        <input
+          className="settings-select"
+          type="number"
+          min={1}
+          value={server.max_system_per_session}
+          onChange={(event) =>
+            patch({
+              max_system_per_session: clampNumber(
+                event.target.value,
+                1,
+                100,
+                5,
+              ),
+            })
+          }
+        />
+      </div>
+      {notice ? <p className="settings-hint">{notice}</p> : null}
+    </section>
+  );
+}
+
+function clampNumber(raw: string, min: number, max: number, fallback: number): number {
+  const parsed = Number.parseInt(raw, 10);
+  if (Number.isNaN(parsed)) return fallback;
+  return Math.min(max, Math.max(min, parsed));
 }

@@ -71,7 +71,8 @@ pub struct GeographySettings {
     pub amap_security_js_code: Option<String>,
 }
 
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+// `server.thresholds` 含 f32 → 无 `Eq`；AppSettings 随之只用 `PartialEq`。
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(default)]
 pub struct AppSettings {
     pub schema_version: u8,
@@ -94,6 +95,8 @@ pub struct AppSettings {
     pub ai: AiSettings,
     /// Personal Knowledge 设置（V6；允许根为空时 Documents/Files 如实报告未配置）。
     pub knowledge: KnowledgeSettings,
+    /// Home Server 设置（V7；注册表为空 = 无能力，fail-closed）。
+    pub server: ServerSettings,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -128,6 +131,7 @@ impl Default for AppSettings {
             geography: GeographySettings::default(),
             ai: AiSettings::default(),
             knowledge: KnowledgeSettings::default(),
+            server: ServerSettings::default(),
         }
     }
 }
@@ -227,6 +231,72 @@ impl KnowledgeSettings {
     }
 }
 
+/// Home Server 设置（V7 §26/§42/§55/§67）。
+///
+/// 注册表**显式配置**：空 = 未注册任何服务/应用 = AI 无可操作目标。
+/// 阈值与冷却全部配置化（§22/§59/§67）。
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ServerSettings {
+    /// 已注册服务（§27）。
+    #[serde(default)]
+    pub services: Vec<crate::server::ServiceDescriptor>,
+    /// 已注册应用（§43）。
+    #[serde(default)]
+    pub applications: Vec<crate::server::ApplicationDescriptor>,
+    /// 健康阈值（§22）。
+    #[serde(default)]
+    pub thresholds: crate::server::Thresholds,
+    /// 确认票据有效期秒数（§59：30–120）。
+    #[serde(default = "default_confirmation_ttl")]
+    pub confirmation_ttl_secs: i64,
+    /// 同一目标冷却秒数（§67）。
+    #[serde(default = "default_cooldown")]
+    pub cooldown_secs: i64,
+    /// 每会话 SYSTEM 操作上限（§67）。
+    #[serde(default = "default_session_limit")]
+    pub max_system_per_session: usize,
+    /// 审计保留条数 / 天数（§112）。
+    #[serde(default = "default_audit_entries")]
+    pub audit_max_entries: usize,
+    #[serde(default = "default_audit_days")]
+    pub audit_retention_days: i64,
+}
+
+fn default_confirmation_ttl() -> i64 {
+    60
+}
+
+fn default_cooldown() -> i64 {
+    60
+}
+
+fn default_session_limit() -> usize {
+    5
+}
+
+fn default_audit_entries() -> usize {
+    500
+}
+
+fn default_audit_days() -> i64 {
+    30
+}
+
+impl Default for ServerSettings {
+    fn default() -> Self {
+        Self {
+            services: Vec::new(),
+            applications: Vec::new(),
+            thresholds: crate::server::Thresholds::default(),
+            confirmation_ttl_secs: default_confirmation_ttl(),
+            cooldown_secs: default_cooldown(),
+            max_system_per_session: default_session_limit(),
+            audit_max_entries: default_audit_entries(),
+            audit_retention_days: default_audit_days(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -243,6 +313,10 @@ mod tests {
         }"#;
         let settings: AppSettings = serde_json::from_str(legacy).expect("legacy settings decode");
         assert_eq!(settings.knowledge, KnowledgeSettings::default());
+        // V7：旧 settings 没有 server 段 → 空注册表（无能力，fail-closed）。
+        assert!(settings.server.services.is_empty());
+        assert!(settings.server.applications.is_empty());
+        assert_eq!(settings.server.confirmation_ttl_secs, 60);
         assert!(settings.knowledge.file_roots.is_empty());
         assert!(!settings.knowledge.is_configured());
         assert!(!settings.knowledge.file_policy().is_configured());

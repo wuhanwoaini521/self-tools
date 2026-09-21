@@ -23,6 +23,7 @@ pub use documents::{
     is_binary, modified_timestamp,
 };
 pub use error::InfrastructureError;
+pub use server::ServerActionAuditSqlite;
 pub use files::{FILES_SCHEMA_VERSION, FileIndexError, FileIndexSqliteStore, LocalFileSystem};
 pub use memory::{MEMORY_SCHEMA_VERSION, MemorySqliteStore};
 pub use feed_fetcher::{FetchedEntry, FetchedFeed, feed_client, fetch_feed, parse_feed};

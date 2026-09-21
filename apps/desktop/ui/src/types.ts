@@ -73,6 +73,59 @@ export interface AppSettings {
   ai: AiSettings;
   /** Personal Knowledge 设置（V6；允许根为空时知识页如实报告未配置） */
   knowledge: KnowledgeSettings;
+  /** Home Server 设置（V7；注册表为空 = 无能力，fail-closed） */
+  server: ServerSettings;
+}
+
+/** 健康阈值（V7 §22）。 */
+export interface ServerThresholds {
+  disk_warn_ratio: number;
+  disk_critical_ratio: number;
+  memory_warn_ratio: number;
+  cpu_warn_ratio: number;
+}
+
+/** 已注册服务（V7 §27；provider_ref 由 infrastructure 映射，不暴露给模型）。 */
+export interface ServerServiceDescriptor {
+  id: string;
+  display_name: string;
+  description: string;
+  provider_type: "launchd" | "http" | "process" | "docker";
+  provider_ref: string;
+  health_check:
+    | { kind: "none" }
+    | { kind: "launchd" }
+    | { kind: "http"; url: string };
+  log_sources: {
+    id: string;
+    display_name: string;
+    path: string;
+  }[];
+  allowed_actions: string[];
+  tags: string[];
+}
+
+/** 已注册应用（V7 §43；URL 只允许 http/https）。 */
+export interface ServerApplicationDescriptor {
+  id: string;
+  name: string;
+  description: string;
+  url: string;
+  health_url?: string | null;
+  service_id?: string | null;
+  category: string;
+  tags: string[];
+}
+
+export interface ServerSettings {
+  services: ServerServiceDescriptor[];
+  applications: ServerApplicationDescriptor[];
+  thresholds: ServerThresholds;
+  confirmation_ttl_secs: number;
+  cooldown_secs: number;
+  max_system_per_session: number;
+  audit_max_entries: number;
+  audit_retention_days: number;
 }
 
 export interface DocumentDto {

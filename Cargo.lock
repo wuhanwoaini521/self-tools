@@ -1144,6 +1144,7 @@ dependencies = [
  "devtoolbox-application",
  "devtoolbox-core",
  "devtoolbox-infrastructure",
+ "parking_lot",
  "reqwest 0.12.28",
  "serde",
  "serde_json",

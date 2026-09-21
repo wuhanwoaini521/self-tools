@@ -10,13 +10,15 @@
 //! 依赖方向不变：desktop 是唯一组合根；`application → infrastructure` = 0。
 
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+
+use parking_lot::Mutex;
 
 use devtoolbox_application::server::ports::{
     ApplicationProbePort, ServiceProbePort, SystemMetricsProvider,
 };
 use devtoolbox_application::server::action::ServiceControlPort;
-use devtoolbox_application::server::logs::LogTailPort;
+use devtoolbox_application::server::ports::LogTailPort;
 use devtoolbox_core::server::{
     ApplicationDescriptor, ApplicationStatus, HealthStatus, ServiceDescriptor, ServiceStatus,
     SystemMetrics,
@@ -170,11 +172,8 @@ impl ApplicationProbePort for HttpAppProbeAdapter {
             };
         }
         // 同步探活：桌面端一次一个，超时由 client 控制（§115 失败隔离）。
-        let outcome = reqwest::blocking::Client::builder()
-            .timeout(std::time::Duration::from_secs(3))
-            .build()
-            .ok()
-            .and_then(|client| client.get(&url).send().ok());
+        // 复用 Tauri 的 async runtime，不为探活再引入 tokio 依赖。
+        let outcome = tauri::async_runtime::block_on(self.client.get(&url).send()).ok();
         match outcome {
             Some(response) if response.status().is_success() => ApplicationStatus {
                 app_id: app.id.clone(),

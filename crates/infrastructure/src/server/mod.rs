@@ -9,10 +9,12 @@
 //! 目标平台 macOS 12（launchd / sysctl / df）；其它平台返回 `Unknown`
 //! 而不是报错（Gate 2：部分指标不可用不 panic）。
 
+pub mod audit;
 pub mod logs;
 pub mod metrics;
 pub mod probes;
 
+pub use audit::{ServerActionAuditSqlite, test_support};
 pub use logs::LocalLogTail;
 pub use metrics::{LocalSystemMetrics, PlatformSystemMetrics};
 pub use probes::{HttpHealthProbe, LaunchdServiceControl, LaunchdServiceProbe};

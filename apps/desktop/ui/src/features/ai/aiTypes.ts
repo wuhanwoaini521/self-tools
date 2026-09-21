@@ -54,7 +54,11 @@ export type AgentActionKind =
  | "show_panel"
  | "open_document"
  | "open_file"
- | "confirm_memory";
+ | "confirm_memory"
+ /** V7：请求用户确认一个 SYSTEM 操作（携带确认票据）。 */
+ | "confirm_action"
+ /** V7：打开一个已注册应用（URL 来自注册表）。 */
+ | "open_app";
 
 export interface AgentAction {
  type: AgentActionKind;

@@ -252,7 +252,7 @@ fn df_volumes() -> Vec<StorageMetrics> {
 
 /// 解析一行 `df -k -P`：`Filesystem 1K-blocks Used Available Capacity Mounted on`。
 fn parse_df_line(line: &str) -> Option<StorageMetrics> {
-    let mut fields: Vec<&str> = line.split_whitespace().collect();
+    let fields: Vec<&str> = line.split_whitespace().collect();
     // macOS `df -P` 的 Filesystem 列可能含空格（`map auto_home` / `devfs` 虚拟卷）：
     // 从左侧吃掉字段直到遇见第一个纯数字（1K-blocks）。
     let mut index = 0usize;

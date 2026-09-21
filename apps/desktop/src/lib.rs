@@ -33,6 +33,9 @@ use devtoolbox_infrastructure::{
 
 // V6：Personal Knowledge 组合根（适配器 + 服务装配 + 启动同步）。
 mod knowledge;
+// V7：Home Server 组合根（平台适配器 + 注册表 + 安全动作层）。
+mod server;
+mod server_adapters;
 
 // lib 已不再直接使用 serde_json（History 用例迁入 application）；保留空导入以消除 unused warning。
 use serde::{Deserialize, Serialize};
@@ -88,6 +91,14 @@ impl From<ApplicationError> for CommandError {
     }
 }
 
+/// V7  server 层的字符串错误 → `CommandError`（code = `server_error`）。
+fn server_command_error(message: String) -> CommandError {
+    CommandError {
+        code: "server_error",
+        message,
+    }
+}
+
 /// 旅行缓存命令的错误映射（存储层直出错误；code/text 与
 /// `ApplicationError::Travel` 旧形态完全一致）。
 fn store_command_error(source: devtoolbox_infrastructure::InfrastructureError) -> CommandError {
@@ -126,6 +137,8 @@ pub struct AppState {
     pub history_enrichment: Arc<dyn EnrichmentRunnerPort>,
     /// Personal Knowledge 运行时（V6：memory / documents / files + 统一检索）。
     pub knowledge: Arc<knowledge::KnowledgeRuntime>,
+    /// Home Server 运行时（V7：指标 / 注册表 / 安全动作 + 审计）。
+    pub server: Arc<server::ServerRuntime>,
 }
 
 /// 轮询快照（Serialize 给前端；命令契约形状保持不变）。
@@ -1568,6 +1581,216 @@ fn knowledge_status(state: State<'_, AppState>) -> Result<KnowledgeStatusDto, Co
 }
 
 // ---------------------------------------------------------------------------
+// Home Server（V7）：只读状态 + 注册服务/应用 + 安全动作（确认后执行）
+// ---------------------------------------------------------------------------
+//
+// 边界（V7 §51-§71）：
+// - `server_*` / `services_*` / `apps_*` 只读命令直接返回状态；
+// - `services_restart` **不执行**：只签发确认票据并返回给前端确认卡；
+// - `confirm_action` 是唯一执行入口（重验证 → 执行 → 审计）；
+// - 全部写尝试（含 DENIED/EXPIRED/FAILED）都进审计（§64）。
+
+#[tauri::command]
+fn server_status(state: State<'_, AppState>) -> Result<serde_json::Value, CommandError> {
+    let status = state
+        .server
+        .status()
+        .map_err(|message| server_command_error(message))?;
+    serde_json::to_value(&status).map_err(|error| CommandError {
+        code: "server_error",
+        message: error.to_string(),
+    })
+}
+
+#[tauri::command]
+fn server_services_list(state: State<'_, AppState>) -> Result<Vec<serde_json::Value>, CommandError> {
+    let statuses = state.server.services.status_all();
+    Ok(statuses
+        .iter()
+        .map(|(service, status)| {
+            serde_json::json!({
+                "service_id": service.id,
+                "display_name": service.display_name,
+                "description": service.description,
+                "status": status.status.as_str(),
+                "detail": status.detail,
+                "checked_at": status.checked_at,
+                "allowed_actions": service.allowed_actions,
+            })
+        })
+        .collect())
+}
+
+#[tauri::command]
+fn server_apps_list(state: State<'_, AppState>) -> Result<Vec<serde_json::Value>, CommandError> {
+    let statuses = state.server.apps.status_all();
+    Ok(statuses
+        .iter()
+        .map(|(app, status)| {
+            serde_json::json!({
+                "app_id": app.id,
+                "name": app.name,
+                "description": app.description,
+                "url": app.url,
+                "category": app.category,
+                "status": status.status.as_str(),
+                "detail": status.detail,
+            })
+        })
+        .collect())
+}
+
+#[derive(Debug, Deserialize)]
+struct RestartRequestDto {
+    service_id: String,
+}
+
+/// 请求重启（模型/用户发起）→ 确认票据；**不执行**（§68）。
+#[tauri::command]
+fn services_restart(
+    state: State<'_, AppState>,
+    request: RestartRequestDto,
+) -> Result<serde_json::Value, CommandError> {
+    let confirmation = state
+        .server
+        .request_restart(&request.service_id)
+        .map_err(|message| CommandError {
+            code: "server_error",
+            message,
+        })?;
+    Ok(serde_json::json!({
+        "confirmation_id": confirmation.id,
+        "action_type": confirmation.action_type,
+        "target_id": confirmation.target_id,
+        "summary": confirmation.human_readable_summary,
+        "risk": confirmation.risk.as_str(),
+        "created_at": confirmation.created_at,
+        "expires_at": confirmation.expires_at,
+    }))
+}
+
+#[derive(Debug, Deserialize)]
+struct ConfirmActionDto {
+    confirmation_id: String,
+    service_id: String,
+}
+
+/// 用户确认后执行（§69/§70：immutable confirmed request；重验证 → 执行 → 审计）。
+#[tauri::command]
+fn confirm_action(
+    state: State<'_, AppState>,
+    request: ConfirmActionDto,
+) -> Result<serde_json::Value, CommandError> {
+    let outcome = state
+        .server
+        .confirm_restart(&request.confirmation_id, &request.service_id)
+        .map_err(|message| CommandError {
+            code: "server_error",
+            message,
+        })?;
+    Ok(serde_json::json!({
+        "outcome": outcome.as_str(),
+        "confirmed": true,
+    }))
+}
+
+#[tauri::command]
+fn cancel_action(
+    state: State<'_, AppState>,
+    confirmation_id: String,
+) -> Result<serde_json::Value, CommandError> {
+    let outcome = state.server.cancel(&confirmation_id).map_err(|message| CommandError {
+        code: "server_error",
+        message,
+    })?;
+    Ok(serde_json::json!({"outcome": outcome.as_str()}))
+}
+
+/// 最近审计（§66：只含 id/时间/动作/目标/结果，不含任何正文）。
+#[tauri::command]
+fn server_actions_recent(
+    state: State<'_, AppState>,
+    limit: Option<usize>,
+) -> Result<Vec<serde_json::Value>, CommandError> {
+    let entries = state.server.recent_actions(limit.unwrap_or(20));
+    Ok(entries
+        .iter()
+        .map(|entry| {
+            serde_json::json!({
+                "id": entry.id,
+                "timestamp": entry.timestamp,
+                "action_type": entry.action_type,
+                "target_id": entry.target_id,
+                "risk": entry.risk.as_str(),
+                "confirmed": entry.confirmed,
+                "result": entry.result.as_str(),
+                "duration_ms": entry.duration_ms,
+                "error_code": entry.error_code,
+            })
+        })
+        .collect())
+}
+
+/// 注册服务的有界日志（脱敏后；§37-§41）。
+#[tauri::command]
+fn services_get_logs(
+    state: State<'_, AppState>,
+    request: LogsRequestDto,
+) -> Result<serde_json::Value, CommandError> {
+    let service = state
+        .server
+        .services
+        .resolve(&request.service_id)
+        .map_err(CommandError::from)?;
+    let fallback_source = request.log_source_id.clone();
+    let spec = devtoolbox_core::server::LogReadRequest {
+        service_id: request.service_id.clone(),
+        log_source_id: request.log_source_id,
+        max_lines: request.max_lines.unwrap_or(0),
+        max_bytes: request.max_bytes.unwrap_or(0),
+        max_age_secs: request.max_age_secs.unwrap_or(0),
+    };
+    let (lines, bytes, age) = devtoolbox_core::server::logs::clamp_limits(&spec);
+    let raw = state
+        .server
+        .logs
+        .tail(
+            &service,
+            fallback_source.as_deref().unwrap_or_default(),
+            lines,
+            bytes,
+            age,
+        )
+        .map_err(|message| CommandError {
+            code: "server_error",
+            message,
+        })?;
+    let redacted = devtoolbox_application::server::logs::LogRedactor::redact(raw);
+    Ok(serde_json::json!({
+        "service_id": redacted.service_id,
+        "log_source_id": redacted.log_source_id,
+        "text": redacted.text,
+        "lines": redacted.lines,
+        "redactions": redacted.redactions,
+        "truncated": redacted.truncated,
+        "untrusted": true,
+    }))
+}
+
+#[derive(Debug, Deserialize)]
+struct LogsRequestDto {
+    service_id: String,
+    #[serde(default)]
+    log_source_id: Option<String>,
+    #[serde(default)]
+    max_lines: Option<usize>,
+    #[serde(default)]
+    max_bytes: Option<usize>,
+    #[serde(default)]
+    max_age_secs: Option<u64>,
+}
+
+// ---------------------------------------------------------------------------
 // History Enrichment（V5 Gate 4）：按需 AI 富化命令
 // ---------------------------------------------------------------------------
 
@@ -1803,6 +2026,27 @@ pub fn run() {
             }
             let knowledge = Arc::new(knowledge);
 
+            // V7 Home Server：注册表来自 settings（空 = 无能力，fail-closed）；
+            // 桌面会话 = LocalDesktop（§76）。
+            let server_runtime = server::ServerRuntime::build(
+                &config_directory,
+                Arc::clone(&enrichment_settings),
+                server::desktop_trust(),
+            )
+            .unwrap_or_else(|error| {
+                eprintln!("[server] runtime unavailable: {error}");
+                server::ServerRuntime::assemble(
+                    &config_directory,
+                    Arc::clone(&enrichment_settings),
+                    server::desktop_trust(),
+                    Vec::new(),
+                    Vec::new(),
+                    Arc::new(server::DisabledServiceControl),
+                )
+                .expect("empty server runtime")
+            });
+            let server_runtime = Arc::new(server_runtime);
+
             // language.explain 的可选 LLM 增强（setup 时读取一次配置；未配置 → None 确定性降级）。
             let language_llm_plug: Option<
                 Arc<dyn devtoolbox_core::personal_ai::ChatModelProvider>,
@@ -1828,10 +2072,12 @@ pub fn run() {
                     language_port,
                     language_llm_plug,
                     &knowledge,
+                    &server_runtime,
                 ),
                 ai_session: Arc::new(InMemorySessionStore::new()),
                 history_enrichment,
                 knowledge,
+                server: server_runtime,
             });
             Ok(())
         })
@@ -1892,6 +2138,14 @@ pub fn run() {
             files_open,
             files_recent,
             knowledge_status,
+            server_status,
+            server_services_list,
+            server_apps_list,
+            services_restart,
+            confirm_action,
+            cancel_action,
+            server_actions_recent,
+            services_get_logs,
             history_enrichment_state,
             history_enrichment_view,
             history_enrichment_ensure,
