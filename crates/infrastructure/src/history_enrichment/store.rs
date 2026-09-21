@@ -9,7 +9,7 @@ use rusqlite::Connection;
 
 use crate::error::InfrastructureError;
 use devtoolbox_core::history_enrichment::{
-    EnrichmentClaim, EnrichmentKey, EnrichmentMetadata, EnrichmentPayload, EnrichmentRecord,
+    EnrichmentKey, EnrichmentRecord,
     EnrichmentSection, EnrichmentState,
 };
 
@@ -216,7 +216,7 @@ impl EnrichmentSqliteStore {
 }
 
 impl EnrichmentSqliteStore {
-    fn load_best(&self, key: &EnrichmentKey) -> Result<Option<EnrichmentRecord>, String> {
+    pub fn load_best(&self, key: &EnrichmentKey) -> Result<Option<EnrichmentRecord>, String> {
         let records = self.load_rows(key).map_err(|error| error.to_string())?;
         if records.is_empty() {
             return Ok(None);
@@ -230,7 +230,7 @@ impl EnrichmentSqliteStore {
             .cloned())
     }
 
-    fn load_revision(
+    pub fn load_revision(
         &self,
         key: &EnrichmentKey,
         revision: u32,
@@ -242,13 +242,13 @@ impl EnrichmentSqliteStore {
             .find(|record| record.revision == revision))
     }
 
-    fn list_revisions(&self, key: &EnrichmentKey) -> Result<Vec<EnrichmentRecord>, String> {
+    pub fn list_revisions(&self, key: &EnrichmentKey) -> Result<Vec<EnrichmentRecord>, String> {
         let mut records = self.load_rows(key).map_err(|error| error.to_string())?;
         records.sort_by_key(|record| record.revision);
         Ok(records)
     }
 
-    fn next_revision(&self, key: &EnrichmentKey) -> Result<u32, String> {
+    pub fn next_revision(&self, key: &EnrichmentKey) -> Result<u32, String> {
         Ok(self
             .load_rows(key)
             .map_err(|error| error.to_string())?
@@ -259,11 +259,11 @@ impl EnrichmentSqliteStore {
             + 1)
     }
 
-    fn put(&self, record: &EnrichmentRecord) -> Result<(), String> {
+    pub fn put(&self, record: &EnrichmentRecord) -> Result<(), String> {
         self.insert(record).map_err(|error| error.to_string())
     }
 
-    fn mark_reviewed(&self, key: &EnrichmentKey, revision: u32) -> Result<(), String> {
+    pub fn mark_reviewed(&self, key: &EnrichmentKey, revision: u32) -> Result<(), String> {
         self.connection
             .execute(
                 "UPDATE history_enrichment SET reviewed=1
@@ -282,7 +282,7 @@ impl EnrichmentSqliteStore {
         Ok(())
     }
 
-    fn delete_revision(&self, key: &EnrichmentKey, revision: u32) -> Result<(), String> {
+    pub fn delete_revision(&self, key: &EnrichmentKey, revision: u32) -> Result<(), String> {
         self.delete(key, revision).map_err(|error| error.to_string())
     }
 }

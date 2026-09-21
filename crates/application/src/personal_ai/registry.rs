@@ -7,6 +7,8 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use async_trait::async_trait;
+
 use devtoolbox_core::{
     AgentError, ModuleDescriptor, ToolCallRequest, ToolResult, ToolRisk, ToolSpec,
     personal_ai::AppContext,
@@ -21,12 +23,14 @@ use crate::personal_ai::json_schema::Validator;
 
 /// 工具执行器。`execute` 必须同步且自限时间（本地快速查询）；未来需要
 /// 慢工具的模块须自行做预算（如内部缓存），agent 循环不跨 await 持锁。
+#[async_trait]
 pub trait ToolExecutor: Send + Sync {
     /// 工具契约（schema / risk / module）。
     fn spec(&self) -> &ToolSpec;
 
     /// 执行。参数已通过 schema 校验（`ToolRegistry::execute` 前置）。
-    fn execute(&self, arguments: serde_json::Value) -> Result<ToolResult, AgentError>;
+    /// V5：async（支持 `history.ensure_enrichment` 等慢/IO 工具）；由 agent 循环 await。
+    async fn execute(&self, arguments: serde_json::Value) -> Result<ToolResult, AgentError>;
 }
 
 /// 工具执行错误（统一映射为 `AgentError::ToolExecutionFailed`）。
@@ -122,12 +126,12 @@ impl ToolRegistry {
     }
 
     /// 执行一个模型发出的 Tool Call（含校验；失败转受控 `ToolResult`，不 panic）。
-    pub fn execute(&self, call: &ToolCallRequest) -> Result<ToolResult, AgentError> {
+    pub async fn execute(&self, call: &ToolCallRequest) -> Result<ToolResult, AgentError> {
         let tool = self.tools.get(&call.name).ok_or_else(|| {
             AgentError::tool_not_found(format!("tool `{}` is not registered", call.name))
         })?;
         self.validate_args(&call.name, &call.arguments)?;
-        tool.execute(call.arguments.clone())
+        tool.execute(call.arguments.clone()).await
     }
 
     #[must_use]
@@ -234,11 +238,12 @@ impl ModuleRegistry {
     }
 }
 
-/// 注册表风险门禁（V4 §21/§14）：组合根只允许装配 Read 工具。
-/// 未来允许 SafeWrite 时在此显式放行；SensitiveWrite/System 永不自动执行。
+/// 注册表风险门禁（V4 §21/§14）：V4 只允许 Read；V5 起允许 Read + SafeWrite
+/// （`history.ensure_enrichment` 只写 derived cache，不写 Canonical）。
+/// SensitiveWrite/System 永不自动执行。
 #[must_use]
 pub fn allowed_risk(risk: ToolRisk) -> bool {
-    matches!(risk, ToolRisk::Read)
+    matches!(risk, ToolRisk::Read | ToolRisk::SafeWrite)
 }
 
 #[cfg(test)]
@@ -251,11 +256,12 @@ mod tests {
         spec: ToolSpec,
         fail: bool,
     }
+    #[async_trait::async_trait]
     impl ToolExecutor for FakeTool {
         fn spec(&self) -> &ToolSpec {
             &self.spec
         }
-        fn execute(&self, arguments: serde_json::Value) -> Result<ToolResult, AgentError> {
+        async fn execute(&self, arguments: serde_json::Value) -> Result<ToolResult, AgentError> {
             if self.fail {
                 return Err(AgentError::tool_execution_failed("boom"));
             }
@@ -278,6 +284,10 @@ mod tests {
             },
             fail: false,
         })
+    }
+
+    fn block_on<F: std::future::Future>(future: F) -> F::Output {
+        tokio::runtime::Runtime::new().unwrap().block_on(future)
     }
 
     #[test]
@@ -313,13 +323,12 @@ mod tests {
         );
 
         // execute
-        let result = registry
-            .execute(&ToolCallRequest {
-                id: "call_1".into(),
-                name: "history.search".into(),
-                arguments: json!({"query": "遵义"}),
-            })
-            .unwrap();
+        let result = block_on(registry.execute(&ToolCallRequest {
+            id: "call_1".into(),
+            name: "history.search".into(),
+            arguments: json!({"query": "遵义"}),
+        }))
+        .unwrap();
         assert!(result.ok);
         assert_eq!(result.data["echo"]["query"], "遵义");
     }
@@ -328,13 +337,12 @@ mod tests {
     fn unknown_tool_is_controlled_error() {
         let mut registry = ToolRegistry::new();
         registry.register(search_tool()).unwrap();
-        let error = registry
-            .execute(&ToolCallRequest {
-                id: "c".into(),
-                name: "history.missing".into(),
-                arguments: json!({}),
-            })
-            .unwrap_err();
+        let error = block_on(registry.execute(&ToolCallRequest {
+            id: "c".into(),
+            name: "history.missing".into(),
+            arguments: json!({}),
+        }))
+        .unwrap_err();
         assert_eq!(error.code(), "personal_ai_tool_not_found");
     }
 
@@ -352,13 +360,12 @@ mod tests {
             fail: false,
         });
         registry.register(tool).unwrap();
-        let error = registry
-            .execute(&ToolCallRequest {
-                id: "c".into(),
-                name: "strict.tool".into(),
-                arguments: json!({"ok": "yes"}),
-            })
-            .unwrap_err();
+        let error = block_on(registry.execute(&ToolCallRequest {
+            id: "c".into(),
+            name: "strict.tool".into(),
+            arguments: json!({"ok": "yes"}),
+        }))
+        .unwrap_err();
         assert_eq!(error.code(), "personal_ai_tool_invalid_argument");
     }
 
@@ -377,13 +384,12 @@ mod tests {
                 fail: true,
             }))
             .unwrap();
-        let error = registry
-            .execute(&ToolCallRequest {
-                id: "c".into(),
-                name: "boom.tool".into(),
-                arguments: json!({}),
-            })
-            .unwrap_err();
+        let error = block_on(registry.execute(&ToolCallRequest {
+            id: "c".into(),
+            name: "boom.tool".into(),
+            arguments: json!({}),
+        }))
+        .unwrap_err();
         assert_eq!(error.code(), "personal_ai_tool_execution_failed");
     }
 
@@ -458,7 +464,7 @@ mod tests {
     #[test]
     fn risk_gate_only_permits_read() {
         assert!(allowed_risk(ToolRisk::Read));
-        assert!(!allowed_risk(ToolRisk::SafeWrite));
+        assert!(allowed_risk(ToolRisk::SafeWrite)); // V5：SafeWrite 允许（derived cache 类工具）
         assert!(!allowed_risk(ToolRisk::SensitiveWrite));
         assert!(!allowed_risk(ToolRisk::System));
     }
@@ -466,21 +472,38 @@ mod tests {
     #[test]
     fn risk_gate_rejects_non_read_at_registration() {
         let mut registry = ToolRegistry::new();
-        let error = registry
+        // SensitiveWrite / System 仍然禁止注册
+        for risk in [ToolRisk::SensitiveWrite, ToolRisk::System] {
+            let error = registry
+                .register(Arc::new(FakeTool {
+                    spec: ToolSpec {
+                        name: "evil.write".into(),
+                        description: "d".into(),
+                        input_schema: json!({}),
+                        risk,
+                        module: "evil".into(),
+                    },
+                    fail: false,
+                }))
+                .unwrap_err();
+            assert_eq!(error.code(), "personal_ai_tool_invalid_argument");
+            assert!(error.message.contains("risk gate"));
+        }
+        assert_eq!(registry.len(), 0);
+        // V5：SafeWrite（如 history.ensure_enrichment）允许注册
+        registry
             .register(Arc::new(FakeTool {
                 spec: ToolSpec {
-                    name: "evil.write".into(),
+                    name: "safe.write".into(),
                     description: "d".into(),
                     input_schema: json!({}),
                     risk: ToolRisk::SafeWrite,
-                    module: "evil".into(),
+                    module: "history".into(),
                 },
                 fail: false,
             }))
-            .unwrap_err();
-        assert_eq!(error.code(), "personal_ai_tool_invalid_argument");
-        assert!(error.message.contains("risk gate"));
-        assert_eq!(registry.len(), 0);
+            .unwrap();
+        assert_eq!(registry.len(), 1);
     }
 
     // ---- minimal provider for module registry test ----

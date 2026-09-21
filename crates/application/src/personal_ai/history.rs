@@ -25,7 +25,8 @@ use devtoolbox_core::history_records::{
 use devtoolbox_core::personal_ai::{AppContext, EntityRef};
 use devtoolbox_core::{AgentError, ModuleDescriptor, ToolResult, ToolRisk, ToolSpec};
 
-use crate::history::{HistoryPortError, HistoryQueryPort, HistoryService};
+use crate::history::enrichment::EnrichmentRunnerPort;
+use crate::history::{EnrichmentKey, EnrichmentSection, HistoryPortError, HistoryQueryPort, HistoryService};
 use crate::personal_ai::context::{ContextBudget, ContextBundle, ModuleContextProvider};
 use crate::personal_ai::registry::ToolExecutor;
 
@@ -196,20 +197,32 @@ const TOOL_SEARCH: &str = "history.search";
 const TOOL_GET_EVENT: &str = "history.get_event";
 const TOOL_GET_PERSON: &str = "history.get_person";
 const TOOL_GET_CONTEXT: &str = "history.get_context";
+const TOOL_ENSURE_ENRICHMENT: &str = "history.ensure_enrichment";
 
 /// History 工具执行器（一个结构体、四个身份；dispatch 属模块内部实现细节，
 /// 不是 PersonalAgent 的分支）。
 pub struct HistoryTools {
     port: Arc<dyn HistoryQueryPort>,
     budget: ContextBudget,
+    /// 可选富化运行器（V5 Gate 4；None 时 ensure_enrichment 返回受控失败）。
+    runner: Option<Arc<dyn EnrichmentRunnerPort>>,
 }
 
 impl HistoryTools {
     #[must_use]
     pub fn new(port: Arc<dyn HistoryQueryPort>) -> Self {
+        Self::with_runner(port, None)
+    }
+
+    #[must_use]
+    pub fn with_runner(
+        port: Arc<dyn HistoryQueryPort>,
+        runner: Option<Arc<dyn EnrichmentRunnerPort>>,
+    ) -> Self {
         Self {
             port,
             budget: ContextBudget::default(),
+            runner,
         }
     }
 
@@ -233,6 +246,22 @@ impl HistoryTools {
                 "required": ["id"],
                 "properties": {"id": {"type": "string"}}
             }),
+            TOOL_ENSURE_ENRICHMENT => serde_json::json!({
+                "type": "object",
+                "required": ["entity", "section"],
+                "properties": {
+                    "entity": {
+                        "type": "object",
+                        "required": ["kind", "id"],
+                        "properties": {
+                            "kind": {"type": "string", "enum": ["event"]},
+                            "id": {"type": "string"}
+                        }
+                    },
+                    "section": {"type": "string", "enum": ["overview", "background", "impact"]},
+                    "locale": {"type": "string"}
+                }
+            }),
             _ => serde_json::json!({
                 "type": "object",
                 "required": ["module", "entity"],
@@ -253,13 +282,19 @@ impl HistoryTools {
             TOOL_SEARCH => "搜索历史知识库（人物/事件/著作/故事），返回精炼命中列表",
             TOOL_GET_EVENT => "获取历史事件的 canonical 事实、关系、证据与富化状态",
             TOOL_GET_PERSON => "获取历史人物的 canonical 事实、关系、事件与故事时间线",
+            TOOL_ENSURE_ENRICHMENT => "按需生成历史事件某 section 的 AI 富化（只写派生缓存，不改写 canonical；仅当缺失/过期/生成失败时调用）",
             _ => "获取当前页面实体的紧凑上下文（供指代解析）",
+        };
+        let risk = if name == TOOL_ENSURE_ENRICHMENT {
+            ToolRisk::SafeWrite
+        } else {
+            ToolRisk::Read
         };
         ToolSpec {
             name: name.to_string(),
             description: description.to_string(),
             input_schema,
-            risk: ToolRisk::Read,
+            risk,
             module: "history".to_string(),
         }
     }
@@ -274,35 +309,40 @@ struct ToolImpl {
     tools: Arc<HistoryTools>,
 }
 
+#[async_trait::async_trait]
 impl ToolExecutor for ToolImpl {
     fn spec(&self) -> &ToolSpec {
         // 静态 spec 缓存：按 name 构造（工具名固定）。
-        static CACHE: std::sync::OnceLock<[ToolSpec; 4]> = std::sync::OnceLock::new();
+        static CACHE: std::sync::OnceLock<[ToolSpec; 5]> = std::sync::OnceLock::new();
         let cache = CACHE.get_or_init(|| {
             let tools = HistoryTools {
                 port: Arc::<UnavailablePort>::new(UnavailablePort),
                 budget: ContextBudget::default(),
+                runner: None,
             };
             [
                 tools.spec_for(TOOL_SEARCH),
                 tools.spec_for(TOOL_GET_EVENT),
                 tools.spec_for(TOOL_GET_PERSON),
                 tools.spec_for(TOOL_GET_CONTEXT),
+                tools.spec_for(TOOL_ENSURE_ENRICHMENT),
             ]
         });
         match self.name {
             TOOL_SEARCH => &cache[0],
             TOOL_GET_EVENT => &cache[1],
             TOOL_GET_PERSON => &cache[2],
+            TOOL_ENSURE_ENRICHMENT => &cache[4],
             _ => &cache[3],
         }
     }
 
-    fn execute(&self, arguments: serde_json::Value) -> Result<ToolResult, AgentError> {
+    async fn execute(&self, arguments: serde_json::Value) -> Result<ToolResult, AgentError> {
         match self.name {
             TOOL_SEARCH => self.tools.search(&arguments),
             TOOL_GET_EVENT => self.tools.get_event(&arguments),
             TOOL_GET_PERSON => self.tools.get_person(&arguments),
+            TOOL_ENSURE_ENRICHMENT => self.tools.ensure_enrichment(&arguments).await,
             _ => self.tools.get_context(&arguments),
         }
     }
@@ -637,6 +677,57 @@ impl HistoryTools {
             HistoryContextProvider { tools: self }.build_context(&app_context, &self.budget)?;
         Ok(ToolResult::ok(bundle.summary))
     }
+
+    /// history.ensure_enrichment（V5 Gate 4）：仅写派生缓存；Agent 可调用后继续回答。
+    pub async fn ensure_enrichment(
+        &self,
+        arguments: &serde_json::Value,
+    ) -> Result<ToolResult, AgentError> {
+        let entity = arguments.get("entity").ok_or_else(|| {
+            AgentError::tool_invalid_argument("history.ensure_enrichment: entity required")
+        })?;
+        let kind = entity.get("kind").and_then(serde_json::Value::as_str).unwrap_or_default();
+        let id = entity.get("id").and_then(serde_json::Value::as_str).unwrap_or_default();
+        if kind != "event" {
+            return Err(AgentError::tool_invalid_argument(format!(
+                "history.ensure_enrichment: entity kind `{kind}` not supported (only event)"
+            )));
+        }
+        if id.is_empty() {
+            return Err(AgentError::tool_invalid_argument(
+                "history.ensure_enrichment: entity id is empty",
+            ));
+        }
+        let section = match arguments.get("section").and_then(serde_json::Value::as_str) {
+            Some("overview") => EnrichmentSection::Overview,
+            Some("background") => EnrichmentSection::Background,
+            Some("impact") => EnrichmentSection::Impact,
+            other => {
+                return Err(AgentError::tool_invalid_argument(format!(
+                    "history.ensure_enrichment: unsupported section `{}`",
+                    other.unwrap_or_default()
+                )));
+            }
+        };
+        let locale = arguments
+            .get("locale")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or("zh-CN")
+            .to_string();
+        let key = EnrichmentKey::new("event", id, section, &locale);
+
+        let Some(runner) = &self.runner else {
+            return Ok(ToolResult::fail("enrichment runner 未配置（组合根未装配）"));
+        };
+        match runner.ensure(&key).await {
+            Ok(view) => {
+                let data = serde_json::to_value(&view)
+                    .unwrap_or_else(|_| serde_json::json!({"state": "ready"}));
+                Ok(ToolResult::ok(data))
+            }
+            Err(error) => Ok(ToolResult::fail(format!("enrichment failed: {error}"))),
+        }
+    }
 }
 
 fn agent_error(error: crate::error::ApplicationError) -> AgentError {
@@ -785,12 +876,14 @@ impl HistoryContextProvider<'_> {
 }
 
 /// 注册 History 模块（descriptor + 4 工具 + context provider）。
+#[allow(clippy::too_many_arguments)]
 pub fn register_history(
     modules: &mut crate::personal_ai::registry::ModuleRegistry,
     tools: &mut crate::personal_ai::registry::ToolRegistry,
     port: Arc<dyn HistoryQueryPort>,
+    runner: Option<Arc<dyn EnrichmentRunnerPort>>,
 ) -> Result<(), AgentError> {
-    let history = Arc::new(HistoryTools::new(Arc::clone(&port)));
+    let history = Arc::new(HistoryTools::with_runner(Arc::clone(&port), runner));
     modules.register(crate::personal_ai::registry::ModuleRegistration {
         descriptor: ModuleDescriptor {
             id: "history".into(),
@@ -802,6 +895,7 @@ pub fn register_history(
                 TOOL_GET_EVENT.into(),
                 TOOL_GET_PERSON.into(),
                 TOOL_GET_CONTEXT.into(),
+                TOOL_ENSURE_ENRICHMENT.into(),
             ],
         },
         context_provider: Some(Arc::new(HistoryProviderOwned::new(Arc::clone(&port)))),
@@ -811,6 +905,7 @@ pub fn register_history(
         TOOL_GET_EVENT,
         TOOL_GET_PERSON,
         TOOL_GET_CONTEXT,
+        TOOL_ENSURE_ENRICHMENT,
     ] {
         tools.register(Arc::new(ToolImpl {
             name,
@@ -847,12 +942,13 @@ impl ModuleContextProvider for HistoryProviderOwned {
 
 /// 导出工具常量（外部测试 / 组合根引用）。
 #[must_use]
-pub fn history_tool_names() -> [&'static str; 4] {
+pub fn history_tool_names() -> [&'static str; 5] {
     [
         TOOL_SEARCH,
         TOOL_GET_EVENT,
         TOOL_GET_PERSON,
         TOOL_GET_CONTEXT,
+        TOOL_ENSURE_ENRICHMENT,
     ]
 }
 

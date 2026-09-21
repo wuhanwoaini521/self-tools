@@ -114,6 +114,8 @@ pub struct AppState {
     pub ai: Arc<PersonalHub>,
     /// Personal AI 会话存储（V4 §34，内存；P1 再持久化）。
     pub ai_session: Arc<InMemorySessionStore>,
+    /// History Enrichment 运行器（V5 Gate 4；命令与 agent 工具共用）。
+    pub history_enrichment: Arc<dyn EnrichmentRunnerPort>,
 }
 
 /// 轮询快照（Serialize 给前端；命令契约形状保持不变）。
@@ -735,12 +737,15 @@ fn language_speaking_feedback(
 
 mod history_query;
 mod personal_ai;
+mod history_enrichment;
 
 use devtoolbox_application::history::{
     HistorySemanticEventDetail, HistorySemanticHome, HistorySemanticPeriodDetail,
     HistorySemanticPersonDetail, HistorySemanticSearchGroup, HistorySemanticStoryDetail,
     HistorySemanticWorkDetail, HistoryService,
 };
+use devtoolbox_application::history::enrichment::EnrichmentRunnerPort;
+use devtoolbox_application::history::{EnrichmentKey, EnrichmentSection, EnrichmentView};
 use devtoolbox_application::personal_ai::{InMemorySessionStore, PersonalHub};
 use devtoolbox_core::ToolSpec;
 use devtoolbox_core::personal_ai::{AgentRequest, AgentResponse, ModuleDescriptor};
@@ -933,6 +938,148 @@ async fn personal_ai_chat(
         .map_err(CommandError::from)
 }
 
+// ---------------------------------------------------------------------------
+// History Enrichment（V5 Gate 4）：按需 AI 富化命令
+// ---------------------------------------------------------------------------
+
+/// 单个 section 状态（前端「AI 解读」区。
+#[derive(Debug, Serialize)]
+struct EnrichmentSectionState {
+    section: String,
+    state: String,
+}
+
+fn enrichment_error(message: String) -> CommandError {
+    CommandError {
+        code: "history_enrichment_error",
+        message,
+    }
+}
+
+/// 解析 section 字符串为域枚举（非法 → 受控错误）。
+fn parse_section(section: &str) -> Result<EnrichmentSection, CommandError> {
+    match section {
+        "overview" => Ok(EnrichmentSection::Overview),
+        "background" => Ok(EnrichmentSection::Background),
+        "impact" => Ok(EnrichmentSection::Impact),
+        other => Err(CommandError {
+            code: "history_enrichment_invalid_section",
+            message: format!("未知富化 section: {other}"),
+        }),
+    }
+}
+
+fn parse_enrichment_key(
+    entity_type: &str,
+    entity_id: &str,
+    section: &str,
+    locale: &str,
+) -> Result<EnrichmentKey, CommandError> {
+    if entity_type != "event" {
+        return Err(CommandError {
+            code: "history_enrichment_invalid_entity",
+            message: format!("富化目前仅支持 event 实体，收到: {entity_type}"),
+        });
+    }
+    if entity_id.trim().is_empty() {
+        return Err(CommandError {
+            code: "history_enrichment_invalid_entity",
+            message: "entity_id 为空".to_string(),
+        });
+    }
+    Ok(EnrichmentKey::new(
+        "event",
+        entity_id,
+        parse_section(section)?,
+        locale,
+    ))
+}
+
+/// 各 section 状态（首次渲染只读；不触发搜索/生成）。
+#[tauri::command]
+fn history_enrichment_state(
+    state: State<'_, AppState>,
+    entity_type: String,
+    entity_id: String,
+    locale: String,
+) -> Result<Vec<EnrichmentSectionState>, CommandError> {
+    state
+        .history_enrichment
+        .sections(&entity_type, &entity_id, &locale)
+        .map(|sections| {
+            sections
+                .into_iter()
+                .map(|(section, state)| EnrichmentSectionState {
+                    section: section.as_str().to_string(),
+                    state: enrichment_state_text(state).to_string(),
+                })
+                .collect()
+        })
+        .map_err(enrichment_error)
+}
+
+fn enrichment_state_text(state: devtoolbox_core::history_enrichment::EnrichmentState) -> &'static str {
+    use devtoolbox_core::history_enrichment::EnrichmentState as S;
+    match state {
+        S::Missing => "MISSING",
+        S::Generating => "GENERATING",
+        S::Ready => "READY",
+        S::Stale => "STALE",
+        S::Failed => "FAILED",
+        S::Reviewed => "REVIEWED",
+    }
+}
+
+/// 按需生成（含跨调用单飞；已在生成 → GENERATING）。
+#[tauri::command]
+async fn history_enrichment_ensure(
+    state: State<'_, AppState>,
+    entity_type: String,
+    entity_id: String,
+    section: String,
+    locale: String,
+) -> Result<EnrichmentView, CommandError> {
+    let key = parse_enrichment_key(&entity_type, &entity_id, &section, &locale)?;
+    state
+        .history_enrichment
+        .ensure(&key)
+        .await
+        .map_err(enrichment_error)
+}
+
+/// 手动重新整理（Reviewed 也允许 → 新 revision 候选，不覆盖审定内容）。
+#[tauri::command]
+async fn history_enrichment_refresh(
+    state: State<'_, AppState>,
+    entity_type: String,
+    entity_id: String,
+    section: String,
+    locale: String,
+) -> Result<EnrichmentView, CommandError> {
+    let key = parse_enrichment_key(&entity_type, &entity_id, &section, &locale)?;
+    state
+        .history_enrichment
+        .refresh(&key)
+        .await
+        .map_err(enrichment_error)
+}
+
+/// 人工审定（automatic refresh 之后跳过该 section）。
+#[tauri::command]
+fn history_enrichment_review(
+    state: State<'_, AppState>,
+    entity_type: String,
+    entity_id: String,
+    section: String,
+    locale: String,
+) -> Result<(), CommandError> {
+    let key = parse_enrichment_key(&entity_type, &entity_id, &section, &locale)?;
+    state
+        .history_enrichment
+        .mark_reviewed(&key)
+        .map_err(enrichment_error)
+}
+
 /// 应用入口。前端需要的权限被限制在文件选择器、command API 与打开原文链接；
 /// 不暴露任意 shell 执行能力。
 pub fn run() {
@@ -960,6 +1107,26 @@ pub fn run() {
                 composition::RssRepositoryAdapter::new(Arc::new(Mutex::new(store))),
             );
             let history_repo = Arc::new(history_duckdb);
+            let history_port: Arc<dyn devtoolbox_application::history::HistoryQueryPort> =
+                Arc::new(history_query::HistoryQueryAdapter::new(Arc::clone(&history_repo)));
+            // 富化设置读取器：每次调用读最新 settings.json（同 travel 模式）。
+            let enrichment_settings: history_enrichment::SettingsLoader = {
+                let handle = app.handle().clone();
+                Arc::new(move || -> Result<AppSettings, String> {
+                    let store =
+                        settings_store(&handle).map_err(|error| error.message.clone())?;
+                    load_settings(&composition::SettingsStoreAdapter::new(store))
+                        .map_err(|error| error.to_string())
+                })
+            };
+            let history_enrichment =
+                history_enrichment::build_runner(
+                    client.clone(),
+                    enrichment_settings,
+                    &config_directory,
+                    Arc::clone(&history_port),
+                )
+                .map_err(|error| std::io::Error::other(error.to_string()))?;
             app.manage(AppState {
                 rss_repository,
                 rss_fetcher: composition::FeedFetcherAdapter::new(client.clone()),
@@ -969,8 +1136,9 @@ pub fn run() {
                 language_store: Arc::new(Mutex::new(language_store)),
                 geography_store: Arc::new(Mutex::new(geography_store)),
                 client,
-                ai: personal_ai::build_hub(history_repo),
+                ai: personal_ai::build_hub(history_repo, Some(Arc::clone(&history_enrichment))),
                 ai_session: Arc::new(InMemorySessionStore::new()),
+                history_enrichment,
             });
             Ok(())
         })
@@ -1009,6 +1177,10 @@ pub fn run() {
             geography_toggle_favorite,
             personal_ai_status,
             personal_ai_chat,
+            history_enrichment_state,
+            history_enrichment_ensure,
+            history_enrichment_refresh,
+            history_enrichment_review,
             language_languages,
             language_search,
             language_item,

@@ -7,9 +7,11 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use devtoolbox_core::history_records::EventResult;
+use devtoolbox_core::history_enrichment::{
+    EnrichmentKey, EnrichmentRecord, EnrichmentSection, EnrichmentState, EnrichmentView,
+};
 
 use crate::history::HistoryQueryPort;
-use devtoolbox_core::history_enrichment::{EnrichmentKey, EnrichmentRecord};
 
 /// 来源类型分类（§23 权威加权：official > museum > archive > university > academic >
 /// reference > general web）。
@@ -159,6 +161,26 @@ impl EnrichmentEntityPort for HistoryEntityPort {
             }
         }))
     }
+}
+
+/// 富化运行器端口：组合根（desktop）实现的跨调用单飞入口；命令与 agent 工具共用。
+#[async_trait]
+pub trait EnrichmentRunnerPort: Send + Sync {
+    /// 读取最佳记录（无外部调用）。
+    fn get(&self, key: &EnrichmentKey) -> Result<EnrichmentView, String>;
+    /// 按需生成（含跨调用单飞；已在 Generate → Generating 状态）。
+    async fn ensure(&self, key: &EnrichmentKey) -> Result<EnrichmentView, String>;
+    /// 手动刷新（Reviewed 也允许 → 新 revision 候选）。
+    async fn refresh(&self, key: &EnrichmentKey) -> Result<EnrichmentView, String>;
+    /// 各 section 状态（UI「AI 解读」区）。
+    fn sections(
+        &self,
+        entity_type: &str,
+        entity_id: &str,
+        locale: &str,
+    ) -> Result<Vec<(EnrichmentSection, EnrichmentState)>, String>;
+    /// 人工审定（automatic refresh 跳过）。
+    fn mark_reviewed(&self, key: &EnrichmentKey) -> Result<(), String>;
 }
 
 /// 便捷构造（组合根 / 测试共用）。

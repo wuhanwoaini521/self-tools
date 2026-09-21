@@ -12,8 +12,9 @@ pub mod service;
 pub mod validation;
 
 pub use ports::{
-    CanonicalEventRef, EnrichmentEntityPort, EnrichmentLlmPort, EnrichmentSearchPort,
-    EnrichmentStore, HistoryEntityPort, SourceEvidence, SourceType, entity_port_from_history,
+    CanonicalEventRef, EnrichmentEntityPort, EnrichmentLlmPort, EnrichmentRunnerPort,
+    EnrichmentSearchPort, EnrichmentStore, HistoryEntityPort, SourceEvidence, SourceType,
+    entity_port_from_history,
 };
 pub use ranking::{authority_weight, classify_source, normalize_domain, rank_sources, sources_to_prompt_block};
 pub use service::{EnrichmentConfig, HistoryEnrichmentService};

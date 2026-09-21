@@ -195,6 +195,7 @@ impl PersonalAgent {
                         name: call.name.clone(),
                         arguments: call.arguments.clone(),
                     })
+                    .await
                     .unwrap_or_else(|error| ToolResult::fail(error.message.clone()));
 
                 let duration = tool_started.elapsed().as_millis() as u64;
@@ -360,11 +361,12 @@ mod tests {
         fail: bool,
         block: bool,
     }
+    #[async_trait::async_trait]
     impl ToolExecutor for EchoTool {
         fn spec(&self) -> &ToolSpec {
             &self.spec
         }
-        fn execute(&self, arguments: serde_json::Value) -> Result<ToolResult, AgentError> {
+        async fn execute(&self, arguments: serde_json::Value) -> Result<ToolResult, AgentError> {
             if self.fail {
                 return Err(AgentError::tool_execution_failed("tool blew up"));
             }

@@ -56,11 +56,15 @@ pub fn build_provider(client: reqwest::Client, ai: &AiSettings) -> Arc<dyn ChatM
 }
 
 /// 装配注册中心：注册 History 标准模块（V4 §41）。
-pub fn build_hub(history: Arc<HistoryDuckDbRepository>) -> Arc<PersonalHub> {
+pub fn build_hub(
+    history: Arc<HistoryDuckDbRepository>,
+    runner: Option<Arc<dyn devtoolbox_application::history::enrichment::EnrichmentRunnerPort>>,
+) -> Arc<PersonalHub> {
     let port: Arc<dyn devtoolbox_application::history::HistoryQueryPort> =
         Arc::new(HistoryQueryAdapter::new(history));
     let mut hub = PersonalHub::default();
-    register_history(&mut hub.modules, &mut hub.tools, port).expect("register history module");
+    register_history(&mut hub.modules, &mut hub.tools, port, runner)
+        .expect("register history module");
     Arc::new(hub)
 }
 

@@ -7,12 +7,16 @@
 //! -   : history.get_person 含 canonical + relations + events + stories
 //! - A: HistoryContextProvider 可解析 Person 上下文（指代问题可答）
 
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
+use devtoolbox_core::history_enrichment::{
+    EnrichmentClaim, EnrichmentKey, EnrichmentSection, EnrichmentState, EnrichmentView,
+};
 use devtoolbox_core::history_records::*;
 use devtoolbox_core::personal_ai::{AppContext, EntityRef};
 use devtoolbox_core::{ToolCallRequest, ToolResult, ToolRisk};
 
+use crate::history::enrichment::EnrichmentRunnerPort;
 use crate::history::{HistoryPortError, HistoryQueryPort};
 use crate::personal_ai::context::{ContextBudget, ModuleContextProvider};
 use crate::personal_ai::history::{HistoryProviderOwned, history_tool_names, register_history};
@@ -293,17 +297,20 @@ fn registered() -> (ModuleRegistry, ToolRegistry, Arc<dyn HistoryQueryPort>) {
     let port: Arc<dyn HistoryQueryPort> = Arc::new(port);
     let mut modules = ModuleRegistry::new();
     let mut tools = ToolRegistry::new();
-    register_history(&mut modules, &mut tools, Arc::clone(&port)).unwrap();
+    register_history(&mut modules, &mut tools, Arc::clone(&port), None).unwrap();
     (modules, tools, port)
 }
 
 fn call_tool(tools: &ToolRegistry, name: &str, args: serde_json::Value) -> ToolResult {
-    tools
-        .execute(&ToolCallRequest {
+    tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap()
+        .block_on(tools.execute(&ToolCallRequest {
             id: "t".into(),
             name: name.into(),
             arguments: args,
-        })
+        }))
         .unwrap()
 }
 
@@ -430,10 +437,163 @@ fn registration_exposes_descriptor_and_tools() {
     let descriptors = modules.descriptors();
     assert_eq!(descriptors.len(), 1);
     assert_eq!(descriptors[0].id, "history");
-    assert_eq!(descriptors[0].tools.len(), 4);
-    assert_eq!(tools.len(), 4);
+    assert_eq!(descriptors[0].tools.len(), 5);
+    assert_eq!(tools.len(), 5);
     for name in history_tool_names() {
         let spec = tools.spec(name).expect("missing tool");
-        assert_eq!(spec.risk, ToolRisk::Read);
+        // V5：ensure_enrichment 为 SafeWrite（只写派生缓存）；其余 Read
+        if name == "history.ensure_enrichment" {
+            assert_eq!(spec.risk, ToolRisk::SafeWrite);
+        } else {
+            assert_eq!(spec.risk, ToolRisk::Read);
+        }
     }
+}
+
+// ---------------------------------------------------------------------------
+// V5 Gate 4：history.ensure_enrichment 可被 PersonalAgent 调用（只写 cache，不动 canonical）
+// ---------------------------------------------------------------------------
+
+use devtoolbox_core::history_enrichment::{EnrichmentMetadata, EnrichmentPayload};
+use devtoolbox_core::personal_ai::{
+    AgentRequest, AgentResponse, AppContext as AiAppContext, ChatModelProvider, ChatRequest,
+    ChatResponse, ChatToolCall,
+};
+
+/// Fake Runner：记录被调用的 key，返回 Ready 视图（不触碰 FakeHistoryPort → canonical 不变）。
+pub struct FakeRunner {
+    pub calls: Arc<Mutex<Vec<EnrichmentKey>>>,
+}
+
+impl FakeRunner {
+    fn view(&self, key: &EnrichmentKey) -> EnrichmentView {
+        EnrichmentView {
+            key: key.clone(),
+            state: EnrichmentState::Ready,
+            payload: Some(EnrichmentPayload {
+                section: key.section.as_str().to_string(),
+                content: "AI 生成概述（测试）".to_string(),
+                claims: vec![EnrichmentClaim {
+                    text: "主张".to_string(),
+                    source_ids: vec!["https://gov.cn/x".to_string()],
+                }],
+                uncertainties: vec![],
+                controversies: vec![],
+            }),
+            metadata: Some(EnrichmentMetadata {
+                generated_at: 1,
+                refreshed_at: 1,
+                model: Some("m".into()),
+                provider: Some("p".into()),
+                prompt_version: "t".into(),
+                schema_version: 1,
+                canonical_revision: Some("rev".into()),
+                source_ids: vec!["https://gov.cn/x".to_string()],
+                generation_count: 1,
+            }),
+            error: None,
+        }
+    }
+}
+
+#[async_trait::async_trait]
+impl EnrichmentRunnerPort for FakeRunner {
+    fn get(&self, key: &EnrichmentKey) -> Result<EnrichmentView, String> {
+        Ok(self.view(key))
+    }
+    async fn ensure(&self, key: &EnrichmentKey) -> Result<EnrichmentView, String> {
+        self.calls.lock().unwrap().push(key.clone());
+        Ok(self.view(key))
+    }
+    async fn refresh(&self, key: &EnrichmentKey) -> Result<EnrichmentView, String> {
+        self.calls.lock().unwrap().push(key.clone());
+        Ok(self.view(key))
+    }
+    fn sections(
+        &self,
+        _entity_type: &str,
+        _entity_id: &str,
+        _locale: &str,
+    ) -> Result<Vec<(EnrichmentSection, EnrichmentState)>, String> {
+        Ok(vec![])
+    }
+    fn mark_reviewed(&self, _key: &EnrichmentKey) -> Result<(), String> {
+        Ok(())
+    }
+}
+
+/// 可编程模型（复用 agent 测试模式）。
+struct MiniChat {
+    steps: Mutex<std::collections::VecDeque<ChatResponse>>,
+}
+#[async_trait::async_trait]
+impl ChatModelProvider for MiniChat {
+    fn name(&self) -> &'static str {
+        "mini"
+    }
+    async fn chat(&self, _request: ChatRequest) -> Result<ChatResponse, devtoolbox_core::ProviderError> {
+        Ok(self.steps.lock().unwrap().pop_front().unwrap())
+    }
+}
+
+#[tokio::test]
+async fn personal_agent_can_call_ensure_enrichment() {
+    use crate::personal_ai::agent::{PersonalAgent, PersonalHub};
+    use crate::personal_ai::session::InMemorySessionStore;
+    use std::sync::Arc as StdArc;
+
+    let (port, person_id, _event_id) = FakeHistoryPort::with_demo();
+    let port: StdArc<dyn HistoryQueryPort> = StdArc::new(port);
+    let mut modules = ModuleRegistry::new();
+    let mut tools = ToolRegistry::new();
+    let runner = StdArc::new(FakeRunner { calls: StdArc::new(Mutex::new(Vec::new())) });
+    register_history(&mut modules, &mut tools, StdArc::clone(&port), Some(runner.clone())).unwrap();
+
+    let hub = StdArc::new(PersonalHub { modules, tools });
+    let chat = MiniChat {
+        steps: Mutex::new(std::collections::VecDeque::new()),
+    };
+    chat.steps.lock().unwrap().push_back(ChatResponse {
+        content: None,
+        tool_calls: vec![ChatToolCall {
+            id: "call_1".into(),
+            name: "history.ensure_enrichment".into(),
+            arguments: serde_json::json!({"entity": {"kind": "event", "id": "zunyi_meeting"}, "section": "overview", "locale": "zh-CN"}),
+        }],
+        usage: devtoolbox_core::ChatUsage::default(),
+    });
+    chat.steps.lock().unwrap().push_back(ChatResponse {
+        content: Some(r#"{"message":"已按需生成 遵义会议 的概述富化。","actions":[],"ui_blocks":[]}"#.to_string()),
+        tool_calls: vec![],
+        usage: devtoolbox_core::ChatUsage::default(),
+    });
+    let agent = PersonalAgent::new(
+        StdArc::new(chat),
+        hub,
+        StdArc::new(InMemorySessionStore::new()),
+        Default::default(),
+    );
+    let request = AgentRequest {
+        message: "为什么遵义会议重要？".into(),
+        session_id: Some("s1".into()),
+        app_context: AiAppContext {
+            module: Some("history".into()),
+            page: Some("event-detail".into()),
+            entity: Some(EntityRef { kind: "event".into(), id: "zunyi_meeting".into(), label: Some("遵义会议".into()) }),
+            selection: None,
+            view_state: serde_json::Value::Null,
+        },
+        capabilities: vec!["history".into()],
+        locale: Some("zh-CN".into()),
+    };
+    let response: AgentResponse = agent.run(request).await.unwrap();
+    eprintln!("trace: {:?}", response.tool_trace);
+    assert!(response.message.contains("已按需生成"));
+    // 工具被调用且 key 正确
+    let calls = runner.calls.lock().unwrap();
+    assert_eq!(calls.len(), 1, "ensure_enrichment must be invoked once");
+    assert_eq!(calls[0].entity_id, "zunyi_meeting");
+    assert_eq!(calls[0].section.as_str(), "overview");
+    // canonical 未被写入：FakeHistoryPort 数据未变（runner 只写 cache 视图）
+    assert_eq!(person_id, "mao_zedong");
 }
