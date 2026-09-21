@@ -14,6 +14,7 @@ pub mod memory;
 pub mod parser;
 pub mod personal_ai;
 pub mod rss;
+pub mod server;
 pub mod settings;
 pub mod task_state;
 pub mod travel;
