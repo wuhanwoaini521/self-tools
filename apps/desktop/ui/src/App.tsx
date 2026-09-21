@@ -348,6 +348,18 @@ export default function App() {
     [openHistory, openGeography, openLanguage],
   );
 
+  /** 切换到无上报器的页面时，清除当前上下文（回到 General，§40）。 */
+  useEffect(() => {
+    if (
+      page === "home" ||
+      page === "markdown" ||
+      page === "rss" ||
+      page === "tools"
+    ) {
+      setAiContext(null);
+    }
+  }, [page]);
+
   /** 上下文 chip 文案（如 “History · 毛泽东”）；无上下文 = General。 */
   const aiContextLabel = useMemo(() => {
     if (!aiContext) return null;
@@ -471,7 +483,11 @@ export default function App() {
           <section
             className={"page-pane" + (page === "travel" ? "" : " page-hidden")}
           >
-            <TravelPage active={page === "travel"} setNotice={setNotice} />
+            <TravelPage
+              active={page === "travel"}
+              setNotice={setNotice}
+              onContextChange={(ctx) => setAiContext(ctx)}
+            />
           </section>
           <section
             className={
@@ -482,6 +498,7 @@ export default function App() {
             <GeographyPage
               active={page === "geography"}
               setNotice={setNotice}
+              onContextChange={(ctx) => setAiContext(ctx)}
               amapApiKey={settings.geography.amap_api_key}
               amapSecurityJsCode={settings.geography.amap_security_js_code}
               intent={geographyIntent}
@@ -513,6 +530,7 @@ export default function App() {
               active={page === "language"}
               setNotice={setNotice}
               intent={languageIntent}
+              onContextChange={(ctx) => setAiContext(ctx)}
             />
           </section>
         </main>

@@ -28,16 +28,12 @@ const TOOL_PLAN_TRIP: &str = "travel.plan_trip";
 /// Travel 工具执行器（一个结构体、四个身份；dispatch 属模块内部实现细节）。
 pub struct TravelTools {
     port: Arc<dyn TravelAiPort>,
-    budget: ContextBudget,
 }
 
 impl TravelTools {
     #[must_use]
     pub fn new(port: Arc<dyn TravelAiPort>) -> Self {
-        Self {
-            port,
-            budget: ContextBudget::default(),
-        }
+        Self { port }
     }
 
     fn spec_for(&self, name: &str) -> ToolSpec {
@@ -67,7 +63,9 @@ impl TravelTools {
         let description = match name {
             TOOL_SEARCH_DESTINATION => "搜索旅行目的地与兴趣点（只读，返回精炼命中列表）",
             TOOL_GET_DESTINATION => "获取已缓存目的地的速览信息（只读；未研究过则明确告知）",
-            TOOL_GET_TRIP_CONTEXT => "获取当前行程上下文（城市/天数/摘要/亮点，供调整行程类指代问题）",
+            TOOL_GET_TRIP_CONTEXT => {
+                "获取当前行程上下文（城市/天数/摘要/亮点，供调整行程类指代问题）"
+            }
             _ => "生成行程规划预览（默认不写入永久数据；保存请走 Travel 页既有流程）",
         };
         ToolSpec {
@@ -152,13 +150,17 @@ impl TravelTools {
         }
         let limit = limit_or(arguments, 8);
         if !self.port.configured() {
-            return Ok(ToolResult::fail("travel search 未配置（请检查搜索后端设置）"));
+            return Ok(ToolResult::fail(
+                "travel search 未配置（请检查搜索后端设置）",
+            ));
         }
         let hits: Vec<TravelSearchHit> = self
             .port
             .search_destination(&query, limit)
             .await
-            .map_err(|error| AgentError::tool_execution_failed(format!("travel search: {error}")))?;
+            .map_err(|error| {
+                AgentError::tool_execution_failed(format!("travel search: {error}"))
+            })?;
         let list: Vec<serde_json::Value> = hits
             .into_iter()
             .map(|hit| {
@@ -170,9 +172,10 @@ impl TravelTools {
                 })
             })
             .collect();
+        let count = list.len();
         Ok(ToolResult::ok_with_metadata(
             serde_json::Value::Array(list),
-            serde_json::json!({"count": hits_count(&list)}),
+            serde_json::json!({"count": count}),
         ))
     }
 
@@ -210,10 +213,7 @@ impl TravelTools {
         }
     }
 
-    pub async fn plan_trip(
-        &self,
-        arguments: &serde_json::Value,
-    ) -> Result<ToolResult, AgentError> {
+    pub async fn plan_trip(&self, arguments: &serde_json::Value) -> Result<ToolResult, AgentError> {
         let city = city_argument(arguments, "travel.plan_trip")?;
         let days = arguments
             .get("days")
@@ -221,11 +221,9 @@ impl TravelTools {
             .map(|value| value as u8)
             .unwrap_or(3)
             .clamp(1, 30);
-        match self
-            .port
-            .plan_preview(&city, days)
-            .map_err(|error| AgentError::tool_execution_failed(format!("travel preview: {error}")))?
-        {
+        match self.port.plan_preview(&city, days).map_err(|error| {
+            AgentError::tool_execution_failed(format!("travel preview: {error}"))
+        })? {
             Some(preview) => Ok(ToolResult::ok_with_metadata(
                 trip_context_json(&preview),
                 serde_json::json!({"note": "预览未写入永久数据；确认后可到 Travel 页保存"}),
@@ -235,10 +233,6 @@ impl TravelTools {
             ))),
         }
     }
-}
-
-fn hits_count(list: &[serde_json::Value]) -> usize {
-    list.len()
 }
 
 fn trip_context_json(context: &TripContext) -> serde_json::Value {
@@ -259,7 +253,6 @@ fn trip_context_json(context: &TripContext) -> serde_json::Value {
 /// Travel 模块上下文提供方（V5 §37）：AppContext{destination, days, preferences} → 紧凑行程。
 pub struct TravelContextProvider {
     port: Arc<dyn TravelAiPort>,
-    budget: ContextBudget,
 }
 
 impl ModuleContextProvider for TravelContextProvider {
@@ -376,7 +369,6 @@ pub fn register_travel(
         },
         context_provider: Some(Arc::new(TravelContextProvider {
             port: Arc::clone(&port),
-            budget: ContextBudget::default(),
         })),
     })?;
     for name in [

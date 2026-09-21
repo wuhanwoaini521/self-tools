@@ -9,7 +9,7 @@ use devtoolbox_core::personal_ai::{
     AgentRequest, AgentResponse, AppContext as AiAppContext, ChatModelProvider, ChatRequest,
     ChatResponse, ChatToolCall,
 };
-use devtoolbox_core::{ToolCallRequest, ToolResult, ToolRisk};
+use devtoolbox_core::{ToolCallRequest, ToolRisk};
 
 use super::{TravelContextProvider, register_travel, travel_tool_names};
 use crate::personal_ai::context::{ContextBudget, ModuleContextProvider};
@@ -103,7 +103,12 @@ impl ChatModelProvider for MiniChat {
         &self,
         _request: ChatRequest,
     ) -> Result<ChatResponse, devtoolbox_core::ProviderError> {
-        Ok(self.steps.lock().unwrap().pop_front().expect("chat script exhausted"))
+        Ok(self
+            .steps
+            .lock()
+            .unwrap()
+            .pop_front()
+            .expect("chat script exhausted"))
     }
 }
 
@@ -130,7 +135,10 @@ fn travel_module_registers_descriptor_and_tools() {
     assert_eq!(descriptors.len(), 1);
     assert_eq!(descriptors[0].id, "travel");
     assert_eq!(descriptors[0].display_name, "Travel");
-    assert_eq!(descriptors[0].capabilities, vec!["search", "destination", "planning", "itinerary"]);
+    assert_eq!(
+        descriptors[0].capabilities,
+        vec!["search", "destination", "planning", "itinerary"]
+    );
     assert_eq!(descriptors[0].tools.len(), 4);
 
     assert_eq!(tools.len(), 4);
@@ -203,7 +211,11 @@ fn travel_trip_context_reads_cache_and_fails_when_missing() {
     }))
     .unwrap_err();
     assert_eq!(error.code(), "personal_ai_tool_invalid_argument");
-    assert_eq!(*context_calls.lock().unwrap(), 2, "invalid args must not reach the port");
+    assert_eq!(
+        *context_calls.lock().unwrap(),
+        2,
+        "invalid args must not reach the port"
+    );
 }
 
 #[test]
@@ -222,7 +234,10 @@ fn travel_plan_preview_does_not_write() {
     .unwrap();
     assert!(result.ok);
     assert_eq!(result.data["days"], 3);
-    assert_eq!(result.metadata["note"], "预览未写入永久数据；确认后可到 Travel 页保存");
+    assert_eq!(
+        result.metadata["note"],
+        "预览未写入永久数据；确认后可到 Travel 页保存"
+    );
     // TravelAiPort 无任何写方法（编译期保证）；缓存表仅读取。
     assert!(cached_len_before >= 1, "cache must be seeded");
 }
@@ -232,7 +247,6 @@ fn travel_context_provider_resolves_destination() {
     let port = FakeTravelPort::with_dalian();
     let provider = TravelContextProvider {
         port: Arc::new(port),
-        budget: ContextBudget::default(),
     };
     let ctx = AiAppContext {
         module: Some("travel".into()),
@@ -245,7 +259,9 @@ fn travel_context_provider_resolves_destination() {
         selection: None,
         view_state: serde_json::json!({"days": 3, "preferences": ["历史", "美食", "摄影"]}),
     };
-    let bundle = provider.build_context(&ctx, &ContextBudget::default()).unwrap();
+    let bundle = provider
+        .build_context(&ctx, &ContextBudget::default())
+        .unwrap();
     assert_eq!(bundle.module, "travel");
     assert!(bundle.headline.contains("大连"));
     assert!(bundle.headline.contains("3 天"));
@@ -257,12 +273,17 @@ fn travel_context_provider_resolves_destination() {
 fn travel_context_provider_general_when_no_entity() {
     let provider = TravelContextProvider {
         port: Arc::new(FakeTravelPort::default()),
-        budget: ContextBudget::default(),
     };
     let bundle = provider
         .build_context(&AiAppContext::default(), &ContextBudget::default())
         .unwrap();
-    assert_eq!(bundle.summary["note"].as_str().unwrap().contains("无目的地"), true);
+    assert_eq!(
+        bundle.summary["note"]
+            .as_str()
+            .unwrap()
+            .contains("无目的地"),
+        true
+    );
 }
 
 #[test]
@@ -277,25 +298,28 @@ fn personal_agent_route_calls_travel_tool() {
     register_travel(&mut modules, &mut tools, Arc::new(port)).unwrap();
     let hub = Arc::new(PersonalHub { modules, tools });
 
-    let mut chat = MiniChat {
+    let chat = MiniChat {
         steps: Mutex::new(std::collections::VecDeque::new()),
     };
-    chat.steps.lock().unwrap().push_back(ChatResponse {
-        content: None,
-        tool_calls: vec![ChatToolCall {
-            id: "call_trip".into(),
-            name: "travel.get_trip_context".into(),
-            arguments: serde_json::json!({"city": "大连"}),
-        }],
-        usage: devtoolbox_core::ChatUsage::default(),
-    });
-    chat.steps.lock().unwrap().push_back(ChatResponse {
-        content: Some(
-            r#"{"message":"当前是大连 3 天行程。","actions":[],"ui_blocks":[]}"#.to_string(),
-        ),
-        tool_calls: vec![],
-        usage: devtoolbox_core::ChatUsage::default(),
-    });
+    {
+        let mut steps = chat.steps.lock().unwrap();
+        steps.push_back(ChatResponse {
+            content: None,
+            tool_calls: vec![ChatToolCall {
+                id: "call_trip".into(),
+                name: "travel.get_trip_context".into(),
+                arguments: serde_json::json!({"city": "大连"}),
+            }],
+            usage: devtoolbox_core::ChatUsage::default(),
+        });
+        steps.push_back(ChatResponse {
+            content: Some(
+                r#"{"message":"当前是大连 3 天行程。","actions":[],"ui_blocks":[]}"#.to_string(),
+            ),
+            tool_calls: vec![],
+            usage: devtoolbox_core::ChatUsage::default(),
+        });
+    }
 
     let agent = PersonalAgent::new(
         Arc::new(chat),
@@ -322,8 +346,12 @@ fn personal_agent_route_calls_travel_tool() {
     };
     let response: AgentResponse = block_on(agent.run(request)).unwrap();
     assert!(response.message.contains("大连 3 天"));
-    // 工具必须被真实调用过（消息内容由工具结果支撑；计数器验证路由）
-    assert_eq!(*context_calls.lock().unwrap(), 1, "agent must route to travel.get_trip_context");
+    // 工具必须被真实调用过：tool_trace 是路由的直接证据
+    assert_eq!(response.tool_trace.len(), 1);
+    assert_eq!(response.tool_trace[0].tool, "travel.get_trip_context");
+    assert!(response.tool_trace[0].ok);
+    // context provider 构建 prompt 时会读行程（≥1），工具执行再读一次；计数 ≥1 即可
+    assert!(*context_calls.lock().unwrap() >= 1);
     // PersonalAgent 核心未出现 travel 业务分支的证明由 reviewer 的 if/else 扫描完成。
 }
 
@@ -365,16 +393,26 @@ fn history_port_fake() -> Arc<dyn crate::history::HistoryQueryPort> {
         fn get_events_for_period(&self, _: &str) -> Result<Vec<PeriodEventItem>, HistoryPortError> {
             Ok(vec![])
         }
-        fn get_people_for_period(&self, _: &str, _: i64) -> Result<Vec<PeriodPersonItem>, HistoryPortError> {
+        fn get_people_for_period(
+            &self,
+            _: &str,
+            _: i64,
+        ) -> Result<Vec<PeriodPersonItem>, HistoryPortError> {
             Ok(vec![])
         }
-        fn get_relations_for_period(&self, _: &str) -> Result<Vec<EventRelationResult>, HistoryPortError> {
+        fn get_relations_for_period(
+            &self,
+            _: &str,
+        ) -> Result<Vec<EventRelationResult>, HistoryPortError> {
             Ok(vec![])
         }
         fn get_stories(&self) -> Result<Vec<StoryResult>, HistoryPortError> {
             Ok(vec![])
         }
-        fn get_stories_for_period(&self, _: Option<&str>) -> Result<Vec<StoryResult>, HistoryPortError> {
+        fn get_stories_for_period(
+            &self,
+            _: Option<&str>,
+        ) -> Result<Vec<StoryResult>, HistoryPortError> {
             Ok(vec![])
         }
         fn get_story(&self, _: &str) -> Result<Option<StoryResult>, HistoryPortError> {
@@ -389,10 +427,16 @@ fn history_port_fake() -> Arc<dyn crate::history::HistoryQueryPort> {
         fn get_story_places(&self, _: &str) -> Result<Vec<EventPlaceResult>, HistoryPortError> {
             Ok(vec![])
         }
-        fn get_story_texts(&self, _: &str) -> Result<Vec<EventHistoricalTextResult>, HistoryPortError> {
+        fn get_story_texts(
+            &self,
+            _: &str,
+        ) -> Result<Vec<EventHistoricalTextResult>, HistoryPortError> {
             Ok(vec![])
         }
-        fn get_story_evidences(&self, _: &str) -> Result<Vec<EventEvidenceResult>, HistoryPortError> {
+        fn get_story_evidences(
+            &self,
+            _: &str,
+        ) -> Result<Vec<EventEvidenceResult>, HistoryPortError> {
             Ok(vec![])
         }
         fn get_event(&self, _: &str) -> Result<Option<EventResult>, HistoryPortError> {
@@ -404,19 +448,31 @@ fn history_port_fake() -> Arc<dyn crate::history::HistoryQueryPort> {
         fn get_event_places(&self, _: &str) -> Result<Vec<EventPlaceResult>, HistoryPortError> {
             Ok(vec![])
         }
-        fn get_event_relations(&self, _: &str) -> Result<Vec<EventRelationResult>, HistoryPortError> {
+        fn get_event_relations(
+            &self,
+            _: &str,
+        ) -> Result<Vec<EventRelationResult>, HistoryPortError> {
             Ok(vec![])
         }
-        fn get_event_texts(&self, _: &str) -> Result<Vec<EventHistoricalTextResult>, HistoryPortError> {
+        fn get_event_texts(
+            &self,
+            _: &str,
+        ) -> Result<Vec<EventHistoricalTextResult>, HistoryPortError> {
             Ok(vec![])
         }
-        fn get_event_evidences(&self, _: &str) -> Result<Vec<EventEvidenceResult>, HistoryPortError> {
+        fn get_event_evidences(
+            &self,
+            _: &str,
+        ) -> Result<Vec<EventEvidenceResult>, HistoryPortError> {
             Ok(vec![])
         }
         fn get_person(&self, _: &str) -> Result<Option<PersonResult>, HistoryPortError> {
             Ok(None)
         }
-        fn get_person_relations(&self, _: &str) -> Result<Vec<PersonRelationResult>, HistoryPortError> {
+        fn get_person_relations(
+            &self,
+            _: &str,
+        ) -> Result<Vec<PersonRelationResult>, HistoryPortError> {
             Ok(vec![])
         }
         fn get_person_places(&self, _: &str) -> Result<Vec<PersonPlaceResult>, HistoryPortError> {
@@ -434,7 +490,11 @@ fn history_port_fake() -> Arc<dyn crate::history::HistoryQueryPort> {
         fn get_work(&self, _: &str, _: i64) -> Result<Vec<WorkResult>, HistoryPortError> {
             Ok(vec![])
         }
-        fn get_historical_texts(&self, _: Option<&str>, _: i64) -> Result<Vec<HistoricalTextResult>, HistoryPortError> {
+        fn get_historical_texts(
+            &self,
+            _: Option<&str>,
+            _: i64,
+        ) -> Result<Vec<HistoricalTextResult>, HistoryPortError> {
             Ok(vec![])
         }
         fn search_people(&self, _: &str, _: i64) -> Result<Vec<PersonResult>, HistoryPortError> {

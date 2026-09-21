@@ -531,7 +531,10 @@ impl ChatModelProvider for MiniChat {
     fn name(&self) -> &'static str {
         "mini"
     }
-    async fn chat(&self, _request: ChatRequest) -> Result<ChatResponse, devtoolbox_core::ProviderError> {
+    async fn chat(
+        &self,
+        _request: ChatRequest,
+    ) -> Result<ChatResponse, devtoolbox_core::ProviderError> {
         Ok(self.steps.lock().unwrap().pop_front().unwrap())
     }
 }
@@ -546,8 +549,16 @@ async fn personal_agent_can_call_ensure_enrichment() {
     let port: StdArc<dyn HistoryQueryPort> = StdArc::new(port);
     let mut modules = ModuleRegistry::new();
     let mut tools = ToolRegistry::new();
-    let runner = StdArc::new(FakeRunner { calls: StdArc::new(Mutex::new(Vec::new())) });
-    register_history(&mut modules, &mut tools, StdArc::clone(&port), Some(runner.clone())).unwrap();
+    let runner = StdArc::new(FakeRunner {
+        calls: StdArc::new(Mutex::new(Vec::new())),
+    });
+    register_history(
+        &mut modules,
+        &mut tools,
+        StdArc::clone(&port),
+        Some(runner.clone()),
+    )
+    .unwrap();
 
     let hub = StdArc::new(PersonalHub { modules, tools });
     let chat = MiniChat {
@@ -563,7 +574,10 @@ async fn personal_agent_can_call_ensure_enrichment() {
         usage: devtoolbox_core::ChatUsage::default(),
     });
     chat.steps.lock().unwrap().push_back(ChatResponse {
-        content: Some(r#"{"message":"已按需生成 遵义会议 的概述富化。","actions":[],"ui_blocks":[]}"#.to_string()),
+        content: Some(
+            r#"{"message":"已按需生成 遵义会议 的概述富化。","actions":[],"ui_blocks":[]}"#
+                .to_string(),
+        ),
         tool_calls: vec![],
         usage: devtoolbox_core::ChatUsage::default(),
     });
@@ -579,7 +593,11 @@ async fn personal_agent_can_call_ensure_enrichment() {
         app_context: AiAppContext {
             module: Some("history".into()),
             page: Some("event-detail".into()),
-            entity: Some(EntityRef { kind: "event".into(), id: "zunyi_meeting".into(), label: Some("遵义会议".into()) }),
+            entity: Some(EntityRef {
+                kind: "event".into(),
+                id: "zunyi_meeting".into(),
+                label: Some("遵义会议".into()),
+            }),
             selection: None,
             view_state: serde_json::Value::Null,
         },

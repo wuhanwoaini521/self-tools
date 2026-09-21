@@ -26,7 +26,9 @@ use devtoolbox_core::personal_ai::{AppContext, EntityRef};
 use devtoolbox_core::{AgentError, ModuleDescriptor, ToolResult, ToolRisk, ToolSpec};
 
 use crate::history::enrichment::EnrichmentRunnerPort;
-use crate::history::{EnrichmentKey, EnrichmentSection, HistoryPortError, HistoryQueryPort, HistoryService};
+use crate::history::{
+    EnrichmentKey, EnrichmentSection, HistoryPortError, HistoryQueryPort, HistoryService,
+};
 use crate::personal_ai::context::{ContextBudget, ContextBundle, ModuleContextProvider};
 use crate::personal_ai::registry::ToolExecutor;
 
@@ -282,7 +284,9 @@ impl HistoryTools {
             TOOL_SEARCH => "搜索历史知识库（人物/事件/著作/故事），返回精炼命中列表",
             TOOL_GET_EVENT => "获取历史事件的 canonical 事实、关系、证据与富化状态",
             TOOL_GET_PERSON => "获取历史人物的 canonical 事实、关系、事件与故事时间线",
-            TOOL_ENSURE_ENRICHMENT => "按需生成历史事件某 section 的 AI 富化（只写派生缓存，不改写 canonical；仅当缺失/过期/生成失败时调用）",
+            TOOL_ENSURE_ENRICHMENT => {
+                "按需生成历史事件某 section 的 AI 富化（只写派生缓存，不改写 canonical；仅当缺失/过期/生成失败时调用）"
+            }
             _ => "获取当前页面实体的紧凑上下文（供指代解析）",
         };
         let risk = if name == TOOL_ENSURE_ENRICHMENT {
@@ -686,8 +690,14 @@ impl HistoryTools {
         let entity = arguments.get("entity").ok_or_else(|| {
             AgentError::tool_invalid_argument("history.ensure_enrichment: entity required")
         })?;
-        let kind = entity.get("kind").and_then(serde_json::Value::as_str).unwrap_or_default();
-        let id = entity.get("id").and_then(serde_json::Value::as_str).unwrap_or_default();
+        let kind = entity
+            .get("kind")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or_default();
+        let id = entity
+            .get("id")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or_default();
         if kind != "event" {
             return Err(AgentError::tool_invalid_argument(format!(
                 "history.ensure_enrichment: entity kind `{kind}` not supported (only event)"

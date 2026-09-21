@@ -11,7 +11,8 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use devtoolbox_application::personal_ai::{
-    AgentConfig, InMemorySessionStore, PersonalAgent, PersonalHub, register_history,
+    AgentConfig, InMemorySessionStore, PersonalAgent, PersonalHub, register_geography,
+    register_history, register_language, register_travel,
 };
 use devtoolbox_core::personal_ai::{ChatModelProvider, ChatRequest, ChatResponse, ProviderError};
 use devtoolbox_core::settings::AiSettings;
@@ -59,12 +60,21 @@ pub fn build_provider(client: reqwest::Client, ai: &AiSettings) -> Arc<dyn ChatM
 pub fn build_hub(
     history: Arc<HistoryDuckDbRepository>,
     runner: Option<Arc<dyn devtoolbox_application::history::enrichment::EnrichmentRunnerPort>>,
+    travel: Arc<dyn devtoolbox_application::travel::TravelAiPort>,
+    geography: Arc<dyn devtoolbox_application::geography::GeographyQueryPort + Send + Sync>,
+    language_store: Arc<dyn devtoolbox_application::language::LanguageStorePort>,
+    language_llm: Option<Arc<dyn ChatModelProvider>>,
 ) -> Arc<PersonalHub> {
     let port: Arc<dyn devtoolbox_application::history::HistoryQueryPort> =
         Arc::new(HistoryQueryAdapter::new(history));
     let mut hub = PersonalHub::default();
     register_history(&mut hub.modules, &mut hub.tools, port, runner)
         .expect("register history module");
+    register_travel(&mut hub.modules, &mut hub.tools, travel).expect("register travel module");
+    register_geography(&mut hub.modules, &mut hub.tools, geography)
+        .expect("register geography module");
+    register_language(&mut hub.modules, &mut hub.tools, language_store, language_llm)
+        .expect("register language module");
     Arc::new(hub)
 }
 

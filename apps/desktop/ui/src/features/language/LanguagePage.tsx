@@ -19,6 +19,7 @@ import type {
 } from "../../types";
 import { errorMessage, isTauriRuntime } from "../../utils";
 import { languageClient } from "./languageClient";
+import type { AppContextPayload } from "../ai/aiTypes";
 import { ExplorePanel, type OpenDetail } from "./ExplorePanel";
 import { LibraryPanel } from "./LibraryPanel";
 import { ListenPanel } from "./ListenPanel";
@@ -48,7 +49,12 @@ interface LanguagePageProps {
  * 页面围绕学习目标组织（Today / Explore / Review / Listen / Speak / Library），
  * 数据全部来自本地 language.db；未安装数据包时引导安装 Starter Pack（离线可用）。
  */
-export function LanguagePage({ active, setNotice, intent }: LanguagePageProps) {
+export function LanguagePage({
+  active,
+  setNotice,
+  intent,
+  onContextChange,
+}: LanguagePageProps & { onContextChange?: (ctx: AppContextPayload | null) => void }) {
   const [tab, setTab] = useState<LanguageTab>("today");
   const [language, setLanguage] = useState<LanguageCode>("jpn");
   const [languages, setLanguages] = useState<LanguageInfo[]>([]);
@@ -119,7 +125,29 @@ export function LanguagePage({ active, setNotice, intent }: LanguagePageProps) {
   );
 
   useEffect(() => {
-    if (active && intent?.id && hasData) openDetail(intent.id, false);
+    // V5 AppContext 桥：上报语言 / 选中词条（§52-§53：选中句子的指代解析）
+  useEffect(() => {
+    if (!onContextChange) return;
+    if (!selected) {
+      onContextChange({ module: "language", page: tab, view_state: { language } });
+      return;
+    }
+    onContextChange({
+      module: "language",
+      page: tab,
+      entity: {
+        kind: "word",
+        id: selected.item.id,
+        label: selected.item.text,
+      },
+      view_state: {
+        language,
+        reading: selected.item.reading,
+        romanization: selected.item.romanization,
+      },
+    });
+  }, [selected, tab, language, onContextChange]);
+  if (active && intent?.id && hasData) openDetail(intent.id, false);
   }, [active, hasData, intent, openDetail]);
 
   const onDetailUpdated = useCallback(() => {

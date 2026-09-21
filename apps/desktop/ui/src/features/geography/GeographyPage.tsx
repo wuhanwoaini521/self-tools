@@ -29,6 +29,7 @@ import type {
 } from "../../types";
 import { errorMessage, isTauriRuntime } from "../../utils";
 import { geographyClient } from "./geographyClient";
+import type { AppContextPayload } from "../ai/aiTypes";
 import { AmapRegionMap } from "./AmapRegionMap";
 import { GeoMap, type GeoMapLayer } from "./GeoMap";
 import { Landform3DViewer } from "./Landform3DViewer";
@@ -872,7 +873,8 @@ export function GeographyPage({
   amapApiKey,
   amapSecurityJsCode,
   intent,
-}: GeographyPageProps) {
+  onContextChange,
+}: GeographyPageProps & { onContextChange?: (ctx: AppContextPayload | null) => void }) {
   const [home, setHome] = useState<GeographyHome | null>(null);
   const [query, setQuery] = useState("");
   const [searchGroups, setSearchGroups] = useState<GeoSearchGroup[]>([]);
@@ -918,6 +920,24 @@ setDetail(
     [openEntity],
   );
 
+  // V5 AppContext 桥：上报当前地点 / 视图
+  useEffect(() => {
+    if (!onContextChange) return;
+    if (!detail) {
+      onContextChange({ module: "geography" });
+      return;
+    }
+    onContextChange({
+      module: "geography",
+      page: view === "knowledge" ? "knowledge" : "explore",
+      entity: {
+        kind: "location",
+        id: detail.entity.id,
+        label: detail.entity.name,
+      },
+      view_state: { layer },
+    });
+  }, [detail, view, layer, onContextChange]);
   useEffect(() => {
     if (active && intent?.entityId) void openEntity(intent.entityId);
   }, [active, intent, openEntity]);

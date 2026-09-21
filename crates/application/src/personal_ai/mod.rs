@@ -11,13 +11,22 @@ pub mod json_schema;
 pub mod prompt;
 pub mod registry;
 pub mod session;
-pub mod travel; // TEMP-VERIFY: main agent wires final integration
+pub mod geography;
+pub mod language;
+pub mod travel;
 
 pub use agent::{AgentConfig, PersonalAgent, PersonalHub};
 pub use context::{ContextBudget, ContextBundle, ModuleContextProvider, bundle_to_text};
+pub use geography::{
+    GeographyProviderOwned, GeographyTools, geography_tool_names, register_geography,
+};
 pub use history::{HistoryProviderOwned, HistoryTools, history_tool_names, register_history};
+pub use language::{
+    LanguageProviderOwned, LanguageTools, language_tool_names, register_language,
+};
 pub use registry::{ModuleRegistration, ModuleRegistry, ToolExecutor, ToolRegistry, allowed_risk};
 pub use session::{InMemorySessionStore, SessionStore};
+pub use travel::{TravelContextProvider, TravelTools, register_travel, travel_tool_names};
 
 /// agent 循环测试（Fake provider 五种场景，V4 §79）。
 #[cfg(test)]

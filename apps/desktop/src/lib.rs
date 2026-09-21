@@ -738,6 +738,7 @@ fn language_speaking_feedback(
 mod history_query;
 mod personal_ai;
 mod history_enrichment;
+mod travel_ai;
 
 use devtoolbox_application::history::{
     HistorySemanticEventDetail, HistorySemanticHome, HistorySemanticPeriodDetail,
@@ -1109,6 +1110,7 @@ pub fn run() {
                 .expect("open rss database");
             let travel_store = TravelStore::open(config_directory.join("travel.db"))
                 .expect("open travel database");
+            let travel_store_shared = Arc::new(Mutex::new(travel_store));
             let history_duckdb = HistoryDuckDbRepository::open(
                 semantic_history_path(app.handle())
                     .map_err(|error| std::io::Error::other(error.message))?,
@@ -1118,6 +1120,8 @@ pub fn run() {
                 .expect("open language database");
             let geography_store = GeographyStore::open(config_directory.join("geography.db"))
                 .expect("open geography database");
+            let language_store_shared = Arc::new(Mutex::new(language_store));
+            let geography_store_shared = Arc::new(Mutex::new(geography_store));
             let client = feed_client().expect("build http client");
             let rss_repository: Arc<dyn RssRepositoryPort> = Arc::new(
                 composition::RssRepositoryAdapter::new(Arc::new(Mutex::new(store))),
@@ -1138,21 +1142,52 @@ pub fn run() {
             let history_enrichment =
                 history_enrichment::build_runner(
                     client.clone(),
-                    enrichment_settings,
+                    enrichment_settings.clone(),
                     &config_directory,
                     Arc::clone(&history_port),
                 )
                 .map_err(|error| std::io::Error::other(error.to_string()))?;
+            let travel_ai: Arc<dyn devtoolbox_application::travel::TravelAiPort> =
+                Arc::new(travel_ai::TravelAiAdapter::new(
+                    client.clone(),
+                    enrichment_settings.clone(),
+                    Arc::clone(&travel_store_shared),
+                ));
+            // Geography / Language 模块端口（V5 Gate 6/7）：复用既有 store 适配器。
+            let geography_port: Arc<
+                dyn devtoolbox_application::geography::GeographyQueryPort + Send + Sync,
+            > = Arc::new(geography_query::GeographyQueryAdapter::new(Arc::clone(
+                &geography_store_shared,
+            )));
+            let language_port: Arc<dyn devtoolbox_application::language::LanguageStorePort> =
+                Arc::new(composition::LanguageStoreAdapter::new(Arc::clone(
+                    &language_store_shared,
+                )));
+            // language.explain 的可选 LLM 增强（setup 时读取一次配置；未配置 → None 确定性降级）。
+            let language_llm_plug: Option<
+                Arc<dyn devtoolbox_core::personal_ai::ChatModelProvider>,
+            > = (enrichment_settings)()
+                .ok()
+                .map(|settings| settings.ai)
+                .filter(|ai| ai.is_configured())
+                .map(|ai| personal_ai::build_provider(client.clone(), &ai));
             app.manage(AppState {
                 rss_repository,
                 rss_fetcher: composition::FeedFetcherAdapter::new(client.clone()),
-                travel_store: Arc::new(Mutex::new(travel_store)),
+                travel_store: Arc::clone(&travel_store_shared),
                 travel_registry: TravelSessionRegistry::new(),
                 history_duckdb: Arc::clone(&history_repo),
-                language_store: Arc::new(Mutex::new(language_store)),
-                geography_store: Arc::new(Mutex::new(geography_store)),
+                language_store: Arc::clone(&language_store_shared),
+                geography_store: Arc::clone(&geography_store_shared),
                 client,
-                ai: personal_ai::build_hub(history_repo, Some(Arc::clone(&history_enrichment))),
+                ai: personal_ai::build_hub(
+                    history_repo,
+                    Some(Arc::clone(&history_enrichment)),
+                    travel_ai,
+                    geography_port,
+                    language_port,
+                    language_llm_plug,
+                ),
                 ai_session: Arc::new(InMemorySessionStore::new()),
                 history_enrichment,
             });

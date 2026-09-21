@@ -1,5 +1,6 @@
 import { ArrowsClockwise, CalendarBlank, Compass, MapPin, Sparkle } from "@phosphor-icons/react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { AppContextPayload } from "../ai/aiTypes";
 import type { CityGuide, GuideSummary, TravelDateRange, TravelResearchEvent } from "../../types";
 import { errorMessage, isTauriRuntime } from "../../utils";
 import { TravelGuide } from "./TravelGuide";
@@ -29,7 +30,13 @@ function inclusiveDays(start: string, end: string): number | null {
   return Math.floor((endTime - startTime) / 86_400_000) + 1;
 }
 
-export function TravelPage({ active, setNotice }: TravelPageProps) {
+export function TravelPage({
+  active,
+  setNotice,
+  onContextChange,
+}: TravelPageProps & {
+  onContextChange?: (ctx: AppContextPayload | null) => void;
+}) {
   const [city, setCity] = useState("");
   const [days, setDays] = useState(3);
   const [tripStart, setTripStart] = useState("");
@@ -42,6 +49,26 @@ export function TravelPage({ active, setNotice }: TravelPageProps) {
   const [history, setHistory] = useState<GuideSummary[]>([]);
   const [fromCache, setFromCache] = useState(false);
   const pollTimer = useRef<number | null>(null);
+
+  // V5 AppContext 桥：上报当前目的地 / 天数 / 偏好（AI 据此理解“第二天太累了”等。
+  useEffect(() => {
+    if (!onContextChange) return;
+    if (!city.trim()) {
+      onContextChange({ module: "travel" });
+      return;
+    }
+    const name = city.trim();
+    onContextChange({
+      module: "travel",
+      page: state === "done" && guide ? "guide" : "planner",
+      entity: { kind: "destination", id: name, label: name },
+      view_state: {
+        days,
+        preferences,
+        from_cache: fromCache,
+      },
+    });
+  }, [city, state, guide, days, preferences, fromCache, onContextChange]);
 
   const reloadHistory = useCallback(async () => {
     if (!isTauriRuntime()) return;
