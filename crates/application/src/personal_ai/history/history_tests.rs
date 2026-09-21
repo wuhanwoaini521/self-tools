@@ -560,7 +560,11 @@ async fn personal_agent_can_call_ensure_enrichment() {
     )
     .unwrap();
 
-    let hub = StdArc::new(PersonalHub { modules, tools });
+    let hub = StdArc::new(PersonalHub {
+        modules,
+        tools,
+        retrieval: None,
+    });
     let chat = MiniChat {
         steps: Mutex::new(std::collections::VecDeque::new()),
     };

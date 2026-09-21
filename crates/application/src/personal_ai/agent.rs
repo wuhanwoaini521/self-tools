@@ -49,6 +49,8 @@ impl Default for AgentConfig {
 pub struct PersonalHub {
     pub modules: ModuleRegistry,
     pub tools: ToolRegistry,
+    /// 可选的通用检索增强（V6）：未装配 = 不做任何自动知识注入。
+    pub retrieval: Option<Arc<dyn crate::personal_ai::retrieval::RetrievalAugmenter>>,
 }
 
 /// PersonalAgent：一个核心服务，服务所有模块（V4 Principle 2）。
@@ -97,7 +99,7 @@ impl PersonalAgent {
 
         // 有效模块集合（capabilities 过滤；空 = 全部）。
         let enabled_tools = self.enabled_tools(&request.capabilities);
-        let system = assemble_system(
+        let mut system = assemble_system(
             &self.hub.modules.descriptors(),
             &request.app_context,
             self.hub
@@ -106,6 +108,16 @@ impl PersonalAgent {
                 .as_deref(),
             &self.config.context_budget,
         );
+
+        // 通用检索增强 stage（V6 §22/§55）：平台能力，无任何业务语义 ——
+        // 是否注入、检索哪里、注入多少由注册的 `RetrievalAugmenter` 决定；
+        // 未注册 / 无命中 / 检索失败 → 什么都不做（Principle 7）。
+        if let Some(augmenter) = self.hub.retrieval.as_deref()
+            && let Some(block) = augmenter.augment(&request.message, &request.app_context).await
+        {
+            system.push_str("\n\n");
+            system.push_str(&block);
+        }
 
         // 会话历史 + 用户消息
         let messages = self.session.load(&session_id);

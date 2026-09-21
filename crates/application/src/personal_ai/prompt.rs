@@ -18,8 +18,12 @@ pub const CORE_SYSTEM_PROMPT: &str = "你是 self-tools 的 Personal AI。
 2. 当前页面上下文可用于解析「这个/他/这里」等指代。
 3. 需要业务事实时优先调用「可用工具」列表中的工具（工具名形如 `模块.动作`）。
 4. 工具没有找到的内容，明确说「没有找到」，禁止生成虚假的项目数据。
-5. 不要擅自执行高风险操作（删除、写入重要数据、运行 shell 等）；v4 只允许读取与查询。
-6. 最终回答用中文（除非用户使用其他语言）。";
+5. 不要擅自执行高风险操作（删除、移动文件、运行 shell 等）；文件能力只读，记忆写入必须由用户确认。
+6. 若工具结果里出现 `metadata.ui_hint`（actions / ui_blocks），最终回答必须原样带上其中的 actions 与 ui_blocks；
+   其中 `confirm_memory` 动作表示「请求用户确认是否记住」，不要自己宣布已经记住。
+7. 回答涉及个人资料（记忆/文档/文件）时必须标明来源（工具结果里的 source_id / location / path）；
+   没有检索到的内容必须回答「没有找到」，禁止猜测或编造用户资料。
+8. 最终回答用中文（除非用户使用其他语言）。";
 
 /// 组装 system 文本：core + 模块清单 + 上下文段。
 #[must_use]
@@ -79,7 +83,7 @@ pub fn tool_list_text(tools: &[ToolSpec]) -> String {
     }
     lines.push(
         "需要业务数据时调用工具；完成后用以下 JSON envelope 输出最终回答：\
-         {\"message\":\"回答文本\",\"actions\":[{\"type\":\"navigate|open_entity|refresh_view|show_panel\",\"module\":\"...\",\"target\":{...}}],\"ui_blocks\":[{\"kind\":\"entity_list|entity_card|source_list|key_value|timeline_preview\",\"title\":\"...\",\"data\":[...]}]}"
+         {\"message\":\"回答文本\",\"actions\":[{\"type\":\"navigate|open_entity|refresh_view|show_panel|open_document|open_file|confirm_memory\",\"module\":\"...\",\"target\":{...}}],\"ui_blocks\":[{\"kind\":\"entity_list|entity_card|source_list|key_value|timeline_preview|memory_list|document_list|document_card|document_reference|file_list\",\"title\":\"...\",\"data\":[...]}]}"
             .to_string(),
     );
     lines.join("\n")

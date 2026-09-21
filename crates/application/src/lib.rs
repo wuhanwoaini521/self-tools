@@ -1,17 +1,33 @@
 //! UI 无关的文档、工作区与任务编辑用例。
 
+pub mod documents;
 pub mod error;
+pub mod files;
 pub mod geography;
 pub mod history;
-
+pub mod knowledge;
 pub mod language;
+pub mod memory;
 pub mod personal_ai;
 pub mod rss;
+pub(crate) mod text;
 pub(crate) mod time;
 pub mod travel;
 pub mod workflows;
 
 pub use error::{ApplicationError, RssErrorKind, TravelErrorKind, TravelFailure};
+pub use documents::{
+    DocumentIndexPort, DocumentIndexStats, DocumentService, DocumentSourcePort, ExtractedContent,
+    IndexReport, ScannedDocument,
+};
+pub use files::{
+    FileIndexPort, FileIndexStats, FileQuery, FileReadResult, FileService, FileSystemPort,
+    FileReadOutcome,
+};
+pub use knowledge::{
+    KnowledgeContext, KnowledgeMetrics, KnowledgeRetrievalService, KnowledgeSourceRetriever,
+};
+pub use memory::{MemoryConfig, MemoryService, MemoryStats, MemoryStorePort};
 pub use geography::{
     GeoEntity, GeoEntityDetail, GeoEntityType, GeoMapLine, GeoMapPoint, GeoRecommendation,
     GeoRelation, GeoRelationKind, GeoSearchGroup, GeoSource, GeographyHome, GeographyPortError,

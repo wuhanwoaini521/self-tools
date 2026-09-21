@@ -54,6 +54,22 @@ pub enum ApplicationError {
     /// Store→travel_error）。
     #[error("travel error: {0}")]
     Travel(TravelFailure),
+    /// Personal Memory 失败（V6）。消息面向用户，不含任何 secret 内容。
+    #[error("memory error: {message}")]
+    Memory { message: String },
+    /// Documents 失败（V6）。消息为受控文本（不含正文）。
+    #[error("documents error: {message}")]
+    Documents { message: String },
+    /// Files 失败（V6）。`reason` 为稳定的拒绝原因枚举，消息面向用户。
+    #[error("files error ({reason_text}): {message}")]
+    Files {
+        reason: devtoolbox_core::files::FileAccessDenied,
+        reason_text: &'static str,
+        message: String,
+    },
+    /// Knowledge 检索失败（V6）。
+    #[error("knowledge error: {message}")]
+    Knowledge { message: String },
 }
 
 /// RSS 失败分类（与端口 `FeedFetchErrorKind` 对齐，存储错误归为 `Repository`）。

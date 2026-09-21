@@ -36,10 +36,7 @@ pub struct LanguageTools {
 
 impl LanguageTools {
     #[must_use]
-    pub fn new(
-        store: Arc<dyn LanguageStorePort>,
-        llm: Option<Arc<dyn ChatModelProvider>>,
-    ) -> Self {
+    pub fn new(store: Arc<dyn LanguageStorePort>, llm: Option<Arc<dyn ChatModelProvider>>) -> Self {
         Self { store, llm }
     }
 
@@ -105,7 +102,10 @@ impl LanguageTools {
         if let Some(id) = id.filter(|id| !id.is_empty()) {
             return self.item_context(id);
         }
-        let language = match arguments.get("language").and_then(serde_json::Value::as_str) {
+        let language = match arguments
+            .get("language")
+            .and_then(serde_json::Value::as_str)
+        {
             Some(code) => LanguageCode::from_code(code).ok_or_else(|| {
                 AgentError::tool_invalid_argument(format!("未知语言代码: {code}"))
             })?,
@@ -233,14 +233,15 @@ impl LanguageTools {
                 max_tokens: None,
             };
             if let Ok(response) = llm.chat(request).await
-                && let Some(content) = response.content {
-                    llm_used = true;
-                    sections.push(serde_json::json!({
-                        "title": "AI 辅助解读",
-                        "kind": "ai",
-                        "text": cap_chars(Some(&content), 2000),
-                    }));
-                }
+                && let Some(content) = response.content
+            {
+                llm_used = true;
+                sections.push(serde_json::json!({
+                    "title": "AI 辅助解读",
+                    "kind": "ai",
+                    "text": cap_chars(Some(&content), 2000),
+                }));
+            }
         }
 
         Ok(ToolResult::ok(serde_json::json!({
@@ -257,7 +258,10 @@ impl LanguageTools {
     }
 
     /// language.generate_examples：只读已收录例句/句子，不编造新文本。
-    pub fn generate_examples(&self, arguments: &serde_json::Value) -> Result<ToolResult, AgentError> {
+    pub fn generate_examples(
+        &self,
+        arguments: &serde_json::Value,
+    ) -> Result<ToolResult, AgentError> {
         let item_id = arguments
             .get("item_id")
             .and_then(serde_json::Value::as_str)
@@ -308,7 +312,10 @@ impl LanguageTools {
 
     /// language.practice：待复习队列 + 今日统计（只读，不改变学习状态）。
     pub fn practice(&self, arguments: &serde_json::Value) -> Result<ToolResult, AgentError> {
-        let language = match arguments.get("language").and_then(serde_json::Value::as_str) {
+        let language = match arguments
+            .get("language")
+            .and_then(serde_json::Value::as_str)
+        {
             Some(code) => LanguageCode::from_code(code).ok_or_else(|| {
                 AgentError::tool_invalid_argument(format!("未知语言代码: {code}"))
             })?,
@@ -399,30 +406,36 @@ impl ModuleContextProvider for LanguageContextProvider<'_> {
         budget: &ContextBudget,
     ) -> Result<ContextBundle, AgentError> {
         if let Some(entity) = &app_context.entity
-            && entity.kind == "word" {
-                let rows = self.tools.rows(&entity.id)?;
-                if let Some(rows) = rows
-                    && let Some(item) = &rows.item {
-                        let headline = format!("Language · {}", item.text);
-                        let summary = serde_json::json!({
-                            "module": "language",
-                            "entity": {"kind": "word", "id": item.id, "label": item.text},
-                            "language": item.language.code(),
-                            "reading": item.reading,
-                            "romanization": item.romanization,
-                            "meanings_head": cap_list(&rows.meanings, budget.max_items / 4, |meaning| serde_json::json!({
-                                "gloss": meaning.gloss,
-                                "raw": cap_chars(meaning.raw.as_deref(), 200),
-                            })),
-                            "examples_count": rows.examples.len(),
-                            "examples_head": cap_list(&rows.examples, budget.max_items / 6, |example| serde_json::json!({
-                                "text": example.text,
-                                "translation": example.translation,
-                            })),
-                        });
-                        return Ok(ContextBundle { module: "language".to_string(), headline, summary });
-                    }
+            && entity.kind == "word"
+        {
+            let rows = self.tools.rows(&entity.id)?;
+            if let Some(rows) = rows
+                && let Some(item) = &rows.item
+            {
+                let headline = format!("Language · {}", item.text);
+                let summary = serde_json::json!({
+                    "module": "language",
+                    "entity": {"kind": "word", "id": item.id, "label": item.text},
+                    "language": item.language.code(),
+                    "reading": item.reading,
+                    "romanization": item.romanization,
+                    "meanings_head": cap_list(&rows.meanings, budget.max_items / 4, |meaning| serde_json::json!({
+                        "gloss": meaning.gloss,
+                        "raw": cap_chars(meaning.raw.as_deref(), 200),
+                    })),
+                    "examples_count": rows.examples.len(),
+                    "examples_head": cap_list(&rows.examples, budget.max_items / 6, |example| serde_json::json!({
+                        "text": example.text,
+                        "translation": example.translation,
+                    })),
+                });
+                return Ok(ContextBundle {
+                    module: "language".to_string(),
+                    headline,
+                    summary,
+                });
             }
+        }
         // 无选中词条：语言级上下文（view_state.language 或默认 jpn）。
         let language = app_context
             .view_state
@@ -448,11 +461,10 @@ pub struct LanguageProviderOwned {
 }
 impl LanguageProviderOwned {
     #[must_use]
-    pub fn new(
-        store: Arc<dyn LanguageStorePort>,
-        llm: Option<Arc<dyn ChatModelProvider>>,
-    ) -> Self {
-        Self { tools: LanguageTools::new(store, llm) }
+    pub fn new(store: Arc<dyn LanguageStorePort>, llm: Option<Arc<dyn ChatModelProvider>>) -> Self {
+        Self {
+            tools: LanguageTools::new(store, llm),
+        }
     }
 }
 impl ModuleContextProvider for LanguageProviderOwned {
@@ -499,7 +511,12 @@ pub fn register_language(
             None,
         ))),
     })?;
-    for name in [TOOL_GET_CONTEXT, TOOL_EXPLAIN, TOOL_GENERATE_EXAMPLES, TOOL_PRACTICE] {
+    for name in [
+        TOOL_GET_CONTEXT,
+        TOOL_EXPLAIN,
+        TOOL_GENERATE_EXAMPLES,
+        TOOL_PRACTICE,
+    ] {
         let spec = language.spec_for(name);
         tools.register(Arc::new(ToolImpl {
             name,
@@ -513,7 +530,12 @@ pub fn register_language(
 /// 导出工具常量（外部测试 / 组合根引用）。
 #[must_use]
 pub fn language_tool_names() -> [&'static str; 4] {
-    [TOOL_GET_CONTEXT, TOOL_EXPLAIN, TOOL_GENERATE_EXAMPLES, TOOL_PRACTICE]
+    [
+        TOOL_GET_CONTEXT,
+        TOOL_EXPLAIN,
+        TOOL_GENERATE_EXAMPLES,
+        TOOL_PRACTICE,
+    ]
 }
 
 // ---------------------------------------------------------------------------

@@ -296,7 +296,7 @@ fn personal_agent_route_calls_travel_tool() {
     let mut modules = ModuleRegistry::new();
     let mut tools = ToolRegistry::new();
     register_travel(&mut modules, &mut tools, Arc::new(port)).unwrap();
-    let hub = Arc::new(PersonalHub { modules, tools });
+    let hub = Arc::new(PersonalHub { modules, tools, retrieval: None });
 
     let chat = MiniChat {
         steps: Mutex::new(std::collections::VecDeque::new()),

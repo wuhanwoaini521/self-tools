@@ -5,9 +5,8 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
 use devtoolbox_core::language::{
-    DatasetManifest, LanguageCode, LanguageItem, LanguageItemType, LanguageSource,
-    LearningState, LearningStateKind, Meaning, ReviewOutcome,
-    ReviewRating, SentenceRecord,
+    DatasetManifest, LanguageCode, LanguageItem, LanguageItemType, LanguageSource, LearningState,
+    LearningStateKind, Meaning, ReviewOutcome, ReviewRating, SentenceRecord,
 };
 use devtoolbox_core::personal_ai::{
     AppContext as AiAppContext, ChatModelProvider, ChatRequest, ChatResponse, ChatToolCall,
@@ -422,7 +421,7 @@ async fn personal_agent_route_language() {
     use crate::personal_ai::session::InMemorySessionStore;
 
     let (modules, tools, store) = registered_with_llm(None);
-    let hub = Arc::new(PersonalHub { modules, tools });
+    let hub = Arc::new(PersonalHub { modules, tools, retrieval: None });
     let chat = MiniChat {
         steps: Mutex::new(std::collections::VecDeque::new()),
     };
