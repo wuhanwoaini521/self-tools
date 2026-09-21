@@ -153,7 +153,7 @@ pub struct ModuleDescriptor {
 // Action（V4 §13/§51）
 // ---------------------------------------------------------------------------
 
-/// 第一版 Action 类型（V4 §13：不要一开始设计 30 种）。
+/// Action 类型。V4 定义 4 种；V6 增加 3 种知识层动作（§80：尽量少扩展）。
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ActionKind {
@@ -161,6 +161,12 @@ pub enum ActionKind {
     OpenEntity,
     RefreshView,
     ShowPanel,
+    /// 打开知识库中的文档（V6 §128）。
+    OpenDocument,
+    /// 打开允许根内的文件（V6 §46/§129：backend 不执行 shell，只产出请求）。
+    OpenFile,
+    /// 请求用户确认保存一条 Memory（V6 §81）。
+    ConfirmMemory,
 }
 
 /// Action 请求。`kind` 序列化为 `type` 以贴合协议示例：
@@ -180,7 +186,7 @@ pub struct Action {
 // UI Block（V4 §15）
 // ---------------------------------------------------------------------------
 
-/// 第一版结构化 UI 类型（V4 §15）。
+/// UI Block 类型。V4 定义 5 种；V6 增加 5 种知识层结构化 UI（§38/§75）。
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum UiBlockKind {
@@ -189,6 +195,16 @@ pub enum UiBlockKind {
     SourceList,
     KeyValue,
     TimelinePreview,
+    /// Memory 候选/结果列表（含确认入口）。
+    MemoryList,
+    /// 文档命中列表。
+    DocumentList,
+    /// 单个文档卡片。
+    DocumentCard,
+    /// 文档引用（回答内联引用：文档 + 位置）。
+    DocumentReference,
+    /// 文件命中列表（含 Open 入口）。
+    FileList,
 }
 
 /// 结构化 UI Block：AI 返回结构化 UI，而不只是 Markdown。
@@ -299,6 +315,39 @@ impl Action {
             target,
         }
     }
+
+    /// 打开知识库文档（V6 §128）：target 形如
+    /// `{"document_id":…,"title":…,"location":…}`。
+    #[must_use]
+    pub fn open_document(target: serde_json::Value) -> Self {
+        Self {
+            kind: ActionKind::OpenDocument,
+            module: "documents".into(),
+            target,
+        }
+    }
+
+    /// 打开允许根内的文件（V6 §46/§129）：**由前端执行**，backend 不运行 shell。
+    /// target 形如 `{"file_id":…,"path":…,"file_name":…}`。
+    #[must_use]
+    pub fn open_file(target: serde_json::Value) -> Self {
+        Self {
+            kind: ActionKind::OpenFile,
+            module: "files".into(),
+            target,
+        }
+    }
+
+    /// 请求用户确认保存一条 Memory（V6 §81）：target 形如
+    /// `{"memory_id"|"draft":{…},"content":…,"category":…,"source_type":…}`。
+    #[must_use]
+    pub fn confirm_memory(target: serde_json::Value) -> Self {
+        Self {
+            kind: ActionKind::ConfirmMemory,
+            module: "memory".into(),
+            target,
+        }
+    }
 }
 
 impl AppContext {
@@ -358,6 +407,47 @@ mod tests {
         assert_eq!(json["kind"], "entity_list");
         let back: UiBlock = serde_json::from_value(json).unwrap();
         assert_eq!(block, back);
+    }
+
+    #[test]
+    fn v6_action_and_block_kinds_round_trip() {
+        for (action, expected) in [
+            (
+                Action::open_document(serde_json::json!({"document_id": "doc-1"})),
+                "open_document",
+            ),
+            (
+                Action::open_file(serde_json::json!({"file_id": "file-1"})),
+                "open_file",
+            ),
+            (
+                Action::confirm_memory(serde_json::json!({"memory_id": "m1"})),
+                "confirm_memory",
+            ),
+        ] {
+            let json = serde_json::to_value(&action).unwrap();
+            assert_eq!(json["type"], expected);
+            let back: Action = serde_json::from_value(json).unwrap();
+            assert_eq!(back, action);
+        }
+        assert_eq!(Action::open_file(serde_json::Value::Null).module, "files");
+        assert_eq!(
+            Action::confirm_memory(serde_json::Value::Null).module,
+            "memory"
+        );
+
+        for (kind, expected) in [
+            (UiBlockKind::MemoryList, "memory_list"),
+            (UiBlockKind::DocumentList, "document_list"),
+            (UiBlockKind::DocumentCard, "document_card"),
+            (UiBlockKind::DocumentReference, "document_reference"),
+            (UiBlockKind::FileList, "file_list"),
+        ] {
+            let json = serde_json::to_value(kind).unwrap();
+            assert_eq!(json, expected);
+            let back: UiBlockKind = serde_json::from_value(json).unwrap();
+            assert_eq!(back, kind);
+        }
     }
 
     #[test]

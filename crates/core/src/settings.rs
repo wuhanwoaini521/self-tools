@@ -92,6 +92,8 @@ pub struct AppSettings {
     pub geography: GeographySettings,
     /// Personal AI 模块设置（V4；全部 Optional，未配置时 AI Panel 显示未配置状态）。
     pub ai: AiSettings,
+    /// Personal Knowledge 设置（V6；允许根为空时 Documents/Files 如实报告未配置）。
+    pub knowledge: KnowledgeSettings,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -125,6 +127,7 @@ impl Default for AppSettings {
             travel: TravelSettings::default(),
             geography: GeographySettings::default(),
             ai: AiSettings::default(),
+            knowledge: KnowledgeSettings::default(),
         }
     }
 }
@@ -154,5 +157,114 @@ impl AiSettings {
         let base = self.base_url.as_deref().unwrap_or_default().trim();
         let model = self.model.as_deref().unwrap_or_default().trim();
         !base.is_empty() && !model.is_empty()
+    }
+}
+
+/// Personal Knowledge 设置（V6 §43/§89）。
+///
+/// 默认**空**：不写死任何用户路径；未配置时 Documents/Files 模块如实报告
+/// 「未配置允许目录」，AI 无法读取任何文件（§7 降级而非崩溃）。
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(default)]
+pub struct KnowledgeSettings {
+    /// 允许 AI 搜索 / 读取元数据 / 安全读取的文件根。
+    pub file_roots: Vec<crate::files::KnowledgeRoot>,
+    /// 进入文档索引的根（空 = 复用 `file_roots`）。
+    pub document_roots: Vec<crate::files::KnowledgeRoot>,
+    /// 单文档索引上限（字节）；超过则只索引元数据（§92）。
+    pub max_document_bytes: u64,
+    /// 单次安全读取的字符上限。
+    pub max_read_chars: usize,
+    /// 索引文件数上限（防止误配大目录导致全盘扫描）。
+    pub max_indexed_files: usize,
+    /// 启动时执行一次轻量同步（§89；不监听文件系统变更）。
+    pub startup_sync: bool,
+}
+
+impl Default for KnowledgeSettings {
+    fn default() -> Self {
+        Self {
+            file_roots: Vec::new(),
+            document_roots: Vec::new(),
+            max_document_bytes: crate::documents::ChunkConfig::default().max_document_bytes,
+            max_read_chars: 20_000,
+            max_indexed_files: 20_000,
+            startup_sync: true,
+        }
+    }
+}
+
+impl KnowledgeSettings {
+    /// 实际使用的文档根（未配置时复用文件根，避免两套配置冗余）。
+    #[must_use]
+    pub fn effective_document_roots(&self) -> Vec<crate::files::KnowledgeRoot> {
+        if self.document_roots.is_empty() {
+            self.file_roots.clone()
+        } else {
+            self.document_roots.clone()
+        }
+    }
+
+    /// 文件侧访问策略。
+    #[must_use]
+    pub fn file_policy(&self) -> crate::files::FileAccessPolicy {
+        crate::files::FileAccessPolicy::new(self.file_roots.clone())
+    }
+
+    /// 分块配置（把设置里的体积上限接进 `ChunkConfig`，§33 集中配置）。
+    #[must_use]
+    pub fn chunk_config(&self) -> crate::documents::ChunkConfig {
+        crate::documents::ChunkConfig {
+            max_document_bytes: self.max_document_bytes,
+            ..crate::documents::ChunkConfig::default()
+        }
+    }
+
+    /// 是否已配置任何可用根。
+    #[must_use]
+    pub fn is_configured(&self) -> bool {
+        !self.file_roots.is_empty() || !self.document_roots.is_empty()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn legacy_settings_json_still_decodes() {
+        // V5 之前写入的 settings.json（没有 knowledge 字段）。
+        let legacy = r#"{
+            "schema_version": 1,
+            "theme_mode": "light",
+            "ui_theme": "warm-editorial",
+            "travel": {"search_backend": "auto"},
+            "ai": {"model": "deepseek-chat"}
+        }"#;
+        let settings: AppSettings = serde_json::from_str(legacy).expect("legacy settings decode");
+        assert_eq!(settings.knowledge, KnowledgeSettings::default());
+        assert!(settings.knowledge.file_roots.is_empty());
+        assert!(!settings.knowledge.is_configured());
+        assert!(!settings.knowledge.file_policy().is_configured());
+        assert!(settings.knowledge.effective_document_roots().is_empty());
+        assert_eq!(
+            settings.knowledge.chunk_config().max_document_bytes,
+            settings.knowledge.max_document_bytes
+        );
+    }
+
+    #[test]
+    fn document_roots_fall_back_to_file_roots() {
+        let mut settings = KnowledgeSettings::default();
+        settings
+            .file_roots
+            .push(crate::files::KnowledgeRoot::new("docs", "资料", "/data/docs"));
+        assert_eq!(settings.effective_document_roots().len(), 1);
+        assert!(settings.is_configured());
+
+        settings.document_roots.push(crate::files::KnowledgeRoot::new(
+            "kn", "知识库", "/data/knowledge",
+        ));
+        assert_eq!(settings.effective_document_roots()[0].id, "kn");
     }
 }

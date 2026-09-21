@@ -3,10 +3,14 @@
 //! 此 crate 不依赖 Tauri、文件系统或 UI 框架，因此 Markdown 任务规则可被
 //! 桌面应用和回归测试共同复用。
 
+pub mod documents;
+pub mod files;
 pub mod geography;
 pub mod history_enrichment;
 pub mod history_records;
+pub mod knowledge;
 pub mod language;
+pub mod memory;
 pub mod parser;
 pub mod personal_ai;
 pub mod rss;
@@ -33,8 +37,8 @@ pub use parser::{
     set_task_mark,
 };
 pub use settings::{
-    AiSettings, AppSettings, GeographySettings, MarkdownView, ThemeMode, TravelSearchBackend,
-    TravelSettings,
+    AiSettings, AppSettings, GeographySettings, KnowledgeSettings, MarkdownView, ThemeMode,
+    TravelSearchBackend, TravelSettings,
 };
 pub use task_state::{TaskState, TaskStateRegistry, default_registry};
 pub use workspace::WorkspaceFile;
