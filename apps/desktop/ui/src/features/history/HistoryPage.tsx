@@ -287,7 +287,15 @@ export function HistoryPage({
     if (homeStories.some((story) => story.id === intent.id))
       void loadStory(intent.id);
     else void loadEvent(intent.id);
-  }, [active, homeLoaded, homeStories, intent, loadEvent, loadPerson, loadStory]);
+  }, [
+    active,
+    homeLoaded,
+    homeStories,
+    intent,
+    loadEvent,
+    loadPerson,
+    loadStory,
+  ]);
   /** AI AppContext 桥（V4 §24/§40）：Frontend 报告“我在哪”，实体由 History 页维护。 */
   useEffect(() => {
     if (!onContextChange) return;

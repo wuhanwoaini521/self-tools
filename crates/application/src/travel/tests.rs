@@ -30,10 +30,10 @@ impl TravelStorePort for FakeTravelStore {
     fn upsert_guide(&self, guide: &CityGuide, now: i64) -> Result<CityGuide, String> {
         let mut stored = guide.clone();
         stored.meta.updated_at = now;
-        self.guides.lock().expect("guides poisoned").insert(
-            (stored.city.name.clone(), stored.meta.days),
-            stored.clone(),
-        );
+        self.guides
+            .lock()
+            .expect("guides poisoned")
+            .insert((stored.city.name.clone(), stored.meta.days), stored.clone());
         Ok(stored)
     }
 
@@ -105,10 +105,7 @@ fn harness(
     providers: Vec<Box<dyn devtoolbox_core::travel::SearchProvider>>,
     fetcher: Box<dyn devtoolbox_core::travel::WebFetcher>,
     llm: Option<Box<dyn devtoolbox_core::travel::LlmProvider>>,
-) -> (
-    TravelResearchService,
-    Arc<Mutex<Vec<TravelResearchEvent>>>,
-) {
+) -> (TravelResearchService, Arc<Mutex<Vec<TravelResearchEvent>>>) {
     harness_with_data(providers, fetcher, llm, Vec::new())
 }
 
@@ -118,10 +115,7 @@ fn harness_with_data(
     fetcher: Box<dyn devtoolbox_core::travel::WebFetcher>,
     llm: Option<Box<dyn devtoolbox_core::travel::LlmProvider>>,
     data_providers: Vec<Box<dyn devtoolbox_core::travel::TravelDataProvider>>,
-) -> (
-    TravelResearchService,
-    Arc<Mutex<Vec<TravelResearchEvent>>>,
-) {
+) -> (TravelResearchService, Arc<Mutex<Vec<TravelResearchEvent>>>) {
     let store: Arc<dyn TravelStorePort> = Arc::new(FakeTravelStore::default());
     let events: Arc<Mutex<Vec<TravelResearchEvent>>> = Arc::new(Mutex::new(Vec::new()));
     let service = TravelResearchService::new(providers, fetcher, llm, data_providers, store);
@@ -195,7 +189,8 @@ async fn full_research_produces_structured_guide() {
             collector.lock().expect("poisoned").push(event);
         })
         .await
-        .expect("research").guide;
+        .expect("research")
+        .guide;
 
     assert_eq!(guide.city.name, "杭州");
     assert_eq!(guide.city.name_en.as_deref(), Some("Hangzhou"));
@@ -261,7 +256,8 @@ async fn provider_failure_falls_back_to_secondary() {
     let guide = service
         .research_city(&request("杭州"), &|_| {})
         .await
-        .expect("research with fallback").guide;
+        .expect("research with fallback")
+        .guide;
     // 主 Provider 全挂时备选 Provider 顶上，研究仍成功
     assert!(!guide.sources.is_empty());
     assert!(!secondary_calls.lock().expect("poisoned").is_empty());
@@ -311,7 +307,8 @@ async fn partial_page_failures_keep_snippets() {
     let guide = service
         .research_city(&request("杭州"), &|_| {})
         .await
-        .expect("partial success").guide;
+        .expect("partial success")
+        .guide;
     // 失败页面仍以「仅摘要」出现在来源里
     let snippet_source = guide
         .sources
@@ -336,7 +333,8 @@ async fn llm_failure_falls_back_to_sources_only() {
     let guide = service
         .research_city(&request("杭州"), &|_| {})
         .await
-        .expect("research keeps working without llm").guide;
+        .expect("research keeps working without llm")
+        .guide;
     assert!(!guide.meta.llm_used);
     assert!(!guide.sources.is_empty());
     // 降级说明写入 notes，不编造 AI 内容：summary 为降级文案
@@ -359,7 +357,8 @@ async fn no_llm_configured_still_returns_sources() {
             collector.lock().expect("poisoned").push(event);
         })
         .await
-        .expect("research without llm").guide;
+        .expect("research without llm")
+        .guide;
     assert!(!guide.meta.llm_used);
     assert!(guide.sources.len() >= 2);
     assert!(guide.meta.notes.iter().any(|n| n.contains("未配置 LLM")));
@@ -388,7 +387,8 @@ async fn illegal_llm_json_is_tolerated() {
     let guide = service
         .research_city(&request("杭州"), &|_| {})
         .await
-        .expect("illegal json tolerated").guide;
+        .expect("illegal json tolerated")
+        .guide;
     assert!(guide.meta.llm_used, "guide 由 LLM 生成");
     assert_eq!(guide.summary, "攻略依然生成。");
     // LLM 攻略里没有龙井虾仁，但合并层应把已验证事实补进去（food 类暂不强制，至少不报错）
@@ -422,7 +422,8 @@ async fn conflicting_facts_resolve_by_authority() {
     let guide = service
         .research_city(&request("杭州"), &|_| {})
         .await
-        .expect("conflict resolved").guide;
+        .expect("conflict resolved")
+        .guide;
     let attraction = guide
         .attractions
         .iter()
@@ -569,7 +570,8 @@ async fn fushun_two_day_guide_is_curated_and_deduplicated() {
     let guide = service
         .research_city(&fushun_request(), &|_| {})
         .await
-        .expect("fushun guide").guide;
+        .expect("fushun guide")
+        .guide;
     assert_eq!(guide.meta.days, 2);
     assert!(guide.attractions.len() <= 6);
     assert_eq!(guide.itinerary_days.len(), 2);
@@ -652,7 +654,8 @@ async fn data_provider_facts_enrich_guide_and_sources() {
     let guide = service
         .research_city(&request("杭州"), &|_| {})
         .await
-        .expect("research with data providers").guide;
+        .expect("research with data providers")
+        .guide;
     // 只有经过编辑补齐理由/时长/区域的条目进入主推荐；裸 POI 作为备选保留
     assert!(
         guide.alternatives.iter().any(|a| a.name.contains("龙井村")),
@@ -748,7 +751,8 @@ async fn amap_poi_fallback_keeps_fushun_itinerary_and_restaurants_readable() {
     let guide = service
         .research_city(&fushun_request(), &|_| {})
         .await
-        .expect("fallback guide").guide;
+        .expect("fallback guide")
+        .guide;
 
     assert!(!guide.meta.llm_used);
     assert!(!guide.attractions.is_empty());
@@ -783,7 +787,8 @@ async fn data_provider_failure_is_partial_success() {
             collector.lock().expect("poisoned").push(event);
         })
         .await
-        .expect("data provider failure must not abort research").guide;
+        .expect("data provider failure must not abort research")
+        .guide;
     assert!(!guide.sources.is_empty());
     assert!(
         guide
@@ -814,7 +819,8 @@ async fn without_data_keys_providers_skipped() {
             collector.lock().expect("poisoned").push(event);
         })
         .await
-        .expect("research without keys").guide;
+        .expect("research without keys")
+        .guide;
     assert!(!guide.sources.is_empty());
     assert!(
         guide
@@ -848,7 +854,8 @@ async fn llm_transport_failure_stops_remaining_requests() {
     let guide = service
         .research_city(&request("杭州"), &|_| {})
         .await
-        .expect("fallback guide").guide;
+        .expect("fallback guide")
+        .guide;
     assert_eq!(
         *calls.lock().expect("calls"),
         2,

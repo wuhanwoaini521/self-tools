@@ -47,7 +47,10 @@ fn provider_kind_label(kind: ProviderErrorKind) -> &'static str {
 impl ProviderError {
     #[must_use]
     pub fn new(kind: ProviderErrorKind, message: impl Into<String>) -> Self {
-        Self { kind, message: message.into() }
+        Self {
+            kind,
+            message: message.into(),
+        }
     }
     #[must_use]
     pub fn unavailable(message: impl Into<String>) -> Self {
@@ -103,19 +106,39 @@ pub struct ChatMessage {
 impl ChatMessage {
     #[must_use]
     pub fn system(content: impl Into<String>) -> Self {
-        Self { role: ChatRole::System, content: Some(content.into()), tool_calls: None, tool_call_id: None }
+        Self {
+            role: ChatRole::System,
+            content: Some(content.into()),
+            tool_calls: None,
+            tool_call_id: None,
+        }
     }
     #[must_use]
     pub fn user(content: impl Into<String>) -> Self {
-        Self { role: ChatRole::User, content: Some(content.into()), tool_calls: None, tool_call_id: None }
+        Self {
+            role: ChatRole::User,
+            content: Some(content.into()),
+            tool_calls: None,
+            tool_call_id: None,
+        }
     }
     #[must_use]
     pub fn assistant(content: impl Into<String>) -> Self {
-        Self { role: ChatRole::Assistant, content: Some(content.into()), tool_calls: None, tool_call_id: None }
+        Self {
+            role: ChatRole::Assistant,
+            content: Some(content.into()),
+            tool_calls: None,
+            tool_call_id: None,
+        }
     }
     #[must_use]
     pub fn assistant_tool_calls(calls: Vec<ChatToolCall>) -> Self {
-        Self { role: ChatRole::Assistant, content: None, tool_calls: Some(calls), tool_call_id: None }
+        Self {
+            role: ChatRole::Assistant,
+            content: None,
+            tool_calls: Some(calls),
+            tool_call_id: None,
+        }
     }
     #[must_use]
     pub fn tool_result(tool_call_id: impl Into<String>, content: impl Into<String>) -> Self {

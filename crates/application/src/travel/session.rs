@@ -133,7 +133,10 @@ impl TravelSessionRegistry {
 
     #[must_use]
     pub fn len(&self) -> usize {
-        self.sessions.lock().expect("travel registry poisoned").len()
+        self.sessions
+            .lock()
+            .expect("travel registry poisoned")
+            .len()
     }
 
     #[must_use]

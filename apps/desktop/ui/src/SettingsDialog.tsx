@@ -348,9 +348,9 @@ export function SettingsDialog({
             <label className="settings-label">Ask AI（Personal AI）</label>
             <p className="settings-hint">
               全局 AI 助手配置（OpenAI Compatible：DeepSeek / Qwen / OpenAI /
-              本地 Ollama http://localhost:11434/v1）。未配置时 AI 面板显示未配置
-              状态，其余功能不受影响。Key 仅保存在本地 settings.json，不会进入
-              日志或同步到任何服务。
+              本地 Ollama http://localhost:11434/v1）。未配置时 AI
+              面板显示未配置 状态，其余功能不受影响。Key 仅保存在本地
+              settings.json，不会进入 日志或同步到任何服务。
             </p>
             <label className="settings-label" htmlFor="ai-base">
               API Base URL

@@ -175,10 +175,7 @@ pub async fn fetch_all_feeds<F: FeedFetcherPort + ?Sized>(
 /// 落库阶段：写入刷新结果并汇总报告。
 pub fn commit_refresh(
     repository: &(dyn RssRepositoryPort + Send + Sync),
-    results: Vec<(
-        FeedSnapshot,
-        Result<FetchedFeed, FeedFetchError>,
-    )>,
+    results: Vec<(FeedSnapshot, Result<FetchedFeed, FeedFetchError>)>,
 ) -> Result<RefreshReport, ApplicationError> {
     let mut report = RefreshReport::default();
     for (snapshot, result) in results {

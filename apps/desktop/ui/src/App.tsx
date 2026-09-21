@@ -354,8 +354,7 @@ export default function App() {
     const moduleName = aiContext.module
       ? aiContext.module.charAt(0).toUpperCase() + aiContext.module.slice(1)
       : null;
-    const entityName =
-      aiContext.entity?.label ?? aiContext.entity?.id ?? null;
+    const entityName = aiContext.entity?.label ?? aiContext.entity?.id ?? null;
     if (moduleName && entityName) return `${moduleName} · ${entityName}`;
     return entityName ?? moduleName;
   }, [aiContext]);
@@ -472,10 +471,7 @@ export default function App() {
           <section
             className={"page-pane" + (page === "travel" ? "" : " page-hidden")}
           >
-            <TravelPage
-              active={page === "travel"}
-              setNotice={setNotice}
-            />
+            <TravelPage active={page === "travel"} setNotice={setNotice} />
           </section>
           <section
             className={
@@ -551,9 +547,7 @@ export default function App() {
             void updateSettings({ ...settings, geography: next })
           }
           ai={settings.ai}
-          onAiChange={(next) =>
-            void updateSettings({ ...settings, ai: next })
-          }
+          onAiChange={(next) => void updateSettings({ ...settings, ai: next })}
           onClose={() => setSettingsOpen(false)}
         />
       ) : null}

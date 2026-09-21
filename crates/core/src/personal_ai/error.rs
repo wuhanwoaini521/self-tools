@@ -56,7 +56,10 @@ pub struct AgentError {
 impl AgentError {
     #[must_use]
     pub fn new(kind: AgentErrorKind, message: impl Into<String>) -> Self {
-        Self { kind, message: message.into() }
+        Self {
+            kind,
+            message: message.into(),
+        }
     }
 
     #[must_use]
@@ -122,8 +125,7 @@ mod tests {
             AgentErrorKind::MaxToolRounds,
             AgentErrorKind::Session,
         ];
-        let codes: std::collections::HashSet<&str> =
-            kinds.iter().map(|k| k.code()).collect();
+        let codes: std::collections::HashSet<&str> = kinds.iter().map(|k| k.code()).collect();
         assert_eq!(codes.len(), kinds.len(), "codes must be unique");
     }
 }

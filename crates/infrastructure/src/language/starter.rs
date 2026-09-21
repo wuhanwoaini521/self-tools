@@ -129,8 +129,8 @@ pub fn install_starter(
         report.datasets.push(dataset);
 
         // CMUdict：优先挂到 OEWN 同名词条（enrichment），其余独立成词
-        let cmu_items = cmudict::parse(EN_CMUDICT)
-            .map_err(|error| StarterError::License(error.to_string()))?;
+        let cmu_items =
+            cmudict::parse(EN_CMUDICT).map_err(|error| StarterError::License(error.to_string()))?;
         let cmu_source = sources::cmudict();
         let mut standalone: Vec<ImportedItem> = Vec::new();
         let mut attached = 0i64;
@@ -177,8 +177,8 @@ pub fn install_starter(
     // ---- Japanese Core Pack ----
     if want("jpn") {
         let source = sources::jmdict();
-        let items = jmdict::parse(JP_JMDICT)
-            .map_err(|error| StarterError::License(error.to_string()))?;
+        let items =
+            jmdict::parse(JP_JMDICT).map_err(|error| StarterError::License(error.to_string()))?;
         let result = import_into(
             store,
             &source,
@@ -212,8 +212,8 @@ pub fn install_starter(
     // ---- Mandarin Core Pack ----
     if want("cmn") {
         let source = sources::cc_cedict();
-        let items = cedict::parse(ZH_CEDICT)
-            .map_err(|error| StarterError::License(error.to_string()))?;
+        let items =
+            cedict::parse(ZH_CEDICT).map_err(|error| StarterError::License(error.to_string()))?;
         let result = import_into(
             store,
             &source,
@@ -273,9 +273,7 @@ pub fn install_starter(
             .attach_search_terms(&pairs)
             .map_err(StarterError::from)?;
         let source = sources::words_hk_english_index();
-        store
-            .upsert_source(&source)
-            .map_err(StarterError::from)?;
+        store.upsert_source(&source).map_err(StarterError::from)?;
         store
             .insert_manifest(&devtoolbox_core::language::DatasetManifest {
                 id: "starter-words-hk-english".to_string(),

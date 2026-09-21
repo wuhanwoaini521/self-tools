@@ -17,7 +17,9 @@ use devtoolbox_core::{
 };
 
 use crate::personal_ai::context::ContextBudget;
-use crate::personal_ai::prompt::{assemble_messages, assemble_system, parse_agent_envelope, ui_snapshot};
+use crate::personal_ai::prompt::{
+    assemble_messages, assemble_system, parse_agent_envelope, ui_snapshot,
+};
 use crate::personal_ai::registry::{ModuleRegistry, ToolRegistry};
 use crate::personal_ai::session::SessionStore;
 
@@ -34,7 +36,11 @@ pub struct AgentConfig {
 
 impl Default for AgentConfig {
     fn default() -> Self {
-        Self { max_tool_rounds: 4, context_budget: ContextBudget::default(), snapshot_cap: 40 }
+        Self {
+            max_tool_rounds: 4,
+            context_budget: ContextBudget::default(),
+            snapshot_cap: 40,
+        }
     }
 }
 
@@ -44,7 +50,6 @@ pub struct PersonalHub {
     pub modules: ModuleRegistry,
     pub tools: ToolRegistry,
 }
-
 
 /// PersonalAgent：一个核心服务，服务所有模块（V4 Principle 2）。
 pub struct PersonalAgent {
@@ -62,7 +67,12 @@ impl PersonalAgent {
         session: Arc<dyn SessionStore>,
         config: AgentConfig,
     ) -> Self {
-        Self { provider, hub, session, config }
+        Self {
+            provider,
+            hub,
+            session,
+            config,
+        }
     }
 
     #[must_use]
@@ -90,18 +100,17 @@ impl PersonalAgent {
         let system = assemble_system(
             &self.hub.modules.descriptors(),
             &request.app_context,
-            self.hub.modules.context_provider(request.app_context.module.as_deref().unwrap_or_default()).as_deref(),
+            self.hub
+                .modules
+                .context_provider(request.app_context.module.as_deref().unwrap_or_default())
+                .as_deref(),
             &self.config.context_budget,
         );
 
         // 会话历史 + 用户消息
         let messages = self.session.load(&session_id);
-        let mut chat_messages = assemble_messages(
-            &messages,
-            &request.message,
-            &enabled_tools,
-            &system,
-        );
+        let mut chat_messages =
+            assemble_messages(&messages, &request.message, &enabled_tools, &system);
 
         let started = Instant::now();
         let mut total_usage = AgentUsage::default();
@@ -178,8 +187,10 @@ impl PersonalAgent {
             // 工具轮：执行（受控失败转为 ToolResult::fail，不 panic）
             for call in &response.tool_calls {
                 let tool_started = Instant::now();
-                let tool_result =
-                    self.hub.tools.execute(&ToolCallRequest {
+                let tool_result = self
+                    .hub
+                    .tools
+                    .execute(&ToolCallRequest {
                         id: call.id.clone(),
                         name: call.name.clone(),
                         arguments: call.arguments.clone(),
@@ -256,8 +267,7 @@ mod tests {
     use super::*;
     use crate::personal_ai::registry::ToolExecutor;
     use devtoolbox_core::{
-        ChatToolCall, ModuleDescriptor, ToolRisk, ToolSpec,
-        personal_ai::AppContext,
+        ChatToolCall, ModuleDescriptor, ToolRisk, ToolSpec, personal_ai::AppContext,
     };
     use serde_json::json;
     use std::sync::RwLock;
@@ -272,26 +282,48 @@ mod tests {
 
     #[derive(Default)]
     pub struct VecDequeScript {
-        pub steps: std::collections::VecDeque<Result<devtoolbox_core::ChatResponse, devtoolbox_core::ProviderError>>,
+        pub steps: std::collections::VecDeque<
+            Result<devtoolbox_core::ChatResponse, devtoolbox_core::ProviderError>,
+        >,
     }
 
     impl FakeChatModelProvider {
         pub fn new() -> Self {
-            Self { script: RwLock::new(VecDequeScript::default()), name_label: "fake" }
+            Self {
+                script: RwLock::new(VecDequeScript::default()),
+                name_label: "fake",
+            }
         }
         pub fn push_text(&self, text: &str) {
-            self.script.write().unwrap().steps.push_back(Ok(devtoolbox_core::ChatResponse {
-                content: Some(text.to_string()),
-                tool_calls: Vec::new(),
-                usage: devtoolbox_core::ChatUsage { input_tokens: 1, output_tokens: 2, total_tokens: 3, duration_ms: 1 },
-            }));
+            self.script
+                .write()
+                .unwrap()
+                .steps
+                .push_back(Ok(devtoolbox_core::ChatResponse {
+                    content: Some(text.to_string()),
+                    tool_calls: Vec::new(),
+                    usage: devtoolbox_core::ChatUsage {
+                        input_tokens: 1,
+                        output_tokens: 2,
+                        total_tokens: 3,
+                        duration_ms: 1,
+                    },
+                }));
         }
         pub fn push_tool_call(&self, id: &str, name: &str, arguments: serde_json::Value) {
-            self.script.write().unwrap().steps.push_back(Ok(devtoolbox_core::ChatResponse {
-                content: None,
-                tool_calls: vec![ChatToolCall { id: id.to_string(), name: name.to_string(), arguments }],
-                usage: devtoolbox_core::ChatUsage::default(),
-            }));
+            self.script
+                .write()
+                .unwrap()
+                .steps
+                .push_back(Ok(devtoolbox_core::ChatResponse {
+                    content: None,
+                    tool_calls: vec![ChatToolCall {
+                        id: id.to_string(),
+                        name: name.to_string(),
+                        arguments,
+                    }],
+                    usage: devtoolbox_core::ChatUsage::default(),
+                }));
         }
         pub fn push_error(&self, error: devtoolbox_core::ProviderError) {
             self.script.write().unwrap().steps.push_back(Err(error));
@@ -303,17 +335,22 @@ mod tests {
         fn name(&self) -> &'static str {
             self.name_label
         }
-        async fn chat(&self, _request: ChatRequest) -> Result<devtoolbox_core::ChatResponse, devtoolbox_core::ProviderError> {
+        async fn chat(
+            &self,
+            _request: ChatRequest,
+        ) -> Result<devtoolbox_core::ChatResponse, devtoolbox_core::ProviderError> {
             self.script
                 .write()
                 .unwrap()
                 .steps
                 .pop_front()
-                .unwrap_or_else(|| Ok(devtoolbox_core::ChatResponse {
-                    content: Some("script exhausted".to_string()),
-                    tool_calls: Vec::new(),
-                    usage: devtoolbox_core::ChatUsage::default(),
-                }))
+                .unwrap_or_else(|| {
+                    Ok(devtoolbox_core::ChatResponse {
+                        content: Some("script exhausted".to_string()),
+                        tool_calls: Vec::new(),
+                        usage: devtoolbox_core::ChatUsage::default(),
+                    })
+                })
         }
     }
 
@@ -386,7 +423,10 @@ mod tests {
             Arc::new(fake),
             make_hub(),
             Arc::new(crate::personal_ai::session::InMemorySessionStore::new()),
-            AgentConfig { max_tool_rounds: 4, ..AgentConfig::default() },
+            AgentConfig {
+                max_tool_rounds: 4,
+                ..AgentConfig::default()
+            },
         )
     }
 
@@ -394,7 +434,10 @@ mod tests {
         AgentRequest {
             message: message.to_string(),
             session_id: Some("test-session".into()),
-            app_context: AppContext { module: Some("history".into()), ..AppContext::default() },
+            app_context: AppContext {
+                module: Some("history".into()),
+                ..AppContext::default()
+            },
             capabilities: vec!["history".into()],
             locale: Some("zh-CN".into()),
         }
@@ -464,7 +507,10 @@ mod tests {
         for _ in 0..10 {
             fake.push_tool_call("call_looped", "history.search", json!({"query": "x"}));
         }
-        let mut config = AgentConfig { max_tool_rounds: 3, ..AgentConfig::default() };
+        let mut config = AgentConfig {
+            max_tool_rounds: 3,
+            ..AgentConfig::default()
+        };
         config.max_tool_rounds = 3;
         let hub = std::sync::Arc::new(PersonalHub::default());
         let agent = PersonalAgent::new(

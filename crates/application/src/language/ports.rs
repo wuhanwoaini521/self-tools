@@ -74,7 +74,8 @@ pub trait LanguageStorePort: Send + Sync {
     fn item_detail(&self, id: &str) -> Result<LanguageDetailRows, String>;
     fn source_by_id(&self, id: &str) -> Result<Option<LanguageSource>, String>;
     fn today_plan(&self, language: LanguageCode, now: i64) -> Result<TodayPlan, String>;
-    fn review_next(&self, language: LanguageCode, now: i64) -> Result<Option<LanguageItem>, String>;
+    fn review_next(&self, language: LanguageCode, now: i64)
+    -> Result<Option<LanguageItem>, String>;
     fn learning_state(&self, item_id: &str) -> Result<Option<LearningState>, String>;
     fn rate_review(
         &self,

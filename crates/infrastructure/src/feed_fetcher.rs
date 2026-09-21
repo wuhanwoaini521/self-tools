@@ -18,8 +18,6 @@ pub use devtoolbox_core::rss::{FetchedEntry, FetchedFeed};
 const FETCH_TIMEOUT: Duration = Duration::from_secs(15);
 const USER_AGENT: &str = concat!("DevToolbox/", env!("CARGO_PKG_VERSION"), " (+rss reader)");
 
-
-
 fn text_content(text: Option<Text>) -> Option<String> {
     text.map(|value| value.content.trim().to_string())
         .filter(|value| !value.is_empty())

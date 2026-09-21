@@ -95,15 +95,30 @@ pub struct ToolResult {
 impl ToolResult {
     #[must_use]
     pub fn ok(data: serde_json::Value) -> Self {
-        Self { ok: true, data, error: None, metadata: serde_json::Value::Null }
+        Self {
+            ok: true,
+            data,
+            error: None,
+            metadata: serde_json::Value::Null,
+        }
     }
     #[must_use]
     pub fn ok_with_metadata(data: serde_json::Value, metadata: serde_json::Value) -> Self {
-        Self { ok: true, data, error: None, metadata }
+        Self {
+            ok: true,
+            data,
+            error: None,
+            metadata,
+        }
     }
     #[must_use]
     pub fn fail(message: impl Into<String>) -> Self {
-        Self { ok: false, data: serde_json::Value::Null, error: Some(message.into()), metadata: serde_json::Value::Null }
+        Self {
+            ok: false,
+            data: serde_json::Value::Null,
+            error: Some(message.into()),
+            metadata: serde_json::Value::Null,
+        }
     }
 }
 
@@ -278,7 +293,11 @@ impl Action {
     /// 构造 Navigate 动作（V4 §13 示例形状）。
     #[must_use]
     pub fn navigate(module: impl Into<String>, target: serde_json::Value) -> Self {
-        Self { kind: ActionKind::Navigate, module: module.into(), target }
+        Self {
+            kind: ActionKind::Navigate,
+            module: module.into(),
+            target,
+        }
     }
 }
 
@@ -299,7 +318,11 @@ mod tests {
         let ctx = AppContext {
             module: Some("history".into()),
             page: Some("person-detail".into()),
-            entity: Some(EntityRef { kind: "person".into(), id: "mao_zedong".into(), label: Some("毛泽东".into()) }),
+            entity: Some(EntityRef {
+                kind: "person".into(),
+                id: "mao_zedong".into(),
+                label: Some("毛泽东".into()),
+            }),
             selection: None,
             view_state: serde_json::Value::Null,
         };
@@ -363,9 +386,23 @@ mod tests {
                 title: "t".into(),
                 data: serde_json::json!([]),
             }],
-            tool_trace: vec![ToolTraceEntry { tool: "history.search".into(), ok: true, duration_ms: 3, note: None }],
-            usage: Some(AgentUsage { input_tokens: 1, output_tokens: 2, total_tokens: 3, duration_ms: 4, tool_rounds: 1 }),
-            messages: vec![AgentMessage { role: "user".into(), content: "hi".into() }],
+            tool_trace: vec![ToolTraceEntry {
+                tool: "history.search".into(),
+                ok: true,
+                duration_ms: 3,
+                note: None,
+            }],
+            usage: Some(AgentUsage {
+                input_tokens: 1,
+                output_tokens: 2,
+                total_tokens: 3,
+                duration_ms: 4,
+                tool_rounds: 1,
+            }),
+            messages: vec![AgentMessage {
+                role: "user".into(),
+                content: "hi".into(),
+            }],
             provider: Some("fake".into()),
             model: Some("fake-model".into()),
         };

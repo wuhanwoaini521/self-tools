@@ -39,7 +39,8 @@ fn acceptance_searches() {
     // Japanese：食べる（text）、たべる（reading）、taberu（romanization）
     let hits = service.search(Some("jpn"), "食べる", 5).expect("search");
     assert!(
-        hits.iter().any(|hit| hit.item.id.starts_with("jmdict:") && hit.item.text == "食べる"),
+        hits.iter()
+            .any(|hit| hit.item.id.starts_with("jmdict:") && hit.item.text == "食べる"),
         "食べる from JMdict: {hits:?}"
     );
     let hits = service.search(Some("jpn"), "たべる", 5).expect("search");
@@ -54,13 +55,18 @@ fn acceptance_searches() {
     );
 
     // English：reservation 定义来自 OEWN、发音来自 CMUdict（ARPABET）
-    let hits = service.search(Some("eng"), "reservation", 5).expect("search");
+    let hits = service
+        .search(Some("eng"), "reservation", 5)
+        .expect("search");
     let reservation = hits
         .iter()
         .find(|hit| hit.item.id == "wn:reservation")
         .expect("in OEWN");
     assert_eq!(reservation.matched, "exact");
-    let detail = service.detail("wn:reservation").expect("detail").expect("found");
+    let detail = service
+        .detail("wn:reservation")
+        .expect("detail")
+        .expect("found");
     assert!(!detail.meanings.is_empty(), "meanings from OEWN");
     assert!(detail.meanings[0].gloss.is_some());
     assert!(
@@ -78,7 +84,10 @@ fn acceptance_searches() {
         .iter()
         .find(|hit| hit.item.text == "旅行")
         .expect("旅行");
-    let detail = service.detail(&lvxing.item.id).expect("detail").expect("found");
+    let detail = service
+        .detail(&lvxing.item.id)
+        .expect("detail")
+        .expect("found");
     let meta = detail.item.meta.clone().expect("mandarin meta");
     let devtoolbox_core::language::LanguageMetadata::Mandarin(mandarin) = meta else {
         panic!("mandarin metadata expected")
@@ -86,7 +95,11 @@ fn acceptance_searches() {
     assert_eq!(mandarin.simplified.as_deref(), Some("旅行"));
     assert_eq!(mandarin.traditional.as_deref(), Some("旅行"));
     assert!(
-        mandarin.pinyin.as_deref().unwrap_or_default().starts_with("lu:3")
+        mandarin
+            .pinyin
+            .as_deref()
+            .unwrap_or_default()
+            .starts_with("lu:3")
     );
     assert!(mandarin.hsk.is_none(), "HSK 无明确来源，V1 不填");
 
@@ -96,7 +109,10 @@ fn acceptance_searches() {
         .iter()
         .find(|hit| hit.item.id.starts_with("whk:"))
         .expect("食飯");
-    let detail = service.detail(&sik.item.id).expect("detail").expect("found");
+    let detail = service
+        .detail(&sik.item.id)
+        .expect("detail")
+        .expect("found");
     assert!(
         detail
             .pronunciations
@@ -105,7 +121,9 @@ fn acceptance_searches() {
         "jyutping from words.hk: {:?}",
         detail.pronunciations
     );
-    let hits = service.search(Some("yue"), "sik6 faan6", 5).expect("search");
+    let hits = service
+        .search(Some("yue"), "sik6 faan6", 5)
+        .expect("search");
     assert!(
         hits.iter().any(|hit| hit.item.id == sik.item.id),
         "sik6 faan6 → 食飯: {hits:?}"
@@ -131,7 +149,9 @@ fn learning_flow_offline() {
         .expect("review")
         .expect("card available");
     assert!(card.state == LearningStateKind::New);
-    let outcome = service.rate(&card.item.id, ReviewRating::Good).expect("rate");
+    let outcome = service
+        .rate(&card.item.id, ReviewRating::Good)
+        .expect("rate");
     assert!(outcome.interval_days >= 1.0);
     assert!(service.toggle_favorite(&card.item.id).expect("favorite"));
     let progress = service.progress().expect("progress");

@@ -320,14 +320,12 @@ pub fn parse_searxng_json(
     count: usize,
     fetched_at: i64,
 ) -> Result<Vec<SearchResult>, ProviderError> {
-    let value: serde_json::Value = serde_json::from_slice(bytes)
-        .map_err(|error| ProviderError::search(error.to_string()))?;
+    let value: serde_json::Value =
+        serde_json::from_slice(bytes).map_err(|error| ProviderError::search(error.to_string()))?;
     let results = value
         .get("results")
         .and_then(serde_json::Value::as_array)
-        .ok_or_else(|| {
-            ProviderError::search("searxng response missing results".to_string())
-        })?;
+        .ok_or_else(|| ProviderError::search("searxng response missing results".to_string()))?;
     Ok(results
         .iter()
         .take(count)

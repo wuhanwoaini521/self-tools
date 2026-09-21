@@ -7,12 +7,10 @@ use serde::{Deserialize, Serialize};
 
 pub mod ports;
 
-pub use ports::{
-    DocumentStoreError, DocumentStorePort, SettingsStoreError, SettingsStorePort,
-};
+pub use ports::{DocumentStoreError, DocumentStorePort, SettingsStoreError, SettingsStorePort};
 
-use crate::error::infrastructure;
 use crate::ApplicationError;
+use crate::error::infrastructure;
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct DocumentDto {

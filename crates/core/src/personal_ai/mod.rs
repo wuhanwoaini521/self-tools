@@ -15,11 +15,11 @@ pub mod types;
 
 pub use error::{AgentError, AgentErrorKind};
 pub use provider::{
-    ChatMessage, ChatRequest, ChatResponse, ChatRole, ChatToolCall, ChatToolSpec, ChatUsage,
-    ChatModelProvider, ProviderError, ProviderErrorKind,
+    ChatMessage, ChatModelProvider, ChatRequest, ChatResponse, ChatRole, ChatToolCall,
+    ChatToolSpec, ChatUsage, ProviderError, ProviderErrorKind,
 };
 pub use types::{
-    Action, ActionKind, AgentMessage, AgentRequest, AgentResponse, AppContext, EntityRef,
-    ModuleDescriptor, SelectionRef, ToolCallRequest, ToolResult, ToolRisk, ToolSpec, ToolTraceEntry,
-    UiBlock, UiBlockKind, AgentUsage,
+    Action, ActionKind, AgentMessage, AgentRequest, AgentResponse, AgentUsage, AppContext,
+    EntityRef, ModuleDescriptor, SelectionRef, ToolCallRequest, ToolResult, ToolRisk, ToolSpec,
+    ToolTraceEntry, UiBlock, UiBlockKind,
 };

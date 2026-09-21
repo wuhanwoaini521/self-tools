@@ -29,24 +29,27 @@ impl Validator {
             return Ok(());
         }
         if let Some(expected) = schema.get("type").and_then(Value::as_str)
-            && !type_matches(expected, instance) {
-                return Err(format!(
-                    "{path}: expected type `{expected}`, got {}",
-                    type_label(instance)
-                ));
-            }
+            && !type_matches(expected, instance)
+        {
+            return Err(format!(
+                "{path}: expected type `{expected}`, got {}",
+                type_label(instance)
+            ));
+        }
         if let Some(values) = schema.get("enum").and_then(Value::as_array)
-            && !values.iter().any(|value| value == instance) {
-                return Err(format!("{path}: value not in allowed enum"));
-            }
+            && !values.iter().any(|value| value == instance)
+        {
+            return Err(format!("{path}: value not in allowed enum"));
+        }
         match instance {
             Value::Object(map) => {
                 if let Some(required) = schema.get("required").and_then(Value::as_array) {
                     for key in required {
                         if let Some(key) = key.as_str()
-                            && !map.contains_key(key) {
-                                return Err(format!("{path}: missing required property `{key}`"));
-                            }
+                            && !map.contains_key(key)
+                        {
+                            return Err(format!("{path}: missing required property `{key}`"));
+                        }
                     }
                 }
                 if let Some(properties) = schema.get("properties").and_then(Value::as_object) {
@@ -124,10 +127,9 @@ mod tests {
         assert!(Validator::validate(&schema, &json!({})).is_err());
         assert!(Validator::validate(&schema, &json!({"query": "x", "limit": 3})).is_ok());
         assert!(Validator::validate(&schema, &json!({"query": "x", "limit": "3"})).is_err());
-        assert!(Validator::validate(
-            &schema,
-            &json!({"query": "x", "entity_type": "place"})
-        ).is_err());
+        assert!(
+            Validator::validate(&schema, &json!({"query": "x", "entity_type": "place"})).is_err()
+        );
     }
 
     #[test]

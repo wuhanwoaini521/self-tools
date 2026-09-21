@@ -11,7 +11,7 @@ use async_trait::async_trait;
 
 use devtoolbox_core::travel::{
     AMAP_SOURCE_URL, FactCategory, MapCoordinates, ProviderError, QWEATHER_SOURCE_URL,
-    TravelDataProvider, TravelDataRequest, TravelRoute, TravelRouteRequest, TravelFact,
+    TravelDataProvider, TravelDataRequest, TravelFact, TravelRoute, TravelRouteRequest,
 };
 
 const DATA_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
@@ -105,10 +105,7 @@ impl TravelDataProvider for AmapPoiProvider {
         "amap-poi"
     }
 
-    async fn fetch(
-        &self,
-        request: TravelDataRequest,
-    ) -> Result<Vec<TravelFact>, ProviderError> {
+    async fn fetch(&self, request: TravelDataRequest) -> Result<Vec<TravelFact>, ProviderError> {
         if request.kind != "poi" {
             return Ok(Vec::new());
         }
@@ -331,10 +328,7 @@ impl TravelDataProvider for QWeatherProvider {
         "qweather"
     }
 
-    async fn fetch(
-        &self,
-        request: TravelDataRequest,
-    ) -> Result<Vec<TravelFact>, ProviderError> {
+    async fn fetch(&self, request: TravelDataRequest) -> Result<Vec<TravelFact>, ProviderError> {
         if request.kind != "weather" {
             return Ok(Vec::new());
         }
@@ -347,10 +341,7 @@ impl TravelDataProvider for QWeatherProvider {
         );
         let lookup = get_json(&self.client, &lookup_url, "qweather").await?;
         let location_id = parse_qweather_location(&lookup).ok_or_else(|| {
-            ProviderError::data(format!(
-                "qweather: city not found for {}",
-                request.city
-            ))
+            ProviderError::data(format!("qweather: city not found for {}", request.city))
         })?;
         // 2) 3 天预报
         let forecast_url = format!(

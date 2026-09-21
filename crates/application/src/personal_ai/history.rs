@@ -23,9 +23,7 @@ use devtoolbox_core::history_records::{
     WorkResult,
 };
 use devtoolbox_core::personal_ai::{AppContext, EntityRef};
-use devtoolbox_core::{
-    AgentError, ModuleDescriptor, ToolResult, ToolRisk, ToolSpec,
-};
+use devtoolbox_core::{AgentError, ModuleDescriptor, ToolResult, ToolRisk, ToolSpec};
 
 use crate::history::{HistoryPortError, HistoryQueryPort, HistoryService};
 use crate::personal_ai::context::{ContextBudget, ContextBundle, ModuleContextProvider};
@@ -50,22 +48,38 @@ impl HistoryQueryPort for PortRef {
     fn get_periods(&self) -> Result<Vec<PeriodResult>, HistoryPortError> {
         self.0.get_periods()
     }
-    fn get_regimes_by_period(&self, period_id: &str) -> Result<Vec<RegimeResult>, HistoryPortError> {
+    fn get_regimes_by_period(
+        &self,
+        period_id: &str,
+    ) -> Result<Vec<RegimeResult>, HistoryPortError> {
         self.0.get_regimes_by_period(period_id)
     }
-    fn get_events_for_period(&self, period_id: &str) -> Result<Vec<PeriodEventItem>, HistoryPortError> {
+    fn get_events_for_period(
+        &self,
+        period_id: &str,
+    ) -> Result<Vec<PeriodEventItem>, HistoryPortError> {
         self.0.get_events_for_period(period_id)
     }
-    fn get_people_for_period(&self, period_id: &str, limit: i64) -> Result<Vec<PeriodPersonItem>, HistoryPortError> {
+    fn get_people_for_period(
+        &self,
+        period_id: &str,
+        limit: i64,
+    ) -> Result<Vec<PeriodPersonItem>, HistoryPortError> {
         self.0.get_people_for_period(period_id, limit)
     }
-    fn get_relations_for_period(&self, period_id: &str) -> Result<Vec<EventRelationResult>, HistoryPortError> {
+    fn get_relations_for_period(
+        &self,
+        period_id: &str,
+    ) -> Result<Vec<EventRelationResult>, HistoryPortError> {
         self.0.get_relations_for_period(period_id)
     }
     fn get_stories(&self) -> Result<Vec<StoryResult>, HistoryPortError> {
         self.0.get_stories()
     }
-    fn get_stories_for_period(&self, period_id: Option<&str>) -> Result<Vec<StoryResult>, HistoryPortError> {
+    fn get_stories_for_period(
+        &self,
+        period_id: Option<&str>,
+    ) -> Result<Vec<StoryResult>, HistoryPortError> {
         self.0.get_stories_for_period(period_id)
     }
     fn get_story(&self, story_id: &str) -> Result<Option<StoryResult>, HistoryPortError> {
@@ -80,10 +94,16 @@ impl HistoryQueryPort for PortRef {
     fn get_story_places(&self, story_id: &str) -> Result<Vec<EventPlaceResult>, HistoryPortError> {
         self.0.get_story_places(story_id)
     }
-    fn get_story_texts(&self, story_id: &str) -> Result<Vec<EventHistoricalTextResult>, HistoryPortError> {
+    fn get_story_texts(
+        &self,
+        story_id: &str,
+    ) -> Result<Vec<EventHistoricalTextResult>, HistoryPortError> {
         self.0.get_story_texts(story_id)
     }
-    fn get_story_evidences(&self, story_id: &str) -> Result<Vec<EventEvidenceResult>, HistoryPortError> {
+    fn get_story_evidences(
+        &self,
+        story_id: &str,
+    ) -> Result<Vec<EventEvidenceResult>, HistoryPortError> {
         self.0.get_story_evidences(story_id)
     }
     fn get_event(&self, event_id: &str) -> Result<Option<EventResult>, HistoryPortError> {
@@ -95,28 +115,49 @@ impl HistoryQueryPort for PortRef {
     fn get_event_places(&self, event_id: &str) -> Result<Vec<EventPlaceResult>, HistoryPortError> {
         self.0.get_event_places(event_id)
     }
-    fn get_event_relations(&self, event_id: &str) -> Result<Vec<EventRelationResult>, HistoryPortError> {
+    fn get_event_relations(
+        &self,
+        event_id: &str,
+    ) -> Result<Vec<EventRelationResult>, HistoryPortError> {
         self.0.get_event_relations(event_id)
     }
-    fn get_event_texts(&self, event_id: &str) -> Result<Vec<EventHistoricalTextResult>, HistoryPortError> {
+    fn get_event_texts(
+        &self,
+        event_id: &str,
+    ) -> Result<Vec<EventHistoricalTextResult>, HistoryPortError> {
         self.0.get_event_texts(event_id)
     }
-    fn get_event_evidences(&self, event_id: &str) -> Result<Vec<EventEvidenceResult>, HistoryPortError> {
+    fn get_event_evidences(
+        &self,
+        event_id: &str,
+    ) -> Result<Vec<EventEvidenceResult>, HistoryPortError> {
         self.0.get_event_evidences(event_id)
     }
     fn get_person(&self, person_id: &str) -> Result<Option<PersonResult>, HistoryPortError> {
         self.0.get_person(person_id)
     }
-    fn get_person_relations(&self, person_id: &str) -> Result<Vec<PersonRelationResult>, HistoryPortError> {
+    fn get_person_relations(
+        &self,
+        person_id: &str,
+    ) -> Result<Vec<PersonRelationResult>, HistoryPortError> {
         self.0.get_person_relations(person_id)
     }
-    fn get_person_places(&self, person_id: &str) -> Result<Vec<PersonPlaceResult>, HistoryPortError> {
+    fn get_person_places(
+        &self,
+        person_id: &str,
+    ) -> Result<Vec<PersonPlaceResult>, HistoryPortError> {
         self.0.get_person_places(person_id)
     }
-    fn get_person_events(&self, person_id: &str) -> Result<Vec<PersonEventResult>, HistoryPortError> {
+    fn get_person_events(
+        &self,
+        person_id: &str,
+    ) -> Result<Vec<PersonEventResult>, HistoryPortError> {
         self.0.get_person_events(person_id)
     }
-    fn get_person_stories(&self, person_id: &str) -> Result<Vec<PersonStoryResult>, HistoryPortError> {
+    fn get_person_stories(
+        &self,
+        person_id: &str,
+    ) -> Result<Vec<PersonStoryResult>, HistoryPortError> {
         self.0.get_person_stories(person_id)
     }
     fn get_work_by_id(&self, work_id: &str) -> Result<Option<WorkResult>, HistoryPortError> {
@@ -125,10 +166,18 @@ impl HistoryQueryPort for PortRef {
     fn get_work(&self, title: &str, limit: i64) -> Result<Vec<WorkResult>, HistoryPortError> {
         self.0.get_work(title, limit)
     }
-    fn get_historical_texts(&self, work: Option<&str>, limit: i64) -> Result<Vec<HistoricalTextResult>, HistoryPortError> {
+    fn get_historical_texts(
+        &self,
+        work: Option<&str>,
+        limit: i64,
+    ) -> Result<Vec<HistoricalTextResult>, HistoryPortError> {
         self.0.get_historical_texts(work, limit)
     }
-    fn search_people(&self, query: &str, limit: i64) -> Result<Vec<PersonResult>, HistoryPortError> {
+    fn search_people(
+        &self,
+        query: &str,
+        limit: i64,
+    ) -> Result<Vec<PersonResult>, HistoryPortError> {
         self.0.search_people(query, limit)
     }
     fn search_events(&self, query: &str, limit: i64) -> Result<Vec<EventResult>, HistoryPortError> {
@@ -158,7 +207,10 @@ pub struct HistoryTools {
 impl HistoryTools {
     #[must_use]
     pub fn new(port: Arc<dyn HistoryQueryPort>) -> Self {
-        Self { port, budget: ContextBudget::default() }
+        Self {
+            port,
+            budget: ContextBudget::default(),
+        }
     }
 
     fn service(&self) -> HistoryService {
@@ -227,7 +279,10 @@ impl ToolExecutor for ToolImpl {
         // 静态 spec 缓存：按 name 构造（工具名固定）。
         static CACHE: std::sync::OnceLock<[ToolSpec; 4]> = std::sync::OnceLock::new();
         let cache = CACHE.get_or_init(|| {
-            let tools = HistoryTools { port: Arc::<UnavailablePort>::new(UnavailablePort), budget: ContextBudget::default() };
+            let tools = HistoryTools {
+                port: Arc::<UnavailablePort>::new(UnavailablePort),
+                budget: ContextBudget::default(),
+            };
             [
                 tools.spec_for(TOOL_SEARCH),
                 tools.spec_for(TOOL_GET_EVENT),
@@ -268,16 +323,26 @@ impl HistoryQueryPort for UnavailablePort {
     fn get_events_for_period(&self, _: &str) -> Result<Vec<PeriodEventItem>, HistoryPortError> {
         Err(err("unavailable".into()))
     }
-    fn get_people_for_period(&self, _: &str, _: i64) -> Result<Vec<PeriodPersonItem>, HistoryPortError> {
+    fn get_people_for_period(
+        &self,
+        _: &str,
+        _: i64,
+    ) -> Result<Vec<PeriodPersonItem>, HistoryPortError> {
         Err(err("unavailable".into()))
     }
-    fn get_relations_for_period(&self, _: &str) -> Result<Vec<EventRelationResult>, HistoryPortError> {
+    fn get_relations_for_period(
+        &self,
+        _: &str,
+    ) -> Result<Vec<EventRelationResult>, HistoryPortError> {
         Err(err("unavailable".into()))
     }
     fn get_stories(&self) -> Result<Vec<StoryResult>, HistoryPortError> {
         Err(err("unavailable".into()))
     }
-    fn get_stories_for_period(&self, _: Option<&str>) -> Result<Vec<StoryResult>, HistoryPortError> {
+    fn get_stories_for_period(
+        &self,
+        _: Option<&str>,
+    ) -> Result<Vec<StoryResult>, HistoryPortError> {
         Err(err("unavailable".into()))
     }
     fn get_story(&self, _: &str) -> Result<Option<StoryResult>, HistoryPortError> {
@@ -337,7 +402,11 @@ impl HistoryQueryPort for UnavailablePort {
     fn get_work(&self, _: &str, _: i64) -> Result<Vec<WorkResult>, HistoryPortError> {
         Err(err("unavailable".into()))
     }
-    fn get_historical_texts(&self, _: Option<&str>, _: i64) -> Result<Vec<HistoricalTextResult>, HistoryPortError> {
+    fn get_historical_texts(
+        &self,
+        _: Option<&str>,
+        _: i64,
+    ) -> Result<Vec<HistoricalTextResult>, HistoryPortError> {
         Err(err("unavailable".into()))
     }
     fn search_people(&self, _: &str, _: i64) -> Result<Vec<PersonResult>, HistoryPortError> {
@@ -357,19 +426,31 @@ impl HistoryQueryPort for UnavailablePort {
 
 impl HistoryTools {
     pub fn search(&self, arguments: &serde_json::Value) -> Result<ToolResult, AgentError> {
-        let query = arguments.get("query").and_then(serde_json::Value::as_str).unwrap_or_default();
-        let entity_type = arguments.get("entity_type").and_then(serde_json::Value::as_str);
-        let limit = arguments.get("limit").and_then(serde_json::Value::as_u64).map(|v| v as usize).unwrap_or(8);
+        let query = arguments
+            .get("query")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or_default();
+        let entity_type = arguments
+            .get("entity_type")
+            .and_then(serde_json::Value::as_str);
+        let limit = arguments
+            .get("limit")
+            .and_then(serde_json::Value::as_u64)
+            .map(|v| v as usize)
+            .unwrap_or(8);
         if query.is_empty() {
-            return Err(AgentError::tool_invalid_argument("history.search: query is empty"));
+            return Err(AgentError::tool_invalid_argument(
+                "history.search: query is empty",
+            ));
         }
         let groups = self.service().search(query).map_err(agent_error)?;
         let mut hits: Vec<serde_json::Value> = Vec::new();
         for group in groups {
             if let Some(kind) = entity_type
-                && group.kind != kind {
-                    continue;
-                }
+                && group.kind != kind
+            {
+                continue;
+            }
             for item in group.items {
                 hits.push(serde_json::json!({
                     "id": item.id,
@@ -394,9 +475,14 @@ impl HistoryTools {
     }
 
     pub fn get_event(&self, arguments: &serde_json::Value) -> Result<ToolResult, AgentError> {
-        let id = arguments.get("id").and_then(serde_json::Value::as_str).unwrap_or_default();
+        let id = arguments
+            .get("id")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or_default();
         if id.is_empty() {
-            return Err(AgentError::tool_invalid_argument("history.get_event: id is empty"));
+            return Err(AgentError::tool_invalid_argument(
+                "history.get_event: id is empty",
+            ));
         }
         let detail = self.service().event_detail(id).map_err(agent_error)?;
         let Some(detail) = detail else {
@@ -458,9 +544,14 @@ impl HistoryTools {
     }
 
     pub fn get_person(&self, arguments: &serde_json::Value) -> Result<ToolResult, AgentError> {
-        let id = arguments.get("id").and_then(serde_json::Value::as_str).unwrap_or_default();
+        let id = arguments
+            .get("id")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or_default();
         if id.is_empty() {
-            return Err(AgentError::tool_invalid_argument("history.get_person: id is empty"));
+            return Err(AgentError::tool_invalid_argument(
+                "history.get_person: id is empty",
+            ));
         }
         let detail = self.service().person_detail(id).map_err(agent_error)?;
         let Some(detail) = detail else {
@@ -508,7 +599,10 @@ impl HistoryTools {
 
     /// history.get_context：依据 app_context（module/entity）返回紧凑上下文。
     pub fn get_context(&self, arguments: &serde_json::Value) -> Result<ToolResult, AgentError> {
-        let module = arguments.get("module").and_then(serde_json::Value::as_str).unwrap_or_default();
+        let module = arguments
+            .get("module")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or_default();
         let entity = arguments.get("entity");
         if module != "history" {
             return Err(AgentError::tool_invalid_argument(format!(
@@ -516,18 +610,31 @@ impl HistoryTools {
             )));
         }
         let Some(entity) = entity else {
-            return Err(AgentError::tool_invalid_argument("history.get_context: entity is required"));
+            return Err(AgentError::tool_invalid_argument(
+                "history.get_context: entity is required",
+            ));
         };
-        let kind = entity.get("kind").and_then(serde_json::Value::as_str).unwrap_or_default();
-        let id = entity.get("id").and_then(serde_json::Value::as_str).unwrap_or_default();
+        let kind = entity
+            .get("kind")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or_default();
+        let id = entity
+            .get("id")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or_default();
         let app_context = AppContext {
             module: Some("history".into()),
             page: None,
-            entity: Some(EntityRef { kind: kind.to_string(), id: id.to_string(), label: None }),
+            entity: Some(EntityRef {
+                kind: kind.to_string(),
+                id: id.to_string(),
+                label: None,
+            }),
             selection: None,
             view_state: serde_json::Value::Null,
         };
-        let bundle = HistoryContextProvider { tools: self }.build_context(&app_context, &self.budget)?;
+        let bundle =
+            HistoryContextProvider { tools: self }.build_context(&app_context, &self.budget)?;
         Ok(ToolResult::ok(bundle.summary))
     }
 }
@@ -573,17 +680,34 @@ impl ModuleContextProvider for HistoryContextProvider<'_> {
 }
 
 impl HistoryContextProvider<'_> {
-    fn person_bundle(&self, entity: &EntityRef, budget: &ContextBudget) -> Result<ContextBundle, AgentError> {
-        let detail = self.tools.service().person_detail(&entity.id).map_err(agent_error)?;
+    fn person_bundle(
+        &self,
+        entity: &EntityRef,
+        budget: &ContextBudget,
+    ) -> Result<ContextBundle, AgentError> {
+        let detail = self
+            .tools
+            .service()
+            .person_detail(&entity.id)
+            .map_err(agent_error)?;
         let Some(detail) = detail else {
-            return Err(AgentError::context(format!("person `{}` 不存在", entity.id)));
+            return Err(AgentError::context(format!(
+                "person `{}` 不存在",
+                entity.id
+            )));
         };
         let person = &detail.person;
         let headline = format!(
             "History · {}（{}–{}）",
             person.canonical_name_zh_cn,
-            person.birth_year.map(|y| y.to_string()).unwrap_or_else(|| "?".into()),
-            person.death_year.map(|y| y.to_string()).unwrap_or_else(|| "?".into()),
+            person
+                .birth_year
+                .map(|y| y.to_string())
+                .unwrap_or_else(|| "?".into()),
+            person
+                .death_year
+                .map(|y| y.to_string())
+                .unwrap_or_else(|| "?".into()),
         );
         let summary = serde_json::json!({
             "module": "history",
@@ -605,11 +729,23 @@ impl HistoryContextProvider<'_> {
                 "with": relation.person_b_name,
             })),
         });
-        Ok(ContextBundle { module: "history".into(), headline, summary })
+        Ok(ContextBundle {
+            module: "history".into(),
+            headline,
+            summary,
+        })
     }
 
-    fn event_bundle(&self, entity: &EntityRef, budget: &ContextBudget) -> Result<ContextBundle, AgentError> {
-        let detail = self.tools.service().event_detail(&entity.id).map_err(agent_error)?;
+    fn event_bundle(
+        &self,
+        entity: &EntityRef,
+        budget: &ContextBudget,
+    ) -> Result<ContextBundle, AgentError> {
+        let detail = self
+            .tools
+            .service()
+            .event_detail(&entity.id)
+            .map_err(agent_error)?;
         let Some(detail) = detail else {
             return Err(AgentError::context(format!("event `{}` 不存在", entity.id)));
         };
@@ -640,7 +776,11 @@ impl HistoryContextProvider<'_> {
                 "evidence_count": detail.evidences.len(),
             },
         });
-        Ok(ContextBundle { module: "history".into(), headline, summary })
+        Ok(ContextBundle {
+            module: "history".into(),
+            headline,
+            summary,
+        })
     }
 }
 
@@ -657,12 +797,25 @@ pub fn register_history(
             display_name: "History".into(),
             description: "历史知识库：人物、事件、著作、故事与史料证据".into(),
             capabilities: vec!["search".into(), "entity".into(), "enrichment_state".into()],
-            tools: vec![TOOL_SEARCH.into(), TOOL_GET_EVENT.into(), TOOL_GET_PERSON.into(), TOOL_GET_CONTEXT.into()],
+            tools: vec![
+                TOOL_SEARCH.into(),
+                TOOL_GET_EVENT.into(),
+                TOOL_GET_PERSON.into(),
+                TOOL_GET_CONTEXT.into(),
+            ],
         },
         context_provider: Some(Arc::new(HistoryProviderOwned::new(Arc::clone(&port)))),
     })?;
-    for name in [TOOL_SEARCH, TOOL_GET_EVENT, TOOL_GET_PERSON, TOOL_GET_CONTEXT] {
-        tools.register(Arc::new(ToolImpl { name, tools: Arc::clone(&history) }))?;
+    for name in [
+        TOOL_SEARCH,
+        TOOL_GET_EVENT,
+        TOOL_GET_PERSON,
+        TOOL_GET_CONTEXT,
+    ] {
+        tools.register(Arc::new(ToolImpl {
+            name,
+            tools: Arc::clone(&history),
+        }))?;
     }
     Ok(())
 }
@@ -674,14 +827,20 @@ pub struct HistoryProviderOwned {
 impl HistoryProviderOwned {
     #[must_use]
     pub fn new(port: Arc<dyn HistoryQueryPort>) -> Self {
-        Self { tools: HistoryTools::new(port) }
+        Self {
+            tools: HistoryTools::new(port),
+        }
     }
 }
 impl ModuleContextProvider for HistoryProviderOwned {
     fn module_id(&self) -> &str {
         "history"
     }
-    fn build_context(&self, ctx: &AppContext, budget: &ContextBudget) -> Result<ContextBundle, AgentError> {
+    fn build_context(
+        &self,
+        ctx: &AppContext,
+        budget: &ContextBudget,
+    ) -> Result<ContextBundle, AgentError> {
         HistoryContextProvider { tools: &self.tools }.build_context(ctx, budget)
     }
 }
@@ -689,7 +848,12 @@ impl ModuleContextProvider for HistoryProviderOwned {
 /// 导出工具常量（外部测试 / 组合根引用）。
 #[must_use]
 pub fn history_tool_names() -> [&'static str; 4] {
-    [TOOL_SEARCH, TOOL_GET_EVENT, TOOL_GET_PERSON, TOOL_GET_CONTEXT]
+    [
+        TOOL_SEARCH,
+        TOOL_GET_EVENT,
+        TOOL_GET_PERSON,
+        TOOL_GET_CONTEXT,
+    ]
 }
 
 // ---------------------------------------------------------------------------

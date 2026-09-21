@@ -33,12 +33,7 @@ impl std::fmt::Display for FeedFetchError {
 pub trait RssRepositoryPort: Send + Sync {
     fn list_feeds(&self) -> Result<Vec<FeedRow>, String>;
     fn find_feed_id_by_url(&self, url: &str) -> Result<Option<i64>, String>;
-    fn insert_feed(
-        &self,
-        title: &str,
-        url: &str,
-        site_url: Option<&str>,
-    ) -> Result<i64, String>;
+    fn insert_feed(&self, title: &str, url: &str, site_url: Option<&str>) -> Result<i64, String>;
     fn insert_articles(&self, feed_id: i64, entries: &[FetchedEntry]) -> Result<usize, String>;
     fn set_feed_success(&self, feed_id: i64) -> Result<(), String>;
     fn set_feed_error(&self, feed_id: i64, message: &str) -> Result<(), String>;

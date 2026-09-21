@@ -59,6 +59,7 @@ HTTP 运行时，只暴露 History **只读**查询面（7 个 `/api/v1/history/
   `cargo test --workspace`（214）全绿；本 gate 未触碰任何 Rust 代码。
 
 当前架构的**剩余偏差（实测，均已在 BACKLOG §6.2 分级）**：
+
 1. ~~**前端 44 处裸 `invoke()` 调用点**~~（Gate 6 已消除：0 处）—— ✅ 关闭；
 2. **Travel / Language / RSS 未倒置**（deferred）：application 仍在 16+ 处直接使用 infra 类型（`LanguageStore`、
    `FeedRepository`、travel providers）—— P0/P1；
@@ -109,7 +110,7 @@ history-data-pipeline/      独立 submodule（Python），产出 dist/history.d
 ### 1.2 各模块真实调用链（已核实）
 
 | 模块 | 前端入口 | Tauri 命令 | Application 层 | Infrastructure |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | Markdown | `markdownClient.ts`（Gate 6）+ `workspaceClient.ts` | `read_document` / `write_document` / `list_workspace` / `cycle_task_lines` | `workflows.rs`（经 `DocumentStorePort`） | `document_store.rs` / `workspace_scanner.rs` |
 | RSS | `rssClient.ts`（Gate 6）：RssPage + App | `list_rss_*` / `add_rss_feed` / `refresh_rss_feeds` / `fetch_article_url` … | `rss_workflows.rs`（直引 infra 类型，P1） | `rss_store.rs` / `feed_fetcher.rs` |
 | Travel | `travelClient.ts`（Gate 6）：TravelPage + SettingsDialog | `travel_research_start` / `_progress` / `_recent_guides` / `_load_guide` | `TravelResearchService`（直引 infra provider，P0） | `travel/*.rs` |
@@ -201,7 +202,7 @@ devtoolbox-server          → application + core + infrastructure + axum 0.8 + 
 ### 2.2 与目标架构的偏差（已核实 + 处置，语义同 BACKLOG §6.2）
 
 | 目标 | 现状 | 处置 |
-|---|---|---|
+| --- | --- | --- |
 | Application → Core；Infrastructure 只做实现 | **全部模块已倒置**（History / Geography / Workflows / Language / RSS / Travel） | ✅ Gate 5.5 + 7.5 + 7.6 + 8；`application` 对 infra 零引用（grep = 0） |
 | `application → infrastructure` Cargo 依赖 | **不存在**（Gate 8 从 Cargo.toml 拆除） | ✅ 关闭（原 P0；HTTP server 前置条件已满足） |
 | 命令分层 | Travel 命令已变薄（Gate 7 session 入 application） | ✅ Gate 7 + 8 |
@@ -211,9 +212,9 @@ devtoolbox-server          → application + core + infrastructure + axum 0.8 + 
 ### 2.3 命令分层（2026-09-13 实测）
 
 | 类 | 数量 | 示例 | 备注 |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | THIN（≤6 行） | 15 | history_semantic_home / language_languages / get_settings / cycle_task_lines … | 只剩序列化转发 |
-| MODERATE（7–20） | 26 | history_semantic_* / geography_* / language_search / add_rss_feed … | 纯转发，部分含 DTO 构造 |
+| MODERATE（7–20） | 26 | history_semantic_*/ geography_* / language_search / add_rss_feed … | 纯转发，部分含 DTO 构造 |
 | FAT（>20） | 5 | **travel_research_start（82）** / fetch_article_url（39） / test_travel_qweather（26） / travel_research_progress（21） / test_travel_llm（21） | 唯一行为块在 adapter；见 BACKLOG G |
 
 > Gate 4 后 46 个命令注册，本次 Gate 5.5 未增删任何命令 —— 行为冻结保持。
@@ -228,7 +229,6 @@ devtoolbox-server          → application + core + infrastructure + axum 0.8 + 
 - **前端 Client / Transport**：8 个 feature client（history / geography / rss / language / travel /
   markdown + workspace / settings）+ `transport.ts`；裸 `invoke()` 计数 **0**（Gate 6 后）。
 - **组合根**：`apps/desktop`（唯一）；`apps/desktop/src/composition.rs + *_query.rs` 只做装配/映射，无业务逻辑。
-
 
 ### 3.1 Gate 6 — Remaining Frontend Client Boundary（2026-09-14）
 
@@ -279,7 +279,7 @@ Tauri command
 ## 4. 数据库所有权（已核实，未变）
 
 | 数据 | 文件 | 打开位置 | 职责 |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | RSS | `config/dashboard.db` | infra FeedRepository | 用户数据（读写） |
 | Travel 缓存 | `config/travel.db` | TravelStore | 用户数据（读写） |
 | Language | `config/language.db` | LanguageStore | 用户数据 + 导入（读写） |
@@ -293,7 +293,7 @@ Tauri command
 ## 5. 迁移/进程状态
 
 | Gate | 状态 | 证据 |
-|---|---|---|
+| --- | --- | --- |
 | Gate 0 Baseline | ✅ | 本文档 + 档案 |
 | Gate 1 Boundary Audit | ✅ | `docs/migration/09-history-v2-cutover-audit-2026-09-10.md` |
 | Gate 2 Application Boundary | ✅ History | `crates/application/src/history/`（service+ports+15 tests）；7 命令全薄 |
@@ -311,7 +311,7 @@ Tauri command
 ## 6. 已删除的死代码清单（Gate 4，2026-09-13，未变）
 
 | 位置 | 规模 | 验证方式 |
-|---|---|---|
+| --- | --- | --- |
 | `crates/core/src/history/`（model.rs+recommendation.rs+mod.rs） | 363 行 | 0 消费者；core 测试 67 全过 |
 | `ui/src/features/history/types/history.ts` | 84 行 | 11 导出中仅 1 活（已内联），其余零引用 |
 | `ui/src/types.ts`（History 旧 DTO 块 + CommandFailure + GeoCompareView + …） | ~200 行 | 全仓库 0 引用；保留活性类型 |
@@ -322,7 +322,7 @@ Tauri command
 ## 7. 本次验证结果（2026-09-14，Gate 6 最终验证）
 
 | 检查 | 结果 |
-|---|---|
+| --- | --- |
 | `cargo check --workspace --all-targets` | ✅ PASS（零警告，含 tests/benches/examples targets） |
 | `cargo test --workspace` | ✅ PASS — **214 passed, 0 failed**（core 67 + application 48 + infrastructure 99；desktop 0） |
 | `npm --prefix apps/desktop/ui run build` | ✅ PASS（tsc --noEmit && vite build，仅既有 chunk 体积警告） |
@@ -370,7 +370,7 @@ Tauri command
 ### 9.1 交付面（与桌面零互通）
 
 | 契约 | 实现 |
-|---|---|
+| --- | --- |
 | 路由 | `GET /health`、`GET /api/v1/history/{home,search,periods/:id,events/:id,people/:id,works/:id,stories/:id}`（只读） |
 | 错误契约 | `{code,message}`，源自 `ApplicationError`；HTTP 层绝不出现 CommandError；404/400 同契约 |
 | 鉴权 / CORS | 无鉴权（Gate 边界）；未注册 CORS → 默认无跨源（仅显式 allowlist 才可能放行，当前不提供） |

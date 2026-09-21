@@ -51,7 +51,9 @@ impl Default for ToolRegistry {
 impl ToolRegistry {
     #[must_use]
     pub fn new() -> Self {
-        Self { tools: HashMap::new() }
+        Self {
+            tools: HashMap::new(),
+        }
     }
 
     /// 注册工具。重复 name 或含 `/` 分隔符 → 返回错误（名字必须 `module.action`）；
@@ -82,8 +84,11 @@ impl ToolRegistry {
     /// 全部工具契约（discover）。
     #[must_use]
     pub fn specs(&self) -> Vec<ToolSpec> {
-        let mut specs: Vec<ToolSpec> =
-            self.tools.values().map(|tool| tool.spec().clone()).collect();
+        let mut specs: Vec<ToolSpec> = self
+            .tools
+            .values()
+            .map(|tool| tool.spec().clone())
+            .collect();
         specs.sort_by(|a, b| a.name.cmp(&b.name));
         specs
     }
@@ -97,24 +102,30 @@ impl ToolRegistry {
     /// 指定模块的工具契约。
     #[must_use]
     pub fn specs_for_module(&self, module: &str) -> Vec<ToolSpec> {
-        self.specs().into_iter().filter(|spec| spec.module == module).collect()
+        self.specs()
+            .into_iter()
+            .filter(|spec| spec.module == module)
+            .collect()
     }
 
     /// 校验参数（不入执行器，保证「任意 JSON 不进业务层」V4 §114）。
-    pub fn validate_args(&self, name: &str, arguments: &serde_json::Value) -> Result<(), AgentError> {
-        let spec = self
-            .spec(name)
-            .ok_or_else(|| AgentError::tool_not_found(format!("tool `{name}` is not registered")))?;
+    pub fn validate_args(
+        &self,
+        name: &str,
+        arguments: &serde_json::Value,
+    ) -> Result<(), AgentError> {
+        let spec = self.spec(name).ok_or_else(|| {
+            AgentError::tool_not_found(format!("tool `{name}` is not registered"))
+        })?;
         Validator::validate(&spec.input_schema, arguments)
             .map_err(|detail| AgentError::tool_invalid_argument(format!("{name}: {detail}")))
     }
 
     /// 执行一个模型发出的 Tool Call（含校验；失败转受控 `ToolResult`，不 panic）。
     pub fn execute(&self, call: &ToolCallRequest) -> Result<ToolResult, AgentError> {
-        let tool = self
-            .tools
-            .get(&call.name)
-            .ok_or_else(|| AgentError::tool_not_found(format!("tool `{}` is not registered", call.name)))?;
+        let tool = self.tools.get(&call.name).ok_or_else(|| {
+            AgentError::tool_not_found(format!("tool `{}` is not registered", call.name))
+        })?;
         self.validate_args(&call.name, &call.arguments)?;
         tool.execute(call.arguments.clone())
     }
@@ -153,7 +164,9 @@ impl Default for ModuleRegistry {
 impl ModuleRegistry {
     #[must_use]
     pub fn new() -> Self {
-        Self { modules: HashMap::new() }
+        Self {
+            modules: HashMap::new(),
+        }
     }
 
     /// 注册模块。重复 id → 错误。
@@ -171,8 +184,11 @@ impl ModuleRegistry {
     /// 全部模块描述（discover）。
     #[must_use]
     pub fn descriptors(&self) -> Vec<ModuleDescriptor> {
-        let mut list: Vec<ModuleDescriptor> =
-            self.modules.values().map(|registration| registration.descriptor.clone()).collect();
+        let mut list: Vec<ModuleDescriptor> = self
+            .modules
+            .values()
+            .map(|registration| registration.descriptor.clone())
+            .collect();
         list.sort_by(|a, b| a.id.cmp(&b.id));
         list
     }
@@ -186,7 +202,9 @@ impl ModuleRegistry {
     /// 模块的上下文提供方。
     #[must_use]
     pub fn context_provider(&self, module_id: &str) -> Option<Arc<dyn ModuleContextProvider>> {
-        self.modules.get(module_id).and_then(|r| r.context_provider.clone())
+        self.modules
+            .get(module_id)
+            .and_then(|r| r.context_provider.clone())
     }
 
     /// 解析 AppContext 为 Compact Context（V4 §25）。
@@ -200,9 +218,9 @@ impl ModuleRegistry {
             .module
             .as_deref()
             .ok_or_else(|| AgentError::context("no module in app context"))?;
-        let provider = self
-            .context_provider(module)
-            .ok_or_else(|| AgentError::context(format!("module `{module}` has no context provider")))?;
+        let provider = self.context_provider(module).ok_or_else(|| {
+            AgentError::context(format!("module `{module}` has no context provider"))
+        })?;
         provider.build_context(app_context, budget)
     }
 
@@ -278,9 +296,21 @@ mod tests {
         assert!(registry.spec("missing").is_none());
 
         // validate
-        assert!(registry.validate_args("history.search", &json!({"query": "遵义"})).is_ok());
-        assert!(registry.validate_args("history.search", &json!({})).is_err());
-        assert!(registry.validate_args("history.search", &json!({"query": 42})).is_err());
+        assert!(
+            registry
+                .validate_args("history.search", &json!({"query": "遵义"}))
+                .is_ok()
+        );
+        assert!(
+            registry
+                .validate_args("history.search", &json!({}))
+                .is_err()
+        );
+        assert!(
+            registry
+                .validate_args("history.search", &json!({"query": 42}))
+                .is_err()
+        );
 
         // execute
         let result = registry
@@ -323,7 +353,11 @@ mod tests {
         });
         registry.register(tool).unwrap();
         let error = registry
-            .execute(&ToolCallRequest { id: "c".into(), name: "strict.tool".into(), arguments: json!({"ok": "yes"}) })
+            .execute(&ToolCallRequest {
+                id: "c".into(),
+                name: "strict.tool".into(),
+                arguments: json!({"ok": "yes"}),
+            })
             .unwrap_err();
         assert_eq!(error.code(), "personal_ai_tool_invalid_argument");
     }
@@ -344,7 +378,11 @@ mod tests {
             }))
             .unwrap();
         let error = registry
-            .execute(&ToolCallRequest { id: "c".into(), name: "boom.tool".into(), arguments: json!({}) })
+            .execute(&ToolCallRequest {
+                id: "c".into(),
+                name: "boom.tool".into(),
+                arguments: json!({}),
+            })
             .unwrap_err();
         assert_eq!(error.code(), "personal_ai_tool_execution_failed");
     }
@@ -354,18 +392,20 @@ mod tests {
         let mut registry = ToolRegistry::new();
         registry.register(search_tool()).unwrap();
         assert!(registry.register(search_tool()).is_err());
-        assert!(registry
-            .register(Arc::new(FakeTool {
-                spec: ToolSpec {
-                    name: "nodot".into(),
-                    description: "d".into(),
-                    input_schema: json!({}),
-                    risk: ToolRisk::Read,
-                    module: "x".into(),
-                },
-                fail: false,
-            }))
-            .is_err());
+        assert!(
+            registry
+                .register(Arc::new(FakeTool {
+                    spec: ToolSpec {
+                        name: "nodot".into(),
+                        description: "d".into(),
+                        input_schema: json!({}),
+                        risk: ToolRisk::Read,
+                        module: "x".into(),
+                    },
+                    fail: false,
+                }))
+                .is_err()
+        );
     }
 
     #[test]
@@ -393,7 +433,10 @@ mod tests {
 
         let bundle = modules
             .resolve_context(
-                &AppContext { module: Some("history".into()), ..AppContext::default() },
+                &AppContext {
+                    module: Some("history".into()),
+                    ..AppContext::default()
+                },
                 &ContextBudget::default(),
             )
             .unwrap();
@@ -402,7 +445,10 @@ mod tests {
         // 未注册模块 → controlled context error
         let error = modules
             .resolve_context(
-                &AppContext { module: Some("nope".into()), ..AppContext::default() },
+                &AppContext {
+                    module: Some("nope".into()),
+                    ..AppContext::default()
+                },
                 &ContextBudget::default(),
             )
             .unwrap_err();

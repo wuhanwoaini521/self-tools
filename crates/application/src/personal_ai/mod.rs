@@ -14,13 +14,9 @@ pub mod session;
 
 pub use agent::{AgentConfig, PersonalAgent, PersonalHub};
 pub use context::{ContextBudget, ContextBundle, ModuleContextProvider, bundle_to_text};
-pub use registry::{
-    ModuleRegistration, ModuleRegistry, ToolExecutor, ToolRegistry, allowed_risk,
-};
+pub use history::{HistoryProviderOwned, HistoryTools, history_tool_names, register_history};
+pub use registry::{ModuleRegistration, ModuleRegistry, ToolExecutor, ToolRegistry, allowed_risk};
 pub use session::{InMemorySessionStore, SessionStore};
-pub use history::{
-    HistoryProviderOwned, HistoryTools, history_tool_names, register_history,
-};
 
 /// agent 循环测试（Fake provider 五种场景，V4 §79）。
 #[cfg(test)]

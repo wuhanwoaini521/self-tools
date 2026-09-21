@@ -10,30 +10,30 @@ use devtoolbox_application::language::{
     LanguageInfo, LanguageSearchHit, LanguageService, ProgressView, ReviewCard, SourceInfo,
     TodayView, WordDetail,
 };
+use devtoolbox_application::travel::session::TravelSessionRegistry;
 use devtoolbox_application::{
     ApplicationError, ArticleDto, DocumentDto, FeedDto, GeoEntityDetail, GeoSearchGroup,
     GeographyHome, RefreshReport, RssErrorKind, RssRepositoryPort, TravelErrorKind,
-    TravelResearchRequest, commit_new_feed, commit_refresh,
-    cycle_lines, delete_feed, feed_snapshots, fetch_all_feeds, fetch_new_feed, latest_articles,
-    list_articles, list_feeds, load_document, load_settings, mark_article_read, save_document,
-    save_settings, scan_workspace, validate_feed_url,
+    TravelResearchRequest, commit_new_feed, commit_refresh, cycle_lines, delete_feed,
+    feed_snapshots, fetch_all_feeds, fetch_new_feed, latest_articles, list_articles, list_feeds,
+    load_document, load_settings, mark_article_read, save_document, save_settings, scan_workspace,
+    validate_feed_url,
 };
-use devtoolbox_application::travel::session::TravelSessionRegistry;
-use devtoolbox_infrastructure::language::starter::{self, StarterReport};
 use devtoolbox_core::{
     AppSettings, WorkspaceFile,
     geography::GeoEntityType as CoreGeoEntityType,
     language::{LearningStateKind, ReviewRating, SpeakingScore},
     travel::{CityGuide, GuideSummary, TravelDateRange, TravelResearchEvent},
 };
+use devtoolbox_infrastructure::language::starter::{self, StarterReport};
 use devtoolbox_infrastructure::{
     FeedRepository, GeographyStore, HistoryDuckDbRepository, LanguageStore, LlmProvider,
     SettingsStore, TravelDataProvider, TravelDataRequest, TravelStore, feed_client,
 };
 
 // lib 已不再直接使用 serde_json（History 用例迁入 application）；保留空导入以消除 unused warning。
-use serde_json as _;
 use serde::{Deserialize, Serialize};
+use serde_json as _;
 use tauri::{AppHandle, Manager, State};
 
 #[derive(Debug, Serialize)]
@@ -232,8 +232,7 @@ fn read_document(path: String) -> Result<DocumentDto, CommandError> {
 
 #[tauri::command]
 fn write_document(path: String, text: String) -> Result<(), CommandError> {
-    save_document(&composition::DocumentStoreAdapter, &path, &text)
-        .map_err(CommandError::from)
+    save_document(&composition::DocumentStoreAdapter, &path, &text).map_err(CommandError::from)
 }
 
 #[tauri::command]
@@ -268,8 +267,7 @@ async fn add_rss_feed(state: State<'_, AppState>, url: String) -> Result<FeedDto
     let fetched = fetch_new_feed(&normalized, &state.rss_fetcher)
         .await
         .map_err(CommandError::from)?;
-    commit_new_feed(state.rss_repository.as_ref(), &normalized, fetched)
-        .map_err(CommandError::from)
+    commit_new_feed(state.rss_repository.as_ref(), &normalized, fetched).map_err(CommandError::from)
 }
 
 #[tauri::command]
@@ -343,8 +341,7 @@ fn latest_rss_articles(
     state: State<'_, AppState>,
     limit: Option<i64>,
 ) -> Result<Vec<ArticleDto>, CommandError> {
-    latest_articles(state.rss_repository.as_ref(), limit.unwrap_or(5))
-        .map_err(CommandError::from)
+    latest_articles(state.rss_repository.as_ref(), limit.unwrap_or(5)).map_err(CommandError::from)
 }
 
 #[tauri::command]
@@ -436,8 +433,12 @@ async fn test_travel_llm(
     state: State<'_, AppState>,
     request: TravelLlmTestRequest,
 ) -> Result<String, CommandError> {
-    let provider =
-        travel_providers::llm_test_provider(&state.client, request.base_url, request.api_key, request.model);
+    let provider = travel_providers::llm_test_provider(
+        &state.client,
+        request.base_url,
+        request.api_key,
+        request.model,
+    );
     let answer = provider
         .complete("You are a connectivity test.", "Reply with OK.")
         .await
@@ -519,9 +520,7 @@ fn travel_research_progress(
 #[tauri::command]
 fn travel_recent_guides(state: State<'_, AppState>) -> Result<Vec<GuideSummary>, CommandError> {
     let store = state.travel_store.lock().expect("travel store poisoned");
-    let summaries = store
-        .list_guides(20)
-        .map_err(store_command_error)?;
+    let summaries = store.list_guides(20).map_err(store_command_error)?;
     Ok(summaries)
 }
 
@@ -543,9 +542,9 @@ fn travel_load_guide(
 // ---------- Language 模块（离线优先；数据包安装不联网） ----------
 
 fn language_service(state: &State<'_, AppState>) -> LanguageService {
-    LanguageService::new(Arc::new(composition::LanguageStoreAdapter::new(Arc::clone(
-        &state.language_store,
-    ))))
+    LanguageService::new(Arc::new(composition::LanguageStoreAdapter::new(
+        Arc::clone(&state.language_store),
+    )))
 }
 
 #[tauri::command]
@@ -733,21 +732,17 @@ use devtoolbox_application::history::{
     HistorySemanticWorkDetail, HistoryService,
 };
 use devtoolbox_application::personal_ai::{InMemorySessionStore, PersonalHub};
-use devtoolbox_core::personal_ai::{AgentRequest, AgentResponse, ModuleDescriptor};
 use devtoolbox_core::ToolSpec;
+use devtoolbox_core::personal_ai::{AgentRequest, AgentResponse, ModuleDescriptor};
 
-fn history_service(
-    state: &State<'_, AppState>,
-) -> HistoryService {
+fn history_service(state: &State<'_, AppState>) -> HistoryService {
     HistoryService::new(Box::new(history_query::HistoryQueryAdapter::new(
         Arc::clone(&state.history_duckdb),
     )))
 }
 
 #[tauri::command]
-fn history_semantic_home(
-    state: State<'_, AppState>,
-) -> Result<HistorySemanticHome, CommandError> {
+fn history_semantic_home(state: State<'_, AppState>) -> Result<HistorySemanticHome, CommandError> {
     history_service(&state).home().map_err(CommandError::from)
 }
 
@@ -874,7 +869,9 @@ struct PersonalAiStatus {
     tools: Vec<ToolSpec>,
 }
 
-fn load_ai_settings(app: &AppHandle) -> Result<devtoolbox_core::settings::AiSettings, CommandError> {
+fn load_ai_settings(
+    app: &AppHandle,
+) -> Result<devtoolbox_core::settings::AiSettings, CommandError> {
     let store = settings_store(app)?;
     load_settings(&composition::SettingsStoreAdapter::new(store))
         .map(|settings| settings.ai)
@@ -889,7 +886,11 @@ fn personal_ai_status(
     let ai = load_ai_settings(&app)?;
     Ok(PersonalAiStatus {
         configured: ai.is_configured(),
-        provider: if ai.is_configured() { Some("openai-compatible".to_string()) } else { None },
+        provider: if ai.is_configured() {
+            Some("openai-compatible".to_string())
+        } else {
+            None
+        },
         model: ai.model.clone(),
         modules: state.ai.modules.descriptors(),
         tools: state.ai.tools.specs(),

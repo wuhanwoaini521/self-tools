@@ -44,12 +44,9 @@ use crate::language::import::{
     sources, tatoeba, words_hk,
 };
 
-
-
 /// 读取文件内容；`.gz` 自动解压（flate2），其余按 UTF-8 原样读。
 pub fn read_raw(path: &Path) -> Result<String, ImportingError> {
-    let bytes =
-        std::fs::read(path).map_err(|error| ImportingError::License(error.to_string()))?;
+    let bytes = std::fs::read(path).map_err(|error| ImportingError::License(error.to_string()))?;
     if path
         .extension()
         .and_then(|ext| ext.to_str())
@@ -178,11 +175,7 @@ pub fn import_english(
             .and_then(serde_json::Value::as_str)
             .unwrap_or(&item.text);
         let wn_id = format!("wn:{}", base.to_lowercase());
-        if store
-            .item(&wn_id)
-            .map_err(ImportingError::from)?
-            .is_some()
-        {
+        if store.item(&wn_id).map_err(ImportingError::from)?.is_some() {
             let mut pronunciation = item.pronunciations[0].clone();
             pronunciation.source = cmu_source.id.clone();
             store
@@ -319,9 +312,7 @@ pub fn import_cantonese(
                 .attach_search_terms(&pairs)
                 .map_err(ImportingError::from)?;
             let source = sources::words_hk_english_index();
-            store
-                .upsert_source(&source)
-                .map_err(ImportingError::from)?;
+            store.upsert_source(&source).map_err(ImportingError::from)?;
             store
                 .insert_manifest(&devtoolbox_core::language::DatasetManifest {
                     id: format!("{manifest_id}-english"),

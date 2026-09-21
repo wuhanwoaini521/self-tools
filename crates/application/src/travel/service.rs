@@ -139,7 +139,11 @@ impl TravelResearchService {
 
         // 2. 攻略缓存（24h；force 跳过）。缓存损坏视为 miss，不阻塞研究。
         if !request.force && request.date_range.is_none() {
-            let cached = self.store.get_guide(&city, request.days, now).ok().flatten();
+            let cached = self
+                .store
+                .get_guide(&city, request.days, now)
+                .ok()
+                .flatten();
             if let Some(guide) = cached {
                 emit(
                     ResearchPhase::IdentifyCity,
@@ -558,10 +562,7 @@ impl TravelResearchService {
             "保存到本地缓存".to_string(),
         );
         // 日期范围作为独立键持久化，避免覆盖同城同天数的普通攻略。
-        let stored = self
-            .store
-            .upsert_guide(&guide, now)
-            .map_err(travel_store)?;
+        let stored = self.store.upsert_guide(&guide, now).map_err(travel_store)?;
         emit(
             ResearchPhase::SaveGuide,
             StepStatus::Done,
@@ -579,7 +580,7 @@ impl TravelResearchService {
         })
     }
 
-/// 单查询搜索：先查 24h 缓存（损坏视为 miss），再按 Provider 链顺序 fallback。
+    /// 单查询搜索：先查 24h 缓存（损坏视为 miss），再按 Provider 链顺序 fallback。
     async fn search_query(
         &self,
         query: &str,

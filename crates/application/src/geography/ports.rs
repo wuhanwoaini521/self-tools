@@ -28,9 +28,7 @@ pub trait GeographyQueryPort {
     fn all_entities(&self) -> Result<Vec<GeoEntity>, GeographyPortError>;
     fn recent_ids(&self, limit: i64) -> Result<Vec<String>, GeographyPortError>;
     fn favorite_ids(&self) -> Result<Vec<String>, GeographyPortError>;
-    fn map_snapshot(
-        &self,
-    ) -> Result<(Vec<GeoMapPoint>, Vec<GeoMapLine>), GeographyPortError>;
+    fn map_snapshot(&self) -> Result<(Vec<GeoMapPoint>, Vec<GeoMapLine>), GeographyPortError>;
     fn search(
         &self,
         query: &str,

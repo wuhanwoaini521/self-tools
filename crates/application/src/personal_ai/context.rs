@@ -28,7 +28,10 @@ fn default_max_chars() -> usize {
 
 impl Default for ContextBudget {
     fn default() -> Self {
-        Self { max_items: default_max_items(), max_chars: default_max_chars() }
+        Self {
+            max_items: default_max_items(),
+            max_chars: default_max_chars(),
+        }
     }
 }
 

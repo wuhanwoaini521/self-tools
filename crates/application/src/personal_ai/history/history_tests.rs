@@ -181,16 +181,26 @@ impl HistoryQueryPort for FakeHistoryPort {
     fn get_events_for_period(&self, _: &str) -> Result<Vec<PeriodEventItem>, HistoryPortError> {
         Ok(vec![])
     }
-    fn get_people_for_period(&self, _: &str, _: i64) -> Result<Vec<PeriodPersonItem>, HistoryPortError> {
+    fn get_people_for_period(
+        &self,
+        _: &str,
+        _: i64,
+    ) -> Result<Vec<PeriodPersonItem>, HistoryPortError> {
         Ok(vec![])
     }
-    fn get_relations_for_period(&self, _: &str) -> Result<Vec<EventRelationResult>, HistoryPortError> {
+    fn get_relations_for_period(
+        &self,
+        _: &str,
+    ) -> Result<Vec<EventRelationResult>, HistoryPortError> {
         Ok(vec![])
     }
     fn get_stories(&self) -> Result<Vec<StoryResult>, HistoryPortError> {
         Ok(vec![])
     }
-    fn get_stories_for_period(&self, _: Option<&str>) -> Result<Vec<StoryResult>, HistoryPortError> {
+    fn get_stories_for_period(
+        &self,
+        _: Option<&str>,
+    ) -> Result<Vec<StoryResult>, HistoryPortError> {
         Ok(vec![])
     }
     fn get_story(&self, _: &str) -> Result<Option<StoryResult>, HistoryPortError> {
@@ -250,14 +260,28 @@ impl HistoryQueryPort for FakeHistoryPort {
     fn get_work(&self, _: &str, _: i64) -> Result<Vec<WorkResult>, HistoryPortError> {
         Ok(vec![])
     }
-    fn get_historical_texts(&self, _: Option<&str>, _: i64) -> Result<Vec<HistoricalTextResult>, HistoryPortError> {
+    fn get_historical_texts(
+        &self,
+        _: Option<&str>,
+        _: i64,
+    ) -> Result<Vec<HistoricalTextResult>, HistoryPortError> {
         Ok(vec![])
     }
     fn search_people(&self, query: &str, _: i64) -> Result<Vec<PersonResult>, HistoryPortError> {
-        Ok(self.people.iter().filter(|p| p.canonical_name_zh_cn.contains(query)).cloned().collect())
+        Ok(self
+            .people
+            .iter()
+            .filter(|p| p.canonical_name_zh_cn.contains(query))
+            .cloned()
+            .collect())
     }
     fn search_events(&self, query: &str, _: i64) -> Result<Vec<EventResult>, HistoryPortError> {
-        Ok(self.events.iter().filter(|e| e.name_zh_cn.contains(query)).cloned().collect())
+        Ok(self
+            .events
+            .iter()
+            .filter(|e| e.name_zh_cn.contains(query))
+            .cloned()
+            .collect())
     }
     fn get_sources_for_ids(&self, _: &[String]) -> Result<Vec<SourceResult>, HistoryPortError> {
         Ok(vec![])
@@ -275,7 +299,11 @@ fn registered() -> (ModuleRegistry, ToolRegistry, Arc<dyn HistoryQueryPort>) {
 
 fn call_tool(tools: &ToolRegistry, name: &str, args: serde_json::Value) -> ToolResult {
     tools
-        .execute(&ToolCallRequest { id: "t".into(), name: name.into(), arguments: args })
+        .execute(&ToolCallRequest {
+            id: "t".into(),
+            name: name.into(),
+            arguments: args,
+        })
         .unwrap()
 }
 
@@ -283,7 +311,11 @@ fn call_tool(tools: &ToolRegistry, name: &str, args: serde_json::Value) -> ToolR
 #[test]
 fn history_search_tool_returns_compact_hits() {
     let (_modules, tools, _port) = registered();
-    let result = call_tool(&tools, "history.search", serde_json::json!({"query": "遵义"}));
+    let result = call_tool(
+        &tools,
+        "history.search",
+        serde_json::json!({"query": "遵义"}),
+    );
     assert!(result.ok);
     let hits = result.data.as_array().unwrap();
     assert_eq!(hits.len(), 1);
@@ -298,16 +330,30 @@ fn history_search_tool_returns_compact_hits() {
 #[test]
 fn history_get_event_returns_canonical_and_state() {
     let (_modules, tools, _port) = registered();
-    let result = call_tool(&tools, "history.get_event", serde_json::json!({"id": "zunyi_meeting"}));
+    let result = call_tool(
+        &tools,
+        "history.get_event",
+        serde_json::json!({"id": "zunyi_meeting"}),
+    );
     assert!(result.ok);
     assert_eq!(result.data["canonical"]["name_zh_cn"], "遵义会议");
     assert_eq!(result.data["canonical"]["start_year"], 1935);
-    assert_eq!(result.data["relations"][0]["target_event_name"], "强渡大渡河");
+    assert_eq!(
+        result.data["relations"][0]["target_event_name"],
+        "强渡大渡河"
+    );
     assert_eq!(result.data["enrichment_state"]["availability"], "batch");
-    assert_eq!(result.data["enrichment_state"]["quality_status"], "reviewed");
+    assert_eq!(
+        result.data["enrichment_state"]["quality_status"],
+        "reviewed"
+    );
     assert_eq!(result.data["evidence"][0]["work"], "毛泽东年谱");
 
-    let missing = call_tool(&tools, "history.get_event", serde_json::json!({"id": "nope"}));
+    let missing = call_tool(
+        &tools,
+        "history.get_event",
+        serde_json::json!({"id": "nope"}),
+    );
     assert!(!missing.ok);
     assert!(missing.error.unwrap().contains("不存在"));
 }
@@ -316,7 +362,11 @@ fn history_get_event_returns_canonical_and_state() {
 #[test]
 fn history_get_person_returns_canonical_and_timeline() {
     let (_modules, tools, _port) = registered();
-    let result = call_tool(&tools, "history.get_person", serde_json::json!({"id": "mao_zedong"}));
+    let result = call_tool(
+        &tools,
+        "history.get_person",
+        serde_json::json!({"id": "mao_zedong"}),
+    );
     assert!(result.ok);
     assert_eq!(result.data["canonical"]["canonical_name_zh_cn"], "毛泽东");
     assert_eq!(result.data["canonical"]["birth_year"], 1893);
@@ -333,11 +383,17 @@ fn history_context_provider_resolves_person() {
     let ctx = AppContext {
         module: Some("history".into()),
         page: Some("person-detail".into()),
-        entity: Some(EntityRef { kind: "person".into(), id: "mao_zedong".into(), label: Some("毛泽东".into()) }),
+        entity: Some(EntityRef {
+            kind: "person".into(),
+            id: "mao_zedong".into(),
+            label: Some("毛泽东".into()),
+        }),
         selection: None,
         view_state: serde_json::Value::Null,
     };
-    let bundle = provider.build_context(&ctx, &ContextBudget::default()).unwrap();
+    let bundle = provider
+        .build_context(&ctx, &ContextBudget::default())
+        .unwrap();
     assert_eq!(bundle.module, "history");
     assert!(bundle.headline.contains("毛泽东"));
     assert!(bundle.headline.contains("1893"));
@@ -353,11 +409,17 @@ fn history_context_rejects_unknown_entity_kind() {
     let ctx = AppContext {
         module: Some("history".into()),
         page: Some("x".into()),
-        entity: Some(EntityRef { kind: "place".into(), id: "changsha".into(), label: None }),
+        entity: Some(EntityRef {
+            kind: "place".into(),
+            id: "changsha".into(),
+            label: None,
+        }),
         selection: None,
         view_state: serde_json::Value::Null,
     };
-    let error = provider.build_context(&ctx, &ContextBudget::default()).unwrap_err();
+    let error = provider
+        .build_context(&ctx, &ContextBudget::default())
+        .unwrap_err();
     assert_eq!(error.code(), "personal_ai_context_error");
 }
 

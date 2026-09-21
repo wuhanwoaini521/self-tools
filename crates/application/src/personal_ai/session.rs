@@ -37,7 +37,10 @@ impl InMemorySessionStore {
 
     #[must_use]
     pub fn with_max(max_messages: usize) -> Self {
-        Self { sessions: RwLock::new(HashMap::new()), max_messages }
+        Self {
+            sessions: RwLock::new(HashMap::new()),
+            max_messages,
+        }
     }
 }
 
@@ -68,7 +71,10 @@ impl SessionStore for InMemorySessionStore {
     }
 
     fn clear(&self, session_id: &str) {
-        self.sessions.write().expect("session store poisoned").remove(session_id);
+        self.sessions
+            .write()
+            .expect("session store poisoned")
+            .remove(session_id);
     }
 }
 

@@ -9,7 +9,12 @@
  * Frontend 只消费 AgentResponse；不接触 Provider/Prompt/Tool schema（V4 §56）。
  * 关闭 Panel 只是隐藏（V4 §37 侧栏而非新页面）。
  */
-import { ArrowClockwise, PaperPlaneTilt, Sparkle, X } from "@phosphor-icons/react";
+import {
+  ArrowClockwise,
+  PaperPlaneTilt,
+  Sparkle,
+  X,
+} from "@phosphor-icons/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { errorMessage } from "../../utils";
 import { aiClient } from "./aiClient";
@@ -119,7 +124,11 @@ export function AIPanel({
 
   const handleKeyDown = useCallback(
     (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
-      if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
+      if (
+        event.key === "Enter" &&
+        !event.shiftKey &&
+        !event.nativeEvent.isComposing
+      ) {
         event.preventDefault();
         void send();
       }
@@ -155,10 +164,17 @@ export function AIPanel({
         <span className="ai-context-label">当前上下文</span>
         {contextLabel ? (
           <>
-            <span className="ai-context-chip" title="AI 可据此解析“这个/他/这里”">
+            <span
+              className="ai-context-chip"
+              title="AI 可据此解析“这个/他/这里”"
+            >
               {contextLabel}
             </span>
-            <button className="ai-context-clear" onClick={onClearContext} title="清除上下文（回到 General）">
+            <button
+              className="ai-context-clear"
+              onClick={onClearContext}
+              title="清除上下文（回到 General）"
+            >
               清除
             </button>
           </>
@@ -172,10 +188,12 @@ export function AIPanel({
           <Sparkle size={28} />
           <p>AI provider 未配置。</p>
           <p className="ai-unconfigured-hint">
-            在设置中填写 OpenAI 兼容的 base_url 与 model
-            （本地 Ollama 可留空 key）。普通模块不受影响。
+            在设置中填写 OpenAI 兼容的 base_url 与 model （本地 Ollama 可留空
+            key）。普通模块不受影响。
           </p>
-          {errorText ? <p className="ai-unconfigured-error">{errorText}</p> : null}
+          {errorText ? (
+            <p className="ai-unconfigured-error">{errorText}</p>
+          ) : null}
           <div className="ai-unconfigured-actions">
             <button className="ai-go-settings" onClick={onOpenSettings}>
               打开设置
@@ -190,11 +208,13 @@ export function AIPanel({
           <div className="ai-panel-messages" data-testid="ai-messages">
             {messages.length === 0 ? (
               <p className="ai-empty-hint">
-                问点什么吧 —— AI 会结合当前页面上下文回答，
-                需要数据时会调用 self-tools 的工具。
+                问点什么吧 —— AI 会结合当前页面上下文回答， 需要数据时会调用
+                self-tools 的工具。
               </p>
             ) : (
-              messages.map((message, index) => <MessageRow key={index} message={message} />)
+              messages.map((message, index) => (
+                <MessageRow key={index} message={message} />
+              ))
             )}
             {status === "loading" ? (
               <div className="ai-loading">
@@ -206,7 +226,9 @@ export function AIPanel({
             ) : null}
           </div>
           {status === "error" ? (
-            <div className="ai-panel-error">{errorText || "发生错误，请重试。"}</div>
+            <div className="ai-panel-error">
+              {errorText || "发生错误，请重试。"}
+            </div>
           ) : null}
           {toolTrace.length > 0 ? (
             <div className="ai-tool-trace">
@@ -223,7 +245,11 @@ export function AIPanel({
             </div>
           ) : null}
           {blocks.length > 0 ? (
-            <div className="ai-panel-blocks">{blocks.map((block, index) => <BlockView key={index} block={block} onNavigate={onNavigate} />)}</div>
+            <div className="ai-panel-blocks">
+              {blocks.map((block, index) => (
+                <BlockView key={index} block={block} onNavigate={onNavigate} />
+              ))}
+            </div>
           ) : null}
           <footer className="ai-panel-input">
             <textarea
@@ -240,7 +266,11 @@ export function AIPanel({
               disabled={!input.trim() || status === "loading"}
               title="发送"
             >
-              {status === "loading" ? <ArrowClockwise size={16} /> : <PaperPlaneTilt size={16} />}
+              {status === "loading" ? (
+                <ArrowClockwise size={16} />
+              ) : (
+                <PaperPlaneTilt size={16} />
+              )}
             </button>
           </footer>
         </>
@@ -276,7 +306,11 @@ function BlockView({
         <h4 className="ai-block-title">{block.title || "相关实体"}</h4>
         <ul className="ai-entity-list">
           {items.map((item, index) => (
-            <EntityCard key={`${item.id ?? item.entity_id ?? index}-${index}`} item={item} onNavigate={onNavigate} />
+            <EntityCard
+              key={`${item.id ?? item.entity_id ?? index}-${index}`}
+              item={item}
+              onNavigate={onNavigate}
+            />
           ))}
         </ul>
       </section>
@@ -317,12 +351,18 @@ function EntityCard({
         title={id ? `打开 ${title}` : undefined}
         onClick={() => {
           if (!id) return;
-          onNavigate({ type: "open_entity", module: "history", target: { kind, id } });
+          onNavigate({
+            type: "open_entity",
+            module: "history",
+            target: { kind, id },
+          });
         }}
       >
         <span className="ai-entity-kind">{kind}</span>
         <span className="ai-entity-title">{title}</span>
-        {subtitle ? <span className="ai-entity-subtitle">{subtitle}</span> : null}
+        {subtitle ? (
+          <span className="ai-entity-subtitle">{subtitle}</span>
+        ) : null}
         {years ? <span className="ai-entity-years">{years}</span> : null}
       </button>
     </li>
@@ -334,7 +374,8 @@ function formatValue(entry: unknown): string {
   if (entry == null) return "";
   if (typeof entry === "object") {
     const record = entry as Record<string, unknown>;
-    const label = record.title ?? record.name ?? record.id ?? record.term ?? record.work;
+    const label =
+      record.title ?? record.name ?? record.id ?? record.term ?? record.work;
     if (typeof label === "string") return label;
     try {
       return JSON.stringify(record);

@@ -72,7 +72,10 @@ pub fn tool_list_text(tools: &[ToolSpec]) -> String {
     let mut lines = vec!["\n[可用工具]".to_string()];
     for tool in tools {
         let schema = serde_json::to_string(&tool.input_schema).unwrap_or_default();
-        lines.push(format!("- `{}`: {}（参数 schema: {}）", tool.name, tool.description, schema));
+        lines.push(format!(
+            "- `{}`: {}（参数 schema: {}）",
+            tool.name, tool.description, schema
+        ));
     }
     lines.push(
         "需要业务数据时调用工具；完成后用以下 JSON envelope 输出最终回答：\
@@ -91,17 +94,26 @@ pub fn assemble_messages(
     system: &str,
 ) -> Vec<ChatMessage> {
     let mut messages: Vec<ChatMessage> = Vec::with_capacity(history.len() + 2);
-    messages.push(ChatMessage { role: ChatRole::System, content: Some(system.to_string()), tool_calls: None, tool_call_id: None });
+    messages.push(ChatMessage {
+        role: ChatRole::System,
+        content: Some(system.to_string()),
+        tool_calls: None,
+        tool_call_id: None,
+    });
     let tool_text = tool_list_text(tools);
     if !tool_text.is_empty()
-        && let Some(system_message) = messages.first_mut() {
-            let mut content = system_message.content.take().unwrap_or_default();
-            content.push('\n');
-            content.push_str(&tool_text);
-            system_message.content = Some(content);
-        }
+        && let Some(system_message) = messages.first_mut()
+    {
+        let mut content = system_message.content.take().unwrap_or_default();
+        content.push('\n');
+        content.push_str(&tool_text);
+        system_message.content = Some(content);
+    }
     messages.extend(history.iter().cloned());
-    let trimmed = user_message.chars().take(MAX_MESSAGE_CHARS).collect::<String>();
+    let trimmed = user_message
+        .chars()
+        .take(MAX_MESSAGE_CHARS)
+        .collect::<String>();
     messages.push(ChatMessage::user(trimmed));
     messages
 }
@@ -121,16 +133,17 @@ pub fn parse_agent_envelope(text: &str) -> (String, Vec<Action>, Vec<UiBlock>) {
     let candidate = strip_code_fence(trimmed).unwrap_or(trimmed).trim();
     if !candidate.is_empty()
         && let Ok(value) = serde_json::from_str::<serde_json::Value>(candidate)
-            && let Some(obj) = value.as_object() {
-                let message = obj
-                    .get("message")
-                    .and_then(serde_json::Value::as_str)
-                    .unwrap_or_default()
-                    .to_string();
-                let actions = parse_actions(obj.get("actions"));
-                let blocks = parse_ui_blocks(obj.get("ui_blocks"));
-                return (message, actions, blocks);
-            }
+        && let Some(obj) = value.as_object()
+    {
+        let message = obj
+            .get("message")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or_default()
+            .to_string();
+        let actions = parse_actions(obj.get("actions"));
+        let blocks = parse_ui_blocks(obj.get("ui_blocks"));
+        return (message, actions, blocks);
+    }
     (text.to_string(), Vec::new(), Vec::new())
 }
 
@@ -138,7 +151,9 @@ fn strip_code_fence(text: &str) -> Option<&str> {
     if text.starts_with("```") {
         let body = text.trim_start_matches("```");
         let body = body.trim_start_matches("json");
-        body.strip_suffix("```").map(str::trim).or(Some(body.trim()))
+        body.strip_suffix("```")
+            .map(str::trim)
+            .or(Some(body.trim()))
     } else {
         None
     }
@@ -184,7 +199,10 @@ pub fn ui_snapshot(messages: &[ChatMessage], cap: usize) -> Vec<AgentMessage> {
                 ChatRole::Assistant => "assistant",
                 _ => "tool",
             };
-            Some(AgentMessage { role: role.to_string(), content })
+            Some(AgentMessage {
+                role: role.to_string(),
+                content,
+            })
         })
         .collect::<Vec<_>>()
         .into_iter()
@@ -270,11 +288,20 @@ mod tests {
         let ctx = AppContext {
             module: Some("history".into()),
             page: Some("person-detail".into()),
-            entity: Some(EntityRef { kind: "person".into(), id: "p1".into(), label: Some("毛泽东".into()) }),
+            entity: Some(EntityRef {
+                kind: "person".into(),
+                id: "p1".into(),
+                label: Some("毛泽东".into()),
+            }),
             selection: None,
             view_state: serde_json::Value::Null,
         };
-        let system = assemble_system(&modules, &ctx, Some(&CtxProvider), &ContextBudget::default());
+        let system = assemble_system(
+            &modules,
+            &ctx,
+            Some(&CtxProvider),
+            &ContextBudget::default(),
+        );
         assert!(system.contains("毛泽东"));
         assert!(system.contains("可用模块"));
     }
@@ -303,6 +330,12 @@ mod tests {
             snapshot.iter().map(|m| m.role.as_str()).collect::<Vec<_>>(),
             vec!["user", "assistant", "user"]
         );
-        assert_eq!(snapshot.iter().map(|m| m.content.as_str()).collect::<Vec<_>>(), vec!["a", "b", "c"]);
+        assert_eq!(
+            snapshot
+                .iter()
+                .map(|m| m.content.as_str())
+                .collect::<Vec<_>>(),
+            vec!["a", "b", "c"]
+        );
     }
 }

@@ -37,9 +37,7 @@ impl WebFetcher for HttpWebFetcher {
     async fn fetch(&self, url: &str) -> Result<TravelDocument, ProviderError> {
         let trimmed = url.trim().to_string();
         if !(trimmed.starts_with("http://") || trimmed.starts_with("https://")) {
-            return Err(ProviderError::fetch(format!(
-                "invalid url: {trimmed}"
-            )));
+            return Err(ProviderError::fetch(format!("invalid url: {trimmed}")));
         }
         let response = self
             .client

@@ -50,9 +50,7 @@ const LLM_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(120);
 impl LlmProvider for OpenAiCompatibleLlmProvider {
     async fn complete(&self, system: &str, user: &str) -> Result<String, ProviderError> {
         if !self.config.is_configured() {
-            return Err(ProviderError::llm(
-                "llm is not configured".to_string(),
-            ));
+            return Err(ProviderError::llm("llm is not configured".to_string()));
         }
         let base = self
             .config

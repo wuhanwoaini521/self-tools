@@ -32,6 +32,7 @@
 工具循环+受控错误 / 依赖方向（application 对 infra 零引用）/ V3 未触碰
 （pipeline submodule 仍为 8c6cf71）。两个 P2：核心 prompt 硬编码 history 工具名、
 风险门禁未在注册点强制 —— 已修复（prompt 通用化 + `ToolRegistry::register` 强制执行门禁
+
 + 拒绝注册测试）。
 
 ## Blocked

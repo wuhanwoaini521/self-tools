@@ -9,7 +9,10 @@ use std::sync::Mutex;
 use devtoolbox_core::rss::{ArticleRow, FeedRow, FetchedEntry, FetchedFeed};
 
 use super::ports::{FeedFetchError, FeedFetchErrorKind, FeedFetcherPort, RssRepositoryPort};
-use super::{commit_new_feed, commit_refresh, delete_feed, feed_snapshots, list_articles, list_feeds, validate_feed_url};
+use super::{
+    commit_new_feed, commit_refresh, delete_feed, feed_snapshots, list_articles, list_feeds,
+    validate_feed_url,
+};
 use crate::ApplicationError;
 
 // ---------- Fakes ----------
@@ -50,15 +53,14 @@ impl RssRepositoryPort for FakeRepository {
 
     fn find_feed_id_by_url(&self, url: &str) -> Result<Option<i64>, String> {
         let state = self.0.lock().expect("fake repository poisoned");
-        Ok(state.feeds.iter().find(|feed| feed.url == url).map(|feed| feed.id))
+        Ok(state
+            .feeds
+            .iter()
+            .find(|feed| feed.url == url)
+            .map(|feed| feed.id))
     }
 
-    fn insert_feed(
-        &self,
-        title: &str,
-        url: &str,
-        site_url: Option<&str>,
-    ) -> Result<i64, String> {
+    fn insert_feed(&self, title: &str, url: &str, site_url: Option<&str>) -> Result<i64, String> {
         let mut state = self.0.lock().expect("fake repository poisoned");
         let id = state.next_feed_id;
         state.next_feed_id += 1;
@@ -240,13 +242,20 @@ fn rejects_non_http_url() {
 #[test]
 fn commit_new_feed_is_deduplicated() {
     let repository = FakeRepository::new();
-    let first =
-        commit_new_feed(&repository, "https://example.com/rss", fetched("Tech", &["a", "b"]))
-            .expect("commit");
+    let first = commit_new_feed(
+        &repository,
+        "https://example.com/rss",
+        fetched("Tech", &["a", "b"]),
+    )
+    .expect("commit");
     assert_eq!(first.unread_count, 2);
     assert_eq!(list_feeds(&repository).expect("feeds").len(), 1);
     assert!(matches!(
-        commit_new_feed(&repository, "https://example.com/rss", fetched("Tech", &["a"])),
+        commit_new_feed(
+            &repository,
+            "https://example.com/rss",
+            fetched("Tech", &["a"])
+        ),
         Err(ApplicationError::DuplicateFeed(_))
     ));
     assert_eq!(list_feeds(&repository).expect("feeds").len(), 1);
@@ -256,10 +265,18 @@ fn commit_new_feed_is_deduplicated() {
 #[test]
 fn commit_refresh_propagates_per_feed_results() {
     let repository = FakeRepository::new();
-    let good = commit_new_feed(&repository, "https://example.com/good", fetched("Good", &["a"]))
-        .expect("commit good");
-    let bad = commit_new_feed(&repository, "https://example.com/bad", fetched("Bad", &["b"]))
-        .expect("commit bad");
+    let good = commit_new_feed(
+        &repository,
+        "https://example.com/good",
+        fetched("Good", &["a"]),
+    )
+    .expect("commit good");
+    let bad = commit_new_feed(
+        &repository,
+        "https://example.com/bad",
+        fetched("Bad", &["b"]),
+    )
+    .expect("commit bad");
     let snapshots = feed_snapshots(&repository).expect("snapshots");
     assert_eq!(snapshots.len(), 2);
 
@@ -296,9 +313,12 @@ fn commit_refresh_propagates_per_feed_results() {
 #[test]
 fn empty_feed_commits_zero_articles() {
     let repository = FakeRepository::new();
-    let feed =
-        commit_new_feed(&repository, "https://example.com/empty", fetched("Empty", &[]))
-            .expect("commit");
+    let feed = commit_new_feed(
+        &repository,
+        "https://example.com/empty",
+        fetched("Empty", &[]),
+    )
+    .expect("commit");
     assert_eq!(
         list_articles(&repository, feed.id, 10)
             .expect("articles")
@@ -321,8 +341,12 @@ fn empty_feed_commits_zero_articles() {
 #[tokio::test]
 async fn fetch_failure_is_reported_without_commit() {
     let repository = FakeRepository::new();
-    let feed = commit_new_feed(&repository, "https://example.com/down", fetched("Down", &["a"]))
-        .expect("commit");
+    let feed = commit_new_feed(
+        &repository,
+        "https://example.com/down",
+        fetched("Down", &["a"]),
+    )
+    .expect("commit");
     let snapshots = feed_snapshots(&repository).expect("snapshots");
     let fetcher = ScriptedFetcher::new(vec![(
         "https://example.com/down".to_string(),
@@ -351,10 +375,18 @@ async fn fetch_failure_is_reported_without_commit() {
 #[test]
 fn delete_feed_cascades_articles() {
     let repository = FakeRepository::new();
-    let first = commit_new_feed(&repository, "https://example.com/one", fetched("One", &["a"]))
-        .expect("commit one");
-    let second = commit_new_feed(&repository, "https://example.com/two", fetched("Two", &["b"]))
-        .expect("commit two");
+    let first = commit_new_feed(
+        &repository,
+        "https://example.com/one",
+        fetched("One", &["a"]),
+    )
+    .expect("commit one");
+    let second = commit_new_feed(
+        &repository,
+        "https://example.com/two",
+        fetched("Two", &["b"]),
+    )
+    .expect("commit two");
     delete_feed(&repository, first.id).expect("delete");
     assert_eq!(list_feeds(&repository).expect("feeds").len(), 1);
     // 已删除订阅在读取层面表现为 FeedNotFound（级联删除后的可观察语义）。

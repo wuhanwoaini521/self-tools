@@ -13,9 +13,9 @@ pub use import::{
     ImportedPronunciation, ImportedRelation, LanguageDatasetImporter, gate_license, import_into,
     sources,
 };
-pub use store::{ItemDetailRows, LanguageStore, SearchHit};
 pub use importing::{
     ImportingError, import_cantonese, import_english, import_japanese, import_kanji,
     import_mandarin, import_sentences, read_raw,
 };
 pub use starter::{DatasetReport, StarterError, StarterReport, install_starter};
+pub use store::{ItemDetailRows, LanguageStore, SearchHit};

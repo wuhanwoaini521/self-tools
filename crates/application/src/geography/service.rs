@@ -138,9 +138,7 @@ impl GeographyService {
 }
 
 fn geo_error(source: GeographyPortError) -> ApplicationError {
-    ApplicationError::Geography {
-        message: source.0,
-    }
+    ApplicationError::Geography { message: source.0 }
 }
 
 #[cfg(test)]
@@ -215,9 +213,7 @@ mod tests {
             }
             Ok(data.favorite_ids.clone())
         }
-        fn map_snapshot(
-            &self,
-        ) -> Result<(Vec<GeoMapPoint>, Vec<GeoMapLine>), GeographyPortError> {
+        fn map_snapshot(&self) -> Result<(Vec<GeoMapPoint>, Vec<GeoMapLine>), GeographyPortError> {
             let data = self.borrow();
             if data.fail {
                 return Err(GeographyPortError("boom".into()));

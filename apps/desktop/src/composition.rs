@@ -14,9 +14,7 @@ use devtoolbox_application::workflows::{
 };
 use devtoolbox_core::settings::AppSettings;
 use devtoolbox_core::workspace::WorkspaceFile;
-use devtoolbox_infrastructure::{
-    SettingsStore, read_utf8, scan_markdown_files, write_utf8_atomic,
-};
+use devtoolbox_infrastructure::{SettingsStore, read_utf8, scan_markdown_files, write_utf8_atomic};
 
 // ---------- 文档 / 工作区（文件系统适配器） ----------
 
@@ -55,7 +53,9 @@ impl SettingsStorePort for SettingsStoreAdapter {
         self.store.path().to_owned()
     }
     fn load(&self) -> Result<AppSettings, SettingsStoreError> {
-        self.store.load().map_err(|error| SettingsStoreError(error.to_string()))
+        self.store
+            .load()
+            .map_err(|error| SettingsStoreError(error.to_string()))
     }
     fn save(&self, settings: &AppSettings) -> Result<(), SettingsStoreError> {
         self.store
@@ -312,37 +312,81 @@ impl RssRepositoryAdapter {
 
 impl RssRepositoryPort for RssRepositoryAdapter {
     fn list_feeds(&self) -> Result<Vec<FeedRow>, String> {
-        self.store.lock().expect("rss store poisoned").list_feeds().map_err(|e| e.to_string())
+        self.store
+            .lock()
+            .expect("rss store poisoned")
+            .list_feeds()
+            .map_err(|e| e.to_string())
     }
     fn find_feed_id_by_url(&self, url: &str) -> Result<Option<i64>, String> {
-        self.store.lock().expect("rss store poisoned").find_feed_id_by_url(url).map_err(|e| e.to_string())
+        self.store
+            .lock()
+            .expect("rss store poisoned")
+            .find_feed_id_by_url(url)
+            .map_err(|e| e.to_string())
     }
     fn insert_feed(&self, title: &str, url: &str, site_url: Option<&str>) -> Result<i64, String> {
-        self.store.lock().expect("rss store poisoned").insert_feed(title, url, site_url).map_err(|e| e.to_string())
+        self.store
+            .lock()
+            .expect("rss store poisoned")
+            .insert_feed(title, url, site_url)
+            .map_err(|e| e.to_string())
     }
     fn insert_articles(&self, feed_id: i64, entries: &[FetchedEntry]) -> Result<usize, String> {
-        self.store.lock().expect("rss store poisoned").insert_articles(feed_id, entries).map_err(|e| e.to_string())
+        self.store
+            .lock()
+            .expect("rss store poisoned")
+            .insert_articles(feed_id, entries)
+            .map_err(|e| e.to_string())
     }
     fn set_feed_success(&self, feed_id: i64) -> Result<(), String> {
-        self.store.lock().expect("rss store poisoned").set_feed_success(feed_id).map_err(|e| e.to_string())
+        self.store
+            .lock()
+            .expect("rss store poisoned")
+            .set_feed_success(feed_id)
+            .map_err(|e| e.to_string())
     }
     fn set_feed_error(&self, feed_id: i64, message: &str) -> Result<(), String> {
-        self.store.lock().expect("rss store poisoned").set_feed_error(feed_id, message).map_err(|e| e.to_string())
+        self.store
+            .lock()
+            .expect("rss store poisoned")
+            .set_feed_error(feed_id, message)
+            .map_err(|e| e.to_string())
     }
     fn feed_title(&self, feed_id: i64) -> Result<Option<String>, String> {
-        self.store.lock().expect("rss store poisoned").feed_title(feed_id).map_err(|e| e.to_string())
+        self.store
+            .lock()
+            .expect("rss store poisoned")
+            .feed_title(feed_id)
+            .map_err(|e| e.to_string())
     }
     fn list_articles(&self, feed_id: i64, limit: i64) -> Result<Vec<ArticleRow>, String> {
-        self.store.lock().expect("rss store poisoned").list_articles(feed_id, limit).map_err(|e| e.to_string())
+        self.store
+            .lock()
+            .expect("rss store poisoned")
+            .list_articles(feed_id, limit)
+            .map_err(|e| e.to_string())
     }
     fn latest_articles(&self, limit: i64) -> Result<Vec<ArticleRow>, String> {
-        self.store.lock().expect("rss store poisoned").latest_articles(limit).map_err(|e| e.to_string())
+        self.store
+            .lock()
+            .expect("rss store poisoned")
+            .latest_articles(limit)
+            .map_err(|e| e.to_string())
     }
     fn mark_article_read(&self, article_id: i64) -> Result<(), String> {
-        self.store.lock().expect("rss store poisoned").mark_article_read(article_id).map_err(|e| e.to_string())
+        self.store
+            .lock()
+            .expect("rss store poisoned")
+            .mark_article_read(article_id)
+            .map_err(|e| e.to_string())
     }
     fn delete_feed(&self, feed_id: i64) -> Result<(), String> {
-        self.store.lock().expect("rss store poisoned").delete_feed(feed_id).map_err(|e| e.to_string())
+        self.store
+            .lock()
+            .expect("rss store poisoned")
+            .delete_feed(feed_id)
+            .map_err(|e| e.to_string())
     }
 }
 
@@ -360,18 +404,20 @@ impl FeedFetcherAdapter {
 
 impl FeedFetcherPort for FeedFetcherAdapter {
     async fn fetch_feed(&self, url: &str) -> Result<FetchedFeed, FeedFetchError> {
-        devtoolbox_infrastructure::fetch_feed(url, &self.client).await.map_err(|error| {
-            let (kind, message) = match &error {
-                devtoolbox_infrastructure::InfrastructureError::FeedFetch(message) => {
-                    (FeedFetchErrorKind::Fetch, message.clone())
-                }
-                devtoolbox_infrastructure::InfrastructureError::FeedParse(message) => {
-                    (FeedFetchErrorKind::Parse, message.clone())
-                }
-                other => (FeedFetchErrorKind::Fetch, other.to_string()),
-            };
-            FeedFetchError { kind, message }
-        })
+        devtoolbox_infrastructure::fetch_feed(url, &self.client)
+            .await
+            .map_err(|error| {
+                let (kind, message) = match &error {
+                    devtoolbox_infrastructure::InfrastructureError::FeedFetch(message) => {
+                        (FeedFetchErrorKind::Fetch, message.clone())
+                    }
+                    devtoolbox_infrastructure::InfrastructureError::FeedParse(message) => {
+                        (FeedFetchErrorKind::Parse, message.clone())
+                    }
+                    other => (FeedFetchErrorKind::Fetch, other.to_string()),
+                };
+                FeedFetchError { kind, message }
+            })
     }
 }
 

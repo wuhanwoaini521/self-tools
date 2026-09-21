@@ -8,8 +8,8 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
 use devtoolbox_core::personal_ai::{
-    ChatMessage, ChatModelProvider, ChatRequest, ChatResponse, ChatRole, ChatToolCall, ChatToolSpec,
-    ChatUsage, ProviderError,
+    ChatMessage, ChatModelProvider, ChatRequest, ChatResponse, ChatRole, ChatToolCall, ChatUsage,
+    ProviderError,
 };
 
 /// AI 模型配置（来自应用设置 `AiSettings`；key 可选，本地 Ollama 可留空）。
@@ -68,7 +68,10 @@ impl ChatModelProvider for OpenAiCompatibleChatModelProvider {
         let model = self.config.model.as_deref().unwrap_or_default();
         let url = format!("{base}/chat/completions");
         let timeout = std::time::Duration::from_secs(
-            self.config.timeout_secs.unwrap_or(DEFAULT_TIMEOUT_SECS).max(1),
+            self.config
+                .timeout_secs
+                .unwrap_or(DEFAULT_TIMEOUT_SECS)
+                .max(1),
         );
 
         let body = OpenAiChatRequest {
@@ -245,8 +248,8 @@ struct OpenAiUsage {
 /// 支持无 function calling 的老端点：`message.content` 为 null 且无 tool_calls
 /// 时仍正常返回（content=None，调用方按无工具轮处理）。
 pub fn parse_chat_response(body: &[u8]) -> Result<ChatResponse, String> {
-    let parsed: OpenAiChatResponse =
-        serde_json::from_slice(body).map_err(|error| format!("invalid model response json: {error}"))?;
+    let parsed: OpenAiChatResponse = serde_json::from_slice(body)
+        .map_err(|error| format!("invalid model response json: {error}"))?;
     let choice = parsed
         .choices
         .into_iter()
@@ -260,13 +263,19 @@ pub fn parse_chat_response(body: &[u8]) -> Result<ChatResponse, String> {
                 .into_iter()
                 .filter_map(|call| {
                     let name = call.function.name?;
-                    let id = call.id.unwrap_or_else(|| gen_call_id());
+                    let id = call.id.unwrap_or_else(gen_call_id);
                     let arguments = call
                         .function
                         .arguments
-                        .map(|raw| serde_json::from_str(&raw).unwrap_or(serde_json::Value::String(raw)))
+                        .map(|raw| {
+                            serde_json::from_str(&raw).unwrap_or(serde_json::Value::String(raw))
+                        })
                         .unwrap_or_else(|| serde_json::Value::Null);
-                    Some(ChatToolCall { id, name, arguments })
+                    Some(ChatToolCall {
+                        id,
+                        name,
+                        arguments,
+                    })
                 })
                 .collect()
         })
@@ -339,7 +348,10 @@ mod tests {
             }}]
         });
         let response = parse_chat_response(serde_json::to_vec(&body).unwrap().as_slice()).unwrap();
-        assert_eq!(response.tool_calls[0].arguments, serde_json::Value::String("not json".into()));
+        assert_eq!(
+            response.tool_calls[0].arguments,
+            serde_json::Value::String("not json".into())
+        );
     }
 
     #[test]

@@ -13,10 +13,8 @@ use async_trait::async_trait;
 use devtoolbox_application::personal_ai::{
     AgentConfig, InMemorySessionStore, PersonalAgent, PersonalHub, register_history,
 };
+use devtoolbox_core::personal_ai::{ChatModelProvider, ChatRequest, ChatResponse, ProviderError};
 use devtoolbox_core::settings::AiSettings;
-use devtoolbox_core::personal_ai::{
-    ChatModelProvider, ChatRequest, ChatResponse, ProviderError,
-};
 use devtoolbox_infrastructure::{
     AiModelConfig, HistoryDuckDbRepository, OpenAiCompatibleChatModelProvider,
 };

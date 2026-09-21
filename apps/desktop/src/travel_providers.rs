@@ -7,13 +7,13 @@
 
 use std::sync::{Arc, Mutex};
 
+use crate::composition::TravelStoreAdapter;
 use devtoolbox_application::travel::TravelResearchService;
 use devtoolbox_core::settings::TravelSettings;
 use devtoolbox_infrastructure::{
     AmapPoiProvider, HttpWebFetcher, LlmConfig, LlmProvider, OpenAiCompatibleLlmProvider,
     QWeatherProvider, TravelStore, build_providers, providers_for,
 };
-use crate::composition::TravelStoreAdapter;
 
 /// 按设置装配一个完整研究服务（未配置项自动降级为 None / 空列表）。
 pub fn travel_research_service(

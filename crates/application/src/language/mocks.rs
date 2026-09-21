@@ -7,13 +7,15 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Mutex;
 
 use devtoolbox_core::language::{
-    DatasetManifest, LanguageCode, LanguageItem, LanguageItemType,
-    LanguageMetadata, LanguageRelation, LanguageRelationKind, LanguageSource, LearningState,
-    LearningStateKind, MandarinMetadata, Meaning, Pronunciation, PronunciationScheme, ReviewOutcome,
-    ReviewRating, ReviewScheduler, SentenceRecord, SourceLicense, TodayPlan,
+    DatasetManifest, LanguageCode, LanguageItem, LanguageItemType, LanguageMetadata,
+    LanguageRelation, LanguageRelationKind, LanguageSource, LearningState, LearningStateKind,
+    MandarinMetadata, Meaning, Pronunciation, PronunciationScheme, ReviewOutcome, ReviewRating,
+    ReviewScheduler, SentenceRecord, SourceLicense, TodayPlan,
 };
 
-use super::ports::{LanguageCount, LanguageDetailRows, LanguageExample, LanguageStorePort, SearchHitModel};
+use super::ports::{
+    LanguageCount, LanguageDetailRows, LanguageExample, LanguageStorePort, SearchHitModel,
+};
 
 /// 可变状态（收藏 / 学习记录 / 复习队列）。
 #[derive(Default)]
@@ -99,7 +101,10 @@ impl FakeLanguageStore {
         details.insert(
             "jmdict:taberu".into(),
             LanguageDetailRows {
-                item: items.iter().find(|item| item.id == "jmdict:taberu").cloned(),
+                item: items
+                    .iter()
+                    .find(|item| item.id == "jmdict:taberu")
+                    .cloned(),
                 meanings: vec![Meaning {
                     id: "m1".into(),
                     item_id: "jmdict:taberu".into(),
@@ -150,7 +155,10 @@ impl FakeLanguageStore {
         details.insert(
             "wn:reservation".into(),
             LanguageDetailRows {
-                item: items.iter().find(|item| item.id == "wn:reservation").cloned(),
+                item: items
+                    .iter()
+                    .find(|item| item.id == "wn:reservation")
+                    .cloned(),
                 meanings: vec![Meaning {
                     id: "m2".into(),
                     item_id: "wn:reservation".into(),
@@ -221,7 +229,10 @@ impl FakeLanguageStore {
         details.insert(
             "whk:sik6faan6".into(),
             LanguageDetailRows {
-                item: items.iter().find(|item| item.id == "whk:sik6faan6").cloned(),
+                item: items
+                    .iter()
+                    .find(|item| item.id == "whk:sik6faan6")
+                    .cloned(),
                 meanings: vec![Meaning {
                     id: "m4".into(),
                     item_id: "whk:sik6faan6".into(),
@@ -253,39 +264,108 @@ impl FakeLanguageStore {
         );
 
         let sources: Vec<LanguageSource> = [
-            ("jmdict", "JMdict", "https://www.edrdg.org/jmdict/", SourceLicense::cc_by_sa()),
-            ("tatoeba", "Tatoeba", "https://tatoeba.org", SourceLicense::cc_by()),
-            ("tatoeba_common", "Tatoeba Common", "https://tatoeba.org", SourceLicense::cc_by()),
-            ("oewn", "OEWN", "https://en-word.net", SourceLicense::public_domain()),
-            ("cmudict", "CMUdict", "http://www.speech.cs.cmu.edu", SourceLicense::public_domain()),
-            ("words_hk", "words.hk", "https://words.hk", SourceLicense::public_domain()),
-            ("cc_cedict", "CC-CEDICT (CC-Canto)", "https://cc-cedict.org", SourceLicense::cc_by_sa()),
-            ("kanjidic2", "KANJIDIC2", "https://www.edrdg.org/kanjidic/", SourceLicense::cc_by_sa()),
-            ("jmdict", "Default pack", "https://github.com/HansenWuuuu/self-tools", SourceLicense::cc_by()),
+            (
+                "jmdict",
+                "JMdict",
+                "https://www.edrdg.org/jmdict/",
+                SourceLicense::cc_by_sa(),
+            ),
+            (
+                "tatoeba",
+                "Tatoeba",
+                "https://tatoeba.org",
+                SourceLicense::cc_by(),
+            ),
+            (
+                "tatoeba_common",
+                "Tatoeba Common",
+                "https://tatoeba.org",
+                SourceLicense::cc_by(),
+            ),
+            (
+                "oewn",
+                "OEWN",
+                "https://en-word.net",
+                SourceLicense::public_domain(),
+            ),
+            (
+                "cmudict",
+                "CMUdict",
+                "http://www.speech.cs.cmu.edu",
+                SourceLicense::public_domain(),
+            ),
+            (
+                "words_hk",
+                "words.hk",
+                "https://words.hk",
+                SourceLicense::public_domain(),
+            ),
+            (
+                "cc_cedict",
+                "CC-CEDICT (CC-Canto)",
+                "https://cc-cedict.org",
+                SourceLicense::cc_by_sa(),
+            ),
+            (
+                "kanjidic2",
+                "KANJIDIC2",
+                "https://www.edrdg.org/kanjidic/",
+                SourceLicense::cc_by_sa(),
+            ),
+            (
+                "jmdict",
+                "Default pack",
+                "https://github.com/HansenWuuuu/self-tools",
+                SourceLicense::cc_by(),
+            ),
         ]
-            .into_iter()
-            .enumerate()
-            .map(|(_index, (id, name, homepage, license))| LanguageSource {
-                id: id.to_string(),
-                name: name.to_string(),
-                homepage: homepage.to_string(),
-                download_source: homepage.to_string(),
-                dataset_version: "2024-01".to_string(),
-                downloaded_at: None,
-                license,
-                license_url: None,
-                attribution: "test fixture".to_string(),
-                commercial_use: license.commercial_use_allowed,
-                redistribution: license.redistribution_allowed,
-                notes: None,
-            })
-            .collect();
+        .into_iter()
+        .enumerate()
+        .map(|(_index, (id, name, homepage, license))| LanguageSource {
+            id: id.to_string(),
+            name: name.to_string(),
+            homepage: homepage.to_string(),
+            download_source: homepage.to_string(),
+            dataset_version: "2024-01".to_string(),
+            downloaded_at: None,
+            license,
+            license_url: None,
+            attribution: "test fixture".to_string(),
+            commercial_use: license.commercial_use_allowed,
+            redistribution: license.redistribution_allowed,
+            notes: None,
+        })
+        .collect();
 
         let counts = vec![
-            LanguageCount { language: LanguageCode::Eng, words: 10, phrases: 1, sentences: 1, total: 12 },
-            LanguageCount { language: LanguageCode::Jap, words: 8, phrases: 1, sentences: 1, total: 10 },
-            LanguageCount { language: LanguageCode::Zho, words: 6, phrases: 1, sentences: 0, total: 7 },
-            LanguageCount { language: LanguageCode::Yue, words: 6, phrases: 1, sentences: 0, total: 7 },
+            LanguageCount {
+                language: LanguageCode::Eng,
+                words: 10,
+                phrases: 1,
+                sentences: 1,
+                total: 12,
+            },
+            LanguageCount {
+                language: LanguageCode::Jap,
+                words: 8,
+                phrases: 1,
+                sentences: 1,
+                total: 10,
+            },
+            LanguageCount {
+                language: LanguageCode::Zho,
+                words: 6,
+                phrases: 1,
+                sentences: 0,
+                total: 7,
+            },
+            LanguageCount {
+                language: LanguageCode::Yue,
+                words: 6,
+                phrases: 1,
+                sentences: 0,
+                total: 7,
+            },
         ];
 
         let sentences = vec![SentenceRecord {
@@ -374,27 +454,35 @@ impl LanguageStorePort for FakeLanguageStore {
                 .unwrap_or(false)
             {
                 Some("romanization")
-            } else if item.item_type == LanguageItemType::Sentence
-                && item.text.contains(query)
-            {
+            } else if item.item_type == LanguageItemType::Sentence && item.text.contains(query) {
                 Some("text-like")
             } else {
                 None
             };
             if let Some(kind) = kind_matched {
-                matched.push(SearchHitModel { item: item.clone(), matched: kind.to_string() });
+                matched.push(SearchHitModel {
+                    item: item.clone(),
+                    matched: kind.to_string(),
+                });
             }
         }
         // 兜底：按释义收录命中（英文索引 https://words.hk 用例）
         if matched.is_empty() && !lower.is_empty() {
             for item in &self.items {
-                let Some(detail) = self.details.get(&item.id) else { continue };
-                if detail
-                    .meanings
-                    .iter()
-                    .any(|meaning| meaning.gloss.as_deref().map(|g| g.to_lowercase().contains(&lower)).unwrap_or(false))
-                {
-                    matched.push(SearchHitModel { item: item.clone(), matched: "meaning".to_string() });
+                let Some(detail) = self.details.get(&item.id) else {
+                    continue;
+                };
+                if detail.meanings.iter().any(|meaning| {
+                    meaning
+                        .gloss
+                        .as_deref()
+                        .map(|g| g.to_lowercase().contains(&lower))
+                        .unwrap_or(false)
+                }) {
+                    matched.push(SearchHitModel {
+                        item: item.clone(),
+                        matched: "meaning".to_string(),
+                    });
                 }
             }
         }
@@ -431,10 +519,11 @@ impl LanguageStorePort for FakeLanguageStore {
         _now: i64,
     ) -> Result<Option<LanguageItem>, String> {
         let state = self.state.lock().expect("fake state poisoned");
-        let id = state
-            .review_queue
-            .iter()
-            .find(|id| self.item_by_id(id).map(|item| item.language == language_code).unwrap_or(false));
+        let id = state.review_queue.iter().find(|id| {
+            self.item_by_id(id)
+                .map(|item| item.language == language_code)
+                .unwrap_or(false)
+        });
         Ok(id.and_then(|id| self.item_by_id(id)))
     }
 

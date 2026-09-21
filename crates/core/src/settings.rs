@@ -133,6 +133,7 @@ impl Default for AppSettings {
 /// 存于 gitignored `config/settings.json`，永不进 git / 日志 / 前端。
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(default)]
+#[derive(Default)]
 pub struct AiSettings {
     /// 提供方标识（当前仅 `openai-compatible`；缺省按该路线处理）。
     pub provider: Option<String>,
@@ -144,18 +145,6 @@ pub struct AiSettings {
     pub api_key: Option<String>,
     /// 模型调用超时（秒）；缺省 120。
     pub timeout_secs: Option<u64>,
-}
-
-impl Default for AiSettings {
-    fn default() -> Self {
-        Self {
-            provider: None,
-            model: None,
-            base_url: None,
-            api_key: None,
-            timeout_secs: None,
-        }
-    }
 }
 
 impl AiSettings {

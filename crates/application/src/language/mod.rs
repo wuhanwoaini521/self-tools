@@ -8,7 +8,9 @@
 pub mod ports;
 pub mod service;
 
-pub use ports::{LanguageCount, LanguageDetailRows, LanguageExample, LanguageStorePort, SearchHitModel};
+pub use ports::{
+    LanguageCount, LanguageDetailRows, LanguageExample, LanguageStorePort, SearchHitModel,
+};
 pub use service::{
     LanguageInfo, LanguageSearchHit, LanguageService, ProgressView, ReviewCard, SourceInfo,
     TodayView, WordDetail,

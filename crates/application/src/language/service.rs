@@ -4,17 +4,15 @@ use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 
+use crate::ApplicationError;
+use crate::time::now_unix;
 use devtoolbox_core::language::{
     DatasetManifest, LanguageCode, LanguageItem, LanguageMetadata, LanguageRelation,
     LanguageSource, LearningState, LearningStateKind, Meaning, Pronunciation, ReviewOutcome,
     ReviewRating, SentenceRecord, SpeakingScore, TodayPlan, score as score_speaking,
 };
-use crate::time::now_unix;
-use crate::ApplicationError;
 
-use super::ports::{
-    LanguageDetailRows, LanguageStorePort, verify_source_license,
-};
+use super::ports::{LanguageDetailRows, LanguageStorePort, verify_source_license};
 
 /// 语言信息（含条目统计，#90）。
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
