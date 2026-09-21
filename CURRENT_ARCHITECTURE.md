@@ -427,6 +427,27 @@ devtoolbox-server）。缺失文件路径同理拒绝（exit 1）。
   `npm run build`（tsc + vite）PASS；History V3 pipeline `uv run pytest` 265 passed
   （V3 零回归）；无 API key 时全部普通功能正常（`configured=false` 面板提示）。
 
+## 13. V5 · Personal AI Module Expansion（2026-09-21 实施，Gates 0-10）
+
+**状态：✅ PASS**（详见 `docs/personal-ai/PERSONAL_AI_HUB_V5.md` /
+`V5_OVERNIGHT_STATUS.md` / `ADR-004` / `V5_PROVIDER_CONSOLIDATION.md`）
+
+- **Track A 统一 Provider（Gate 1）**：`core::travel::LlmProvider` 与 `infra/travel/llm.rs`
+  已删除；`ChatModelProvider` 为唯一模型抽象；travel 经 `travel_complete` 薄适配
+  （错误前缀/`travel_llm_failed` code/未配置降级全部冻结）。
+- **Track B History V3.1（Gate 2-4）**：Canonical = Truth Layer 不变；新增按需富化
+  （core/history_enrichment 模型 + application/enrichment 域 + infra SQLite store +
+  ranking/generation/validation + `HistoryEnrichmentService` 单飞 + stale-while-revalidate +
+  REVIEWED 保护版本化）；`history.ensure_enrichment` 注册为第一个 SafeWrite 工具
+  （ToolExecutor 平台性升级为 async）。
+- **Track C/D 模块（Gate 5-7）**：travel（4 工具）/ geography（4）/ language（4）按
+  descriptor+tools+context+composition 注册模式接入；PersonalAgent core 零业务 hardcode
+  （agent 路由测试证明）；TravelAiPort 复用搜索 Provider 与 TravelStore 缓存。
+- **前端（Gate 8）**：History「AI 解读」区（状态/生成/来源 N/重新整理/审定/过期提示）；
+  Travel/Geography/Language 页面 AppContext 上报 + App 页面切换清理。
+- **验证**：`cargo test --workspace` 333 passed / `cargo check --all-targets` 0 警告 /
+  `npm run build` PASS / pipeline `uv run pytest` 265 passed。
+
 ## 11. 复核方法（可自行重跑）
 
 ```bash

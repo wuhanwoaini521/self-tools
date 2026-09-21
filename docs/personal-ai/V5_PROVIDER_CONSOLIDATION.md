@@ -1,7 +1,10 @@
-# V5 · Provider Consolidation Plan（只读分析，不在 V4 实施）
+# V5 · Provider Consolidation（已执行，记录归档）
 
-> 状态：记录文档（V4 Closure 产物）。V4 期间**不重构** —— 两个 Provider 各司其职、
-> 各自测试全绿、互不调用。本文档仅为 V5 提供统一路径。
+> 状态：**✅ 已于 V5 Gate 1 执行**（见 [PERSONAL_AI_HUB_V5.md](PERSONAL_AI_HUB_V5.md) 与
+> [ADR-004](../architecture/ADR-004-personal-ai-module-expansion.md)）。
+> `LlmProvider` / `infra/travel/llm.rs` 已删除；`ChatModelProvider` 为唯一模型抽象；
+> travel 经 `travel_complete` 薄适配，行为冻结（26 测试原样过）。下文「V5 应如何合并」
+> 即已落地路径，保留作为决策记录。
 
 ---
 
