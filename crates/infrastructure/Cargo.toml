@@ -14,6 +14,7 @@ devtoolbox-core = { path = "../core" }
 encoding_rs = "0.8"
 feed-rs.workspace = true
 flate2.workspace = true
+parking_lot.workspace = true
 quick-xml.workspace = true
 regex.workspace = true
 reqwest.workspace = true

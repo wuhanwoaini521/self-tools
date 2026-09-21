@@ -1,12 +1,15 @@
 //! 本地文件系统、设置与 RSS 持久化适配器。
 
 pub mod document_store;
+pub mod documents;
 pub mod error;
 pub mod feed_fetcher;
+pub mod files;
 pub mod geography;
 pub mod history;
 pub mod history_enrichment;
 pub mod language;
+pub mod memory;
 pub mod personal_ai;
 pub mod rss_store;
 pub mod settings_store;
@@ -14,7 +17,13 @@ pub mod travel;
 pub mod workspace_scanner;
 
 pub use document_store::{read_utf8, write_utf8_atomic};
+pub use documents::{
+    DOCUMENTS_SCHEMA_VERSION, DocumentIndexError, DocumentIndexSqliteStore, LocalDocumentSource,
+    is_binary, modified_timestamp,
+};
 pub use error::InfrastructureError;
+pub use files::{FILES_SCHEMA_VERSION, FileIndexError, FileIndexSqliteStore, LocalFileSystem};
+pub use memory::{MEMORY_SCHEMA_VERSION, MemorySqliteStore};
 pub use feed_fetcher::{FetchedEntry, FetchedFeed, feed_client, fetch_feed, parse_feed};
 pub use geography::GeographyStore;
 pub use history::{
