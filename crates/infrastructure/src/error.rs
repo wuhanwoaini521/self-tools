@@ -33,6 +33,12 @@ pub enum InfrastructureError {
     TravelData(String),
 }
 
+impl From<rusqlite::Error> for InfrastructureError {
+    fn from(error: rusqlite::Error) -> Self {
+        InfrastructureError::Sqlite(error.to_string())
+    }
+}
+
 pub(crate) fn io_error(path: impl Into<PathBuf>, source: io::Error) -> InfrastructureError {
     InfrastructureError::Io {
         path: path.into(),

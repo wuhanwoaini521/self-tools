@@ -8,6 +8,7 @@ authors.workspace = true
 description = "DevToolbox document workflows and application DTOs."
 
 [dependencies]
+async-trait = "0.1"
 devtoolbox-core = { path = "../core" }
 futures-util.workspace = true
 serde.workspace = true

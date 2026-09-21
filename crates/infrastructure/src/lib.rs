@@ -5,6 +5,7 @@ pub mod error;
 pub mod feed_fetcher;
 pub mod geography;
 pub mod history;
+pub mod history_enrichment;
 pub mod language;
 pub mod personal_ai;
 pub mod rss_store;
@@ -23,6 +24,7 @@ pub use history::{
     PersonPlaceResult, PersonRelationResult, PersonResult, PersonStoryResult, RegimeResult,
     SourceResult, StoryEventResult, StoryResult, WorkResult,
 };
+pub use history_enrichment::EnrichmentSqliteStore;
 pub use language::{LanguageStore, SearchHit, sources};
 pub use personal_ai::{AiModelConfig, OpenAiCompatibleChatModelProvider, parse_chat_response};
 pub use rss_store::{ArticleRow, FeedRepository, FeedRow, now_unix};
