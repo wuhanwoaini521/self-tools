@@ -125,3 +125,59 @@ export function entityListItems(block: UiBlock): EntityListItem[] {
  if (!Array.isArray(raw)) return [];
  return raw as EntityListItem[];
 }
+
+// ---------------------------------------------------------------------------
+// History Enrichment（V5 Gate 4/8）—— 与后端 core/history_enrichment 契约一致
+// ---------------------------------------------------------------------------
+
+export type EnrichmentState =
+ | "MISSING"
+ | "GENERATING"
+ | "READY"
+ | "STALE"
+ | "FAILED"
+ | "REVIEWED";
+
+export interface EnrichmentSectionInfo {
+ section: "overview" | "background" | "impact";
+ state: EnrichmentState;
+}
+
+export interface EnrichmentClaimDto {
+ text: string;
+ source_ids: string[];
+}
+
+export interface EnrichmentPayloadDto {
+ section: string;
+ content: string;
+ claims: EnrichmentClaimDto[];
+ uncertainties: string[];
+ controversies: string[];
+}
+
+export interface EnrichmentMetadataDto {
+ generated_at: number;
+ refreshed_at: number;
+ model: string | null;
+ provider: string | null;
+ prompt_version: string;
+ schema_version: number;
+ canonical_revision: string | null;
+ source_ids: string[];
+ generation_count: number;
+}
+
+export interface EnrichmentViewDto {
+ key: {
+  entity_type: string;
+  entity_id: string;
+  section: string;
+  locale: string;
+  schema_version: number;
+ };
+ state: EnrichmentState;
+ payload: EnrichmentPayloadDto | null;
+ metadata: EnrichmentMetadataDto | null;
+ error: string | null;
+}

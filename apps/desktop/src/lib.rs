@@ -1030,6 +1030,22 @@ fn enrichment_state_text(state: devtoolbox_core::history_enrichment::EnrichmentS
     }
 }
 
+/// 单 section 视图（只读：含 payload/metadata/error；不触发生成）。
+#[tauri::command]
+fn history_enrichment_view(
+    state: State<'_, AppState>,
+    entity_type: String,
+    entity_id: String,
+    section: String,
+    locale: String,
+) -> Result<EnrichmentView, CommandError> {
+    let key = parse_enrichment_key(&entity_type, &entity_id, &section, &locale)?;
+    state
+        .history_enrichment
+        .get(&key)
+        .map_err(enrichment_error)
+}
+
 /// 按需生成（含跨调用单飞；已在生成 → GENERATING）。
 #[tauri::command]
 async fn history_enrichment_ensure(
@@ -1178,6 +1194,7 @@ pub fn run() {
             personal_ai_status,
             personal_ai_chat,
             history_enrichment_state,
+            history_enrichment_view,
             history_enrichment_ensure,
             history_enrichment_refresh,
             history_enrichment_review,

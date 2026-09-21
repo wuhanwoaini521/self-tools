@@ -19,6 +19,7 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 import type { AppContextPayload } from "../ai/aiTypes";
 import { errorMessage, isTauriRuntime } from "../../utils";
 import { historyClient } from "./historyClient";
+import { EnrichmentPanel } from "./EnrichmentPanel";
 import { PeriodDetail } from "./PeriodDetail";
 import type {
   SemanticEventDetail,
@@ -961,6 +962,7 @@ function EventPanel({
           <EmptyInline text="事件始末的史料叙述正在整理中。" />
         )}
       </DrawerSection>
+      <EnrichmentPanel eventId={event.id} />
       <DrawerSection title="参与人物" icon={<UsersThree size={16} />}>
         {data.people.length ? (
           <div className="history-v2-entity-list">

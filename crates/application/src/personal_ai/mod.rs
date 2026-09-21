@@ -11,6 +11,7 @@ pub mod json_schema;
 pub mod prompt;
 pub mod registry;
 pub mod session;
+pub mod travel; // TEMP-VERIFY: main agent wires final integration
 
 pub use agent::{AgentConfig, PersonalAgent, PersonalHub};
 pub use context::{ContextBudget, ContextBundle, ModuleContextProvider, bundle_to_text};

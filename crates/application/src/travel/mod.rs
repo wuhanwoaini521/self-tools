@@ -17,3 +17,5 @@ pub use service::{
 pub use session::{
     SharedResearchSession, TravelResearchSession, TravelSessionRegistry, TravelSessionView,
 };
+
+pub use ports::{TravelAiPort, TravelSearchHit, TripContext};
