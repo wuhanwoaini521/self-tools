@@ -20,15 +20,15 @@ use devtoolbox_application::{
     validate_feed_url,
 };
 use devtoolbox_core::{
-    AppSettings, WorkspaceFile,
+    AppSettings, ChatModelProvider, WorkspaceFile,
     geography::GeoEntityType as CoreGeoEntityType,
     language::{LearningStateKind, ReviewRating, SpeakingScore},
     travel::{CityGuide, GuideSummary, TravelDateRange, TravelResearchEvent},
 };
 use devtoolbox_infrastructure::language::starter::{self, StarterReport};
 use devtoolbox_infrastructure::{
-    FeedRepository, GeographyStore, HistoryDuckDbRepository, LanguageStore, LlmProvider,
-    SettingsStore, TravelDataProvider, TravelDataRequest, TravelStore, feed_client,
+    FeedRepository, GeographyStore, HistoryDuckDbRepository, LanguageStore, SettingsStore,
+    TravelDataProvider, TravelDataRequest, TravelStore, feed_client,
 };
 
 // lib 已不再直接使用 serde_json（History 用例迁入 application）；保留空导入以消除 unused warning。
@@ -440,9 +440,19 @@ async fn test_travel_llm(
         request.model,
     );
     let answer = provider
-        .complete("You are a connectivity test.", "Reply with OK.")
+        .chat(devtoolbox_core::ChatRequest {
+            messages: vec![
+                devtoolbox_core::ChatMessage::system("You are a connectivity test."),
+                devtoolbox_core::ChatMessage::user("Reply with OK."),
+            ],
+            tools: Vec::new(),
+            temperature: Some(0.2),
+            max_tokens: None,
+        })
         .await
-        .map_err(|error| travel_test_error("travel_llm_test_failed", error))?;
+        .map_err(|error| travel_test_error("travel_llm_test_failed", error.message))?
+        .content
+        .unwrap_or_default();
     Ok(format!(
         "LLM 连接成功（收到 {} 个字符的响应）",
         answer.trim().chars().count()

@@ -2,7 +2,6 @@
 
 pub mod data_provider;
 pub mod fetcher;
-pub mod llm;
 pub mod search;
 pub mod store;
 
@@ -12,12 +11,10 @@ pub use data_provider::{
 };
 pub use devtoolbox_core::settings::TravelSearchBackend;
 pub use devtoolbox_core::travel::{
-    AMAP_SOURCE_URL, LlmProvider, ProviderError, QWEATHER_SOURCE_URL, SearchOptions,
-    SearchProvider, TravelDataProvider, TravelDataRequest, TravelRoute, TravelRouteRequest,
-    WebFetcher,
+    AMAP_SOURCE_URL, ProviderError, QWEATHER_SOURCE_URL, SearchOptions, SearchProvider,
+    TravelDataProvider, TravelDataRequest, TravelRoute, TravelRouteRequest, WebFetcher,
 };
 pub use fetcher::{HttpWebFetcher, detect_encoding, extract_text};
-pub use llm::{LlmConfig, OpenAiCompatibleLlmProvider, extract_chat_content};
 pub use search::{
     BaiduSearchProvider, BingChinaSearchProvider, SearXngSearchProvider, build_providers,
     parse_baidu_html, parse_bing_html, parse_searxng_json,

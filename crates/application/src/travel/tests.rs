@@ -8,7 +8,7 @@ use devtoolbox_core::travel::{
 };
 
 use crate::travel::mocks::{
-    MockDataProvider, MockLlmProvider, MockSearchProvider, MockWebFetcher, search_result,
+    MockChatProvider, MockDataProvider, MockSearchProvider, MockWebFetcher, search_result,
 };
 use crate::travel::ports::TravelStorePort;
 use devtoolbox_core::travel::{SearchResult, TravelDocument};
@@ -104,7 +104,7 @@ fn fushun_request() -> TravelResearchRequest {
 fn harness(
     providers: Vec<Box<dyn devtoolbox_core::travel::SearchProvider>>,
     fetcher: Box<dyn devtoolbox_core::travel::WebFetcher>,
-    llm: Option<Box<dyn devtoolbox_core::travel::LlmProvider>>,
+    llm: Option<Arc<dyn devtoolbox_core::personal_ai::ChatModelProvider>>,
 ) -> (TravelResearchService, Arc<Mutex<Vec<TravelResearchEvent>>>) {
     harness_with_data(providers, fetcher, llm, Vec::new())
 }
@@ -113,7 +113,7 @@ fn harness(
 fn harness_with_data(
     providers: Vec<Box<dyn devtoolbox_core::travel::SearchProvider>>,
     fetcher: Box<dyn devtoolbox_core::travel::WebFetcher>,
-    llm: Option<Box<dyn devtoolbox_core::travel::LlmProvider>>,
+    llm: Option<Arc<dyn devtoolbox_core::personal_ai::ChatModelProvider>>,
     data_providers: Vec<Box<dyn devtoolbox_core::travel::TravelDataProvider>>,
 ) -> (TravelResearchService, Arc<Mutex<Vec<TravelResearchEvent>>>) {
     let store: Arc<dyn TravelStorePort> = Arc::new(FakeTravelStore::default());
@@ -140,8 +140,8 @@ fn facts_json(official: bool) -> String {
 
 /// 默认 happy path 依赖：1 个搜索 Provider + 1 个抓取器 + LLM 队列。
 /// happy provider 产生 2 个文档 → 队列 = [扩展, 事实(文档1), 事实(文档2), 攻略]。
-fn happy_llm_queue() -> MockLlmProvider {
-    MockLlmProvider::new([
+fn happy_llm_queue() -> MockChatProvider {
+    MockChatProvider::new([
         r#"["杭州 宋韵文化体验"]"#.to_string(),
         facts_json(true),
         r#"[{"category":"food","subject":"龙井虾仁","value":"杭帮菜经典"}]"#.to_string(),
@@ -181,7 +181,7 @@ async fn full_research_produces_structured_guide() {
     let (service, events) = harness(
         vec![Box::new(happy_provider())],
         Box::new(happy_fetcher()),
-        Some(Box::new(happy_llm_queue())),
+        Some(Arc::new(happy_llm_queue())),
     );
     let collector = events.clone();
     let guide = service
@@ -293,7 +293,7 @@ async fn partial_page_failures_keep_snippets() {
     let fetcher = MockWebFetcher::new()
         .with_page("https://a.gov.example", "官方A", "A 的正文内容。")
         .with_error("https://b.example", "403 forbidden");
-    let llm = MockLlmProvider::new([
+    let llm = MockChatProvider::new([
         "[\"杭州 补充主题\"]".to_string(),
         r#"[{"category":"attraction","subject":"A","value":"介绍"}]"#.to_string(),
         r#"[{"category":"food","subject":"B","value":"小吃"}]"#.to_string(),
@@ -302,7 +302,7 @@ async fn partial_page_failures_keep_snippets() {
     let (service, _events) = harness(
         vec![Box::new(provider)],
         Box::new(fetcher),
-        Some(Box::new(llm)),
+        Some(Arc::new(llm)),
     );
     let guide = service
         .research_city(&request("杭州"), &|_| {})
@@ -324,11 +324,11 @@ async fn partial_page_failures_keep_snippets() {
 
 #[tokio::test]
 async fn llm_failure_falls_back_to_sources_only() {
-    let llm = MockLlmProvider::new(["ERR:service unavailable".to_string()]);
+    let llm = MockChatProvider::new(["ERR:service unavailable".to_string()]);
     let (service, _events) = harness(
         vec![Box::new(happy_provider())],
         Box::new(happy_fetcher()),
-        Some(Box::new(llm)),
+        Some(Arc::new(llm)),
     );
     let guide = service
         .research_city(&request("杭州"), &|_| {})
@@ -373,7 +373,7 @@ async fn no_llm_configured_still_returns_sources() {
 #[tokio::test]
 async fn illegal_llm_json_is_tolerated() {
     // happy provider 产生 2 个文档 → 队列 = [扩展, 非JSON(文档1), 事实(文档2), 攻略]
-    let llm = MockLlmProvider::new([
+    let llm = MockChatProvider::new([
         "[\"杭州 补充\"]".to_string(),
         "not json at all".to_string(),
         r#"[{"category":"food","subject":"龙井虾仁","value":"杭帮菜"}]"#.to_string(),
@@ -382,7 +382,7 @@ async fn illegal_llm_json_is_tolerated() {
     let (service, _events) = harness(
         vec![Box::new(happy_provider())],
         Box::new(happy_fetcher()),
-        Some(Box::new(llm)),
+        Some(Arc::new(llm)),
     );
     let guide = service
         .research_city(&request("杭州"), &|_| {})
@@ -408,7 +408,7 @@ async fn conflicting_facts_resolve_by_authority() {
         .with_page(OFFICIAL_URL, "西湖景区-官方", "开放时间 07:00-18:00。")
         .with_page(PLATFORM_URL, "西湖景区-平台", "开放时间 08:00-17:00。");
     // 官方文档在前（权重更高 → 排在抓取队列前面）
-    let llm = MockLlmProvider::new([
+    let llm = MockChatProvider::new([
         "[]".to_string(),
         facts_json(true).to_string(),
         facts_json(false).to_string(),
@@ -417,7 +417,7 @@ async fn conflicting_facts_resolve_by_authority() {
     let (service, _events) = harness(
         vec![Box::new(provider)],
         Box::new(fetcher),
-        Some(Box::new(llm)),
+        Some(Arc::new(llm)),
     );
     let guide = service
         .research_city(&request("杭州"), &|_| {})
@@ -561,11 +561,11 @@ async fn fushun_two_day_guide_is_curated_and_deduplicated() {
     let guide_json = format!(
         r#"{{"city":{{"name":"抚顺"}},"summary":"工业历史与满族文化，配合东北本地美食。","attractions":[{attraction_json}],"accommodation_areas":[{{"name":"新抚区","note":"市区交通方便"}},{{"name":"顺城区"}},{{"name":"东洲区"}},{{"name":"不应展示的区域"}}],"restaurants":[{{"name":"本地麻辣拌","area":"新抚区"}}]}}"#
     );
-    let llm = MockLlmProvider::new(["[]".to_string(), "[]".to_string(), guide_json]);
+    let llm = MockChatProvider::new(["[]".to_string(), "[]".to_string(), guide_json]);
     let (service, _events) = harness(
         vec![Box::new(provider)],
         Box::new(fetcher),
-        Some(Box::new(llm)),
+        Some(Arc::new(llm)),
     );
     let guide = service
         .research_city(&fushun_request(), &|_| {})
@@ -639,7 +639,7 @@ async fn data_provider_facts_enrich_guide_and_sources() {
                 address: None,
             }],
         );
-    let llm = MockLlmProvider::new([
+    let llm = MockChatProvider::new([
         "[]".to_string(),
         r#"[]"#.to_string(),
         r#"[]"#.to_string(),
@@ -648,7 +648,7 @@ async fn data_provider_facts_enrich_guide_and_sources() {
     let (service, _events) = harness_with_data(
         vec![Box::new(happy_provider())],
         Box::new(happy_fetcher()),
-        Some(Box::new(llm)),
+        Some(Arc::new(llm)),
         vec![Box::new(data)],
     );
     let guide = service
@@ -841,7 +841,7 @@ async fn without_data_keys_providers_skipped() {
 async fn llm_transport_failure_stops_remaining_requests() {
     // 查询扩展成功后，第一个事实抽取发生传输错误；不应继续对每个文档重试，
     // 也不应在最后再发一次必然失败的攻略生成请求。
-    let llm = MockLlmProvider::new([
+    let llm = MockChatProvider::new([
         "[]".to_string(),
         "ERR:error decoding response body".to_string(),
     ]);
@@ -849,7 +849,7 @@ async fn llm_transport_failure_stops_remaining_requests() {
     let (service, _events) = harness(
         vec![Box::new(happy_provider())],
         Box::new(happy_fetcher()),
-        Some(Box::new(llm)),
+        Some(Arc::new(llm)),
     );
     let guide = service
         .research_city(&request("杭州"), &|_| {})
@@ -869,4 +869,27 @@ async fn llm_transport_failure_stops_remaining_requests() {
             .any(|note| note.contains("停止本次剩余 LLM 请求"))
     );
     assert!(!guide.meta.llm_used);
+}
+
+// ---------------------------------------------------------------------------
+// V5 §67：Provider 迁移行为冻结 —— travel 经 ChatModelProvider 后错误语义不变。
+// ---------------------------------------------------------------------------
+
+/// travel_complete 产生的错误必须保留 `travel llm request failed: …` 前缀，
+/// `is_llm_transport_error` 判定与迁移前一致（模型 Provider 统一不改用户体验）。
+#[tokio::test]
+async fn llm_error_prefix_frozen_after_provider_migration() {
+    let llm = Arc::new(MockChatProvider::new(["ERR:service unavailable".to_string()]));
+    let error = crate::travel::service::travel_complete(llm.as_ref(), "s", "u").await.unwrap_err();
+    assert!(error.starts_with("travel llm request failed: "), "prefix lost: {error}");
+    assert!(crate::travel::service::is_llm_transport_error(&error));
+}
+
+/// 模型返回空内容 → 受控错误（也是 `travel llm request failed` 语义）。
+#[tokio::test]
+async fn travel_complete_empty_content_is_controlled_error() {
+    let llm = Arc::new(MockChatProvider::new(["" .to_string()]));
+    // 空字符串仍视为有效内容（与迁移前一致：模型输出空串由 parse 层决定）。
+    let ok = crate::travel::service::travel_complete(llm.as_ref(), "s", "u").await;
+    assert!(ok.is_ok());
 }

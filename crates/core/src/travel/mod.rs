@@ -31,9 +31,9 @@ pub use model::{
     StepStatus, TravelDocument, TravelFact, TravelResearchEvent, TravelSource,
 };
 pub use provider::{
-    AMAP_SOURCE_URL, LlmProvider, ProviderError, ProviderErrorKind, QWEATHER_SOURCE_URL,
-    SearchOptions, SearchProvider, TravelDataProvider, TravelDataRequest, TravelRoute,
-    TravelRouteRequest, WebFetcher,
+    AMAP_SOURCE_URL, ProviderError, ProviderErrorKind, QWEATHER_SOURCE_URL, SearchOptions,
+    SearchProvider, TravelDataProvider, TravelDataRequest, TravelRoute, TravelRouteRequest,
+    WebFetcher,
 };
 pub use quality::{QualityReport, apply_quality_gate, normalize_entity_name};
 pub use query_planner::{

@@ -53,7 +53,6 @@ pub const QWEATHER_SOURCE_URL: &str = "https://devapi.qweather.com";
 pub enum ProviderErrorKind {
     Search,
     Fetch,
-    Llm,
     Data,
 }
 
@@ -85,11 +84,6 @@ impl ProviderError {
     }
 
     #[must_use]
-    pub fn llm(message: impl Into<String>) -> Self {
-        Self::new(ProviderErrorKind::Llm, message)
-    }
-
-    #[must_use]
     pub fn data(message: impl Into<String>) -> Self {
         Self::new(ProviderErrorKind::Data, message)
     }
@@ -102,7 +96,6 @@ impl fmt::Display for ProviderError {
         let prefix = match self.kind {
             ProviderErrorKind::Search => "travel search failed",
             ProviderErrorKind::Fetch => "travel page fetch failed",
-            ProviderErrorKind::Llm => "travel llm request failed",
             ProviderErrorKind::Data => "travel data provider failed",
         };
         write!(f, "{prefix}: {}", self.message)
@@ -127,13 +120,6 @@ pub trait SearchProvider: Send + Sync {
 #[async_trait]
 pub trait WebFetcher: Send + Sync {
     async fn fetch(&self, url: &str) -> Result<TravelDocument, ProviderError>;
-}
-
-/// LLM 调用接口（可 mock）。
-#[async_trait]
-pub trait LlmProvider: Send + Sync {
-    /// 单轮对话，返回模型原始输出文本。
-    async fn complete(&self, system: &str, user: &str) -> Result<String, ProviderError>;
 }
 
 /// 数据 Provider 接口（高德 / 和风等结构化数据源）。

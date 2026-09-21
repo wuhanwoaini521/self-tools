@@ -8,8 +8,11 @@ use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
 
+use devtoolbox_core::personal_ai::{
+    ChatModelProvider, ChatRequest, ChatResponse, ProviderError as ChatProviderError,
+};
 use devtoolbox_core::travel::{
-    ContentState, LlmProvider, ProviderError, SearchOptions, SearchProvider, SearchResult,
+    ContentState, ProviderError, SearchOptions, SearchProvider, SearchResult,
     TravelDataProvider, TravelDataRequest, TravelDocument, TravelFact, WebFetcher,
 };
 
@@ -130,13 +133,15 @@ impl WebFetcher for MockWebFetcher {
     }
 }
 
-/// 可编程 LLM：FIFO 响应队列。`ERR:...` 前缀代表调用失败；队列耗尽返回错误。
-pub struct MockLlmProvider {
+/// 可编程模型：FIFO 响应队列（统一 ChatModelProvider，V5 §8）。
+/// `ERR：`前缀代表调用失败；队列耗尽返回错误。travel 侧消费方经
+/// `travel_complete` 把消息包装为 `travel llm request failed: …`。
+pub struct MockChatProvider {
     pub responses: Arc<Mutex<std::collections::VecDeque<String>>>,
     pub calls: Arc<Mutex<usize>>,
 }
 
-impl MockLlmProvider {
+impl MockChatProvider {
     #[must_use]
     pub fn new(responses: impl IntoIterator<Item = String>) -> Self {
         Self {
@@ -147,8 +152,12 @@ impl MockLlmProvider {
 }
 
 #[async_trait]
-impl LlmProvider for MockLlmProvider {
-    async fn complete(&self, _system: &str, _user: &str) -> Result<String, ProviderError> {
+impl ChatModelProvider for MockChatProvider {
+    fn name(&self) -> &'static str {
+        "mock-chat"
+    }
+
+    async fn chat(&self, _request: ChatRequest) -> Result<ChatResponse, ChatProviderError> {
         let mut calls = self.calls.lock().expect("calls poisoned");
         *calls += 1;
         let next = self
@@ -157,11 +166,17 @@ impl LlmProvider for MockLlmProvider {
             .expect("responses poisoned")
             .pop_front();
         match next {
-            Some(raw) if raw.starts_with("ERR:") => {
-                Err(ProviderError::llm(raw.trim_start_matches("ERR:")))
-            }
-            Some(raw) => Ok(raw),
-            None => Err(ProviderError::llm("mock llm queue exhausted")),
+            Some(raw) if raw.starts_with("ERR:") => Err(ChatProviderError::transport(
+                raw.trim_start_matches("ERR:").to_string(),
+            )),
+            Some(raw) => Ok(ChatResponse {
+                content: Some(raw),
+                tool_calls: Vec::new(),
+                usage: devtoolbox_core::ChatUsage::default(),
+            }),
+            None => Err(ChatProviderError::transport(
+                "mock chat queue exhausted".to_string(),
+            )),
         }
     }
 }

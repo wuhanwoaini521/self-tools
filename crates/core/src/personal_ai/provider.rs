@@ -3,7 +3,8 @@
 //! 统一到**一个** `ChatModelProvider`（messages + tools + usage），
 //! 供 PersonalAgent 使用；OpenAI-Compatible 为默认路线
 //! （OpenAI / DeepSeek / OpenRouter / LiteLLM / 自建 gateway 均可接）。
-//! travel 的 `LlmProvider` 本轮保持不动（V5 候选统一，见 PLAN §10）。
+//! V5：travel 的 `LlmProvider` 已删除并迁移到本契约（`travel_complete` 薄适配，
+//! 行为冻结），本模块是 self-tools 唯一的模型接入点。
 
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};

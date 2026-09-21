@@ -28,10 +28,9 @@ pub use personal_ai::{AiModelConfig, OpenAiCompatibleChatModelProvider, parse_ch
 pub use rss_store::{ArticleRow, FeedRepository, FeedRow, now_unix};
 pub use settings_store::SettingsStore;
 pub use travel::{
-    AmapPoiProvider, HttpWebFetcher, LlmConfig, LlmProvider, OpenAiCompatibleLlmProvider,
-    QWeatherProvider, SearchOptions, SearchProvider, TravelDataProvider, TravelDataRequest,
-    TravelRoute, TravelRouteRequest, TravelSearchBackend, TravelStore, WebFetcher, build_providers,
-    parse_amap_driving_route, providers_for,
+    AmapPoiProvider, HttpWebFetcher, QWeatherProvider, SearchOptions, SearchProvider,
+    TravelDataProvider, TravelDataRequest, TravelRoute, TravelRouteRequest, TravelSearchBackend,
+    TravelStore, WebFetcher, build_providers, parse_amap_driving_route, providers_for,
 };
 pub use workspace_scanner::scan_markdown_files;
 

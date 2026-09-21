@@ -36,10 +36,12 @@ use devtoolbox_core::travel::{
 
 // Gate 8：Provider 契约位于 core（infrastructure 实现、application 消费），
 // application 不再依赖 infrastructure。
+// Gate 1（V5）：模型抽象统一为 `ChatModelProvider`；travel 经 `travel_complete` 薄适配，
+// 错误文本保持 `travel llm request failed: …` 前缀（`is_llm_transport_error` 依赖）。
+use devtoolbox_core::personal_ai::{ChatMessage, ChatModelProvider, ChatRequest};
 use devtoolbox_core::travel::{
-    AMAP_SOURCE_URL, LlmProvider, ProviderError, ProviderErrorKind, QWEATHER_SOURCE_URL,
-    SearchOptions, SearchProvider, TravelDataProvider, TravelDataRequest, TravelRouteRequest,
-    WebFetcher,
+    AMAP_SOURCE_URL, ProviderError, ProviderErrorKind, QWEATHER_SOURCE_URL, SearchOptions,
+    SearchProvider, TravelDataProvider, TravelDataRequest, TravelRouteRequest, WebFetcher,
 };
 
 use crate::time::now_unix;
@@ -80,7 +82,7 @@ pub struct ResearchOutcome {
 pub struct TravelResearchService {
     search_providers: Vec<Box<dyn SearchProvider>>,
     fetcher: Box<dyn WebFetcher>,
-    llm: Option<Box<dyn LlmProvider>>,
+    llm: Option<Arc<dyn ChatModelProvider>>,
     data_providers: Vec<Box<dyn TravelDataProvider>>,
     /// Gate 8：缓存走 `TravelStorePort`（SQLite 由组合根适配，测试用内存 Fake）。
     store: Arc<dyn TravelStorePort>,
@@ -92,7 +94,7 @@ impl TravelResearchService {
     pub fn new(
         search_providers: Vec<Box<dyn SearchProvider>>,
         fetcher: Box<dyn WebFetcher>,
-        llm: Option<Box<dyn LlmProvider>>,
+        llm: Option<Arc<dyn ChatModelProvider>>,
         data_providers: Vec<Box<dyn TravelDataProvider>>,
         store: Arc<dyn TravelStorePort>,
     ) -> Self {
@@ -679,10 +681,7 @@ impl TravelResearchService {
         if text.trim().is_empty() {
             return Ok(Vec::new());
         }
-        let raw = llm
-            .complete(FACT_SYSTEM_PROMPT, &fact_user_prompt(&text))
-            .await
-            .map_err(|error| error.to_string())?;
+        let raw = travel_complete(llm, FACT_SYSTEM_PROMPT, &fact_user_prompt(&text)).await?;
         parse_facts_json(&raw, &document.url, now).map_err(|error| error.to_string())
     }
 
@@ -695,8 +694,7 @@ impl TravelResearchService {
         emit: &mut (dyn FnMut(ResearchPhase, StepStatus, String) + Send),
     ) -> Option<Vec<QueryTask>> {
         let llm = self.llm.as_deref()?;
-        let raw = llm
-            .complete(QUERY_SYSTEM_PROMPT, &query_user_prompt(city, input))
+        let raw = travel_complete(llm, QUERY_SYSTEM_PROMPT, &query_user_prompt(city, input))
             .await
             .ok()?;
         let tasks = parse_search_intents(&raw, city);
@@ -777,13 +775,13 @@ impl TravelResearchService {
             if let Some(llm) = self.llm.as_deref() {
                 let facts_block = format_verified_facts(verified);
                 let docs_block = format_documents(sources);
-                let raw = llm
-                    .complete(
-                        GUIDE_SYSTEM_PROMPT,
-                        &guide_user_prompt(city, &input_brief(request), &facts_block, &docs_block),
-                    )
-                    .await;
-                raw.map_err(|error| GuideGenError::Llm(error.to_string()))
+                let raw = travel_complete(
+                    llm,
+                    GUIDE_SYSTEM_PROMPT,
+                    &guide_user_prompt(city, &input_brief(request), &facts_block, &docs_block),
+                )
+                .await;
+                raw.map_err(GuideGenError::Llm)
                     .and_then(|raw| {
                         parse_guide_json(&raw)
                             .map_err(|error| GuideGenError::Parse(error.to_string()))
@@ -914,7 +912,6 @@ fn travel_error(error: ProviderError) -> ApplicationError {
     let kind = match error.kind {
         ProviderErrorKind::Search => TravelErrorKind::Search,
         ProviderErrorKind::Fetch => TravelErrorKind::Fetch,
-        ProviderErrorKind::Llm => TravelErrorKind::Llm,
         ProviderErrorKind::Data => TravelErrorKind::Data,
     };
     ApplicationError::Travel(TravelFailure::new(kind, error.message))
@@ -961,9 +958,33 @@ fn is_iso_date(value: &str) -> bool {
     day > 0 && day <= max_day
 }
 
+/// 统一模型调用薄适配（V5 §8）：`system + user → text`。
+///
+/// 错误 Display 复刻既有 `travel llm request failed: …` 前缀，
+/// 使 `is_llm_transport_error` / `GuideGenError::Llm` / 命令 code `travel_llm_failed`
+/// 语义保持不变（Provider 融合的行为冻结要求）。
+pub(crate) async fn travel_complete(
+    llm: &dyn ChatModelProvider,
+    system: &str,
+    user: &str,
+) -> Result<String, String> {
+    let response = llm
+        .chat(ChatRequest {
+            messages: vec![ChatMessage::system(system), ChatMessage::user(user)],
+            tools: Vec::new(),
+            temperature: Some(0.2),
+            max_tokens: None,
+        })
+        .await
+        .map_err(|error| format!("travel llm request failed: {}", error.message))?;
+    response
+        .content
+        .ok_or_else(|| "travel llm request failed: empty model response".to_string())
+}
+
 /// 只有请求/响应传输层错误才熔断。模型返回的非法 JSON 是单篇内容错误，
 /// 后续文档或最终攻略仍可能成功，不能因此提前放弃。
-fn is_llm_transport_error(error: &str) -> bool {
+pub(crate) fn is_llm_transport_error(error: &str) -> bool {
     error.contains("travel llm request failed") || error.contains("llm is not configured")
 }
 

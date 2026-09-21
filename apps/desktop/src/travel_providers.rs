@@ -2,7 +2,7 @@
 //!
 //! 具体的搜索 / 抓取 / LLM / 数据 Provider 全部在组合根装配；Tauri 命令不承担
 //! provider 装配，只负责参数校验、会话登记与后台任务调度。Application 层只
-//! 看到 capability 接口（`SearchProvider` / `WebFetcher` / `LlmProvider` /
+//! 看到 capability 接口（`SearchProvider` / `WebFetcher` / `ChatModelProvider` /
 //! `TravelDataProvider`），不接触具体实现。
 
 use std::sync::{Arc, Mutex};
@@ -11,7 +11,7 @@ use crate::composition::TravelStoreAdapter;
 use devtoolbox_application::travel::TravelResearchService;
 use devtoolbox_core::settings::TravelSettings;
 use devtoolbox_infrastructure::{
-    AmapPoiProvider, HttpWebFetcher, LlmConfig, LlmProvider, OpenAiCompatibleLlmProvider,
+    AiModelConfig, AmapPoiProvider, HttpWebFetcher, OpenAiCompatibleChatModelProvider,
     QWeatherProvider, TravelStore, build_providers, providers_for,
 };
 
@@ -44,16 +44,21 @@ fn http_fetcher(client: &reqwest::Client) -> Box<dyn devtoolbox_infrastructure::
     Box::new(HttpWebFetcher::new((*client).clone()))
 }
 
-fn llm_provider(client: &reqwest::Client, travel: &TravelSettings) -> Option<Box<dyn LlmProvider>> {
+fn llm_provider(
+    client: &reqwest::Client,
+    travel: &TravelSettings,
+) -> Option<Arc<dyn devtoolbox_core::personal_ai::ChatModelProvider>> {
     if travel.llm_base_url.is_none() && travel.llm_model.is_none() {
         return None;
     }
-    Some(Box::new(OpenAiCompatibleLlmProvider::new(
+    // V5：统一 ChatModelProvider；配置从既有 TravelSettings.llm_* 映射（不迁移 settings 字段）。
+    Some(Arc::new(OpenAiCompatibleChatModelProvider::new(
         (*client).clone(),
-        LlmConfig {
+        AiModelConfig {
             base_url: travel.llm_base_url.clone(),
             api_key: travel.llm_api_key.clone(),
             model: travel.llm_model.clone(),
+            timeout_secs: None,
         },
     )))
 }
@@ -64,13 +69,14 @@ pub fn llm_test_provider(
     base_url: String,
     api_key: Option<String>,
     model: String,
-) -> OpenAiCompatibleLlmProvider {
-    OpenAiCompatibleLlmProvider::new(
+) -> OpenAiCompatibleChatModelProvider {
+    OpenAiCompatibleChatModelProvider::new(
         (*client).clone(),
-        LlmConfig {
+        AiModelConfig {
             base_url: Some(base_url),
             api_key,
             model: Some(model),
+            timeout_secs: None,
         },
     )
 }
