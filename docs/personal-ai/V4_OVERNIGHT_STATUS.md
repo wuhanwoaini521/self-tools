@@ -18,7 +18,7 @@
 | 5 | History 标准模块 | ✅ 4 工具 + context；复用 V3 HistoryService；零写 canonical |
 | 6 | 前端 Ask AI + Panel + Context 桥 | ✅ 顶栏入口 + 侧栏面板 + HistoryPage 上下文上报 |
 | 7 | Actions + UI Blocks | ✅ Navigate/OpenEntity 执行 + EntityList 卡片渲染 |
-| 8 | 测试 + 回归 | ✅ Rust 280 / V3 pipeline 265 / 前端 build 全绿，详见 Tests |
+| 8 | 测试 + 回归 | ✅ Rust 281 / V3 pipeline 265 / 前端 build 全绿，详见 Tests |
 | 9 | 文档 + ADR + 审核 | 🔄 本文件 + PERSONAL_AI_HUB_V4.md + ADR-003 + reviewer |
 
 ## In Progress
