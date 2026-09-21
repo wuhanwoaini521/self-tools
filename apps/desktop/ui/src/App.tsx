@@ -1,4 +1,5 @@
 import {
+  Brain,
   Compass,
   Gear,
   House,
@@ -11,6 +12,7 @@ import {
   Wrench,
   X,
 } from "@phosphor-icons/react";
+import { openPath } from "@tauri-apps/plugin-opener";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SettingsDialog } from "./SettingsDialog";
 import { HomePage } from "./features/home/HomePage";
@@ -28,6 +30,16 @@ import { geographyClient } from "./features/geography/geographyClient";
 import { LanguagePage } from "./features/language/LanguagePage";
 import { AIPanel } from "./features/ai/AIPanel";
 import type { AgentAction, AppContextPayload } from "./features/ai/aiTypes";
+import {
+  KnowledgePage,
+  type KnowledgeIntent,
+} from "./features/knowledge/KnowledgePage";
+import { knowledgeClient } from "./features/knowledge/knowledgeClient";
+import type {
+  ConfirmMemoryTarget,
+  OpenDocumentTarget,
+  OpenFileTarget,
+} from "./features/knowledge/knowledgeTypes";
 import { TravelPage } from "./features/travel/TravelPage";
 import { GeographyPage } from "./features/geography/GeographyPage";
 import { applyTheme, getTheme, storeThemeId } from "./theme/ThemeManager";
@@ -58,6 +70,7 @@ type PageId =
   | "geography"
   | "history"
   | "language"
+  | "knowledge"
   | "tools";
 
 interface NavItem {
@@ -76,6 +89,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: "geography", label: "Geography", icon: MapTrifold },
   { id: "history", label: "History", icon: Scroll },
   { id: "language", label: "Language", icon: Translate },
+  { id: "knowledge", label: "Knowledge", icon: Brain },
   { id: "tools", label: "Tools", icon: Wrench, disabled: true },
 ];
 
@@ -107,6 +121,14 @@ const defaultSettings: AppSettings = {
     base_url: null,
     api_key: null,
     timeout_secs: null,
+  },
+  knowledge: {
+    file_roots: [],
+    document_roots: [],
+    max_document_bytes: 1_000_000,
+    max_read_chars: 20_000,
+    max_indexed_files: 5_000,
+    startup_sync: false,
   },
 };
 
@@ -149,6 +171,9 @@ export default function App() {
     id: string;
     nonce: number;
   } | null>(null);
+  const [knowledgeIntent, setKnowledgeIntent] = useState<KnowledgeIntent | null>(
+    null,
+  );
   const startupRefreshed = useRef(false);
 
   /** 主题即时切换:CSS 变量作用于 :root,所有页面同步更新 */
@@ -533,6 +558,20 @@ export default function App() {
               onContextChange={(ctx) => setAiContext(ctx)}
             />
           </section>
+          <section
+            className={
+              "page-pane knowledge-pane" +
+              (page === "knowledge" ? "" : " page-hidden")
+            }
+          >
+            <KnowledgePage
+              active={page === "knowledge"}
+              setNotice={setNotice}
+              onOpenSettings={() => setSettingsOpen(true)}
+              intent={knowledgeIntent}
+              onContextChange={(ctx) => setAiContext(ctx)}
+            />
+          </section>
         </main>
       </div>
       {notice ? (
@@ -549,6 +588,39 @@ export default function App() {
         onClearContext={() => setAiContext(null)}
         onNavigate={handleAiNavigate}
         onOpenSettings={() => setSettingsOpen(true)}
+        onConfirmMemory={async (target) => {
+          if (target.memory_id) {
+            await knowledgeClient.memoryConfirm(target.memory_id);
+            setNotice("已记住");
+            return;
+          }
+          await knowledgeClient.memorySave({
+            category: target.category,
+            content: target.content,
+            source_type: target.source_type ?? "conversation_candidate",
+            source_reference: target.source_reference ?? null,
+          });
+          setNotice("已记住");
+        }}
+        onDismissMemory={async (target) => {
+          if (target.memory_id) {
+            await knowledgeClient.memoryReject(target.memory_id);
+            setNotice("已忽略这条记忆");
+          }
+        }}
+        onOpenFile={(target) => {
+          void openPath(target.path).catch((error) =>
+            setNotice(`打开文件失败：${errorMessage(error)}`),
+          );
+        }}
+        onOpenDocument={(target) => {
+          setKnowledgeIntent({
+            tab: "documents",
+            documentId: target.document_id,
+            nonce: Date.now(),
+          });
+          setPage("knowledge");
+        }}
       />
       {settingsOpen ? (
         <SettingsDialog
@@ -566,6 +638,10 @@ export default function App() {
           }
           ai={settings.ai}
           onAiChange={(next) => void updateSettings({ ...settings, ai: next })}
+          knowledge={settings.knowledge}
+          onKnowledgeChange={(next) =>
+            void updateSettings({ ...settings, knowledge: next })
+          }
           onClose={() => setSettingsOpen(false)}
         />
       ) : null}

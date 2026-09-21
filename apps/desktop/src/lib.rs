@@ -31,6 +31,9 @@ use devtoolbox_infrastructure::{
     TravelDataProvider, TravelDataRequest, TravelStore, feed_client,
 };
 
+// V6：Personal Knowledge 组合根（适配器 + 服务装配 + 启动同步）。
+mod knowledge;
+
 // lib 已不再直接使用 serde_json（History 用例迁入 application）；保留空导入以消除 unused warning。
 use serde::{Deserialize, Serialize};
 use serde_json as _;
@@ -71,6 +74,10 @@ impl From<ApplicationError> for CommandError {
                 RssErrorKind::Parse => "rss_parse_failed",
                 RssErrorKind::Repository => "infrastructure_error",
             },
+            ApplicationError::Memory { .. } => "memory_error",
+            ApplicationError::Documents { .. } => "documents_error",
+            ApplicationError::Files { .. } => "files_error",
+            ApplicationError::Knowledge { .. } => "knowledge_error",
             ApplicationError::Infrastructure { .. } => "infrastructure_error",
         };
         Self {
@@ -116,6 +123,8 @@ pub struct AppState {
     pub ai_session: Arc<InMemorySessionStore>,
     /// History Enrichment 运行器（V5 Gate 4；命令与 agent 工具共用）。
     pub history_enrichment: Arc<dyn EnrichmentRunnerPort>,
+    /// Personal Knowledge 运行时（V6：memory / documents / files + 统一检索）。
+    pub knowledge: Arc<knowledge::KnowledgeRuntime>,
 }
 
 /// 轮询快照（Serialize 给前端；命令契约形状保持不变）。
@@ -735,18 +744,18 @@ fn language_speaking_feedback(
 // 用例逻辑在 crates/application/src/history/（HistoryService + HistoryQueryPort）；
 // 本文件只做 Tauri 命令转发，不做聚合决策。
 
+mod history_enrichment;
 mod history_query;
 mod personal_ai;
-mod history_enrichment;
 mod travel_ai;
 
+use devtoolbox_application::history::enrichment::EnrichmentRunnerPort;
+use devtoolbox_application::history::{EnrichmentKey, EnrichmentSection, EnrichmentView};
 use devtoolbox_application::history::{
     HistorySemanticEventDetail, HistorySemanticHome, HistorySemanticPeriodDetail,
     HistorySemanticPersonDetail, HistorySemanticSearchGroup, HistorySemanticStoryDetail,
     HistorySemanticWorkDetail, HistoryService,
 };
-use devtoolbox_application::history::enrichment::EnrichmentRunnerPort;
-use devtoolbox_application::history::{EnrichmentKey, EnrichmentSection, EnrichmentView};
 use devtoolbox_application::personal_ai::{InMemorySessionStore, PersonalHub};
 use devtoolbox_core::ToolSpec;
 use devtoolbox_core::personal_ai::{AgentRequest, AgentResponse, ModuleDescriptor};
@@ -940,6 +949,624 @@ async fn personal_ai_chat(
 }
 
 // ---------------------------------------------------------------------------
+// Personal Knowledge（V6）：Memory / Documents / Files 管理与检索命令
+// ---------------------------------------------------------------------------
+//
+// 边界（V6 §15/§20/§42）：
+// - `memory_confirm` / `memory_save` 是**唯一**能把记忆写成 ACTIVE 的入口（用户动作）；
+// - 没有任何命令可以写、移动或删除文件；索引扫描只写本地索引库。
+
+#[derive(Debug, Serialize)]
+struct MemoryStatsDto {
+    total: usize,
+    active: usize,
+    candidates: usize,
+    archived: usize,
+    rejected: usize,
+    expired: usize,
+    categories: Vec<MemoryCategoryCountDto>,
+}
+
+#[derive(Debug, Serialize)]
+struct MemoryCategoryCountDto {
+    category: String,
+    count: usize,
+}
+
+fn memory_stats(state: &State<'_, AppState>) -> Result<MemoryStatsDto, CommandError> {
+    let stats = state
+        .knowledge
+        .memory
+        .stats()
+        .map_err(CommandError::from)?;
+    let categories = state
+        .knowledge
+        .memory
+        .category_counts()
+        .map_err(CommandError::from)?
+        .into_iter()
+        .map(|(category, count)| MemoryCategoryCountDto {
+            category: category.as_str().to_string(),
+            count,
+        })
+        .collect();
+    Ok(MemoryStatsDto {
+        total: stats.total(),
+        active: stats.active,
+        candidates: stats.candidates,
+        archived: stats.archived,
+        rejected: stats.rejected,
+        expired: stats.expired,
+        categories,
+    })
+}
+
+#[tauri::command]
+fn memory_status(state: State<'_, AppState>) -> Result<MemoryStatsDto, CommandError> {
+    memory_stats(&state)
+}
+
+fn memory_item_json(item: &devtoolbox_core::memory::MemoryItem) -> serde_json::Value {
+    devtoolbox_application::personal_ai::memory::memory_json(item)
+}
+
+#[tauri::command]
+fn memory_list(
+    state: State<'_, AppState>,
+    query: Option<String>,
+    category: Option<String>,
+    status: Option<String>,
+    limit: Option<usize>,
+) -> Result<Vec<serde_json::Value>, CommandError> {
+    let spec = devtoolbox_core::memory::MemoryQuery {
+        query: query.unwrap_or_default(),
+        category: parse_memory_category(category.as_deref())?,
+        status: parse_memory_status(status.as_deref())?,
+        // 管理页是用户显式动作：敏感项可见（模型路径仍然过滤）。
+        include_sensitive: true,
+        limit: limit.unwrap_or(0),
+    };
+    let items = state
+        .knowledge
+        .memory
+        .list(&spec)
+        .map_err(CommandError::from)?;
+    Ok(items.iter().map(memory_item_json).collect())
+}
+
+#[tauri::command]
+fn memory_get(state: State<'_, AppState>, id: String) -> Result<serde_json::Value, CommandError> {
+    let item = state
+        .knowledge
+        .memory
+        .get(&id, true)
+        .map_err(CommandError::from)?;
+    Ok(memory_item_json(&item))
+}
+
+#[derive(Debug, Deserialize)]
+struct MemoryDraftRequest {
+    category: String,
+    content: String,
+    #[serde(default)]
+    source_type: Option<String>,
+    #[serde(default)]
+    source_reference: Option<String>,
+    #[serde(default)]
+    sensitivity: Option<String>,
+    #[serde(default)]
+    confidence: Option<f32>,
+}
+
+fn memory_draft(request: MemoryDraftRequest) -> Result<devtoolbox_core::memory::MemoryDraft, CommandError> {
+    let category = parse_memory_category(Some(&request.category))?
+        .ok_or_else(|| CommandError {
+            code: "memory_error",
+            message: "记忆分类不能为空".to_string(),
+        })?;
+    let source_type = match request.source_type.as_deref() {
+        None => devtoolbox_core::memory::MemorySourceType::ExplicitUser,
+        Some(raw) => devtoolbox_core::memory::MemorySourceType::parse(raw).ok_or_else(|| {
+            CommandError {
+                code: "memory_error",
+                message: format!("未知来源类型：{raw}"),
+            }
+        })?,
+    };
+    let sensitivity = match request.sensitivity.as_deref() {
+        None => devtoolbox_core::memory::MemorySensitivity::Normal,
+        Some(raw) => devtoolbox_core::memory::MemorySensitivity::parse(raw).ok_or_else(|| {
+            CommandError {
+                code: "memory_error",
+                message: format!("未知敏感度：{raw}"),
+            }
+        })?,
+    };
+    Ok(devtoolbox_core::memory::MemoryDraft {
+        category,
+        content: request.content,
+        source_type,
+        source_reference: request.source_reference,
+        sensitivity,
+        confidence: request.confidence.unwrap_or(0.9),
+        expires_at: None,
+        metadata: serde_json::Value::Null,
+    })
+}
+
+fn parse_memory_category(
+    raw: Option<&str>,
+) -> Result<Option<devtoolbox_core::memory::MemoryCategory>, CommandError> {
+    match raw {
+        None => Ok(None),
+        Some(raw) => devtoolbox_core::memory::MemoryCategory::parse(raw)
+            .map(Some)
+            .ok_or_else(|| CommandError {
+                code: "memory_error",
+                message: format!("未知记忆分类：{raw}"),
+            }),
+    }
+}
+
+fn parse_memory_status(
+    raw: Option<&str>,
+) -> Result<Option<devtoolbox_core::memory::MemoryStatus>, CommandError> {
+    match raw {
+        None => Ok(None),
+        Some(raw) => devtoolbox_core::memory::MemoryStatus::parse(raw)
+            .map(Some)
+            .ok_or_else(|| CommandError {
+                code: "memory_error",
+                message: format!("未知记忆状态：{raw}"),
+            }),
+    }
+}
+
+/// 用户在界面上确认保存（§15/§26）：唯一能把新记忆写成 ACTIVE 的入口之一。
+#[tauri::command]
+fn memory_save(
+    state: State<'_, AppState>,
+    request: MemoryDraftRequest,
+) -> Result<serde_json::Value, CommandError> {
+    let draft = memory_draft(request)?;
+    let item = state
+        .knowledge
+        .memory
+        .save_confirmed(draft)
+        .map_err(CommandError::from)?;
+    Ok(memory_item_json(&item))
+}
+
+/// 用户确认候选（§25：「是否记住这条信息？」→ 记住）。
+#[tauri::command]
+fn memory_confirm(
+    state: State<'_, AppState>,
+    id: String,
+) -> Result<serde_json::Value, CommandError> {
+    let item = state
+        .knowledge
+        .memory
+        .confirm(&id)
+        .map_err(CommandError::from)?;
+    Ok(memory_item_json(&item))
+}
+
+#[tauri::command]
+fn memory_reject(state: State<'_, AppState>, id: String) -> Result<serde_json::Value, CommandError> {
+    let item = state
+        .knowledge
+        .memory
+        .reject(&id)
+        .map_err(CommandError::from)?;
+    Ok(memory_item_json(&item))
+}
+
+#[tauri::command]
+fn memory_archive(state: State<'_, AppState>, id: String) -> Result<serde_json::Value, CommandError> {
+    let item = state
+        .knowledge
+        .memory
+        .archive(&id)
+        .map_err(CommandError::from)?;
+    Ok(memory_item_json(&item))
+}
+
+#[derive(Debug, Deserialize)]
+struct MemoryUpdateRequest {
+    id: String,
+    content: String,
+    #[serde(default)]
+    category: Option<String>,
+    #[serde(default)]
+    sensitivity: Option<String>,
+}
+
+#[tauri::command]
+fn memory_update(
+    state: State<'_, AppState>,
+    request: MemoryUpdateRequest,
+) -> Result<serde_json::Value, CommandError> {
+    let category = parse_memory_category(request.category.as_deref())?;
+    let sensitivity = match request.sensitivity.as_deref() {
+        None => None,
+        Some(raw) => Some(
+            devtoolbox_core::memory::MemorySensitivity::parse(raw).ok_or_else(|| CommandError {
+                code: "memory_error",
+                message: format!("未知敏感度：{raw}"),
+            })?,
+        ),
+    };
+    let item = state
+        .knowledge
+        .memory
+        .update(&request.id, &request.content, category, sensitivity)
+        .map_err(CommandError::from)?;
+    Ok(memory_item_json(&item))
+}
+
+fn knowledge_roots(state: &State<'_, AppState>) -> Vec<devtoolbox_core::files::KnowledgeRoot> {
+    let settings = state.knowledge.settings();
+    let mut roots = settings.file_roots.clone();
+    for root in settings.effective_document_roots() {
+        if !roots.iter().any(|existing| existing.id == root.id) {
+            roots.push(root);
+        }
+    }
+    roots
+}
+
+#[derive(Debug, Serialize)]
+struct DocumentStatusDto {
+    roots: Vec<devtoolbox_core::files::KnowledgeRoot>,
+    configured: bool,
+    documents: usize,
+    chunks: usize,
+    content_available: usize,
+    metadata_only: usize,
+    failed: usize,
+}
+
+#[tauri::command]
+fn documents_status(state: State<'_, AppState>) -> Result<DocumentStatusDto, CommandError> {
+    let settings = state.knowledge.settings();
+    let stats = state
+        .knowledge
+        .documents
+        .stats()
+        .map_err(CommandError::from)?;
+    Ok(DocumentStatusDto {
+        configured: !settings.effective_document_roots().is_empty(),
+        roots: knowledge_roots(&state),
+        documents: stats.documents,
+        chunks: stats.chunks,
+        content_available: stats.content_available,
+        metadata_only: stats.metadata_only,
+        failed: stats.failed,
+    })
+}
+
+fn document_hit_json(
+    hit: &devtoolbox_core::documents::DocumentHit,
+    score: f32,
+) -> serde_json::Value {
+    serde_json::json!({
+        "meta": hit.meta,
+        "chunk_id": hit.chunk_id,
+        "location": hit.location,
+        "snippet": hit.snippet,
+        "matched_in_title": hit.matched_in_title,
+        "score": score,
+    })
+}
+
+/// 手动扫描（§89）：只写本地索引库；模型无法触发本命令。
+#[tauri::command]
+fn documents_scan(
+    state: State<'_, AppState>,
+    root_id: Option<String>,
+) -> Result<Vec<devtoolbox_application::documents::IndexReport>, CommandError> {
+    let settings = state.knowledge.settings();
+    let started = std::time::Instant::now();
+    let roots: Vec<devtoolbox_core::files::KnowledgeRoot> = settings
+        .effective_document_roots()
+        .into_iter()
+        .filter(|root| root.enabled)
+        .filter(|root| root_id.as_deref().is_none_or(|id| id == root.id))
+        .collect();
+    if roots.is_empty() {
+        return Err(CommandError {
+            code: "documents_error",
+            message: "未配置文档目录：请在 设置 → 知识 中添加允许目录".to_string(),
+        });
+    }
+    let mut reports = Vec::new();
+    for root in &roots {
+        reports.push(
+            state
+                .knowledge
+                .documents
+                .index_root(root, &settings)
+                .map_err(CommandError::from)?,
+        );
+    }
+    state.knowledge.metrics.record_index(
+        &reports,
+        &[],
+        started.elapsed().as_millis() as u64,
+    );
+    Ok(reports)
+}
+
+#[tauri::command]
+fn documents_search(
+    state: State<'_, AppState>,
+    query: String,
+    document_type: Option<String>,
+    limit: Option<usize>,
+) -> Result<Vec<serde_json::Value>, CommandError> {
+    let document_type = match document_type.as_deref() {
+        None => None,
+        Some(raw) => Some(
+            devtoolbox_core::documents::DocumentType::parse(raw).ok_or_else(|| CommandError {
+                code: "documents_error",
+                message: format!("未知文档类型：{raw}"),
+            })?,
+        ),
+    };
+    let started = std::time::Instant::now();
+    let hits = state
+        .knowledge
+        .documents
+        .search(&query, document_type, limit.unwrap_or(0))
+        .map_err(CommandError::from)?;
+    state.knowledge.metrics.record_tool(
+        "documents.search",
+        started.elapsed().as_millis() as u64,
+    );
+    let results = state
+        .knowledge
+        .documents
+        .to_knowledge_results(&hits, &query);
+    Ok(hits
+        .iter()
+        .zip(results.iter())
+        .map(|(hit, result)| document_hit_json(hit, result.score))
+        .collect())
+}
+
+#[tauri::command]
+fn documents_get(
+    state: State<'_, AppState>,
+    document_id: String,
+) -> Result<devtoolbox_core::documents::DocumentMeta, CommandError> {
+    state
+        .knowledge
+        .documents
+        .get(&document_id)
+        .map_err(CommandError::from)
+}
+
+#[derive(Debug, Default, Deserialize)]
+struct DocumentReadRequestDto {
+    document_id: String,
+    #[serde(default)]
+    chunk_id: Option<String>,
+    #[serde(default)]
+    section: Option<String>,
+    #[serde(default)]
+    offset: Option<usize>,
+    #[serde(default)]
+    max_chars: Option<usize>,
+}
+
+#[tauri::command]
+fn documents_read(
+    state: State<'_, AppState>,
+    request: DocumentReadRequestDto,
+) -> Result<devtoolbox_core::documents::DocumentReadResult, CommandError> {
+    let read = devtoolbox_core::documents::DocumentReadRequest {
+        chunk_id: request.chunk_id,
+        section: request.section,
+        offset: request.offset.unwrap_or(0),
+        max_chars: request.max_chars.unwrap_or(2_000),
+    };
+    state
+        .knowledge
+        .documents
+        .read(&request.document_id, &read)
+        .map_err(CommandError::from)
+}
+
+#[tauri::command]
+fn documents_recent(
+    state: State<'_, AppState>,
+    limit: Option<usize>,
+) -> Result<Vec<devtoolbox_core::documents::DocumentMeta>, CommandError> {
+    state
+        .knowledge
+        .documents
+        .recent(limit.unwrap_or(0))
+        .map_err(CommandError::from)
+}
+
+#[derive(Debug, Serialize)]
+struct FileStatusDto {
+    roots: Vec<devtoolbox_core::files::KnowledgeRoot>,
+    configured: bool,
+    files: usize,
+    text_files: usize,
+    binary_files: usize,
+    restricted: usize,
+    failed: usize,
+}
+
+#[tauri::command]
+fn files_status(state: State<'_, AppState>) -> Result<FileStatusDto, CommandError> {
+    let settings = state.knowledge.settings();
+    let stats = state.knowledge.files.stats().map_err(CommandError::from)?;
+    Ok(FileStatusDto {
+        configured: settings.file_policy().is_configured(),
+        roots: knowledge_roots(&state),
+        files: stats.files,
+        text_files: stats.text_files,
+        binary_files: stats.binary_files,
+        restricted: stats.restricted,
+        failed: stats.failed,
+    })
+}
+
+#[tauri::command]
+fn files_scan(
+    state: State<'_, AppState>,
+    root_id: Option<String>,
+) -> Result<Vec<devtoolbox_application::files::FileIndexReport>, CommandError> {
+    let settings = state.knowledge.settings();
+    if !settings.file_policy().is_configured() {
+        return Err(CommandError {
+            code: "files_error",
+            message: "未配置允许目录：请在 设置 → 知识 中添加允许目录".to_string(),
+        });
+    }
+    let started = std::time::Instant::now();
+    let policy = settings.file_policy();
+    let roots: Vec<devtoolbox_core::files::KnowledgeRoot> = policy
+        .enabled_roots()
+        .into_iter()
+        .filter(|root| root_id.as_deref().is_none_or(|id| id == root.id))
+        .cloned()
+        .collect();
+    let mut reports = Vec::new();
+    for root in &roots {
+        let mut single = settings.clone();
+        single.file_roots = vec![root.clone()];
+        reports.extend(
+            state
+                .knowledge
+                .files
+                .index_configured_roots(&single)
+                .map_err(CommandError::from)?,
+        );
+    }
+    state
+        .knowledge
+        .metrics
+        .record_index(&[], &reports, started.elapsed().as_millis() as u64);
+    Ok(reports)
+}
+
+#[tauri::command]
+fn files_search(
+    state: State<'_, AppState>,
+    query: Option<String>,
+    extension: Option<String>,
+    root_id: Option<String>,
+    modified_after: Option<i64>,
+    limit: Option<usize>,
+) -> Result<Vec<devtoolbox_core::files::FileMetadata>, CommandError> {
+    let settings = state.knowledge.settings();
+    let spec = devtoolbox_core::files::FileQuery {
+        query: query.unwrap_or_default(),
+        extension,
+        root_id,
+        modified_after,
+        limit: limit.unwrap_or(0),
+        include_restricted: false,
+    };
+    let started = std::time::Instant::now();
+    let entries = state
+        .knowledge
+        .files
+        .search(&settings, &spec)
+        .map_err(CommandError::from)?;
+    state
+        .knowledge
+        .metrics
+        .record_tool("files.search", started.elapsed().as_millis() as u64);
+    Ok(entries)
+}
+
+#[tauri::command]
+fn files_metadata(
+    state: State<'_, AppState>,
+    target: String,
+) -> Result<devtoolbox_core::files::FileMetadata, CommandError> {
+    let settings = state.knowledge.settings();
+    state
+        .knowledge
+        .files
+        .metadata(&settings, &target)
+        .map_err(CommandError::from)
+}
+
+#[tauri::command]
+fn files_read_text(
+    state: State<'_, AppState>,
+    target: String,
+    max_chars: Option<usize>,
+) -> Result<devtoolbox_application::files::FileReadResult, CommandError> {
+    let settings = state.knowledge.settings();
+    state
+        .knowledge
+        .files
+        .read_text(&settings, &target, max_chars.unwrap_or(0))
+        .map_err(CommandError::from)
+}
+
+#[derive(Debug, Serialize)]
+struct FileOpenDto {
+    file: devtoolbox_core::files::FileMetadata,
+    action: devtoolbox_core::personal_ai::Action,
+}
+
+/// 返回 `OpenFile` Action（§46）：**backend 不执行 shell**，由前端决定如何打开。
+#[tauri::command]
+fn files_open(state: State<'_, AppState>, target: String) -> Result<FileOpenDto, CommandError> {
+    let settings = state.knowledge.settings();
+    let (file, action) = state
+        .knowledge
+        .files
+        .open_action(&settings, &target)
+        .map_err(CommandError::from)?;
+    Ok(FileOpenDto { file, action })
+}
+
+#[tauri::command]
+fn files_recent(
+    state: State<'_, AppState>,
+    limit: Option<usize>,
+) -> Result<Vec<devtoolbox_core::files::FileMetadata>, CommandError> {
+    state
+        .knowledge
+        .files
+        .recent(limit.unwrap_or(0))
+        .map_err(CommandError::from)
+}
+
+#[derive(Debug, Serialize)]
+struct KnowledgeStatusDto {
+    sources: Vec<String>,
+    budget: devtoolbox_core::knowledge::KnowledgeBudget,
+    metrics: devtoolbox_application::knowledge::KnowledgeMetricsSnapshot,
+    configured_roots: Vec<devtoolbox_core::files::KnowledgeRoot>,
+}
+
+#[tauri::command]
+fn knowledge_status(state: State<'_, AppState>) -> Result<KnowledgeStatusDto, CommandError> {
+    Ok(KnowledgeStatusDto {
+        sources: state
+            .knowledge
+            .retrieval
+            .kinds()
+            .into_iter()
+            .map(|kind| kind.as_str().to_string())
+            .collect(),
+        budget: state.knowledge.retrieval.budget(),
+        metrics: state.knowledge.metrics.snapshot(),
+        configured_roots: knowledge_roots(&state),
+    })
+}
+
+// ---------------------------------------------------------------------------
 // History Enrichment（V5 Gate 4）：按需 AI 富化命令
 // ---------------------------------------------------------------------------
 
@@ -1019,7 +1646,9 @@ fn history_enrichment_state(
         .map_err(enrichment_error)
 }
 
-fn enrichment_state_text(state: devtoolbox_core::history_enrichment::EnrichmentState) -> &'static str {
+fn enrichment_state_text(
+    state: devtoolbox_core::history_enrichment::EnrichmentState,
+) -> &'static str {
     use devtoolbox_core::history_enrichment::EnrichmentState as S;
     match state {
         S::Missing => "MISSING",
@@ -1041,10 +1670,7 @@ fn history_enrichment_view(
     locale: String,
 ) -> Result<EnrichmentView, CommandError> {
     let key = parse_enrichment_key(&entity_type, &entity_id, &section, &locale)?;
-    state
-        .history_enrichment
-        .get(&key)
-        .map_err(enrichment_error)
+    state.history_enrichment.get(&key).map_err(enrichment_error)
 }
 
 /// 按需生成（含跨调用单飞；已在生成 → GENERATING）。
@@ -1127,26 +1753,25 @@ pub fn run() {
                 composition::RssRepositoryAdapter::new(Arc::new(Mutex::new(store))),
             );
             let history_repo = Arc::new(history_duckdb);
-            let history_port: Arc<dyn devtoolbox_application::history::HistoryQueryPort> =
-                Arc::new(history_query::HistoryQueryAdapter::new(Arc::clone(&history_repo)));
+            let history_port: Arc<dyn devtoolbox_application::history::HistoryQueryPort> = Arc::new(
+                history_query::HistoryQueryAdapter::new(Arc::clone(&history_repo)),
+            );
             // 富化设置读取器：每次调用读最新 settings.json（同 travel 模式）。
             let enrichment_settings: history_enrichment::SettingsLoader = {
                 let handle = app.handle().clone();
                 Arc::new(move || -> Result<AppSettings, String> {
-                    let store =
-                        settings_store(&handle).map_err(|error| error.message.clone())?;
+                    let store = settings_store(&handle).map_err(|error| error.message.clone())?;
                     load_settings(&composition::SettingsStoreAdapter::new(store))
                         .map_err(|error| error.to_string())
                 })
             };
-            let history_enrichment =
-                history_enrichment::build_runner(
-                    client.clone(),
-                    enrichment_settings.clone(),
-                    &config_directory,
-                    Arc::clone(&history_port),
-                )
-                .map_err(|error| std::io::Error::other(error.to_string()))?;
+            let history_enrichment = history_enrichment::build_runner(
+                client.clone(),
+                enrichment_settings.clone(),
+                &config_directory,
+                Arc::clone(&history_port),
+            )
+            .map_err(|error| std::io::Error::other(error.to_string()))?;
             let travel_ai: Arc<dyn devtoolbox_application::travel::TravelAiPort> =
                 Arc::new(travel_ai::TravelAiAdapter::new(
                     client.clone(),
@@ -1163,6 +1788,20 @@ pub fn run() {
                 Arc::new(composition::LanguageStoreAdapter::new(Arc::clone(
                     &language_store_shared,
                 )));
+            // V6 Personal Knowledge：三个索引库 + 三个域服务 + 统一检索服务。
+            let knowledge = knowledge::KnowledgeRuntime::build(
+                &config_directory,
+                Arc::clone(&enrichment_settings),
+                devtoolbox_core::knowledge::KnowledgeBudget::default(),
+            )
+            .map_err(std::io::Error::other)?;
+            // 启动轻量同步（§89）：未配置允许根 → 空操作；失败只记录，不阻塞启动。
+            let sync_notes = knowledge.startup_sync();
+            for note in &sync_notes {
+                eprintln!("[knowledge] startup sync: {note}");
+            }
+            let knowledge = Arc::new(knowledge);
+
             // language.explain 的可选 LLM 增强（setup 时读取一次配置；未配置 → None 确定性降级）。
             let language_llm_plug: Option<
                 Arc<dyn devtoolbox_core::personal_ai::ChatModelProvider>,
@@ -1187,9 +1826,11 @@ pub fn run() {
                     geography_port,
                     language_port,
                     language_llm_plug,
+                    &knowledge,
                 ),
                 ai_session: Arc::new(InMemorySessionStore::new()),
                 history_enrichment,
+                knowledge,
             });
             Ok(())
         })
@@ -1228,6 +1869,28 @@ pub fn run() {
             geography_toggle_favorite,
             personal_ai_status,
             personal_ai_chat,
+            memory_status,
+            memory_list,
+            memory_get,
+            memory_save,
+            memory_confirm,
+            memory_reject,
+            memory_archive,
+            memory_update,
+            documents_status,
+            documents_scan,
+            documents_search,
+            documents_get,
+            documents_read,
+            documents_recent,
+            files_status,
+            files_scan,
+            files_search,
+            files_metadata,
+            files_read_text,
+            files_open,
+            files_recent,
+            knowledge_status,
             history_enrichment_state,
             history_enrichment_view,
             history_enrichment_ensure,

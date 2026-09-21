@@ -4,6 +4,13 @@
  * 与后端 `crates/core/src/personal_ai/` 的 serde 形状一一对应；
  * 只读契约：字段名与后端冻结一致，勿改名。
  */
+import type {
+ DocumentType,
+ MemoryCategory,
+ MemorySensitivity,
+ MemorySourceType,
+ MemoryStatus,
+} from "../knowledge/knowledgeTypes";
 
 export interface AppEntityRef {
  kind: string;
@@ -44,7 +51,10 @@ export type AgentActionKind =
  | "navigate"
  | "open_entity"
  | "refresh_view"
- | "show_panel";
+ | "show_panel"
+ | "open_document"
+ | "open_file"
+ | "confirm_memory";
 
 export interface AgentAction {
  type: AgentActionKind;
@@ -57,7 +67,12 @@ export type UiBlockKind =
  | "entity_card"
  | "source_list"
  | "key_value"
- | "timeline_preview";
+ | "timeline_preview"
+ | "memory_list"
+ | "document_list"
+ | "document_card"
+ | "document_reference"
+ | "file_list";
 
 export interface UiBlock {
  kind: UiBlockKind;
@@ -124,6 +139,101 @@ export function entityListItems(block: UiBlock): EntityListItem[] {
  const raw = block.data;
  if (!Array.isArray(raw)) return [];
  return raw as EntityListItem[];
+}
+
+// ---------------------------------------------------------------------------
+// Personal Knowledge UI Blocks（V6 §5）—— 形状与后端模块适配器冻结一致
+// ---------------------------------------------------------------------------
+
+/** `memory_list` UI Block 的条目。 */
+export interface MemoryListItem {
+ id: string;
+ category: MemoryCategory;
+ category_label?: string | null;
+ content: string;
+ status?: MemoryStatus | null;
+ source_type?: MemorySourceType | null;
+ sensitivity?: MemorySensitivity | null;
+ updated_at?: number | null;
+ needs_confirmation?: boolean | null;
+}
+
+/** `document_list` UI Block 的条目。 */
+export interface DocumentListItem {
+ document_id: string;
+ title: string;
+ document_type?: DocumentType | null;
+ relative_path?: string | null;
+ location?: string | null;
+ snippet?: string | null;
+ score?: number | null;
+ modified_at?: number | null;
+}
+
+/** `document_card` UI Block 的数据。 */
+export interface DocumentCardData {
+ document_id: string;
+ title: string;
+ document_type?: DocumentType | null;
+ path?: string | null;
+ relative_path?: string | null;
+ size_bytes?: number | null;
+ modified_at?: number | null;
+ chunk_count?: number | null;
+ content_available?: boolean | null;
+ index_error?: string | null;
+}
+
+/** `document_reference` UI Block 的数据。 */
+export interface DocumentReferenceData {
+ document_id: string;
+ title: string;
+ location?: string | null;
+ snippet?: string | null;
+}
+
+/** `file_list` UI Block 的条目。 */
+export interface FileListItem {
+ file_id?: string | null;
+ file_name: string;
+ relative_path?: string | null;
+ path?: string | null;
+ extension?: string | null;
+ size_bytes?: number | null;
+ modified_at?: number | null;
+ restricted?: boolean | null;
+}
+
+/** Block 的 `data.items` 数组（形状不符时返回空数组，渲染层优雅降级）。 */
+function blockItems<T>(block: UiBlock): T[] {
+ const items = (block.data as { items?: unknown } | null | undefined)?.items;
+ return Array.isArray(items) ? (items as T[]) : [];
+}
+
+export function memoryListItems(block: UiBlock): MemoryListItem[] {
+ return blockItems<MemoryListItem>(block);
+}
+
+export function documentListItems(block: UiBlock): DocumentListItem[] {
+ return blockItems<DocumentListItem>(block);
+}
+
+export function fileListItems(block: UiBlock): FileListItem[] {
+ return blockItems<FileListItem>(block);
+}
+
+export function documentCardData(block: UiBlock): DocumentCardData | null {
+ const data = block.data;
+ if (!data || typeof data !== "object" || Array.isArray(data)) return null;
+ return data as DocumentCardData;
+}
+
+export function documentReferenceData(
+ block: UiBlock,
+): DocumentReferenceData | null {
+ const data = block.data;
+ if (!data || typeof data !== "object" || Array.isArray(data)) return null;
+ return data as DocumentReferenceData;
 }
 
 // ---------------------------------------------------------------------------

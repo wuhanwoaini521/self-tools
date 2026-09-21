@@ -14,3 +14,4 @@ use tauri_plugin_opener as _;
 fn main() {
     devtoolbox_desktop::run();
 }
+use tempfile as _;

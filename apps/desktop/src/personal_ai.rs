@@ -11,8 +11,9 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use devtoolbox_application::personal_ai::{
-    AgentConfig, InMemorySessionStore, PersonalAgent, PersonalHub, register_geography,
-    register_history, register_language, register_travel,
+    AgentConfig, InMemorySessionStore, PersonalAgent, PersonalHub, register_documents,
+    register_files, register_geography, register_history, register_knowledge, register_language,
+    register_memory, register_travel,
 };
 use devtoolbox_core::personal_ai::{ChatModelProvider, ChatRequest, ChatResponse, ProviderError};
 use devtoolbox_core::settings::AiSettings;
@@ -56,7 +57,10 @@ pub fn build_provider(client: reqwest::Client, ai: &AiSettings) -> Arc<dyn ChatM
     }
 }
 
-/// 装配注册中心：注册 History 标准模块（V4 §41）。
+/// 装配注册中心：注册全部标准模块（V4 §41 + V5 模块 + V6 知识层）。
+///
+/// 模块接入一律走 `ModuleDescriptor + tools + ContextProvider + register_*`
+/// （V6 §99/§100）：`PersonalAgent` 核心不含任何模块业务分支。
 pub fn build_hub(
     history: Arc<HistoryDuckDbRepository>,
     runner: Option<Arc<dyn devtoolbox_application::history::enrichment::EnrichmentRunnerPort>>,
@@ -64,6 +68,7 @@ pub fn build_hub(
     geography: Arc<dyn devtoolbox_application::geography::GeographyQueryPort + Send + Sync>,
     language_store: Arc<dyn devtoolbox_application::language::LanguageStorePort>,
     language_llm: Option<Arc<dyn ChatModelProvider>>,
+    knowledge: &crate::knowledge::KnowledgeRuntime,
 ) -> Arc<PersonalHub> {
     let port: Arc<dyn devtoolbox_application::history::HistoryQueryPort> =
         Arc::new(HistoryQueryAdapter::new(history));
@@ -73,8 +78,43 @@ pub fn build_hub(
     register_travel(&mut hub.modules, &mut hub.tools, travel).expect("register travel module");
     register_geography(&mut hub.modules, &mut hub.tools, geography)
         .expect("register geography module");
-    register_language(&mut hub.modules, &mut hub.tools, language_store, language_llm)
-        .expect("register language module");
+    register_language(
+        &mut hub.modules,
+        &mut hub.tools,
+        language_store,
+        language_llm,
+    )
+    .expect("register language module");
+    // V6 知识层：三个独立模块 + 一个 facade 模块。
+    register_memory(
+        &mut hub.modules,
+        &mut hub.tools,
+        Arc::clone(&knowledge.memory),
+    )
+    .expect("register memory module");
+    register_documents(
+        &mut hub.modules,
+        &mut hub.tools,
+        Arc::clone(&knowledge.documents),
+        Arc::clone(&knowledge.settings),
+    )
+    .expect("register documents module");
+    register_files(
+        &mut hub.modules,
+        &mut hub.tools,
+        Arc::clone(&knowledge.files),
+        Arc::clone(&knowledge.settings),
+    )
+    .expect("register files module");
+    register_knowledge(
+        &mut hub.modules,
+        &mut hub.tools,
+        Arc::clone(&knowledge.retrieval),
+    )
+    .expect("register knowledge module");
+    // 通用检索增强 stage（V6 §22/§55）：平台可选能力，无业务分支。
+    hub.retrieval = Some(Arc::clone(&knowledge.retrieval)
+        as Arc<dyn devtoolbox_application::personal_ai::RetrievalAugmenter>);
     Arc::new(hub)
 }
 

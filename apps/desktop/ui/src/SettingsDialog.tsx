@@ -3,6 +3,8 @@ import { useCallback, useEffect, useState } from "react";
 import type {
   AiSettings,
   GeographySettings,
+  KnowledgeRoot,
+  KnowledgeSettings,
   SourceInfo,
   TravelSearchBackend,
   TravelSettings,
@@ -24,6 +26,8 @@ interface SettingsDialogProps {
   onGeographyChange: (geography: GeographySettings) => void;
   ai: AiSettings;
   onAiChange: (ai: AiSettings) => void;
+  knowledge: KnowledgeSettings;
+  onKnowledgeChange: (knowledge: KnowledgeSettings) => void;
   onClose: () => void;
 }
 
@@ -52,6 +56,8 @@ export function SettingsDialog({
   onGeographyChange,
   ai,
   onAiChange,
+  knowledge,
+  onKnowledgeChange,
   onClose,
 }: SettingsDialogProps) {
   const current = getTheme(themeId);
@@ -67,6 +73,8 @@ export function SettingsDialog({
     onAiChange({ ...ai, ...patch });
   const updateGeography = (patch: Partial<GeographySettings>) =>
     onGeographyChange({ ...geography, ...patch });
+  const updateKnowledge = (patch: Partial<KnowledgeSettings>) =>
+    onKnowledgeChange({ ...knowledge, ...patch });
   const runTest = async (
     kind: "llm" | "amap" | "geography-amap" | "qweather",
   ) => {
@@ -520,6 +528,10 @@ export function SettingsDialog({
             </p>
             <LanguageDataSection />
           </section>
+          <KnowledgeSection
+            knowledge={knowledge}
+            onChange={updateKnowledge}
+          />
         </div>
       </section>
     </div>
@@ -601,5 +613,153 @@ function LanguageDataSection() {
         </ul>
       )}
     </div>
+  );
+}
+
+/**
+ * 知识库允许目录（V6 §44）：AI 只能在这些根内检索 / 读元数据 / 安全读取。
+ * 空 = 未配置：Documents / Files 页面会如实报告未配置，而不是报错。
+ */
+function KnowledgeSection({
+  knowledge,
+  onChange,
+}: {
+  knowledge: KnowledgeSettings;
+  onChange: (patch: Partial<KnowledgeSettings>) => void;
+}) {
+  const [draft, setDraft] = useState({ label: "", path: "" });
+  const [notice, setNotice] = useState<string | null>(null);
+
+  const addRoot = (scope: "file_roots" | "document_roots") => {
+    const label = draft.label.trim();
+    const path = draft.path.trim();
+    if (!path) {
+      setNotice("请填写目录绝对路径");
+      return;
+    }
+    const id = `kn-${path.replace(/[^a-zA-Z0-9]+/g, "-").toLowerCase()}`;
+    if (knowledge[scope].some((root) => root.path === path)) {
+      setNotice("该目录已在列表中");
+      return;
+    }
+    onChange({
+      [scope]: [...knowledge[scope], { id, label: label || path, path, enabled: true }],
+    } as Partial<KnowledgeSettings>);
+    setDraft({ label: "", path: "" });
+    setNotice(null);
+  };
+
+  const removeRoot = (scope: "file_roots" | "document_roots", id: string) =>
+    onChange({ [scope]: knowledge[scope].filter((root) => root.id !== id) } as Partial<KnowledgeSettings>);
+
+  const toggleRoot = (scope: "file_roots" | "document_roots", id: string) =>
+    onChange({
+      [scope]: knowledge[scope].map((root) =>
+        root.id === id ? { ...root, enabled: !root.enabled } : root,
+      ),
+    } as Partial<KnowledgeSettings>);
+
+  return (
+    <section className="settings-section">
+      <label className="settings-label">Knowledge · 知识库允许目录</label>
+      <p className="settings-hint">
+        AI 只能在这些目录内检索文件与文档，且<strong>只读</strong>
+        ：不会写入、移动或删除任何文件。留空表示未配置（知识页会如实提示）。
+      </p>
+
+      {(["file_roots", "document_roots"] as const).map((scope) => (
+        <div key={scope} style={{ marginTop: 12 }}>
+          <span className="settings-label">
+            {scope === "file_roots" ? "文件允许根（Files）" : "文档索引根（Documents，留空复用文件根）"}
+          </span>
+          {knowledge[scope].length === 0 ? (
+            <p className="settings-hint">尚未配置。</p>
+          ) : (
+            <ul className="settings-roots">
+              {knowledge[scope].map((root) => (
+                <li key={root.id}>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={root.enabled}
+                      onChange={() => toggleRoot(scope, root.id)}
+                    />
+                    {root.label || root.path}
+                    <code>{root.path}</code>
+                  </label>
+                  <button
+                    className="settings-test-button"
+                    onClick={() => removeRoot(scope, root.id)}
+                  >
+                    移除
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <div className="settings-root-form">
+            <input
+              className="settings-select"
+              type="text"
+              placeholder="显示名（可选）"
+              value={draft.label}
+              onChange={(event) => setDraft({ ...draft, label: event.target.value })}
+            />
+            <input
+              className="settings-select"
+              type="text"
+              placeholder="目录绝对路径，例如 D:/notes"
+              value={draft.path}
+              onChange={(event) => setDraft({ ...draft, path: event.target.value })}
+            />
+            <button className="settings-test-button" onClick={() => addRoot(scope)}>
+              添加
+            </button>
+          </div>
+        </div>
+      ))}
+
+      <div className="settings-inline">
+        <label className="settings-label">单文档索引上限（字节）</label>
+        <input
+          className="settings-select"
+          type="number"
+          min={1}
+          value={knowledge.max_document_bytes}
+          onChange={(event) =>
+            onChange({ max_document_bytes: Number(event.target.value) || 1_000_000 })
+          }
+        />
+        <label className="settings-label">单次安全读取字符上限</label>
+        <input
+          className="settings-select"
+          type="number"
+          min={1}
+          value={knowledge.max_read_chars}
+          onChange={(event) =>
+            onChange({ max_read_chars: Number(event.target.value) || 20_000 })
+          }
+        />
+        <label className="settings-label">索引文件数上限</label>
+        <input
+          className="settings-select"
+          type="number"
+          min={1}
+          value={knowledge.max_indexed_files}
+          onChange={(event) =>
+            onChange({ max_indexed_files: Number(event.target.value) || 5_000 })
+          }
+        />
+        <label className="settings-checkbox">
+          <input
+            type="checkbox"
+            checked={knowledge.startup_sync}
+            onChange={(event) => onChange({ startup_sync: event.target.checked })}
+          />
+          启动时执行一次轻量索引同步
+        </label>
+      </div>
+      {notice ? <p className="settings-hint">{notice}</p> : null}
+    </section>
   );
 }

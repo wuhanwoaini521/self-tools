@@ -16,16 +16,34 @@ import {
   X,
 } from "@phosphor-icons/react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { errorMessage } from "../../utils";
+import { errorMessage, formatRelativeTime } from "../../utils";
+import { MemoryConfirmCard } from "../knowledge/MemoryConfirmCard";
+import {
+  DOCUMENT_TYPE_LABELS,
+  MEMORY_CATEGORY_LABELS,
+  MEMORY_SOURCE_LABELS,
+  MEMORY_STATUS_LABELS,
+  type ConfirmMemoryTarget,
+  type OpenDocumentTarget,
+  type OpenFileTarget,
+} from "../knowledge/knowledgeTypes";
 import { aiClient } from "./aiClient";
 import {
   type AgentAction,
   type AgentMessage,
   type AgentResponse,
   type AppContextPayload,
+  type DocumentListItem,
   type EntityListItem,
+  type FileListItem,
+  type MemoryListItem,
   type UiBlock,
+  documentCardData,
+  documentListItems,
+  documentReferenceData,
   entityListItems,
+  fileListItems,
+  memoryListItems,
 } from "./aiTypes";
 
 export type AiPanelState = "unconfigured" | "ready" | "loading" | "error";
@@ -40,7 +58,42 @@ export interface AIPanelProps {
   onClearContext: () => void;
   /** 执行 Action 请求（Frontend 决定是否执行，V4 §51）。 */
   onNavigate: (action: AgentAction) => void;
+  /** 确认一条记忆（memory_save / memory_confirm，V6 §25）。 */
+  onConfirmMemory?: (target: ConfirmMemoryTarget) => Promise<void>;
+  /** 放弃一条记忆（带 memory_id 时由调用方 memory_reject）。 */
+  onDismissMemory?: (target: ConfirmMemoryTarget) => Promise<void>;
+  /** 用系统默认程序打开文件（`open_file` Action）。 */
+  onOpenFile?: (target: OpenFileTarget) => void;
+  /** 跳转 Knowledge 页并打开文档（`open_document` Action）。 */
+  onOpenDocument?: (target: OpenDocumentTarget) => void;
   onOpenSettings: () => void;
+}
+
+/** 记忆候选的稳定 key（同一候选只渲染一张确认卡）。 */
+function confirmKey(target: ConfirmMemoryTarget): string {
+  return target.memory_id ?? `new:${target.category}:${target.content}`;
+}
+
+/** Action / UI Block 里的记忆候选是否形状完整（后端适配器产出，宽松校验）。 */
+function asConfirmTarget(raw: unknown): ConfirmMemoryTarget | null {
+  if (!raw || typeof raw !== "object") return null;
+  const record = raw as Record<string, unknown>;
+  if (typeof record.content !== "string" || !record.content.trim()) return null;
+  if (typeof record.category !== "string") return null;
+  return {
+    memory_id:
+      typeof record.memory_id === "string" ? record.memory_id : null,
+    category: record.category as ConfirmMemoryTarget["category"],
+    content: record.content,
+    source_type:
+      typeof record.source_type === "string"
+        ? (record.source_type as ConfirmMemoryTarget["source_type"])
+        : null,
+    source_reference:
+      typeof record.source_reference === "string"
+        ? record.source_reference
+        : null,
+  };
 }
 
 function generateSessionId(): string {
@@ -57,6 +110,10 @@ export function AIPanel({
   contextLabel,
   onClearContext,
   onNavigate,
+  onConfirmMemory,
+  onDismissMemory,
+  onOpenFile,
+  onOpenDocument,
   onOpenSettings,
 }: AIPanelProps) {
   const [status, setStatus] = useState<AiPanelState>("ready");
@@ -64,9 +121,41 @@ export function AIPanel({
   const [input, setInput] = useState("");
   const [toolTrace, setToolTrace] = useState<AgentResponse["tool_trace"]>([]);
   const [blocks, setBlocks] = useState<UiBlock[]>([]);
+  const [pendingConfirms, setPendingConfirms] = useState<ConfirmMemoryTarget[]>(
+    [],
+  );
+  const [confirmBusy, setConfirmBusy] = useState("");
   const [errorText, setErrorText] = useState("");
   const [capabilities, setCapabilities] = useState<string[]>([]);
   const sessionRef = useRef(generateSessionId());
+
+  /** 记忆确认卡：确认 → memory_save / memory_confirm；放弃 → memory_reject（或仅关闭）。 */
+  const resolveConfirm = useCallback(
+    async (target: ConfirmMemoryTarget, accepted: boolean) => {
+      const key = confirmKey(target);
+      setConfirmBusy(key);
+      try {
+        if (accepted) await onConfirmMemory?.(target);
+        else await onDismissMemory?.(target);
+      } catch (cause) {
+        setErrorText(errorMessage(cause));
+      } finally {
+        setConfirmBusy("");
+        setPendingConfirms((current) =>
+          current.filter((entry) => confirmKey(entry) !== key),
+        );
+      }
+    },
+    [onConfirmMemory, onDismissMemory],
+  );
+
+  const enqueueConfirm = useCallback((target: ConfirmMemoryTarget) => {
+    setPendingConfirms((current) =>
+      current.some((entry) => confirmKey(entry) === confirmKey(target))
+        ? current
+        : [...current, target],
+    );
+  }, []);
 
   /** 打开时拉取状态（No API Key Gate：未配置只是面板提示，App 不崩溃）。 */
   useEffect(() => {
@@ -107,18 +196,38 @@ export function AIPanel({
       setMessages(response.messages.slice(-MAX_MESSAGES));
       setToolTrace(response.tool_trace ?? []);
       setBlocks(response.ui_blocks ?? []);
+      // V6：知识类 Action —— 确认记忆在面板内联确认，打开文件/文档交给外壳执行。
+      for (const action of response.actions ?? []) {
+        if (action.type === "confirm_memory") {
+          const target = asConfirmTarget(action.target);
+          if (target) enqueueConfirm(target);
+        } else if (action.type === "open_file" && onOpenFile) {
+          onOpenFile(action.target as unknown as OpenFileTarget);
+        } else if (action.type === "open_document" && onOpenDocument) {
+          onOpenDocument(action.target as unknown as OpenDocumentTarget);
+        }
+      }
       setStatus("ready");
     } catch (cause) {
       setStatus("error");
       setErrorText(errorMessage(cause));
     }
-  }, [input, status, context, capabilities]);
+  }, [
+    input,
+    status,
+    context,
+    capabilities,
+    enqueueConfirm,
+    onOpenFile,
+    onOpenDocument,
+  ]);
 
   const clearConversation = useCallback(() => {
     sessionRef.current = generateSessionId();
     setMessages([]);
     setToolTrace([]);
     setBlocks([]);
+    setPendingConfirms([]);
     setErrorText("");
   }, []);
 
@@ -247,7 +356,31 @@ export function AIPanel({
           {blocks.length > 0 ? (
             <div className="ai-panel-blocks">
               {blocks.map((block, index) => (
-                <BlockView key={index} block={block} onNavigate={onNavigate} />
+                <BlockView
+                  key={index}
+                  block={block}
+                  onNavigate={onNavigate}
+                  onOpenFile={onOpenFile}
+                  onOpenDocument={onOpenDocument}
+                  onConfirmMemory={(target) => void resolveConfirm(target, true)}
+                  onDismissMemory={(target) =>
+                    void resolveConfirm(target, false)
+                  }
+                  confirmBusyKey={confirmBusy}
+                />
+              ))}
+            </div>
+          ) : null}
+          {pendingConfirms.length > 0 ? (
+            <div className="ai-panel-confirms">
+              {pendingConfirms.map((target) => (
+                <MemoryConfirmCard
+                  key={confirmKey(target)}
+                  target={target}
+                  busy={confirmBusy === confirmKey(target)}
+                  onConfirm={() => void resolveConfirm(target, true)}
+                  onDismiss={() => void resolveConfirm(target, false)}
+                />
               ))}
             </div>
           ) : null}
@@ -290,14 +423,18 @@ function MessageRow({ message }: { message: AgentMessage }) {
   );
 }
 
-/** 渲染结构化 UI Block（V4 §15）：EntityList 完整渲染，其余 kind 优雅降级。 */
-function BlockView({
-  block,
-  onNavigate,
-}: {
-  block: UiBlock;
+/** Block 渲染所需的 Action 回调（由 AIPanel 组装，App 执行）。 */
+interface BlockHandlers {
   onNavigate: (action: AgentAction) => void;
-}) {
+  onOpenFile?: (target: OpenFileTarget) => void;
+  onOpenDocument?: (target: OpenDocumentTarget) => void;
+  onConfirmMemory: (target: ConfirmMemoryTarget) => void;
+  onDismissMemory: (target: ConfirmMemoryTarget) => void;
+  confirmBusyKey: string;
+}
+
+/** 渲染结构化 UI Block（V4 §15 / V6 §5）：已知 kind 完整渲染，其余优雅降级。 */
+function BlockView({ block, ...handlers }: { block: UiBlock } & BlockHandlers) {
   if (block.kind === "entity_list") {
     const items = entityListItems(block);
     if (items.length === 0) return null;
@@ -309,10 +446,155 @@ function BlockView({
             <EntityCard
               key={`${item.id ?? item.entity_id ?? index}-${index}`}
               item={item}
-              onNavigate={onNavigate}
+              onNavigate={handlers.onNavigate}
             />
           ))}
         </ul>
+      </section>
+    );
+  }
+  if (block.kind === "memory_list") {
+    const items = memoryListItems(block);
+    if (items.length === 0) return null;
+    return (
+      <section className="ai-block">
+        <h4 className="ai-block-title">{block.title || "相关记忆"}</h4>
+        <ul className="memory-list">
+          {items.map((item, index) => (
+            <MemoryListRow
+              key={`${item.id}-${index}`}
+              item={item}
+              busyKey={handlers.confirmBusyKey}
+              onConfirmMemory={handlers.onConfirmMemory}
+              onDismissMemory={handlers.onDismissMemory}
+            />
+          ))}
+        </ul>
+      </section>
+    );
+  }
+  if (block.kind === "document_list") {
+    const items = documentListItems(block);
+    if (items.length === 0) return null;
+    return (
+      <section className="ai-block">
+        <h4 className="ai-block-title">{block.title || "相关文档"}</h4>
+        <ul className="ai-doc-list">
+          {items.map((item, index) => (
+            <DocumentListRow
+              key={`${item.document_id}-${index}`}
+              item={item}
+              onOpenDocument={handlers.onOpenDocument}
+            />
+          ))}
+        </ul>
+      </section>
+    );
+  }
+  if (block.kind === "file_list") {
+    const items = fileListItems(block);
+    if (items.length === 0) return null;
+    return (
+      <section className="ai-block">
+        <h4 className="ai-block-title">{block.title || "相关文件"}</h4>
+        <ul className="ai-doc-list">
+          {items.map((item, index) => (
+            <FileListRow
+              key={`${item.file_id ?? item.relative_path ?? index}-${index}`}
+              item={item}
+              onOpenFile={handlers.onOpenFile}
+            />
+          ))}
+        </ul>
+      </section>
+    );
+  }
+  if (block.kind === "document_card") {
+    const card = documentCardData(block);
+    if (!card) return null;
+    return (
+      <section className="ai-block">
+        <h4 className="ai-block-title">{block.title || card.title}</h4>
+        <div className="ai-doc-card">
+          <div className="ai-doc-card-head">
+            <span className="memory-badge">
+              {card.document_type
+                ? (DOCUMENT_TYPE_LABELS[card.document_type] ??
+                  card.document_type)
+                : "文档"}
+            </span>
+            <span className="memory-badge muted">
+              {card.content_available ? "可读内容" : "仅元数据"}
+            </span>
+            <span className="ai-doc-card-title">{card.title}</span>
+          </div>
+          <dl className="ai-doc-card-meta">
+            <div>
+              <dt>路径</dt>
+              <dd>{card.relative_path ?? card.path ?? "—"}</dd>
+            </div>
+            <div>
+              <dt>大小</dt>
+              <dd>{formatBytes(card.size_bytes)}</dd>
+            </div>
+            <div>
+              <dt>修改时间</dt>
+              <dd>{formatRelativeTime(card.modified_at)}</dd>
+            </div>
+            <div>
+              <dt>片段数</dt>
+              <dd>{card.chunk_count ?? "—"}</dd>
+            </div>
+          </dl>
+          {card.index_error ? (
+            <p className="ai-doc-card-error">{card.index_error}</p>
+          ) : null}
+          {handlers.onOpenDocument ? (
+            <button
+              className="memory-action primary"
+              onClick={() =>
+                handlers.onOpenDocument?.({
+                  document_id: card.document_id,
+                  title: card.title,
+                })
+              }
+            >
+              在 Knowledge 中打开
+            </button>
+          ) : null}
+        </div>
+      </section>
+    );
+  }
+  if (block.kind === "document_reference") {
+    const reference = documentReferenceData(block);
+    if (!reference) return null;
+    return (
+      <section className="ai-block">
+        <h4 className="ai-block-title">{block.title || "引用来源"}</h4>
+        <div className="ai-doc-reference">
+          <button
+            className="ai-doc-reference-main"
+            disabled={!handlers.onOpenDocument}
+            onClick={() =>
+              handlers.onOpenDocument?.({
+                document_id: reference.document_id,
+                title: reference.title,
+                location: reference.location ?? null,
+              })
+            }
+          >
+            <span className="ai-doc-reference-title">{reference.title}</span>
+            {reference.location ? (
+              <span className="ai-doc-reference-location">
+                {reference.location}
+              </span>
+            ) : null}
+          </button>
+          {reference.snippet ? (
+            <p className="ai-doc-reference-snippet">{reference.snippet}</p>
+          ) : null}
+        </div>
       </section>
     );
   }
@@ -326,6 +608,153 @@ function BlockView({
         ))}
       </ul>
     </section>
+  );
+}
+
+function formatBytes(bytes: number | null | undefined): string {
+  if (bytes == null) return "—";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/** `memory_list` 条目：候选（needs_confirmation）内联确认卡，其余只读展示。 */
+function MemoryListRow({
+  item,
+  busyKey,
+  onConfirmMemory,
+  onDismissMemory,
+}: {
+  item: MemoryListItem;
+  busyKey: string;
+  onConfirmMemory: (target: ConfirmMemoryTarget) => void;
+  onDismissMemory: (target: ConfirmMemoryTarget) => void;
+}) {
+  const label =
+    item.category_label ?? MEMORY_CATEGORY_LABELS[item.category] ?? item.category;
+  if (item.needs_confirmation) {
+    const target: ConfirmMemoryTarget = {
+      memory_id: item.id,
+      category: item.category,
+      content: item.content,
+      source_type: item.source_type ?? null,
+    };
+    return (
+      <li className="ai-block-plain">
+        <MemoryConfirmCard
+          target={target}
+          busy={busyKey === confirmKey(target)}
+          onConfirm={() => onConfirmMemory(target)}
+          onDismiss={() => onDismissMemory(target)}
+        />
+      </li>
+    );
+  }
+  return (
+    <li className="memory-card">
+      <div className="memory-card-head">
+        <span className="memory-badge">{label}</span>
+        {item.source_type ? (
+          <span className="memory-badge muted">
+            {MEMORY_SOURCE_LABELS[item.source_type] ?? item.source_type}
+          </span>
+        ) : null}
+        {item.status ? (
+          <span className="memory-badge status">
+            {MEMORY_STATUS_LABELS[item.status] ?? item.status}
+          </span>
+        ) : null}
+        <span className="memory-time">
+          {formatRelativeTime(item.updated_at)}
+        </span>
+      </div>
+      <p className="memory-content">{item.content}</p>
+    </li>
+  );
+}
+
+/** `document_list` 条目：点击 → `open_document` Action。 */
+function DocumentListRow({
+  item,
+  onOpenDocument,
+}: {
+  item: DocumentListItem;
+  onOpenDocument?: (target: OpenDocumentTarget) => void;
+}) {
+  return (
+    <li className="doc-hit">
+      <button
+        className="doc-hit-main"
+        disabled={!onOpenDocument}
+        onClick={() =>
+          onOpenDocument?.({
+            document_id: item.document_id,
+            title: item.title,
+            location: item.location ?? null,
+          })
+        }
+      >
+        <span className="doc-hit-title">{item.title}</span>
+        <span className="memory-badge">
+          {item.document_type
+            ? (DOCUMENT_TYPE_LABELS[item.document_type] ?? item.document_type)
+            : "文档"}
+        </span>
+        {item.location ? (
+          <span className="doc-hit-location">{item.location}</span>
+        ) : null}
+        <span className="doc-hit-time">
+          {formatRelativeTime(item.modified_at)}
+        </span>
+      </button>
+      {item.relative_path ? (
+        <p className="doc-hit-path">{item.relative_path}</p>
+      ) : null}
+      {item.snippet ? <p className="doc-hit-snippet">{item.snippet}</p> : null}
+    </li>
+  );
+}
+
+/** `file_list` 条目：点击 → `open_file` Action（无 path 时不可点）。 */
+function FileListRow({
+  item,
+  onOpenFile,
+}: {
+  item: FileListItem;
+  onOpenFile?: (target: OpenFileTarget) => void;
+}) {
+  const path = item.path ?? null;
+  return (
+    <li className={"file-row" + (item.restricted ? " restricted" : "")}>
+      <button
+        className="doc-hit-main"
+        disabled={!path || !onOpenFile}
+        title={path ?? "缺少路径"}
+        onClick={() => {
+          if (!path) return;
+          onOpenFile?.({
+            file_id: item.file_id ?? null,
+            path,
+            file_name: item.file_name,
+          });
+        }}
+      >
+        <span className="file-name">{item.file_name}</span>
+        {item.extension ? (
+          <span className="memory-badge">{item.extension}</span>
+        ) : null}
+        {item.restricted ? (
+          <span className="memory-badge sensitivity private">受限</span>
+        ) : null}
+        <span className="file-meta">
+          {formatBytes(item.size_bytes)} ·{" "}
+          {formatRelativeTime(item.modified_at)}
+        </span>
+      </button>
+      {item.relative_path ? (
+        <p className="file-path">{item.relative_path}</p>
+      ) : null}
+    </li>
   );
 }
 

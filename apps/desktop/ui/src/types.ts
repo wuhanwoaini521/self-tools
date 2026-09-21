@@ -29,6 +29,30 @@ export interface AiSettings {
   timeout_secs: number | null;
 }
 
+/** 允许根（文件 / 文档索引共用；`enabled=false` 只停用不删数据）。 */
+export interface KnowledgeRoot {
+  id: string;
+  label: string;
+  path: string;
+  enabled: boolean;
+}
+
+/** Personal Knowledge 设置（V6；允许根为空时 Documents/Files 如实报告未配置）。 */
+export interface KnowledgeSettings {
+  /** 允许 AI 搜索 / 读取元数据 / 安全读取的文件根。 */
+  file_roots: KnowledgeRoot[];
+  /** 进入文档索引的根（空 = 复用 file_roots）。 */
+  document_roots: KnowledgeRoot[];
+  /** 单文档索引上限（字节）；超过则只索引元数据。 */
+  max_document_bytes: number;
+  /** 单次安全读取的字符上限。 */
+  max_read_chars: number;
+  /** 索引文件数上限。 */
+  max_indexed_files: number;
+  /** 启动时执行一次轻量同步。 */
+  startup_sync: boolean;
+}
+
 export interface AppSettings {
   schema_version: number;
   recent_files: string[];
@@ -47,6 +71,8 @@ export interface AppSettings {
   geography: GeographySettings;
   /** Personal AI 设置（全部可选，未配置时 AI Panel 显示未配置状态） */
   ai: AiSettings;
+  /** Personal Knowledge 设置（V6；允许根为空时知识页如实报告未配置） */
+  knowledge: KnowledgeSettings;
 }
 
 export interface DocumentDto {
