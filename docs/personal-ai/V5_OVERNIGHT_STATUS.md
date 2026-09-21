@@ -4,7 +4,7 @@
 
 ## Current Gate
 
-**Gate 10（文档 + ADR + 架构审核）** — 进行中（本文件落盘后派 reviewer 独立核验）。
+**Gate 10（文档 + ADR + 架构审核）** — ✅ 完成（reviewer 独立核验 OK-with-notes；2 个 P2 已修，见 2320d5e）。
 
 ## Completed
 
@@ -20,11 +20,19 @@
 | 7 | Language 模块 | ✅ 4 工具 + context（选中词/句指代）+ agent 路由测试 |
 | 8 | 前端 | ✅ History「AI 解读」UI（状态/生成/来源 N/重新整理/审定/过期提示）+ 四页 context 上报 |
 | 9 | 测试 + 回归 | ✅ 333 Rust / 0 warnings / npm build PASS / pipeline 265 |
-| 10 | 文档 + 审核 | 🔄 本文档 + PERSONAL_AI_HUB_V5.md + ADR-004 + reviewer |
+| 10 | 文档 + 审核 | ✅ PERSONAL_AI_HUB_V5.md + ADR-004 + V5_PROVIDER_CONSOLIDATION.md(status) + CURRENT_ARCHITECTURE §13 + reviewer OK-with-notes |
 
 ## In Progress
 
-- Gate 10：独立 reviewer 核验（业务 hardcode / 注册表可扩展性 / Provider 重复 / Canonical 安全 / offline / 安全）。
+无（全部 Mandatory Gates PASS）。
+
+## Reviewer 核验结论（Gate 10）
+
+独立 reviewer：9 项可验证架构检查全部 PASS（agent 无业务 hardcode / 注册表通用 /
+travel 零重复 LLM infra / Canonical 只读 / 模块同构接入 / 依赖方向 / offline-
+no-key / 安全 / 富化单飞+stale+reviewed+校验门）。4 个 P2：风险门禁文案已修、
+未配置重复 ensure 不再膨胀缓存已修；in-flight 非 RAII 与 get_settings 回传可编辑
+key 两条按既有产品设计记录（无取消路径；settings 编辑器需可读回显）。
 
 ## Blocked
 
