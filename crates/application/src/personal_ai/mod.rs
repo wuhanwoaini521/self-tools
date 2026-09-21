@@ -18,6 +18,7 @@ pub mod memory;
 pub mod prompt;
 pub mod registry;
 pub mod retrieval;
+pub mod server;
 pub mod session;
 pub mod travel;
 
@@ -36,6 +37,7 @@ pub use knowledge::{
 };
 pub use language::{LanguageProviderOwned, LanguageTools, language_tool_names, register_language};
 pub use memory::{MemoryProviderOwned, MemoryTools, memory_tool_names, register_memory};
+pub use server::{ServerProviderOwned, ServerTools, register_server, server_tool_names};
 pub use registry::{ModuleRegistration, ModuleRegistry, ToolExecutor, ToolRegistry, allowed_risk};
 pub use retrieval::RetrievalAugmenter;
 pub use session::{InMemorySessionStore, SessionStore};

@@ -52,11 +52,6 @@ pub(crate) fn server_error(reason: &str, message: impl Into<String>) -> crate::e
     }
 }
 
-/// 便捷：把端口 `Result` 映射为应用错误。
-pub(crate) fn map_port_error<T>(reason: &str, result: Result<T, String>) -> Result<T, crate::error::ApplicationError> {
-    result.map_err(|message| server_error(reason, message))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -74,9 +69,9 @@ mod tests {
     }
 
     #[test]
-    fn map_port_error_preserves_message() {
-        let result = map_port_error("probe_failed", Err::<(), _>("boom".into()));
-        assert!(result.is_err());
-        assert!(map_port_error("probe_failed", Ok::<(), String>(())).is_ok());
+    fn server_error_display_uses_stable_reason() {
+        let error = server_error("probe_failed", "boom");
+        assert!(error.to_string().contains("probe_failed"), "{error}");
+        assert!(error.to_string().contains("boom"), "{error}");
     }
 }

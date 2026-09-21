@@ -29,6 +29,7 @@ pub use health::{
 pub use logs::{LogReadRequest, LogReadResult, LogWindow};
 pub use metrics::{CpuMetrics, MemoryMetrics, Platform, StorageMetrics, SystemMetrics, VolumeKind};
 pub use registry::{
+    is_http_url,
     ApplicationDescriptor, ApplicationStatus, HealthCheckKind, LogSource, ServiceDescriptor,
     ServiceProviderType, ServiceStatus,
 };

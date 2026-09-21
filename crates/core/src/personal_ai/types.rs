@@ -167,6 +167,10 @@ pub enum ActionKind {
     OpenFile,
     /// 请求用户确认保存一条 Memory（V6 §81）。
     ConfirmMemory,
+    /// 请求用户确认一个 SYSTEM 操作（V7 §56：携带确认票据，不可变）。
+    ConfirmAction,
+    /// 打开一个已注册应用（V7 §46：URL 来自注册表，不是模型输入）。
+    OpenApp,
 }
 
 /// Action 请求。`kind` 序列化为 `type` 以贴合协议示例：

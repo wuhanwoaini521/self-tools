@@ -12,6 +12,7 @@ pub mod language;
 pub mod memory;
 pub mod personal_ai;
 pub mod rss_store;
+pub mod server;
 pub mod settings_store;
 pub mod travel;
 pub mod workspace_scanner;
