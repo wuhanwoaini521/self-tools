@@ -72,14 +72,14 @@ impl LogRedactor {
                 text = replaced.into_owned();
             }
         }
-        // 3) V6 secret 门兜底：仍命中（私钥 / 未收录形态）→ 整行折叠。
-        //    已脱敏的行（含占位符）不再送检：占位符本身会命中 `key=[REDACTED]`
-        //    这类 named-token 形态，导致误折叠。
-        if !text.contains(REDACTION_PLACEHOLDER)
-            && devtoolbox_core::memory::detect_secret(&text).is_some()
-        {
-            hits += 1;
-            return (format!("[REDACTED:{}]", redact_kind_label(&text)), hits);
+        // 3) V6 secret 门兜底：对**尚未被占位符覆盖的片段**复检。
+        //    不能因「行内出现过占位符」就跳过整行 —— 那会让同一行里
+        //    第二个 secret（第一个已被结构化替换）原样泄漏（审查 V7-SEC-003）。
+        for segment in text.split(REDACTION_PLACEHOLDER) {
+            if let Some(kind) = devtoolbox_core::memory::detect_secret(segment) {
+                hits += 1;
+                return (format!("[REDACTED:{}]", secret_label(kind)), hits);
+            }
         }
         (text, hits)
     }
@@ -106,15 +106,14 @@ impl LogRedactor {
 }
 
 /// V6 secret 类别标签（用于脱敏占位符；只放类别，不放内容）。
-fn redact_kind_label(text: &str) -> &'static str {
-    use devtoolbox_core::memory::{SecretKind, detect_secret};
-    match detect_secret(text) {
-        Some(SecretKind::ApiKey) => "api_key",
-        Some(SecretKind::Token) => "token",
-        Some(SecretKind::Password) => "password",
-        Some(SecretKind::PrivateKey) => "private_key",
-        Some(SecretKind::CredentialPath) => "credential_path",
-        None => "secret",
+fn secret_label(kind: devtoolbox_core::memory::SecretKind) -> &'static str {
+    use devtoolbox_core::memory::SecretKind;
+    match kind {
+        SecretKind::ApiKey => "api_key",
+        SecretKind::Token => "token",
+        SecretKind::Password => "password",
+        SecretKind::PrivateKey => "private_key",
+        SecretKind::CredentialPath => "credential_path",
     }
 }
 
@@ -157,6 +156,17 @@ mod tests {
         let (text, hits) = LogRedactor::redact_line(line);
         assert_eq!(text, line);
         assert_eq!(hits, 0);
+    }
+
+    #[test]
+    fn second_secret_on_same_line_is_still_caught() {
+        // V7-SEC-003：结构化替换打过第一个字段后，同行第二个 secret 必须仍被检测。
+        let (text, hits) = LogRedactor::redact_line(
+            "api_key=sk-abcdefghijklmnopqrstuvwx Authorization: Bearer abcdef1234567890xyz",
+        );
+        assert!(!text.contains("sk-abcdefghijklmnopqrstuvwx"), "{text}");
+        assert!(!text.contains("abcdef1234567890xyz"), "{text}");
+        assert!(hits >= 1);
     }
 
     #[test]

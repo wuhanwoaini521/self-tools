@@ -10,8 +10,6 @@
 //! 依赖方向不变：desktop 是唯一组合根；`application → infrastructure` = 0。
 
 use std::collections::HashMap;
-use std::sync::Arc;
-
 use parking_lot::Mutex;
 
 use devtoolbox_application::server::ports::{
@@ -204,45 +202,6 @@ fn unix_now() -> i64 {
         .unwrap_or_default()
 }
 
-/// 空探活（未配置平台时的 fail-closed 默认值）。
-#[derive(Debug, Default)]
-pub struct NoopProbe;
-
-impl ServiceProbePort for NoopProbe {
-    fn probe(&self, service: &ServiceDescriptor) -> ServiceStatus {
-        ServiceStatus {
-            service_id: service.id.clone(),
-            status: HealthStatus::Unknown,
-            detail: "服务探活未配置".into(),
-            checked_at: unix_now(),
-        }
-    }
-}
-
-impl ApplicationProbePort for NoopProbe {
-    fn probe(&self, app: &ApplicationDescriptor) -> ApplicationStatus {
-        ApplicationStatus {
-            app_id: app.id.clone(),
-            status: HealthStatus::Unknown,
-            detail: "应用探活未配置".into(),
-            checked_at: unix_now(),
-        }
-    }
-}
-
-impl ServiceControlPort for NoopProbe {
-    fn restart(&self, _service_id: &str) -> Result<(), String> {
-        Err("service_control_not_configured".to_string())
-    }
-}
-
-/// 共享句柄类型（组合根与命令层使用）。
-pub type SharedMetrics = Arc<SystemMetricsAdapter>;
-pub type SharedLaunchdProbe = Arc<LaunchdProbeAdapter>;
-pub type SharedLaunchdControl = Arc<LaunchdControlAdapter>;
-pub type SharedLogTail = Arc<LogTailAdapter>;
-pub type SharedAppProbe = Arc<HttpAppProbeAdapter>;
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -278,12 +237,6 @@ mod tests {
         assert_eq!(status.service_id, "self-tools");
         // CI 无 launchd → Unknown（不谎报）。
         assert_eq!(status.status, HealthStatus::Unknown);
-    }
-
-    #[test]
-    fn noop_control_fails_closed() {
-        let error = NoopProbe.restart("self-tools").expect_err("not configured");
-        assert_eq!(error, "service_control_not_configured");
     }
 
     #[test]

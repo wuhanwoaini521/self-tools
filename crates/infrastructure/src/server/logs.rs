@@ -8,6 +8,7 @@ use std::io::{BufRead, BufReader};
 use std::path::Path;
 
 use devtoolbox_core::server::LogReadResult;
+use devtoolbox_core::server::logs::is_safe_log_path;
 use devtoolbox_core::server::{LogSource, ServiceDescriptor, contains_traversal};
 
 /// 本地文件日志尾部读取器。
@@ -35,8 +36,8 @@ impl LocalLogTail {
             .or_else(|| service.log_sources.first())
             .ok_or_else(|| "no_log_source".to_string())?;
         let path = Path::new(&source.path);
-        // 形态防御：注册表配置也不允许 traversal（纵深防御）。
-        if contains_traversal(path) {
+        // 形态防御：注册表配置也不允许 traversal / 超长 / 空路径（纵深防御，§39）。
+        if !is_safe_log_path(&source.path) || contains_traversal(path) {
             return Err("log_path_traversal".to_string());
         }
         let text = read_tail(path, max_lines, max_bytes)

@@ -4,6 +4,7 @@ use async_trait as _;
 use devtoolbox_application as _;
 use devtoolbox_core as _;
 use devtoolbox_infrastructure as _;
+use parking_lot as _;
 use reqwest as _;
 use serde as _;
 use serde_json as _;

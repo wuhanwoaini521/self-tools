@@ -22,11 +22,11 @@ use devtoolbox_application::server::registry::{
 use devtoolbox_application::server::service::{ServerConfig, ServerService};
 use devtoolbox_core::server::{
     ApplicationDescriptor, ApplicationStatus, HealthStatus, RegisteredAction, ServiceDescriptor,
-    ServiceStatus, SessionTrust, SystemMetrics,
+    ServiceStatus, SessionTrust,
 };
-use devtoolbox_core::settings::{AppSettings, KnowledgeSettings};
+use devtoolbox_core::settings::AppSettings;
 
-use crate::knowledge::{KnowledgeSettingsLoader, SettingsLoader};
+use crate::knowledge::SettingsLoader;
 use crate::server_adapters::{
     HttpAppProbeAdapter, LaunchdControlAdapter, LaunchdProbeAdapter, LogTailAdapter,
     SystemMetricsAdapter,
@@ -35,12 +35,23 @@ use crate::server_adapters::{
 /// SQLite 审计存储（`config/server_actions.db`；复用 infra SQLite 模式）。
 pub struct SqliteAuditStore {
     store: devtoolbox_infrastructure::ServerActionAuditSqlite,
+    /// 保留策略（§112：条数 / 天数）。
+    max_entries: usize,
+    retention_days: i64,
 }
 
 impl SqliteAuditStore {
     #[must_use]
-    pub fn new(store: devtoolbox_infrastructure::ServerActionAuditSqlite) -> Self {
-        Self { store }
+    pub fn new(
+        store: devtoolbox_infrastructure::ServerActionAuditSqlite,
+        max_entries: usize,
+        retention_days: i64,
+    ) -> Self {
+        Self {
+            store,
+            max_entries,
+            retention_days,
+        }
     }
 }
 
@@ -49,6 +60,15 @@ impl ActionAuditPort for SqliteAuditStore {
         // 审计写入失败不得影响操作结果（只记错误，不中断执行链）。
         if let Err(error) = self.store.record(entry) {
             eprintln!("[server] audit write failed: {error}");
+            return;
+        }
+        // §112：惰性裁剪（每 64 条一次，避免每次写入都全表 DELETE）。
+        if entry.timestamp % 64 == 0
+            && let Err(error) = self
+                .store
+                .prune(self.max_entries, self.retention_days, entry.timestamp)
+        {
+            eprintln!("[server] audit prune failed: {error}");
         }
     }
 
@@ -118,17 +138,35 @@ impl ServerRuntime {
     /// 用显式注册表装配（测试与桌面设置页使用）。
     pub fn assemble(
         config_directory: &Path,
-        _settings: SettingsLoader,
+        settings: SettingsLoader,
         trust: SessionTrust,
         services: Vec<ServiceDescriptor>,
         apps: Vec<ApplicationDescriptor>,
         control: Arc<dyn ServiceControlPort>,
     ) -> Result<Self, String> {
+        // §22/§59/§67/§112：阈值 / TTL / 冷却 / 会话上限 / 审计保留全部来自设置
+        // （旧 settings.json 无 server 段 → serde default）。
+        let server_settings = (settings)()
+            .map(|loaded| loaded.server)
+            .unwrap_or_default();
+        let server_config = ServerConfig {
+            thresholds: server_settings.thresholds,
+            health_cache_secs: 5,
+        };
+        let action_config = SafeActionConfig {
+            confirmation_ttl_secs: server_settings.confirmation_ttl_secs,
+            cooldown_secs: server_settings.cooldown_secs,
+            max_system_per_session: server_settings.max_system_per_session,
+        };
         let audit: Arc<dyn ActionAuditPort> =
             match devtoolbox_infrastructure::ServerActionAuditSqlite::open_store(
                 config_directory.join("server_actions.db"),
             ) {
-                Ok(store) => Arc::new(SqliteAuditStore::new(store)),
+                Ok(store) => Arc::new(SqliteAuditStore::new(
+                    store,
+                    server_settings.audit_max_entries,
+                    server_settings.audit_retention_days,
+                )),
                 Err(error) => {
                     eprintln!("[server] audit store unavailable ({error}); using memory audit");
                     Arc::new(MemoryAuditStore::default())
@@ -146,7 +184,7 @@ impl ServerRuntime {
             Arc::new(SystemMetricsAdapter::default()),
             Arc::clone(&service_registry),
             Arc::clone(&app_registry),
-            ServerConfig::default(),
+            server_config,
         ));
         let actions = Arc::new(SafeActionService::new(
             Arc::clone(&service_registry),
@@ -154,7 +192,7 @@ impl ServerRuntime {
             Arc::new(InMemoryConfirmationStore::default()),
             audit,
             Arc::new(devtoolbox_core::server::DefaultActionRiskPolicy),
-            SafeActionConfig::default(),
+            action_config,
         ));
         Ok(Self {
             server,
@@ -285,29 +323,6 @@ pub fn desktop_trust() -> SessionTrust {
     SessionTrust::LocalDesktop
 }
 
-/// 未配置采样的指标（测试 / 无平台支持时）。
-#[derive(Debug, Default)]
-pub struct UnavailableMetrics;
-
-impl devtoolbox_application::server::ports::SystemMetricsProvider for UnavailableMetrics {
-    fn metrics(&self) -> Result<SystemMetrics, String> {
-        Err("metrics provider unavailable".to_string())
-    }
-}
-
-/// 桌面测试用计数控制（真实 launchd 由 platform 提供；测试不触系统）。
-#[derive(Debug, Default)]
-pub struct DesktopCountingControl {
-    restarts: std::sync::atomic::AtomicUsize,
-}
-
-impl ServiceControlPort for DesktopCountingControl {
-    fn restart(&self, _service_id: &str) -> Result<(), String> {
-        self.restarts.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-        Ok(())
-    }
-}
-
 fn unix_now() -> i64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -315,22 +330,24 @@ fn unix_now() -> i64 {
         .unwrap_or_default()
 }
 
-/// 供 settings 读取器复用（与 knowledge 同型）。
-#[must_use]
-pub fn knowledge_settings_from(loader: &SettingsLoader) -> KnowledgeSettings {
-    loader()
-        .map(|settings| settings.knowledge)
-        .unwrap_or_default()
-}
-
-/// 与 `KnowledgeSettingsLoader` 同一形态的空实现（占位，避免未用警告）。
-#[allow(dead_code)]
-type UnusedLoader = KnowledgeSettingsLoader;
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use devtoolbox_application::server::action::ActionPlan;
+
+    /// 桌面测试用计数控制（真实 launchd 由 platform 提供；测试不触系统）。
+    #[derive(Debug, Default)]
+    struct DesktopCountingControl {
+        restarts: std::sync::atomic::AtomicUsize,
+    }
+
+    impl ServiceControlPort for DesktopCountingControl {
+        fn restart(&self, _service_id: &str) -> Result<(), String> {
+            self.restarts
+                .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            Ok(())
+        }
+    }
 
     fn loader() -> SettingsLoader {
         Arc::new(|| Ok(AppSettings::default()))

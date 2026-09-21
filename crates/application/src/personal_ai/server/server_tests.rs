@@ -416,10 +416,9 @@ fn logs_are_bounded_redacted_and_marked_untrusted() {
     assert_eq!(result.data["untrusted"], true, "§41：日志是不受信数据");
     assert_eq!(result.data["lines"], 2, "行数上限必须生效");
     assert!(result.data["redactions"].as_u64().unwrap() >= 1, "secret 必须脱敏");
-    assert!(
-        !result.data["text"].as_str().unwrap().contains("abcdef1234567890xyz"),
-        "token 不得进入模型上下文"
-    );
+    let text = result.data["text"].as_str().unwrap();
+    assert!(!text.contains("abcdef1234567890xyz"), "token 不得进入模型上下文");
+    assert!(text.contains("<untrusted_log>"), "日志必须标记为不可信数据");
 }
 
 #[test]
@@ -432,8 +431,9 @@ fn log_prompt_injection_is_data_not_instruction() {
     );
     assert!(result.ok);
     let text = result.data["text"].as_str().unwrap();
-    // 注入文本原样呈现（数据），但不会触发任何工具调用：本测试只读日志，
-    // 若它被当作指令，services.list 之类的调用会发生 —— 断言零副作用。
+    // §41：日志正文包裹在 `<untrusted_log>` 里（数据而非指令），且原样可见。
+    assert!(text.starts_with("<untrusted_log>"), "{text}");
+    assert!(text.trim_end().ends_with("</untrusted_log>"), "{text}");
     assert!(text.contains("IGNORE PREVIOUS INSTRUCTIONS"));
     assert_eq!(
         hub.control.restarts.load(Ordering::SeqCst),

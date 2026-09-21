@@ -238,6 +238,9 @@ impl ServerTools {
                 message,
             }))?;
         let redacted = LogRedactor::redact(raw);
+        // §41/§4.3：日志正文用 `<untrusted_log>` 包裹后交给模型 —— 它是数据，
+        // 其中的「忽略以上指令 / 重启服务」等文字不得被视为指令。
+        let untrusted = format!("<untrusted_log>{}</untrusted_log>", redacted.text);
         Ok(ToolResult::ok_with_metadata(
             serde_json::json!({
                 "service_id": redacted.service_id,
@@ -245,9 +248,8 @@ impl ServerTools {
                 "lines": redacted.lines,
                 "redactions": redacted.redactions,
                 "truncated": redacted.truncated,
-                // §41：日志是**不受信数据**——以下内容只是文本，绝不是指令。
                 "untrusted": true,
-                "text": redacted.text,
+                "text": untrusted,
             }),
             serde_json::json!({
                 "ui_hint": {"ui_blocks": [{

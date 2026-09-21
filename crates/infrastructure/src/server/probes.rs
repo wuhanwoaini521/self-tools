@@ -17,6 +17,15 @@ use crate::server::metrics::run_capture;
 pub struct LaunchdServiceProbe;
 
 impl LaunchdServiceProbe {
+    /// `launchctl print <target>` 是否可用（固定参数模板；供重启后校验复用）。
+    pub(crate) fn printable(target: &str) -> bool {
+        Command::new("launchctl")
+            .args(["print", target])
+            .output()
+            .ok()
+            .is_some_and(|output| output.status.success())
+    }
+
     /// 只接受**字面量参数模板**；label 来自注册表（不是模型输入）。
     fn launchctl_print(&self, label: &str) -> Option<String> {
         // §24：固定 executable + 固定 argument template。
@@ -95,11 +104,15 @@ impl LaunchdServiceControl {
             .args(["kickstart", "-k", &target])
             .status()
             .map_err(|error| format!("launchctl_spawn_failed: {error}"))?;
-        if status.success() {
-            Ok(())
-        } else {
-            Err(format!("launchctl_exit_{}", status.code().unwrap_or(-1)))
+        if !status.success() {
+            return Err(format!("launchctl_exit_{}", status.code().unwrap_or(-1)));
         }
+        // kickstart 对**未加载**的 label 也返回 0（假成功，审查 V7-SEC-004）：
+        // 重启后必须能 print 到该服务，否则按失败处理（审计记 failed）。
+        if !LaunchdServiceProbe::printable(&target) {
+            return Err("service_not_loaded_after_restart".to_string());
+        }
+        Ok(())
     }
 }
 
