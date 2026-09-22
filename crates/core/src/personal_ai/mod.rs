@@ -20,6 +20,7 @@ pub use provider::{
 };
 pub use types::{
     Action, ActionKind, AgentMessage, AgentRequest, AgentResponse, AgentUsage, AppContext,
+    OrchestrationRunView, OrchestrationTraceView,
     EntityRef, ModuleDescriptor, SelectionRef, ToolCallRequest, ToolResult, ToolRisk, ToolSpec,
     ToolTraceEntry, UiBlock, UiBlockKind,
 };

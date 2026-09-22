@@ -27,7 +27,7 @@ pub use personal_ai::{
     AgentUsage, AppContext, ChatMessage, ChatModelProvider, ChatRequest, ChatResponse, ChatRole,
     ChatToolCall, ChatToolSpec, ChatUsage, EntityRef, ModuleDescriptor, ProviderError,
     ProviderErrorKind, SelectionRef, ToolCallRequest, ToolResult, ToolRisk, ToolSpec,
-    ToolTraceEntry, UiBlock, UiBlockKind,
+    OrchestrationRunView, OrchestrationTraceView, ToolTraceEntry, UiBlock, UiBlockKind,
 };
 
 pub use language::{

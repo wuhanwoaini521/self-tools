@@ -77,6 +77,36 @@ pub struct ToolSpec {
     pub module: String,
 }
 
+/// 编排追踪视图（V9 §72）：只含结构与计数，**不含** secret / 正文 / 完整 prompt（§73）。
+#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+pub struct OrchestrationTraceView {
+    pub trace_id: String,
+    pub decision: String,
+    pub plan_rationale: String,
+    pub runs: Vec<OrchestrationRunView>,
+    /// review 结论（pass / needs_fix / ...）。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub review: Option<String>,
+    pub merged: bool,
+    /// 提前停止原因（预算 / 取消）。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stopped_early: Option<String>,
+}
+
+/// 单次 worker run 的视图（§75：只展示任务/角色/状态/工具数/时长）。
+#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+pub struct OrchestrationRunView {
+    pub task_id: String,
+    pub agent_id: String,
+    pub state: String,
+    pub status: String,
+    pub duration_ms: u64,
+    pub tool_calls: usize,
+    pub tokens: u32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error_code: Option<String>,
+}
+
 /// 统一工具执行结果（V4 §32）：不要让每个工具返回不同随意字符串。
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct ToolResult {
@@ -290,6 +320,9 @@ pub struct AgentResponse {
     pub provider: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub model: Option<String>,
+    /// 多 Agent 编排追踪（V9 §72：无 secret / 无正文）。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub orchestration: Option<OrchestrationTraceView>,
 }
 
 impl AgentUsage {
@@ -472,6 +505,7 @@ mod tests {
     #[test]
     fn agent_response_round_trip_with_blocks() {
         let response = AgentResponse {
+            orchestration: None,
             session_id: "s1".into(),
             message: "找到了".into(),
             actions: vec![Action::navigate("history", serde_json::json!({"id":"x"}))],
