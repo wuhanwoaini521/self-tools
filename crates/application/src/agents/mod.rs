@@ -15,6 +15,8 @@ pub mod decision_eval;
 pub mod decision_rule;
 #[cfg(test)]
 pub mod decision_security_tests;
+#[cfg(test)]
+pub mod failure_injection_tests;
 pub mod executor;
 pub mod orchestrator;
 pub mod profiles;
