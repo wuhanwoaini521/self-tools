@@ -1,6 +1,6 @@
 # SELF-TOOLS V8 · MCP INTEGRATION & REMOTE IDENTITY — 终版架构
 
-> 状态：🚧 实施中（Gates -1–8 PASS；Gate 9 安全审查进行中）。
+> 状态：✅ 已实施（Gates -1–11 PASS；独立安全审查 3 项发现全部修复，测试 **687 / 687**）。
 > 计划见 [`MCP_V8_PLAN.md`](MCP_V8_PLAN.md)；决策记录见
 > [`ADR-007-mcp-as-adapter.md`](../architecture/ADR-007-mcp-as-adapter.md)。
 
@@ -95,8 +95,21 @@ apps/desktop   =  组合根 + MCP 设置 UI + 确认 UI
 
 ## 7. 已知限制（P1）
 
-- 远程身份： only 抽象 + Fake；真实 OAuth/OIDC 接入前远程写操作关闭（§152）。
-- Phase-1 `apps/mcp` 组合根是 fail-closed 空能力集（空 registry / DenyAll identity /
-  空服务表）；完整装配（真实 stores）留给后续 Gate。
+- 远程身份：只有抽象 + Fake；真实 OAuth/OIDC 接入前远程写操作关闭（§152）。
+- Phase-1 `apps/mcp` 组合根是 fail-closed 空能力集；完整装配待身份层。
 - Resources / Tasks / Prompts / Sampling 未实现。
-- HTTP 的 loopback 判定目前依据「无转发头 + 配置」，未直接读对端 IP（审查评估中）。
+- `StaticTokenIdentityProvider` 的 token 比较非 constant-time（生产 provider 需保证）。
+
+## 8. Gate 9 安全审查结论
+
+独立 security reviewer 按 A–H 清单审查：**auth bypass / bearer 泄漏 / SYSTEM 判定 /
+票据生命周期 / 确认响应内容 / STDIO 纯度 全部通过**；3 项发现已修复：
+
+| # | 严重度 | 发现 | 修复 |
+| --- | --- | --- | --- |
+| MCP-C | 中 | loopback HTTP 与 STDIO 用固定 `client_id` → §103 跨 client 票据隔离与 §67 会话限额退化为单一全局 session | 每请求 nonce 唯一 client_id（HTTP）+ 每进程唯一（STDIO） |
+| MCP-H | 低 | HTTP `tools/call` 不校验 `arguments` 是对象（STDIO 有） | 两条传输一致：非对象 → `INVALID_PARAMS` |
+| MCP-E | 低 | `request_timeout_ms` 未接线；`truncate_json` 先全量序列化 | `tokio::time::timeout` 包住工具执行；截断只保留前缀并记录总长 |
+
+另外本轮自行修复：loopback 信任判定原先只看「无转发头」（可被 LAN 客户端利用），
+改为 axum `ConnectInfo<SocketAddr>` **真实对端 IP** + 代理头兜底，并补 2 条回归测试。

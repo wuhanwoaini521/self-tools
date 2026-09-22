@@ -1,3 +1,6 @@
+//! 只在本测试目标使用；抑制 unused-crate-dependencies lint。
+#![allow(unused_crate_dependencies)]
+
 //! MCP × SafeAction 集成测试（V8 §54-§58/§101-§103）。
 //!
 //! 覆盖 Gate 7 的硬要求：**MCP 无法绕过 Confirmation / Audit / Rate Limit**，
@@ -11,14 +14,14 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use devtoolbox_application::personal_ai::registry::{ToolExecutor, ToolRegistry};
 use devtoolbox_application::server::action::{
-    ActionAuditPort, InMemoryActionAudit, InMemoryConfirmationStore, SafeActionConfig,
+    ActionAuditPort, InMemoryConfirmationStore, SafeActionConfig,
     SafeActionService, ServiceControlPort,
 };
 use devtoolbox_application::server::ports::ServiceProbePort;
 use devtoolbox_application::server::registry::ServiceRegistryService;
 use devtoolbox_core::mcp::McpCredential;
 use devtoolbox_application::server::ActionOutcome;
-use devtoolbox_core::server::{AuditEntry, SessionTrust};
+use devtoolbox_core::server::AuditEntry;
 use devtoolbox_core::personal_ai::{ToolResult, ToolRisk, ToolSpec};
 use devtoolbox_core::server::{HealthCheckKind, HealthStatus, ServiceDescriptor, ServiceProviderType, ServiceStatus};
 

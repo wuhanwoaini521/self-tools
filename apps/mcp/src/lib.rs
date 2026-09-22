@@ -3,10 +3,6 @@
 //! 依赖方向：本 crate 只做协议编解码与传输，**不含任何工具语义**。
 //! 工具语义来自 `devtoolbox_application::mcp`（ToolRegistry 派生）。
 
-// `async_trait` 仅测试 harness 使用；显式引用让 unused-crate-dependencies lint 满意。
-#[cfg(test)]
-use async_trait as _;
-
 pub mod http;
 pub mod protocol;
 pub mod stdio;

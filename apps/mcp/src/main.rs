@@ -10,6 +10,11 @@
 
 use std::net::SocketAddr;
 
+// 这些依赖由 lib target 使用；显式引用让 binary target 的
+// `unused_crate_dependencies` lint 保持满意（与 desktop 的 main.rs 同模式）。
+use devtoolbox_core as _;
+use serde as _;
+use serde_json as _;
 mod compose;
 
 use compose::Composition;
@@ -164,3 +169,9 @@ fn run_http(composition: Composition, cli: &Cli) -> Result<(), String> {
             .map_err(|error| format!("serve failed: {error}"))
     })
 }
+
+// 测试 target 使用 dev-dependencies；显式引用让 bin target 的 lint 满意。
+#[cfg(test)]
+use async_trait as _;
+#[cfg(test)]
+use tower as _;

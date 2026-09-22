@@ -10,13 +10,13 @@ authors.workspace = true
 [dependencies]
 devtoolbox-application = { path = "../../crates/application" }
 devtoolbox-core = { path = "../../crates/core" }
-async-trait = "0.1"
 serde.workspace = true
 serde_json.workspace = true
 tokio = { version = "1", features = ["io-std", "macros", "rt-multi-thread", "signal", "net"] }
 axum = "0.8"
 
 [dev-dependencies]
+async-trait = "0.1"
 tower = { version = "0.5", features = ["util"] }
 
 [lints]

@@ -23,7 +23,7 @@ use devtoolbox_application::server::action::{
 use devtoolbox_application::server::registry::ServiceRegistryService;
 use devtoolbox_application::server::ports::ServiceProbePort;
 use devtoolbox_core::mcp::McpAuditEntry;
-use devtoolbox_core::server::{HealthStatus, ServiceDescriptor, ServiceStatus, SessionTrust};
+use devtoolbox_core::server::{HealthStatus, ServiceDescriptor, ServiceStatus};
 use std::sync::Mutex;
 
 /// 内存审计（进程内；重启即丢——不引外部日志栈，V8 §111）。
@@ -117,22 +117,17 @@ pub fn build() -> Result<Composition, String> {
     })
 }
 
-/// 从注册表构造的 tool 数量（诊断输出）。
-#[must_use]
-pub fn tool_count(registry: &ToolRegistry) -> usize {
-    registry.specs().len()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use devtoolbox_application::server::action::ActionPlan;
+    use devtoolbox_core::server::SessionTrust;
 
     #[test]
     fn phase1_composition_fails_closed() {
         let composition = build().expect("compose");
         // 空注册表 → 无工具可发现。
-        assert_eq!(tool_count(&composition.registry), 0);
+        assert!(composition.registry.specs().is_empty());
         // 未配置身份 → 远程绑定被 startup gate 拒绝（§46）。
         assert!(!composition.identity_configured());
         // 空服务注册表 → restart 请求被拒。

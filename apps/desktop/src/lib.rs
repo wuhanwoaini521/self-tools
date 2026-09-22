@@ -2184,3 +2184,7 @@ pub fn run() {
         .run(tauri::generate_context!())
         .expect("Tauri application event loop failed");
 }
+
+// 单元测试使用 tempfile；显式引用让 bin target 的 unused-crate-dependencies lint 满意。
+#[cfg(test)]
+use tempfile as _;

@@ -15,4 +15,7 @@ use tauri_plugin_opener as _;
 fn main() {
     devtoolbox_desktop::run();
 }
+
+// 测试 target 使用 dev-dependencies；显式引用让 bin target 的 lint 满意。
+#[cfg(test)]
 use tempfile as _;

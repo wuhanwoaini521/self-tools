@@ -13,8 +13,8 @@
 | `npx tsc --noEmit -p apps/desktop/ui/tsconfig.json` | 0 error |
 | `npm run build`（ui） | built |
 
-测试分布：core 157（mcp 16）/ application 327（mcp 23）/ infrastructure 144 /
-desktop 13 / apps/mcp 33（lib 24 + bin 1 + 集成 8）/ server 7。
+测试分布：core 157（mcp 16）/ application 329（mcp 25）/ infrastructure 144 /
+desktop 13 / apps/mcp 34（lib 28 + bin 1 + 集成 8）/ server 7。
 
 ## Gate 状态
 
@@ -30,9 +30,18 @@ desktop 13 / apps/mcp 33（lib 24 + bin 1 + 集成 8）/ server 7。
 | 6 | Streamable HTTP | ✅ | `POST /mcp`；默认 loopback；启动门禁拒绝无 auth 的远程绑定；body 上限；转发头不当成本地 |
 | 7 | SafeAction Integration | ✅ | MCP SYSTEM → 票据不执行；**session 绑定**（§103，本轮新增）；未注册服务 = 授权拒绝；8 集成测试 |
 | 8 | MCP Settings + Audit UI | ✅ | `settings.server.mcp`；`mcp_status` 命令（无 secret）；`AuditSource` 列 + UI 过滤；MCP 状态卡 |
-| 9 | Security Review | 🔄 | 独立 reviewer 运行中（结论待回） |
+| 9 | Security Review | ✅ | 独立 reviewer；A–H 中 a/b/d/f/g 通过，3 项发现（1 中 2 低）全部修复 + 6 回归测试 |
 | 10 | Conformance + Regression | ✅ | 681 全绿；`--all-targets` 通过；V5/V6/V7 无退化 |
-| 11 | Docs | 🔄 | `MCP_V8.md` / `ADR-007` 已写；status + final report 待审查结论补齐 |
+| 11 | Docs | ✅ | `MCP_V8.md` / `ADR-007` / `V8_OVERNIGHT_STATUS.md` / `V8_FINAL_REPORT.md` |
+
+## Gate 9 安全审查（独立 reviewer）
+
+- **通过**：认证绕过面（真实对端 IP）、bearer 泄漏面、SYSTEM tool 名变体绕过、
+  票据生命周期（存在性/Pending/TTL/fingerprint/session/一次性/先消费后执行）、
+  确认响应内容（无 launchd label / 绝对路径 / provider_ref）、STDIO stdout 纯度。
+- **修复**：MCP-C（中，本地固定 client_id → 唯一化）、MCP-H（低，HTTP arguments
+  形状校验）、MCP-E（低，request_timeout 接线 + truncate 前缀化）。
+  另自行修复 loopback 判定的 header 猜测 → 真实对端 IP。
 
 ## 实现选择（与计划的偏差，均有理由）
 
