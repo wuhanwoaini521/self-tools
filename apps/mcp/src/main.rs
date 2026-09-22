@@ -1,0 +1,157 @@
+//! `self-tools mcp` —— MCP transport 入口（V8 §24）。
+//!
+//! 支持两种 transport（§5 Local != Remote）：
+//! - `--stdio`（默认）：本地 MCP client（Pi / Claude Desktop / 其它）经 STDIO 连接；
+//! - `--http`：Streamable HTTP，默认只绑 loopback（§44）。
+//!
+//! 日志**只**写 stderr（§25：stdout 保留协议输出）。
+//! 装配（ToolRegistry / identity / SafeAction）由组合根完成 —— 本文件只解析
+//! 参数并启动传输，不含任何工具语义。
+
+mod compose;
+
+use compose::Composition;
+
+/// 命令行参数（显式 > 环境变量 > 默认；未知参数 → 用法错误）。
+#[derive(Debug)]
+struct Cli {
+    transport: Transport,
+    bind: String,
+    remote_enabled: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Transport {
+    Stdio,
+    Http,
+}
+
+impl Default for Cli {
+    fn default() -> Self {
+        Self {
+            transport: Transport::Stdio,
+            bind: "127.0.0.1:8787".to_string(),
+            remote_enabled: false,
+        }
+    }
+}
+
+fn parse_args() -> Result<Cli, String> {
+    let mut cli = Cli::default();
+    if let Ok(bind) = std::env::var("SELF_TOOLS_MCP_BIND")
+        && !bind.trim().is_empty()
+    {
+        cli.bind = bind.trim().to_string();
+    }
+    if std::env::var("SELF_TOOLS_MCP_REMOTE").as_deref() == Ok("1") {
+        cli.remote_enabled = true;
+    }
+    let mut args = std::env::args().skip(1);
+    while let Some(arg) = args.next() {
+        match arg.as_str() {
+            "--stdio" => cli.transport = Transport::Stdio,
+            "--http" => cli.transport = Transport::Http,
+            "--bind" => {
+                cli.bind = args
+                    .next()
+                    .ok_or("--bind requires a value")?
+                    .trim()
+                    .to_string();
+            }
+            "--remote" => cli.remote_enabled = true,
+            "--help" | "-h" => {
+                println!(
+                    "usage: self-tools mcp [--stdio|--http] [--bind ADDR] [--remote]\n\n\
+                     transports:\n  \
+                     --stdio   local MCP client over STDIO (default; stdout = protocol only)\n  \
+                     --http    streamable HTTP (default bind 127.0.0.1:8787)\n\n\
+                     safety:\n  \
+                     --remote  allow non-loopback bind; requires a configured identity\n  \
+                     provider, otherwise startup fails (V8 §46)\n"
+                );
+                std::process::exit(0);
+            }
+            other => return Err(format!("unknown argument: {other}")),
+        }
+    }
+    Ok(cli)
+}
+
+fn main() -> std::process::ExitCode {
+    let cli = match parse_args() {
+        Ok(cli) => cli,
+        Err(message) => {
+            eprintln!("mcp: {message}");
+            eprintln!("mcp: try `self-tools mcp --help`");
+            return std::process::ExitCode::from(2);
+        }
+    };
+
+    let composition = match compose::build() {
+        Ok(composition) => composition,
+        Err(message) => {
+            eprintln!("mcp: composition failed: {message}");
+            return std::process::ExitCode::from(1);
+        }
+    };
+
+    match cli.transport {
+        Transport::Stdio => run_stdio(composition),
+        Transport::Http => match run_http(composition, &cli) {
+            Ok(()) => std::process::ExitCode::SUCCESS,
+            Err(message) => {
+                eprintln!("mcp: {message}");
+                std::process::ExitCode::from(1)
+            }
+        },
+    }
+}
+
+/// STDIO：stdout 只走协议（§25）。
+fn run_stdio(composition: Composition) -> std::process::ExitCode {
+    let server = devtoolbox_mcp::stdio::StdioServer::new(composition.service());
+    let principal = devtoolbox_mcp::stdio::local_principal("local-stdio");
+    let stdin = std::io::stdin();
+    let stdout = std::io::stdout();
+    let mut out = stdout.lock();
+    match server.serve(stdin.lock(), &mut out, &principal) {
+        Ok(_) => std::process::ExitCode::SUCCESS,
+        Err(error) => {
+            // 协议错误只能去 stderr。
+            eprintln!("mcp: stdio transport error: {error}");
+            std::process::ExitCode::from(1)
+        }
+    }
+}
+
+/// HTTP：启动门禁（§46：无 auth 不能远程绑定）。
+fn run_http(composition: Composition, cli: &Cli) -> Result<(), String> {
+    let config = devtoolbox_mcp::http::HttpTransportConfig {
+        bind: cli.bind.clone(),
+        remote_enabled: cli.remote_enabled,
+        max_body_bytes: 1024 * 1_024,
+    };
+    config.validate_startup(composition.identity_configured())?;
+
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .map_err(|error| format!("runtime build failed: {error}"))?;
+    runtime.block_on(async move {
+        let listener = tokio::net::TcpListener::bind(&config.bind)
+            .await
+            .map_err(|error| format!("bind {} failed: {error}", config.bind))?;
+        eprintln!("mcp: listening on http://{}/mcp", config.bind);
+        if config.bind.starts_with("127.0.0.1") || config.bind.starts_with("localhost") {
+            eprintln!("mcp: loopback only; use --remote with a configured identity provider for LAN");
+        }
+        let state = devtoolbox_mcp::http::HttpState::new(
+            composition.service(),
+            true,
+            config.max_body_bytes,
+        );
+        axum::serve(listener, devtoolbox_mcp::http::router(state))
+            .await
+            .map_err(|error| format!("serve failed: {error}"))
+    })
+}

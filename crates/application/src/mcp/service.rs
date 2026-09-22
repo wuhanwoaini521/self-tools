@@ -343,6 +343,20 @@ pub enum McpCallError {
     ToolFailed(String),
 }
 
+impl std::fmt::Display for McpCallError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // 只输出受控文案；Denied/ToolFailed 的文本由上游保证不含 secret。
+        match self {
+            McpCallError::Unauthenticated => formatter.write_str("unauthenticated"),
+            McpCallError::Denied(reason) => write!(formatter, "denied: {reason}"),
+            McpCallError::InvalidParams(detail) => write!(formatter, "invalid params: {detail}"),
+            McpCallError::UnknownTool(tool) => write!(formatter, "unknown tool: {tool}"),
+            McpCallError::PayloadTooLarge => formatter.write_str("payload too large"),
+            McpCallError::ToolFailed(message) => formatter.write_str(message),
+        }
+    }
+}
+
 fn decision_reason(decision: &super::policy::AuthorizationDecision) -> String {
     match decision {
         super::policy::AuthorizationDecision::Allowed => "allowed".to_string(),

@@ -17,4 +17,6 @@ pub mod service;
 pub use adapter::{McpCallOutcome, McpToolAdapter, McpToolDefinition};
 pub use auth::{AuthProviderUnavailable, RemoteIdentityProvider, StaticTokenIdentityProvider};
 pub use policy::{AuthorizationDecision, McpAuthorizationPolicy};
-pub use service::{McpService, McpServiceConfig};
+pub use service::{
+    McpAuditPort, McpAuthError, McpCallError, McpInvocation, McpService, McpServiceConfig,
+};

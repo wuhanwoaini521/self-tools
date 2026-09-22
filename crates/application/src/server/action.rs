@@ -59,6 +59,28 @@ pub trait ActionAuditPort: Send + Sync {
     fn recent(&self, limit: usize) -> Vec<AuditEntry>;
 }
 
+/// 内存审计存储（进程内；重启即丢。不引外部日志栈，V8 §111）。
+#[derive(Debug, Default)]
+pub struct InMemoryActionAudit {
+    entries: Mutex<Vec<AuditEntry>>,
+}
+
+impl ActionAuditPort for InMemoryActionAudit {
+    fn record(&self, entry: &AuditEntry) {
+        self.entries.lock().push(entry.clone());
+    }
+
+    fn recent(&self, limit: usize) -> Vec<AuditEntry> {
+        self.entries
+            .lock()
+            .iter()
+            .rev()
+            .take(limit)
+            .cloned()
+            .collect()
+    }
+}
+
 /// 内存确认存储（默认实现；单进程桌面场景）。
 #[derive(Debug, Default)]
 pub struct InMemoryConfirmationStore {
