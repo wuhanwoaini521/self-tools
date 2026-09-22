@@ -421,7 +421,7 @@ async fn personal_agent_route_language() {
     use crate::personal_ai::session::InMemorySessionStore;
 
     let (modules, tools, store) = registered_with_llm(None);
-    let hub = Arc::new(PersonalHub { modules, tools, retrieval: None });
+    let hub = Arc::new(PersonalHub { modules, tools, retrieval: None, orchestration: None });
     let chat = MiniChat {
         steps: Mutex::new(std::collections::VecDeque::new()),
     };

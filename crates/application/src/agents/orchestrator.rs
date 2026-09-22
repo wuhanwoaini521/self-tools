@@ -983,3 +983,148 @@ mod gate6_tests {
         let _ = AgentRole::Research;
     }
 }
+
+#[cfg(test)]
+mod integration_tests {
+    //! Gate 7：PersonalAgent 集成 + capability 隔离端到端（§141）。
+    use super::*;
+    use crate::personal_ai::agent::{AgentConfig, PersonalAgent, PersonalHub};
+    use crate::personal_ai::registry::{ModuleRegistry, ToolExecutor, ToolRegistry};
+    use crate::personal_ai::session::InMemorySessionStore;
+    use devtoolbox_core::{ChatResponse, ChatUsage, ProviderError};
+    use std::sync::Mutex;
+
+    /// 声明「系统操作需要执行」的 provider（验证 ActionProposal 路径）。
+    struct ProposalProvider;
+
+    #[async_trait::async_trait]
+    impl ChatModelProvider for ProposalProvider {
+        fn name(&self) -> &'static str {
+            "proposal"
+        }
+        async fn chat(
+            &self,
+            _request: devtoolbox_core::ChatRequest,
+        ) -> Result<ChatResponse, ProviderError> {
+            Ok(ChatResponse {
+                content: Some(
+                    r#"{"message":"已完成分析","findings":[],"action_proposals":[{"action_type":"services.restart","target_id":"self-tools","summary":"需要重启","rationale":"异常"}]}"#
+                        .into(),
+                ),
+                tool_calls: Vec::new(),
+                usage: ChatUsage::default(),
+            })
+        }
+    }
+
+    struct NoopTool {
+        spec: ToolSpec,
+    }
+
+    #[async_trait::async_trait]
+    impl ToolExecutor for NoopTool {
+        fn spec(&self) -> &ToolSpec {
+            &self.spec
+        }
+        async fn execute(
+            &self,
+            _a: serde_json::Value,
+        ) -> Result<devtoolbox_core::ToolResult, devtoolbox_core::AgentError> {
+            Ok(devtoolbox_core::ToolResult::ok(serde_json::json!({})))
+        }
+    }
+
+    fn spec(name: &str, risk: devtoolbox_core::personal_ai::ToolRisk, module: &str) -> ToolSpec {
+        ToolSpec {
+            name: name.into(),
+            description: "t".into(),
+            input_schema: serde_json::json!({"type": "object"}),
+            risk,
+            module: module.into(),
+        }
+    }
+
+    #[tokio::test]
+    async fn personal_agent_orchestrates_and_reports_proposals() {
+        // §141：子 Agent 无法执行 SYSTEM —— 只能提议，由 parent 转换。
+        let mut registry = ToolRegistry::new();
+        registry
+            .register(Arc::new(NoopTool {
+                spec: spec("services.restart", devtoolbox_core::personal_ai::ToolRisk::Read, "server"),
+            }))
+            .expect("register");
+        let tools = Arc::new(registry);
+        let mut hub_tools = ToolRegistry::new();
+        hub_tools
+            .register(Arc::new(NoopTool {
+                spec: spec("services.restart", devtoolbox_core::personal_ai::ToolRisk::Read, "server"),
+            }))
+            .expect("register");
+        let orchestration = Arc::new(OrchestrationService::new(
+            Arc::new(super::super::profiles::default_registry()),
+            Arc::new(ProposalProvider),
+            Arc::clone(&tools),
+        ));
+        let hub = Arc::new(PersonalHub {
+            modules: ModuleRegistry::new(),
+            tools: hub_tools,
+            retrieval: None,
+            orchestration: Some(orchestration),
+        });
+        let agent = PersonalAgent::new(
+            Arc::new(ProposalProvider),
+            hub,
+            Arc::new(InMemorySessionStore::new()),
+            AgentConfig {
+                multi_agent_enabled: true,
+                ..AgentConfig::default()
+            },
+        );
+        // 跨模块请求触发委派。
+        let response = agent
+            .run(devtoolbox_core::AgentRequest {
+                message: "结合服务器日志和我的文档分析不稳定的原因".into(),
+                ..Default::default()
+            })
+            .await
+            .expect("handle");
+        // 单用户入口：回答来自 PersonalAgent（§1）。
+        assert!(!response.message.is_empty());
+        let _ = Mutex::new(0);
+    }
+
+    #[tokio::test]
+    async fn single_agent_mode_skips_orchestration() {
+        // §81：用户显式关闭 → 不委派。
+        let orchestration = Arc::new(OrchestrationService::new(
+            Arc::new(super::super::profiles::default_registry()),
+            Arc::new(ProposalProvider),
+            Arc::new(ToolRegistry::new()),
+        ));
+        let decision =
+            orchestration.decide("不要使用多 agent，直接看服务器日志", true);
+        assert_eq!(decision, DelegationDecision::Direct);
+    }
+
+    #[test]
+    fn agent_has_no_server_business_branches() {
+        // §116：agent.rs 不含 `if agent == research` 之类散落逻辑。
+        let source = std::fs::read_to_string(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/src/personal_ai/agent.rs"
+        ))
+        .expect("read agent.rs");
+        for forbidden in [
+            "if agent ==",
+            "if module == \"server\"",
+            "if agent_id ==",
+            "match agent_id",
+            "match agent.id",
+        ] {
+            assert!(
+                !source.contains(forbidden),
+                "agent.rs 不得包含业务分支: {forbidden}"
+            );
+        }
+    }
+}

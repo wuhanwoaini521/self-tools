@@ -564,6 +564,7 @@ async fn personal_agent_can_call_ensure_enrichment() {
         modules,
         tools,
         retrieval: None,
+        orchestration: None,
     });
     let chat = MiniChat {
         steps: Mutex::new(std::collections::VecDeque::new()),
