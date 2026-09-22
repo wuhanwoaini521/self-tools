@@ -274,7 +274,10 @@ impl ServerTools {
                 service_id: service.id.clone(),
                 expect: HealthStatus::Healthy,
             },
-            session_id: "ai".to_string(),
+            // §D3：与桌面确认路径同一常量（`apps/desktop/src/server.rs` 的
+            // `confirm_restart` 必须用同一值，否则票据永远无法被确认 → UI 死卡）。
+            // MCP 侧仍按 client_id 每请求唯一（§103/§67），不受此常量影响。
+            session_id: "ai-desktop".to_string(),
             summary: format!("重启服务「{}」", service.display_name),
             risk: devtoolbox_core::server::ActionRisk::System,
             created_at: now_unix(),

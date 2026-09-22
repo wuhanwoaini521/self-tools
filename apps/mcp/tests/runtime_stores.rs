@@ -28,12 +28,14 @@ fn seed_memory(dir: &std::path::Path, content: &str) -> String {
 
 #[tokio::test]
 async fn mcp_reads_the_same_memory_store_as_the_agent() {
+    // §G1 豁免：测试预置数据即「已有业务库」；生产默认拒绝共开桌面目录。
     let dir = tempfile::tempdir().expect("tempdir");
     let _ = seed_memory(dir.path(), "Docker 数据目录是 /Volumes/Data/docker");
 
     // MCP 组合根：真实 store 装配。
     let composition = build(BuildOptions {
         stores_dir: Some(dir.path().to_path_buf()),
+        allow_existing: true,
     })
     .expect("compose");
     let names = composition.tool_names();
@@ -67,6 +69,7 @@ async fn fail_closed_without_stores_dir() {
     let dir = tempfile::tempdir().expect("tempdir");
     let composition = build(BuildOptions {
         stores_dir: Some(dir.path().to_path_buf()),
+        allow_existing: false,
     });
     assert!(composition.is_ok(), "空目录可以装配真实 store");
     let empty = build(BuildOptions::default()).expect("empty compose");
@@ -75,6 +78,7 @@ async fn fail_closed_without_stores_dir() {
 
 #[test]
 fn memory_store_adapter_shares_one_database() {
+    // 允许预置数据（§G1 豁免参数）。
     // §10：MCP 与业务侧共用同一文件（不存在 mcp_memory.db）。
     let dir = tempfile::tempdir().expect("tempdir");
     let id = seed_memory(dir.path(), "家中服务器是 macOS");

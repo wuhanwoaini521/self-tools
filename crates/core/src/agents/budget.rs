@@ -118,7 +118,6 @@ pub fn child_budget(
     max_steps: usize,
     max_tokens: u32,
     timeout_ms: u64,
-    now_ms: u64,
 ) -> AgentBudget {
     let remaining_steps = budget.max_steps.saturating_sub(used.steps);
     let remaining_tokens = budget.max_tokens.saturating_sub(used.tokens);
@@ -129,7 +128,7 @@ pub fn child_budget(
         max_steps: max_steps.min(remaining_steps),
         max_tokens: max_tokens.min(remaining_tokens),
         max_tool_calls: budget.max_tool_calls.saturating_sub(used.tool_calls),
-        max_duration_ms: timeout_ms.min(remaining_ms).max(now_ms.min(1)),
+        max_duration_ms: timeout_ms.min(remaining_ms),
     }
 }
 
@@ -195,7 +194,7 @@ mod tests {
             elapsed_ms: 100_000,
             ..BudgetUsage::default()
         };
-        let child = child_budget(&budget, &used, 8, 20_000, 30_000, 0);
+        let child = child_budget(&budget, &used, 8, 20_000, 30_000);
         assert_eq!(child.max_steps, 6, "父剩余 6 < profile 8");
         assert_eq!(child.max_tokens, 10_000, "父剩余 10k < profile 20k");
         assert_eq!(child.max_duration_ms, 20_000, "父剩余 20s < profile 30s");
@@ -207,9 +206,10 @@ mod tests {
             tokens: 60_000,
             elapsed_ms: 120_000,
             ..BudgetUsage::default()
-        }, 8, 20_000, 30_000, 0);
+        }, 8, 20_000, 30_000);
         assert_eq!(exhausted.max_steps, 0);
         assert_eq!(exhausted.max_tokens, 0);
+        assert_eq!(exhausted.max_duration_ms, 0, "V9-D4：父耗尽 → 子 0");
     }
 
     #[test]

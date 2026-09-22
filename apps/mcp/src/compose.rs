@@ -98,6 +98,8 @@ impl Composition {
 pub struct BuildOptions {
     /// 业务数据目录（真实 store 装配；None = fail-closed 空能力集）。
     pub stores_dir: Option<std::path::PathBuf>,
+    /// 允许指向已含业务库的目录（默认 false：防多进程共开，§G1）。
+    pub allow_existing: bool,
 }
 
 /// 装配。
@@ -106,6 +108,18 @@ pub struct BuildOptions {
 /// - `stores_dir = Some(dir)`：装配**与 desktop 相同的** repository 抽象
 ///   （§10：不建第二份 DB），MCP 与 PersonalAgent 访问同一业务数据（§11）。
 pub fn build(options: BuildOptions) -> Result<Composition, String> {
+    build_impl(options)
+}
+
+/// 兼容入口：等价于 `build(BuildOptions::default())`。
+pub fn build_default() -> Result<Composition, String> {
+    build(BuildOptions {
+        stores_dir: None,
+        allow_existing: false,
+    })
+}
+
+fn build_impl(options: BuildOptions) -> Result<Composition, String> {
     build_with(options, Vec::new())
 }
 
@@ -125,8 +139,34 @@ fn build_inner(
     let Some(dir) = options.stores_dir.clone() else {
         return build_empty(extra_tools);
     };
+    let dir = validate_stores_dir(&dir, options.allow_existing)?;
     std::fs::create_dir_all(&dir).map_err(|error| format!("create stores dir: {error}"))?;
     build_stores(&dir, extra_tools)
+}
+
+/// `--stores` 目录校验（V9-G1：并发 / 数据完整性）。
+///
+/// MCP 进程与 desktop 进程共开同一 SQLite 会立即 `SQLITE_BUSY`（rusqlite 未设
+/// busy_timeout、默认 rollback journal），因此**拒绝**指向桌面配置目录：
+/// MCP 要么用独立目录，要么不装配真实 store（fail-closed 空能力集）。
+fn validate_stores_dir(
+    dir: &std::path::Path,
+    options_allow_existing: bool,
+) -> Result<std::path::PathBuf, String> {
+    let canonical = dir.canonicalize().unwrap_or_else(|_| dir.to_path_buf());
+    // 判定：目标目录**已经含有业务库** → 视为桌面在用目录并拒绝（§G1）。
+    // 显式豁免仅给测试 / 一次性迁移：`SELF_TOOLS_MCP_ALLOW_EXISTING=1`。
+    if !options_allow_existing {
+        for db in ["memory.db", "documents.db", "files.db", "server_actions.db"] {
+            if canonical.join(db).is_file() {
+                return Err(format!(
+                    "--stores 目录 {} 已包含业务库 {db}（疑似桌面在用目录）：MCP 与桌面共开同一 SQLite 会 SQLITE_BUSY，请改用独立目录（或用 SELF_TOOLS_MCP_ALLOW_EXISTING=1 显式豁免）",
+                    canonical.display()
+                ));
+            }
+        }
+    }
+    Ok(canonical)
 }
 
 fn build_empty(extra_tools: Vec<Arc<dyn ToolExecutor>>) -> Result<Composition, String> {
@@ -316,10 +356,6 @@ impl Composition {
     }
 }
 
-/// 兼容入口：等价于 `build(BuildOptions::default())`。
-pub fn build_default() -> Result<Composition, String> {
-    build(BuildOptions::default())
-}
 
 
 // ---------------------------------------------------------------------------

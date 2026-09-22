@@ -16,10 +16,27 @@ pub fn research_profile() -> AgentDescriptor {
         description: "检索 / 取证 / 比较来源 / 收集证据（只读）".into(),
         model_profile: "fast".into(),
         max_risk: ToolRisk::Read,
-        // 空 = 只受 max_risk 约束（具体工具由 task capability 再收窄）。
-        allowed_modules: Vec::new(),
-        // §93：长期记忆写入不给 worker。
-        denied_tools: vec!["memory.save".into(), "memory.archive".into()],
+        // §3/§A1：最小权限 —— 只读域 + 只读状态类；写 / open / restart 需 task 显式申请。
+        allowed_modules: vec![
+            "memory".into(),
+            "documents".into(),
+            "files".into(),
+            "knowledge".into(),
+            "history".into(),
+            "travel".into(),
+            "geography".into(),
+            "language".into(),
+            "server".into(),
+        ],
+        // §93：长期记忆写入不给 worker；打开 / 重启等敏感入口显式排除。
+        denied_tools: vec![
+            "memory.save".into(),
+            "memory.archive".into(),
+            "memory.update".into(),
+            "files.open".into(),
+            "apps.open".into(),
+            "services.restart".into(),
+        ],
         max_steps: 4,
         max_tokens: 8_000,
         timeout_ms: 60_000,
@@ -37,7 +54,13 @@ pub fn planner_profile() -> AgentDescriptor {
         model_profile: "balanced".into(),
         max_risk: ToolRisk::Read,
         allowed_modules: Vec::new(),
-        denied_tools: vec!["memory.save".into(), "memory.archive".into()],
+        denied_tools: vec![
+            "memory.save".into(),
+            "memory.archive".into(),
+            "files.open".into(),
+            "apps.open".into(),
+            "services.restart".into(),
+        ],
         max_steps: 2,
         max_tokens: 6_000,
         timeout_ms: 45_000,
@@ -55,7 +78,13 @@ pub fn reviewer_profile() -> AgentDescriptor {
         model_profile: "strong".into(),
         max_risk: ToolRisk::Read,
         allowed_modules: Vec::new(),
-        denied_tools: vec!["memory.save".into(), "memory.archive".into()],
+        denied_tools: vec![
+            "memory.save".into(),
+            "memory.archive".into(),
+            "files.open".into(),
+            "apps.open".into(),
+            "services.restart".into(),
+        ],
         max_steps: 3,
         max_tokens: 8_000,
         timeout_ms: 60_000,
@@ -73,7 +102,12 @@ pub fn synthesizer_profile() -> AgentDescriptor {
         model_profile: "balanced".into(),
         max_risk: ToolRisk::Read,
         allowed_modules: Vec::new(),
-        denied_tools: vec!["memory.save".into()],
+        denied_tools: vec![
+            "memory.save".into(),
+            "files.open".into(),
+            "apps.open".into(),
+            "services.restart".into(),
+        ],
         max_steps: 2,
         max_tokens: 8_000,
         timeout_ms: 45_000,
@@ -110,12 +144,17 @@ mod tests {
     }
 
     #[test]
-    fn memory_write_is_denied_for_all_workers() {
+    fn sensitive_entries_are_denied_for_all_workers() {
         // §93：子 Agent 禁止 memory.save。
         for profile in [research_profile(), planner_profile(), reviewer_profile(), synthesizer_profile()] {
             assert!(
                 profile.denied_tools.iter().any(|tool| tool == "memory.save"),
                 "{} 必须显式拒绝 memory.save",
+                profile.id
+            );
+            assert!(
+                profile.denied_tools.iter().any(|tool| tool == "services.restart"),
+                "{} 必须显式拒绝 services.restart（§A1）",
                 profile.id
             );
         }

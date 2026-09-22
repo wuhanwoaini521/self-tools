@@ -41,6 +41,10 @@ pub struct ToolLoopConfig {
     pub max_rounds: usize,
     /// 采样温度（worker 用更低温度保证确定性）。
     pub temperature: f32,
+    /// 单次 chat 的 token 上限（§53；None = provider 默认）。
+    pub max_tokens: Option<u32>,
+    /// 整个循环的工具调用硬上限（§53；0 = 不限制，由 max_rounds 兜底）。
+    pub max_tool_calls: usize,
 }
 
 impl Default for ToolLoopConfig {
@@ -48,6 +52,8 @@ impl Default for ToolLoopConfig {
         Self {
             max_rounds: 4,
             temperature: 0.2,
+            max_tokens: None,
+            max_tool_calls: 0,
         }
     }
 }
@@ -78,6 +84,7 @@ pub async fn run_tool_loop(
     let mut total_usage = AgentUsage::default();
     let mut trace: Vec<ToolTraceEntry> = Vec::new();
     let mut rounds = 0u8;
+    let mut tool_calls = 0usize;
 
     loop {
         rounds += 1;
@@ -97,7 +104,7 @@ pub async fn run_tool_loop(
                 messages: chat_messages.clone(),
                 tools: tool_specs,
                 temperature: Some(config.temperature),
-                max_tokens: None,
+                max_tokens: config.max_tokens,
             })
             .await
             .map_err(map_provider_error)?;
@@ -118,8 +125,43 @@ pub async fn run_tool_loop(
             });
         }
 
-        // 工具调用 → 结果回喂（与 PersonalAgent 同一消息形态）。
+        // §34-§36/§111：**执行侧**强制 allowlist —— 只执行调用方授权集合内的
+        // 工具。模型（或被注入的 worker）即使返回其它已注册工具名也拒绝。
+        // 这是 capability 交集唯一可信的强制点（discover 过滤只是提示）。
         for call in response.tool_calls {
+            if !tools.iter().any(|spec| spec.name == call.name) {
+                let failure = ToolResult::fail("tool_not_authorized");
+                trace.push(ToolTraceEntry {
+                    tool: call.name.clone(),
+                    ok: false,
+                    duration_ms: 0,
+                    note: Some("tool_not_authorized".to_string()),
+                });
+                chat_messages.push(ChatMessage {
+                    role: ChatRole::Assistant,
+                    content: None,
+                    tool_calls: Some(vec![ChatToolCall {
+                        id: call.id.clone(),
+                        name: call.name.clone(),
+                        arguments: call.arguments.clone(),
+                    }]),
+                    tool_call_id: None,
+                });
+                let result_json = serde_json::to_string(&failure)
+                    .unwrap_or_else(|_| r#"{"ok":false,"error":"encode failed"}"#.to_string());
+                chat_messages.push(ChatMessage {
+                    role: ChatRole::Tool,
+                    content: Some(result_json),
+                    tool_calls: None,
+                    tool_call_id: Some(call.id.clone()),
+                });
+                continue;
+            }
+            // §53：工具调用硬上限。
+            if config.max_tool_calls > 0 && tool_calls >= config.max_tool_calls {
+                return Err(AgentError::tool_execution_failed("tool_call_budget_exhausted"));
+            }
+            tool_calls += 1;
             let started = Instant::now();
             let tool_result = registry
                 .execute(&ToolCallRequest {

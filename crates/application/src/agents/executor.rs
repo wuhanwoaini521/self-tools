@@ -127,23 +127,38 @@ impl AgentExecutor {
         ];
 
         // 预算收敛到单 run（§54：child ≤ parent 剩余）。
+        if budget.max_steps == 0 || budget.max_tokens == 0 {
+            return self.failed(task, &agent_id, "budget_exhausted", started);
+        }
         let max_rounds = task.max_steps.min(budget.max_steps).max(1);
-        let outcome = run_tool_loop(
-            self.deps.provider.as_ref(),
-            &self.deps.registry,
-            messages,
-            &tools,
-            ToolLoopConfig {
-                max_rounds,
-                // worker 低温度：结构化、可复现。
-                temperature: 0.1,
-            },
+        // §57：per-agent 超时 = min(profile timeout, 父剩余墙钟)。
+        let timeout = std::time::Duration::from_millis(
+            task.timeout_ms.min(budget.max_duration_ms.max(1)),
+        );
+        let loop_config = ToolLoopConfig {
+            max_rounds,
+            // worker 低温度：结构化、可复现。
+            temperature: 0.1,
+            // §53：token 上限传入 provider。
+            max_tokens: Some(budget.max_tokens),
+            // §53：工具调用硬上限。
+            max_tool_calls: budget.max_tool_calls,
+        };
+        let outcome = tokio::time::timeout(
+            timeout,
+            run_tool_loop(
+                self.deps.provider.as_ref(),
+                &self.deps.registry,
+                messages,
+                &tools,
+                loop_config,
+            ),
         )
         .await;
 
         let duration_ms = started.elapsed().as_millis() as u64;
         match outcome {
-            Ok(loop_outcome) => {
+            Ok(Ok(loop_outcome)) => {
                 let usage = TokenUsage {
                     input_tokens: loop_outcome.usage.input_tokens as u32,
                     output_tokens: loop_outcome.usage.output_tokens as u32,
@@ -211,13 +226,27 @@ impl AgentExecutor {
                     usage: budget_usage,
                 }
             }
-            Err(error) => {
-                // §57/§62：超时与瞬时错误可重试；这里只标记，重试策略在 orchestrator。
-                let state = if error.to_string().contains("tool rounds") {
-                    AgentRunState::Failed
-                } else {
-                    AgentRunState::Failed
+            Err(elapsed) => {
+                // §57：超时是独立终态（可被 required/optional 策略区别处理）。
+                let mut result = DelegationResult::failed(
+                    &task.task_id,
+                    &agent_id,
+                    "agent_timeout",
+                );
+                result.status = DelegationStatus::TimedOut;
+                result.duration_ms = duration_ms;
+                let budget_usage = BudgetUsage {
+                    agents: 1,
+                    ..BudgetUsage::default()
                 };
+                let _ = elapsed;
+                return RunOutcome {
+                    result,
+                    state: AgentRunState::TimedOut,
+                    usage: budget_usage,
+                };
+            }
+            Ok(Err(error)) => {
                 let mut result = DelegationResult::failed(
                     &task.task_id,
                     &agent_id,
@@ -230,7 +259,7 @@ impl AgentExecutor {
                 };
                 RunOutcome {
                     result,
-                    state,
+                    state: AgentRunState::Failed,
                     usage: budget_usage,
                 }
             }

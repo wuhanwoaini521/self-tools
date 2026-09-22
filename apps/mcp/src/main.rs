@@ -120,6 +120,7 @@ fn main() -> std::process::ExitCode {
 
     let composition = match devtoolbox_mcp::compose::build(devtoolbox_mcp::compose::BuildOptions {
         stores_dir: cli.stores_dir.clone(),
+        allow_existing: false,
     }) {
         Ok(composition) => composition,
         Err(message) => {
