@@ -189,7 +189,6 @@ mod tests {
     use super::*;
     use crate::personal_ai::registry::{ToolExecutor, ToolRegistry};
     use devtoolbox_core::personal_ai::ToolSpec;
-    use devtoolbox_core::mcp::McpTrustLevel;
 
     struct EchoTool;
 

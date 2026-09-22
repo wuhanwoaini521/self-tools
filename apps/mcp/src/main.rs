@@ -8,6 +8,8 @@
 //! 装配（ToolRegistry / identity / SafeAction）由组合根完成 —— 本文件只解析
 //! 参数并启动传输，不含任何工具语义。
 
+use std::net::SocketAddr;
+
 mod compose;
 
 use compose::Composition;
@@ -110,7 +112,11 @@ fn main() -> std::process::ExitCode {
 /// STDIO：stdout 只走协议（§25）。
 fn run_stdio(composition: Composition) -> std::process::ExitCode {
     let server = devtoolbox_mcp::stdio::StdioServer::new(composition.service());
-    let principal = devtoolbox_mcp::stdio::local_principal("local-stdio");
+    // §103/§67：STDIO 会话 id 含进程 id（同机多个 client 不共享 session）。
+    let principal = devtoolbox_mcp::stdio::local_principal(&format!(
+        "local-stdio-{}",
+        std::process::id()
+    ));
     let stdin = std::io::stdin();
     let stdout = std::io::stdout();
     let mut out = stdout.lock();
@@ -150,7 +156,10 @@ fn run_http(composition: Composition, cli: &Cli) -> Result<(), String> {
             true,
             config.max_body_bytes,
         );
-        axum::serve(listener, devtoolbox_mcp::http::router(state))
+        axum::serve(
+            listener,
+            devtoolbox_mcp::http::router(state).into_make_service_with_connect_info::<SocketAddr>(),
+        )
             .await
             .map_err(|error| format!("serve failed: {error}"))
     })

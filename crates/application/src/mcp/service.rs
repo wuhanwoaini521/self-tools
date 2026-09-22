@@ -200,7 +200,19 @@ impl McpService {
             return self.handle_system_action(principal, &request_id, tool_name, arguments, started);
         }
         // 5) 走 ToolRegistry（与 PersonalAgent 同一执行路径，§110）。
-        match self.adapter.execute(tool_name, arguments).await {
+        //    §85：请求层超时（tool 自身超时由 tool 实现负责）。
+        let timeout = std::time::Duration::from_millis(self.config.request_timeout_ms.max(1));
+        let executed = match tokio::time::timeout(timeout, self.adapter.execute(tool_name, arguments)).await {
+            Ok(result) => result,
+            Err(_) => {
+                self.record(principal, &request_id, tool_name, risk, McpDecision::Allowed, McpResultCode::ToolFailed, started);
+                return Err(McpCallError::ToolFailed(format!(
+                    "tool timed out after {} ms",
+                    self.config.request_timeout_ms
+                )));
+            }
+        };
+        match executed {
             Ok(result) => {
                 let payload = truncate_json(result.data.clone(), self.config.max_response_chars);
                 self.record(principal, &request_id, tool_name, risk, McpDecision::Allowed, McpResultCode::Ok, started);
@@ -380,16 +392,21 @@ fn decision_reason(decision: &super::policy::AuthorizationDecision) -> String {
 }
 
 /// 截断 JSON 负载（§84：传输层再设一道闸；业务限制仍先生效）。
+///
+/// 先用 `serde_json::to_string` 的**紧凑**形式判定长度；超限时只保留前缀，
+/// 不再二次序列化整个值（审查 MCP-E：避免峰值内存 = 完整序列化长度）。
 fn truncate_json(value: serde_json::Value, max_chars: usize) -> serde_json::Value {
     let text = serde_json::to_string(&value).unwrap_or_default();
-    if text.chars().count() <= max_chars {
+    let total = text.chars().count();
+    if total <= max_chars {
         return value;
     }
-    let truncated: String = text.chars().take(max_chars).collect();
+    let preview: String = text.chars().take(max_chars).collect();
+    // preview 与 original_chars 都来自同一次序列化结果。
     serde_json::json!({
         "truncated": true,
-        "original_chars": text.chars().count(),
-        "preview": truncated,
+        "original_chars": total,
+        "preview": preview,
     })
 }
 
@@ -551,6 +568,67 @@ mod tests {
         assert_eq!(error, McpAuthError::InvalidToken);
         // 错误文本绝不含 token 值（§79）。
         assert!(!format!("{error:?}").contains("bogus-token"), "{error:?}");
+    }
+
+    #[tokio::test]
+    async fn truncate_keeps_prefix_and_marks_total() {
+        // §84：超限返回截断预览 + 原始长度，不返回完整 payload。
+        let big = serde_json::json!({"blob": "x".repeat(500)});
+        let truncated = truncate_json(big, 50);
+        assert_eq!(truncated["truncated"], true);
+        assert_eq!(truncated["original_chars"], 500 + 11);
+        let preview = truncated["preview"].as_str().expect("preview");
+        assert_eq!(preview.chars().count(), 50);
+
+        let small = serde_json::json!({"ok": true});
+        assert_eq!(truncate_json(small.clone(), 500), small, "未超限原样返回");
+    }
+
+    #[tokio::test]
+    async fn tool_timeout_is_enforced() {
+        // §85：慢工具在 request_timeout_ms 后以 ToolFailed 结束（不挂住）。
+        struct SlowTool;
+
+        #[async_trait::async_trait]
+        impl crate::personal_ai::registry::ToolExecutor for SlowTool {
+            fn spec(&self) -> &devtoolbox_core::personal_ai::ToolSpec {
+                static SPEC: std::sync::LazyLock<devtoolbox_core::personal_ai::ToolSpec> =
+                    std::sync::LazyLock::new(|| devtoolbox_core::personal_ai::ToolSpec {
+                        name: "memory.search".into(),
+                        description: "慢".into(),
+                        input_schema: serde_json::json!({"type": "object"}),
+                        risk: ToolRisk::Read,
+                        module: "memory".into(),
+                    });
+                &SPEC
+            }
+            async fn execute(
+                &self,
+                _arguments: serde_json::Value,
+            ) -> Result<devtoolbox_core::ToolResult, devtoolbox_core::AgentError> {
+                tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+                Ok(devtoolbox_core::ToolResult::ok(serde_json::json!({})))
+            }
+        }
+
+        let mut registry = ToolRegistry::new();
+        registry.register(Arc::new(SlowTool)).expect("register");
+        let audit = Arc::new(MemoryAudit::default());
+        let service = McpService::new(
+            Arc::new(McpToolAdapter::new(Arc::new(registry))),
+            Arc::new(crate::mcp::auth::DenyAllIdentityProvider),
+            audit.clone(),
+            McpServiceConfig {
+                request_timeout_ms: 30,
+                ..McpServiceConfig::default()
+            },
+        );
+        let principal = principal_with(vec!["selftools.read"]);
+        let error = service
+            .call_tool(&principal, "memory.search", serde_json::json!({"query": "x"}))
+            .await
+            .expect_err("timeout");
+        assert!(format!("{error:?}").contains("timed out"), "{error:?}");
     }
 
     #[tokio::test]
