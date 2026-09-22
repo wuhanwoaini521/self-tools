@@ -111,6 +111,7 @@ impl ServiceControlPort for DisabledServiceControl {
 
 /// Home Server 运行时。
 pub struct ServerRuntime {
+    settings_loader: SettingsLoader,
     pub server: Arc<ServerService>,
     pub services: Arc<ServiceRegistryService>,
     pub apps: Arc<ApplicationRegistryService>,
@@ -195,6 +196,7 @@ impl ServerRuntime {
             action_config,
         ));
         Ok(Self {
+            settings_loader: settings,
             server,
             services: service_registry,
             apps: app_registry,
@@ -290,6 +292,14 @@ impl ServerRuntime {
         self.actions
             .cancel(confirmation_id)
             .map_err(|error| error.to_string())
+    }
+
+    /// MCP 传输设置（设置页展示；命令层用）。
+    #[must_use]
+    pub fn mcp_settings(&self) -> devtoolbox_core::settings::McpSettings {
+        (self.settings_loader)()
+            .map(|settings| settings.server.mcp)
+            .unwrap_or_default()
     }
 
     pub fn recent_actions(&self, limit: usize) -> Vec<AuditEntry> {

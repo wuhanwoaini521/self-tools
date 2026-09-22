@@ -5,6 +5,7 @@ import type {
   GeographySettings,
   KnowledgeRoot,
   KnowledgeSettings,
+  McpSettings,
   ServerApplicationDescriptor,
   ServerServiceDescriptor,
   ServerSettings,
@@ -540,6 +541,7 @@ export function SettingsDialog({
             onChange={updateKnowledge}
           />
           <ServerSection server={server} onChange={onServerChange} />
+          <McpSection server={server} onChange={onServerChange} />
         </div>
       </section>
     </div>
@@ -1059,4 +1061,102 @@ function clampNumber(raw: string, min: number, max: number, fallback: number): n
   const parsed = Number.parseInt(raw, 10);
   if (Number.isNaN(parsed)) return fallback;
   return Math.min(max, Math.max(min, parsed));
+}
+
+/**
+ * MCP 传输设置（V8 §89-§91）。
+ *
+ * 远程默认关闭：只有显式打开且（将来）配置身份提供者后才可能非 loopback
+ * 绑定（§46 启动门禁在 Rust 侧强制）。secret 只显示 configured/not
+ * configured（§91）。
+ */
+function McpSection({
+  server,
+  onChange,
+}: {
+  server: ServerSettings;
+  onChange: (server: ServerSettings) => void;
+}) {
+  const mcp = server.mcp;
+  const patch = (next: Partial<McpSettings>) =>
+    onChange({ ...server, mcp: { ...mcp, ...next } });
+
+  return (
+    <section className="settings-section">
+      <label className="settings-label">MCP · 外部 AI 接入</label>
+      <p className="settings-hint">
+        MCP 是<strong>协议适配层</strong>：外部 AI Client（Pi / Claude 等）通过它调用
+        self-tools 已有的能力，不获得任何额外权限。工具风险、确认、审计与本地一致。
+      </p>
+
+      <div className="settings-inline">
+        <label className="settings-checkbox">
+          <input
+            type="checkbox"
+            checked={mcp.enabled}
+            onChange={(event) => patch({ enabled: event.target.checked })}
+          />
+          启用 MCP
+        </label>
+        <label className="settings-checkbox">
+          <input
+            type="checkbox"
+            checked={mcp.stdio_enabled}
+            disabled={!mcp.enabled}
+            onChange={(event) => patch({ stdio_enabled: event.target.checked })}
+          />
+          STDIO（本地 MCP Client）
+        </label>
+        <label className="settings-checkbox">
+          <input
+            type="checkbox"
+            checked={mcp.http_enabled}
+            disabled={!mcp.enabled}
+            onChange={(event) => patch({ http_enabled: event.target.checked })}
+          />
+          Streamable HTTP（默认仅 loopback）
+        </label>
+      </div>
+
+      <div className="settings-inline">
+        <label className="settings-label">绑定地址</label>
+        <input
+          className="settings-select"
+          type="text"
+          placeholder="127.0.0.1"
+          value={mcp.bind}
+          disabled={!mcp.enabled || !mcp.http_enabled}
+          onChange={(event) => patch({ bind: event.target.value })}
+        />
+        <label className="settings-label">端口</label>
+        <input
+          className="settings-select"
+          type="number"
+          min={1024}
+          max={65535}
+          value={mcp.port}
+          disabled={!mcp.enabled || !mcp.http_enabled}
+          onChange={(event) =>
+            patch({ port: clampNumber(event.target.value, 1024, 65535, 8787) })
+          }
+        />
+        <label className="settings-checkbox">
+          <input
+            type="checkbox"
+            checked={mcp.remote_enabled}
+            disabled={!mcp.enabled}
+            onChange={(event) => patch({ remote_enabled: event.target.checked })}
+          />
+          允许局域网访问（需要已配置身份提供者，否则启动被拒）
+        </label>
+      </div>
+
+      <p className="settings-hint">
+        身份提供者：<strong>未配置</strong> —— 远程 MCP 保持只读且默认关闭（V8 §29/§42）。
+      </p>
+      <p className="settings-hint">
+        本地 Client 配置示例会在桌面端生成（使用当前可执行文件路径，不写死用户目录）。
+      </p>
+    </section>
+  );
 }

@@ -117,7 +117,18 @@ export interface ServerApplicationDescriptor {
   tags: string[];
 }
 
+/** MCP 传输设置（V8 §47；远程默认关闭）。 */
+export interface McpSettings {
+  enabled: boolean;
+  stdio_enabled: boolean;
+  http_enabled: boolean;
+  bind: string;
+  remote_enabled: boolean;
+  port: number;
+}
+
 export interface ServerSettings {
+  mcp: McpSettings;
   services: ServerServiceDescriptor[];
   applications: ServerApplicationDescriptor[];
   thresholds: ServerThresholds;

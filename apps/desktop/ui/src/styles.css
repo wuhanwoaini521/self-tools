@@ -13256,3 +13256,47 @@ main.history-v2-period {
  opacity: 0.55;
  cursor: default;
 }
+
+/* V8 MCP 状态卡 + 审计来源过滤 */
+.server-mcp {
+ display: flex;
+ flex-direction: column;
+ gap: 4px;
+ padding: 12px 14px;
+ border: 1px solid var(--border, #2a2f3a);
+ border-radius: 10px;
+ background: var(--surface-2, rgba(255, 255, 255, 0.03));
+}
+.server-mcp-head {
+ display: flex;
+ align-items: center;
+ gap: 8px;
+}
+.server-mcp-head h3 {
+ margin: 0;
+ font-size: 14px;
+}
+.server-block-head {
+ display: flex;
+ align-items: center;
+ justify-content: space-between;
+ gap: 10px;
+ flex-wrap: wrap;
+}
+.server-audit-filter {
+ display: flex;
+ gap: 4px;
+}
+.server-audit-filter button {
+ padding: 3px 10px;
+ font-size: 11px;
+ border: 1px solid var(--border, #2a2f3a);
+ border-radius: 999px;
+ background: transparent;
+ color: var(--muted);
+ cursor: pointer;
+}
+.server-audit-filter button.active {
+ border-color: var(--accent, #6366f1);
+ color: var(--text);
+}

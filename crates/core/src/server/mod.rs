@@ -20,7 +20,7 @@ pub mod registry;
 
 pub use action::{
     ActionAuthorizationDecision, ActionOutcome, ActionRequest, ActionRisk,
-    ActionRiskPolicy, AuditEntry, Confirmation, ConfirmationState, DefaultActionRiskPolicy,
+    ActionRiskPolicy, AuditEntry, AuditSource, Confirmation, ConfirmationState, DefaultActionRiskPolicy,
     RegisteredAction, SessionTrust,
 };
 pub use health::{

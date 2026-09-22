@@ -14,6 +14,7 @@ import type {
   ConfirmationDto,
   LogsRequestDto,
   LogsResultDto,
+  McpStatusDto,
   ServerStatusDto,
   ServiceListItemDto,
 } from "./serverTypes";
@@ -32,6 +33,7 @@ export interface ServerClient {
   cancelAction(confirmationId: string): Promise<ActionResultDto>;
   actionsRecent(limit?: number): Promise<AuditEntryDto[]>;
   logs(request: LogsRequestDto): Promise<LogsResultDto>;
+  mcpStatus(): Promise<McpStatusDto>;
 }
 
 export function createServerClient(
@@ -80,6 +82,10 @@ export function createServerClient(
       return transport.invoke<AuditEntryDto[]>("server_actions_recent", {
         limit,
       });
+    },
+    async mcpStatus() {
+      guard();
+      return transport.invoke<McpStatusDto>("mcp_status");
     },
     async logs(request: LogsRequestDto) {
       guard();

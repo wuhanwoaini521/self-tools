@@ -314,11 +314,44 @@ impl ActionOutcome {
     }
 }
 
+/// 审计来源（V8 §93：UI 可按来源过滤）。
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AuditSource {
+    /// 本地桌面（Tauri 命令 / PersonalAgent）。
+    #[default]
+    Desktop,
+    /// 外部 MCP client（STDIO 或 HTTP）。
+    Mcp,
+}
+
+impl AuditSource {
+    #[must_use]
+    pub fn as_str(self) -> &'static str {
+        match self {
+            AuditSource::Desktop => "desktop",
+            AuditSource::Mcp => "mcp",
+        }
+    }
+
+    #[must_use]
+    pub fn parse(raw: &str) -> Option<Self> {
+        match raw.trim().to_ascii_lowercase().as_str() {
+            "desktop" => Some(AuditSource::Desktop),
+            "mcp" => Some(AuditSource::Mcp),
+            _ => None,
+        }
+    }
+}
+
 /// 审计条目（§64）。
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct AuditEntry {
     pub id: String,
     pub timestamp: i64,
+    /// 调用来源（V8 §93）。
+    #[serde(default)]
+    pub source: AuditSource,
     pub session_id: String,
     pub action_type: String,
     pub target_id: String,

@@ -136,6 +136,14 @@ const defaultSettings: AppSettings = {
     startup_sync: false,
   },
   server: {
+    mcp: {
+      enabled: true,
+      stdio_enabled: true,
+      http_enabled: false,
+      bind: "127.0.0.1",
+      remote_enabled: false,
+      port: 8787,
+    },
     services: [],
     applications: [],
     thresholds: {

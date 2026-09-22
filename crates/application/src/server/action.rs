@@ -32,8 +32,8 @@ use parking_lot::Mutex;
 
 use devtoolbox_core::server::{
     ActionAuthorizationDecision, ActionOutcome, ActionRequest, ActionRisk, ActionRiskPolicy,
-    AuditEntry, Confirmation, ConfirmationState, DefaultActionRiskPolicy, RegisteredAction,
-    SessionTrust,
+    AuditEntry, AuditSource, Confirmation, ConfirmationState, DefaultActionRiskPolicy,
+    RegisteredAction, SessionTrust,
 };
 
 use super::registry::ServiceRegistryService;
@@ -156,6 +156,8 @@ pub struct SafeActionService {
     cooldowns: Mutex<BTreeMap<String, i64>>,
     session_counts: Mutex<BTreeMap<String, usize>>,
     sequence: Mutex<u64>,
+    /// 审计来源标签（MCP 装配时设为 `Mcp`，§93；Arc 共享故内部可变）。
+    audit_source: Mutex<AuditSource>,
 }
 
 impl SafeActionService {
@@ -178,7 +180,13 @@ impl SafeActionService {
             cooldowns: Mutex::new(BTreeMap::new()),
             session_counts: Mutex::new(BTreeMap::new()),
             sequence: Mutex::new(0),
+            audit_source: Mutex::new(AuditSource::Desktop),
         }
+    }
+
+    /// 标记审计来源（V8 §93：MCP 装配时调用；`Arc` 共享，内部可变）。
+    pub fn set_audit_source(&self, source: AuditSource) {
+        *self.audit_source.lock() = source;
     }
 
     /// 默认策略 + 内存存储的便捷构造（组合根常用）。
@@ -392,6 +400,7 @@ impl SafeActionService {
         self.audit.record(&AuditEntry {
             id: self.next_id("aud"),
             timestamp: now_unix(),
+            source: *self.audit_source.lock(),
             session_id: request.session_id.clone(),
             action_type: request.action.action_type().to_string(),
             target_id: request.action.target_id().to_string(),

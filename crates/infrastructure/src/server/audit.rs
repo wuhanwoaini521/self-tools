@@ -6,7 +6,7 @@
 
 use std::path::Path;
 
-use devtoolbox_core::server::{ActionOutcome, ActionRisk, AuditEntry};
+use devtoolbox_core::server::{ActionOutcome, ActionRisk, AuditEntry, AuditSource};
 use rusqlite::{Connection, OptionalExtension, params};
 
 use crate::error::InfrastructureError;
@@ -37,6 +37,7 @@ impl ServerActionAuditSqlite {
                 CREATE TABLE IF NOT EXISTS action_audit (
                     id TEXT PRIMARY KEY,
                     timestamp INTEGER NOT NULL,
+                    source TEXT NOT NULL DEFAULT 'desktop',
                     session_id TEXT NOT NULL,
                     action_type TEXT NOT NULL,
                     target_id TEXT NOT NULL,
@@ -70,12 +71,13 @@ impl ServerActionAuditSqlite {
         connection
             .execute(
                 r"INSERT OR REPLACE INTO action_audit
-                  (id, timestamp, session_id, action_type, target_id, risk,
+                  (id, timestamp, source, session_id, action_type, target_id, risk,
                    confirmed, result, duration_ms, error_code)
-                  VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+                  VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
                 params![
                     entry.id,
                     entry.timestamp,
+                    entry.source.as_str(),
                     entry.session_id,
                     entry.action_type,
                     entry.target_id,
@@ -95,26 +97,28 @@ impl ServerActionAuditSqlite {
         let connection = self.connection.lock();
         let mut statement = connection
             .prepare(
-                r"SELECT id, timestamp, session_id, action_type, target_id, risk,
+                r"SELECT id, timestamp, source, session_id, action_type, target_id, risk,
                          confirmed, result, duration_ms, error_code
                   FROM action_audit ORDER BY timestamp DESC, id DESC LIMIT ?1",
             )
             .map_err(store_error)?;
         let rows = statement
             .query_map(params![limit.max(1) as i64], |row| {
-                let risk: String = row.get(5)?;
-                let result: String = row.get(7)?;
-                let error_code: String = row.get(9)?;
+                let source: String = row.get(2)?;
+                let risk: String = row.get(6)?;
+                let result: String = row.get(8)?;
+                let error_code: String = row.get(10)?;
                 Ok(AuditEntry {
                     id: row.get(0)?,
                     timestamp: row.get(1)?,
-                    session_id: row.get(2)?,
-                    action_type: row.get(3)?,
-                    target_id: row.get(4)?,
+                    source: AuditSource::parse(&source).unwrap_or(AuditSource::Desktop),
+                    session_id: row.get(3)?,
+                    action_type: row.get(4)?,
+                    target_id: row.get(5)?,
                     risk: ActionRisk::parse(&risk).unwrap_or(ActionRisk::Read),
-                    confirmed: row.get::<_, i64>(6)? != 0,
+                    confirmed: row.get::<_, i64>(7)? != 0,
                     result: ActionOutcome::parse(&result).unwrap_or(ActionOutcome::Failed),
-                    duration_ms: row.get::<_, i64>(8)? as u64,
+                    duration_ms: row.get::<_, i64>(9)? as u64,
                     error_code: (!error_code.is_empty()).then_some(error_code),
                 })
             })
@@ -186,6 +190,7 @@ mod tests {
         AuditEntry {
             id: id.into(),
             timestamp,
+            source: AuditSource::Desktop,
             session_id: "session-1".into(),
             action_type: "services.restart".into(),
             target_id: "self-tools".into(),

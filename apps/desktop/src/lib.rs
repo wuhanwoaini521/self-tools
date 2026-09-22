@@ -1719,6 +1719,7 @@ fn server_actions_recent(
             serde_json::json!({
                 "id": entry.id,
                 "timestamp": entry.timestamp,
+                "source": entry.source.as_str(),
                 "action_type": entry.action_type,
                 "target_id": entry.target_id,
                 "risk": entry.risk.as_str(),
@@ -1774,6 +1775,19 @@ fn services_get_logs(
         "redactions": redacted.redactions,
         "truncated": redacted.truncated,
         "untrusted": true,
+    }))
+}
+
+/// MCP 状态（§90：设置页展示；不含任何 secret）。
+#[tauri::command]
+fn mcp_status(state: State<'_, AppState>) -> Result<serde_json::Value, CommandError> {
+    // 复用 server 运行时的设置读取器（AppSettings 全量）。
+    let mcp = state.server.mcp_settings();
+    Ok(serde_json::json!({
+        "mcp": mcp,
+        // §46：远程绑定需要 remote_enabled 且已配置身份提供者。
+        "identity_configured": false,
+        "auth_status": "未配置身份提供者（远程 MCP 保持关闭）",
     }))
 }
 
@@ -2146,6 +2160,7 @@ pub fn run() {
             cancel_action,
             server_actions_recent,
             services_get_logs,
+            mcp_status,
             history_enrichment_state,
             history_enrichment_view,
             history_enrichment_ensure,

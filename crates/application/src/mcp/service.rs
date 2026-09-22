@@ -94,6 +94,8 @@ impl McpService {
         mut self,
         actions: Arc<crate::server::action::SafeActionService>,
     ) -> Self {
+        // §93：MCP 触发的系统操作在审计里标记来源，便于 UI 过滤。
+        actions.set_audit_source(devtoolbox_core::server::AuditSource::Mcp);
         self.system_actions = Some(actions);
         self
     }

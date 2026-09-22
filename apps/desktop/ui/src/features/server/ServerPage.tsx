@@ -19,11 +19,14 @@ import {
 } from "./ServerParts";
 import { serverClient } from "./serverClient";
 import {
+  AUDIT_SOURCE_LABELS,
   PLATFORM_LABELS,
   type AppListItemDto,
   type AuditEntryDto,
+  type AuditSource,
   type ConfirmationDto,
   type LogsResultDto,
+  type McpStatusDto,
   type ServerStatusDto,
   type ServiceListItemDto,
 } from "./serverTypes";
@@ -42,6 +45,8 @@ export function ServerPage({ active, setNotice }: ServerPageProps) {
   const [audit, setAudit] = useState<AuditEntryDto[]>([]);
   const [confirmation, setConfirmation] = useState<ConfirmationDto | null>(null);
   const [logs, setLogs] = useState<LogsResultDto | null>(null);
+  const [mcp, setMcp] = useState<McpStatusDto | null>(null);
+  const [auditFilter, setAuditFilter] = useState<AuditSource | "all">("all");
   const [loading, setLoading] = useState(false);
   const [pendingService, setPendingService] = useState<string | null>(null);
 
@@ -49,16 +54,19 @@ export function ServerPage({ active, setNotice }: ServerPageProps) {
     if (!isTauriRuntime()) return;
     setLoading(true);
     try {
-      const [nextStatus, nextServices, nextApps, nextAudit] = await Promise.all([
-        serverClient.status(),
-        serverClient.servicesList(),
-        serverClient.appsList(),
-        serverClient.actionsRecent(10),
-      ]);
+      const [nextStatus, nextServices, nextApps, nextAudit, nextMcp] =
+        await Promise.all([
+          serverClient.status(),
+          serverClient.servicesList(),
+          serverClient.appsList(),
+          serverClient.actionsRecent(20),
+          serverClient.mcpStatus().catch(() => null),
+        ]);
       setStatus(nextStatus);
       setServices(nextServices);
       setApps(nextApps);
       setAudit(nextAudit);
+      setMcp(nextMcp);
     } catch (error) {
       setNotice(`服务器状态读取失败：${errorMessage(error)}`);
     } finally {
@@ -129,6 +137,11 @@ export function ServerPage({ active, setNotice }: ServerPageProps) {
       setNotice(`打开失败：${errorMessage(error)}`);
     }
   };
+
+  const filteredAudit =
+    auditFilter === "all"
+      ? audit
+      : audit.filter((entry) => entry.source === auditFilter);
 
   if (!isTauriRuntime()) {
     return (
@@ -204,6 +217,28 @@ export function ServerPage({ active, setNotice }: ServerPageProps) {
         />
       </section>
 
+      {mcp ? (
+        <section className="server-mcp">
+          <div className="server-mcp-head">
+            <h3>MCP</h3>
+            <span
+              className={
+                "server-badge " +
+                (mcp.mcp.enabled ? "healthy" : "unhealthy")
+              }
+            >
+              {mcp.mcp.enabled ? "已启用" : "已停用"}
+            </span>
+          </div>
+          <p className="knowledge-muted">
+            STDIO {mcp.mcp.stdio_enabled ? "开" : "关"} · HTTP{" "}
+            {mcp.mcp.http_enabled ? `开（${mcp.mcp.bind}:${mcp.mcp.port}）` : "关"} ·
+            远程 {mcp.mcp.remote_enabled ? "开" : "关"}
+          </p>
+          <p className="knowledge-muted">{mcp.auth_status}</p>
+        </section>
+      ) : null}
+
       <section className="server-block">
         <h3>Services</h3>
         {services.length === 0 ? (
@@ -267,12 +302,25 @@ export function ServerPage({ active, setNotice }: ServerPageProps) {
       ) : null}
 
       <section className="server-block">
-        <h3>Recent Actions</h3>
-        {audit.length === 0 ? (
+        <div className="server-block-head">
+          <h3>Recent Actions</h3>
+          <div className="server-audit-filter">
+            {(["all", "desktop", "mcp"] as const).map((option) => (
+              <button
+                key={option}
+                className={auditFilter === option ? "active" : ""}
+                onClick={() => setAuditFilter(option)}
+              >
+                {option === "all" ? "全部" : AUDIT_SOURCE_LABELS[option]}
+              </button>
+            ))}
+          </div>
+        </div>
+        {filteredAudit.length === 0 ? (
           <p className="knowledge-muted">还没有执行过任何操作。</p>
         ) : (
           <ul className="server-audit">
-            {audit.map((entry) => (
+            {filteredAudit.map((entry) => (
               <AuditRow key={entry.id} entry={entry} />
             ))}
           </ul>

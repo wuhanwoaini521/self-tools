@@ -106,9 +106,13 @@ export interface ActionResultDto {
   confirmed?: boolean;
 }
 
+export type AuditSource = "desktop" | "mcp";
+
 export interface AuditEntryDto {
   id: string;
   timestamp: number;
+  /** 调用来源（V8 §93：UI 可按来源过滤）。 */
+  source: AuditSource;
   action_type: string;
   target_id: string;
   risk: ActionRisk;
@@ -149,6 +153,24 @@ export const PLATFORM_LABELS: Record<Platform, string> = {
   linux: "Linux",
   windows: "Windows",
   unknown: "未知平台",
+};
+
+export interface McpStatusDto {
+  mcp: {
+    enabled: boolean;
+    stdio_enabled: boolean;
+    http_enabled: boolean;
+    bind: string;
+    remote_enabled: boolean;
+    port: number;
+  };
+  identity_configured: boolean;
+  auth_status: string;
+}
+
+export const AUDIT_SOURCE_LABELS: Record<AuditSource, string> = {
+  desktop: "本地",
+  mcp: "MCP",
 };
 
 export const OUTCOME_LABELS: Record<ActionOutcome, string> = {

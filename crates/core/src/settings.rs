@@ -260,6 +260,64 @@ pub struct ServerSettings {
     pub audit_max_entries: usize,
     #[serde(default = "default_audit_days")]
     pub audit_retention_days: i64,
+    /// MCP 设置（V8 §47：transport 开关 + 绑定 + 远程）。
+    #[serde(default)]
+    pub mcp: McpSettings,
+}
+
+/// MCP 传输设置（V8 §47）。
+///
+/// 远程**默认关闭**（Principle 7）：`remote_enabled = true` 且配置了身份
+/// 提供者之前，非 loopback 绑定会在启动时被拒（§46）。
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct McpSettings {
+    /// 是否启用 MCP transport。
+    #[serde(default = "default_mcp_enabled")]
+    pub enabled: bool,
+    /// STDIO transport 开关（§24）。
+    #[serde(default = "default_true")]
+    pub stdio_enabled: bool,
+    /// Streamable HTTP transport 开关（§43）。
+    #[serde(default)]
+    pub http_enabled: bool,
+    /// HTTP 绑定地址（默认 loopback，§44）。
+    #[serde(default = "default_mcp_bind")]
+    pub bind: String,
+    /// 远程（非 loopback）访问开关（§45）。
+    #[serde(default)]
+    pub remote_enabled: bool,
+    /// HTTP 端口（与 bind 二选一；bind 已含端口时忽略）。
+    #[serde(default = "default_mcp_port")]
+    pub port: u16,
+}
+
+fn default_mcp_enabled() -> bool {
+    true
+}
+
+fn default_true() -> bool {
+    true
+}
+
+fn default_mcp_bind() -> String {
+    "127.0.0.1".to_string()
+}
+
+fn default_mcp_port() -> u16 {
+    8787
+}
+
+impl Default for McpSettings {
+    fn default() -> Self {
+        Self {
+            enabled: default_mcp_enabled(),
+            stdio_enabled: default_true(),
+            http_enabled: false,
+            bind: default_mcp_bind(),
+            remote_enabled: false,
+            port: default_mcp_port(),
+        }
+    }
 }
 
 fn default_confirmation_ttl() -> i64 {
@@ -293,6 +351,7 @@ impl Default for ServerSettings {
             max_system_per_session: default_session_limit(),
             audit_max_entries: default_audit_entries(),
             audit_retention_days: default_audit_days(),
+            mcp: McpSettings::default(),
         }
     }
 }
@@ -317,6 +376,12 @@ mod tests {
         assert!(settings.server.services.is_empty());
         assert!(settings.server.applications.is_empty());
         assert_eq!(settings.server.confirmation_ttl_secs, 60);
+        // V8：旧 settings 没有 mcp 段 → 默认 STDIO 开、HTTP 关、远程关（§47）。
+        assert!(settings.server.mcp.enabled);
+        assert!(settings.server.mcp.stdio_enabled);
+        assert!(!settings.server.mcp.http_enabled);
+        assert!(!settings.server.mcp.remote_enabled);
+        assert_eq!(settings.server.mcp.bind, "127.0.0.1");
         assert!(settings.knowledge.file_roots.is_empty());
         assert!(!settings.knowledge.is_configured());
         assert!(!settings.knowledge.file_policy().is_configured());
