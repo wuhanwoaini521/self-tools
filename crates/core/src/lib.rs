@@ -11,6 +11,7 @@ pub mod history_records;
 pub mod knowledge;
 pub mod language;
 pub mod memory;
+pub mod mcp;
 pub mod parser;
 pub mod personal_ai;
 pub mod rss;

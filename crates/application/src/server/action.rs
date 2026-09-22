@@ -295,6 +295,12 @@ impl SafeActionService {
         self.audit.recent(limit)
     }
 
+    /// 服务注册表（SafeAction 的授权来源；MCP 层解析 service_id 用）。
+    #[must_use]
+    pub fn registry(&self) -> &Arc<ServiceRegistryService> {
+        &self.services
+    }
+
     /// 确认票据存储（测试辅助：模拟「已过期 / 已消费」等时间相关状态）。
     #[doc(hidden)]
     #[must_use]
