@@ -13300,3 +13300,83 @@ main.history-v2-period {
  border-color: var(--accent, #6366f1);
  color: var(--text);
 }
+
+/* V9 编排追踪（AI Panel 折叠区；只展示结构与计数） */
+.ai-orchestration {
+ margin: 6px 0;
+ border: 1px solid var(--border, #2a2f3a);
+ border-radius: 8px;
+ background: var(--surface-2, rgba(255, 255, 255, 0.03));
+ overflow: hidden;
+}
+.ai-orchestration-head {
+ display: flex;
+ align-items: center;
+ gap: 8px;
+ width: 100%;
+ padding: 7px 10px;
+ background: transparent;
+ border: none;
+ color: var(--text);
+ font-size: 12px;
+ cursor: pointer;
+ text-align: left;
+}
+.ai-orchestration-caret {
+ display: inline-flex;
+ transition: transform 0.15s ease;
+}
+.ai-orchestration-caret.open {
+ transform: rotate(90deg);
+}
+.ai-orchestration-summary {
+ margin-left: auto;
+ font-size: 11px;
+ color: var(--muted);
+}
+.ai-orchestration-runs {
+ list-style: none;
+ margin: 0;
+ padding: 4px 10px 8px;
+ display: flex;
+ flex-direction: column;
+ gap: 4px;
+}
+.ai-orchestration-run {
+ display: grid;
+ grid-template-columns: 14px 52px 1fr auto;
+ gap: 8px;
+ align-items: center;
+ font-size: 11px;
+}
+.ai-orchestration-status.completed {
+ color: #22c55e;
+}
+.ai-orchestration-status.failed,
+.ai-orchestration-status.timed_out {
+ color: #ef4444;
+}
+.ai-orchestration-status.cancelled {
+ color: var(--muted);
+}
+.ai-orchestration-role {
+ font-weight: 600;
+}
+.ai-orchestration-task {
+ color: var(--muted);
+ overflow: hidden;
+ text-overflow: ellipsis;
+ white-space: nowrap;
+}
+.ai-orchestration-meta {
+ color: var(--muted);
+ white-space: nowrap;
+}
+@media (max-width: 640px) {
+ .ai-orchestration-run {
+  grid-template-columns: 14px 1fr auto;
+ }
+ .ai-orchestration-task {
+  display: none;
+ }
+}

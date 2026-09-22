@@ -11,6 +11,7 @@
  */
 import {
   ArrowClockwise,
+  CaretRight,
   PaperPlaneTilt,
   ShieldWarning,
   Sparkle,
@@ -32,6 +33,8 @@ import {
 import type { ConfirmationDto } from "../server/serverTypes";
 import { aiClient } from "./aiClient";
 import {
+  agentRoleLabel,
+  agentStateLabel,
   type AgentAction,
   type AgentMessage,
   type AgentResponse,
@@ -40,6 +43,7 @@ import {
   type EntityListItem,
   type FileListItem,
   type MemoryListItem,
+  type OrchestrationTrace,
   type UiBlock,
   documentCardData,
   documentListItems,
@@ -158,6 +162,7 @@ export function AIPanel({
   const [messages, setMessages] = useState<AgentMessage[]>([]);
   const [input, setInput] = useState("");
   const [toolTrace, setToolTrace] = useState<AgentResponse["tool_trace"]>([]);
+  const [orchestration, setOrchestration] = useState<AgentResponse["orchestration"]>(null);
   const [blocks, setBlocks] = useState<UiBlock[]>([]);
   const [pendingConfirms, setPendingConfirms] = useState<ConfirmMemoryTarget[]>(
     [],
@@ -243,6 +248,7 @@ export function AIPanel({
       });
       setMessages(response.messages.slice(-MAX_MESSAGES));
       setToolTrace(response.tool_trace ?? []);
+      setOrchestration(response.orchestration ?? null);
       setBlocks(response.ui_blocks ?? []);
       // V6：知识类 Action —— 确认记忆在面板内联确认，打开文件/文档交给外壳执行。
       // V7：`confirm_action` 进服务器确认卡（SYSTEM 操作，§56）；`open_app`
@@ -396,6 +402,9 @@ export function AIPanel({
             <div className="ai-panel-error">
               {errorText || "发生错误，请重试。"}
             </div>
+          ) : null}
+          {orchestration ? (
+            <OrchestrationTraceView trace={orchestration} />
           ) : null}
           {toolTrace.length > 0 ? (
             <div className="ai-tool-trace">
@@ -958,5 +967,54 @@ function SystemConfirmCard({
         <button onClick={() => onDecide("cancel")}>取消</button>
       </div>
     </section>
+  );
+}
+
+/**
+ * 编排追踪（V9 §74/§75：折叠区；只展示任务/角色/状态/工具数/来源/时长 ——
+ * 不展示模型隐藏推理）。
+ */
+function OrchestrationTraceView({ trace }: { trace: OrchestrationTrace }) {
+  const [open, setOpen] = useState(false);
+  const done = trace.runs.filter((run) => run.status === "completed").length;
+  return (
+    <div className="ai-orchestration">
+      <button
+        type="button"
+        className="ai-orchestration-head"
+        onClick={() => setOpen((value) => !value)}
+        aria-expanded={open}
+      >
+        <span className={"ai-orchestration-caret" + (open ? " open" : "")}>
+          <CaretRight size={12} />
+        </span>
+        执行过程
+        <span className="ai-orchestration-summary">
+          {done}/{trace.runs.length} 个任务完成
+          {trace.review ? ` · 审查 ${trace.review}` : ""}
+          {trace.runs.some((run) => run.status === "failed" || run.status === "timed_out") ? " · 有失败" : ""}
+        </span>
+      </button>
+      {open ? (
+        <ul className="ai-orchestration-runs">
+          {trace.runs.map((run) => (
+            <li key={run.task_id} className={"ai-orchestration-run " + run.status}>
+              <span className="ai-orchestration-status">
+                {run.status === "completed" ? "✓" : run.status === "failed" || run.status === "timed_out" ? "✕" : "•"}
+              </span>
+              <span className="ai-orchestration-role">
+                {agentRoleLabel(run.agent_id)}
+              </span>
+              <span className="ai-orchestration-task">{run.task_id}</span>
+              <span className="ai-orchestration-meta">
+                {agentStateLabel(run.status)} · {run.tool_calls} 次工具 ·{" "}
+                {run.duration_ms}ms
+                {run.error_code ? ` · ${run.error_code}` : ""}
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
   );
 }

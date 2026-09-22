@@ -47,6 +47,54 @@ export interface ToolTraceEntry {
  note?: string | null;
 }
 
+/** 单次 worker run（V9 §75：只含结构与计数，无 CoT / 无 secret）。 */
+export interface OrchestrationRun {
+  task_id: string;
+  agent_id: string;
+  state: string;
+  status: string;
+  duration_ms: number;
+  tool_calls: number;
+  tokens: number;
+  error_code?: string | null;
+}
+
+/** 编排追踪视图（V9 §72/§74）。 */
+export interface OrchestrationTrace {
+  trace_id: string;
+  decision: string;
+  plan_rationale: string;
+  runs: OrchestrationRun[];
+  review?: string | null;
+  merged: boolean;
+  stopped_early?: string | null;
+}
+
+/** Agent 角色中文标签（§76 UI）。 */
+export const AGENT_ROLE_LABELS: Record<string, string> = {
+  research: "检索",
+  planner: "规划",
+  reviewer: "审查",
+  synthesizer: "综合",
+};
+
+export const AGENT_STATE_LABELS: Record<string, string> = {
+  pending: "排队中",
+  running: "进行中",
+  completed: "已完成",
+  failed: "失败",
+  cancelled: "已取消",
+  timed_out: "超时",
+};
+
+export function agentRoleLabel(id: string): string {
+  return AGENT_ROLE_LABELS[id] ?? id;
+}
+
+export function agentStateLabel(state: string): string {
+  return AGENT_STATE_LABELS[state] ?? state;
+}
+
 export type AgentActionKind =
  | "navigate"
  | "open_entity"
@@ -102,6 +150,8 @@ export interface AgentResponse {
  messages: AgentMessage[];
  provider?: string | null;
  model?: string | null;
+ /** 多 Agent 编排追踪（无则未委派）。 */
+ orchestration?: OrchestrationTrace | null;
 }
 
 export interface ToolSpecLite {
