@@ -2069,6 +2069,10 @@ pub fn run() {
                 .map(|settings| settings.ai)
                 .filter(|ai| ai.is_configured())
                 .map(|ai| personal_ai::build_provider(client.clone(), &ai));
+            // V10：hub 装配读取一次当前 settings（决策模式 + Jev key + AI 配置）。
+            let hub_settings: AppSettings = (enrichment_settings)()
+                .unwrap_or_default();
+            let client_for_hub = client.clone();
             app.manage(AppState {
                 rss_repository,
                 rss_fetcher: composition::FeedFetcherAdapter::new(client.clone()),
@@ -2087,6 +2091,8 @@ pub fn run() {
                     language_llm_plug,
                     &knowledge,
                     &server_runtime,
+                    &hub_settings,
+                    client_for_hub,
                 ),
                 ai_session: Arc::new(InMemorySessionStore::new()),
                 history_enrichment,

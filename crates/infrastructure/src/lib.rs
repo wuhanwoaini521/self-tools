@@ -1,5 +1,6 @@
 //! 本地文件系统、设置与 RSS 持久化适配器。
 
+pub mod agents;
 pub mod document_store;
 pub mod documents;
 pub mod error;
@@ -17,6 +18,10 @@ pub mod settings_store;
 pub mod travel;
 pub mod workspace_scanner;
 
+pub use agents::{
+    DEFAULT_BASE_URL, DEFAULT_MODEL, FakeJevTransport, JevConfig, JevDecisionProvider,
+    JevHttpTransport, JevQuestion, JevRequestBody, JevResponseBody, JevTransport, JevUsage,
+};
 pub use document_store::{read_utf8, write_utf8_atomic};
 pub use documents::{
     DOCUMENTS_SCHEMA_VERSION, DocumentIndexError, DocumentIndexSqliteStore, LocalDocumentSource,

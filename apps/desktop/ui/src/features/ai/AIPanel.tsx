@@ -35,6 +35,9 @@ import { aiClient } from "./aiClient";
 import {
   agentRoleLabel,
   agentStateLabel,
+  decisionConfidenceLabel,
+  decisionProviderLabel,
+  decisionStrategyLabel,
   type AgentAction,
   type AgentMessage,
   type AgentResponse,
@@ -971,8 +974,8 @@ function SystemConfirmCard({
 }
 
 /**
- * 编排追踪（V9 §74/§75：折叠区；只展示任务/角色/状态/工具数/来源/时长 ——
- * 不展示模型隐藏推理）。
+ * 编排追踪（V9 §74/§75；V10 §20/§38：折叠区；只展示任务/角色/状态/工具数/
+ * 来源/时长 + 决策 label —— 不展示模型隐藏推理）。
  */
 function OrchestrationTraceView({ trace }: { trace: OrchestrationTrace }) {
   const [open, setOpen] = useState(false);
@@ -990,30 +993,63 @@ function OrchestrationTraceView({ trace }: { trace: OrchestrationTrace }) {
         </span>
         执行过程
         <span className="ai-orchestration-summary">
+          {trace.decision_strategy
+            ? ` · 决策 ${decisionStrategyLabel(trace.decision_strategy)}`
+            : ""}
+          {trace.decision_provider
+            ? ` · ${decisionProviderLabel(trace.decision_provider)}`
+            : ""}
+          {trace.decision_confidence
+            ? ` · 置信 ${decisionConfidenceLabel(trace.decision_confidence)}`
+            : ""}
           {done}/{trace.runs.length} 个任务完成
           {trace.review ? ` · 审查 ${trace.review}` : ""}
           {trace.runs.some((run) => run.status === "failed" || run.status === "timed_out") ? " · 有失败" : ""}
+          {trace.decision_fallback ? " · 已回落规则" : ""}
         </span>
       </button>
       {open ? (
-        <ul className="ai-orchestration-runs">
-          {trace.runs.map((run) => (
-            <li key={run.task_id} className={"ai-orchestration-run " + run.status}>
-              <span className="ai-orchestration-status">
-                {run.status === "completed" ? "✓" : run.status === "failed" || run.status === "timed_out" ? "✕" : "•"}
-              </span>
-              <span className="ai-orchestration-role">
-                {agentRoleLabel(run.agent_id)}
-              </span>
-              <span className="ai-orchestration-task">{run.task_id}</span>
-              <span className="ai-orchestration-meta">
-                {agentStateLabel(run.status)} · {run.tool_calls} 次工具 ·{" "}
-                {run.duration_ms}ms
-                {run.error_code ? ` · ${run.error_code}` : ""}
-              </span>
-            </li>
-          ))}
-        </ul>
+        <>
+          {trace.decision_strategy || trace.shadow_decision ? (
+            <div className="ai-orchestration-decision">
+              决策：
+              {trace.decision_strategy
+                ? decisionStrategyLabel(trace.decision_strategy)
+                : "—"}
+              {trace.decision_provider
+                ? ` · 提供方 ${decisionProviderLabel(trace.decision_provider)}`
+                : ""}
+              {trace.decision_confidence
+                ? ` · 置信度 ${decisionConfidenceLabel(trace.decision_confidence)}`
+                : ""}
+              {trace.decision_latency_ms != null
+                ? ` · ${trace.decision_latency_ms}ms`
+                : ""}
+              {trace.decision_fallback ? " · 已回落到规则决策" : ""}
+              {trace.shadow_decision
+                ? ` · 影子决策 ${decisionStrategyLabel(trace.shadow_decision)}`
+                : ""}
+            </div>
+          ) : null}
+          <ul className="ai-orchestration-runs">
+            {trace.runs.map((run) => (
+              <li key={run.task_id} className={"ai-orchestration-run " + run.status}>
+                <span className="ai-orchestration-status">
+                  {run.status === "completed" ? "✓" : run.status === "failed" || run.status === "timed_out" ? "✕" : "•"}
+                </span>
+                <span className="ai-orchestration-role">
+                  {agentRoleLabel(run.agent_id)}
+                </span>
+                <span className="ai-orchestration-task">{run.task_id}</span>
+                <span className="ai-orchestration-meta">
+                  {agentStateLabel(run.status)} · {run.tool_calls} 次工具 ·{" "}
+                  {run.duration_ms}ms
+                  {run.error_code ? ` · ${run.error_code}` : ""}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </>
       ) : null}
     </div>
   );

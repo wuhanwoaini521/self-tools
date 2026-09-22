@@ -125,26 +125,44 @@ impl PersonalAgent {
             system.push_str(&block);
         }
 
-        // 可选的多 Agent 编排（V9 §42）：**规则判定**是否需要委派；
-        // 简单请求不进这里（§43/§105）。编排结果作为 untrusted worker 结果
-        // 注入 system（§97），最终回答仍由本 Agent 合成（§1 单用户入口）。
+        // 可选的多 Agent 编排（V9 §42 / V10 §35）：由 `DecisionEngine` 判定
+        // 是否需要委派以及选哪种策略；简单请求不进这里（§43/§105）。
+        // 编排结果作为 untrusted worker 结果注入 system（§97），最终回答仍由
+        // 本 Agent 合成（§1 单用户入口）。
         let mut orchestration_trace: Option<devtoolbox_core::OrchestrationTraceView> = None;
         if let Some(orchestration) = self.hub.orchestration.as_deref() {
-            let decision = orchestration.decide(&request.message, self.config.multi_agent_enabled);
-            if decision.is_delegating() {
+            let (delegating, decision_telemetry) = orchestration
+                .decide_v10(
+                    &request.message,
+                    request.app_context.module.as_deref(),
+                    request.app_context.page.as_deref(),
+                    request
+                        .app_context
+                        .entity
+                        .as_ref()
+                        .map(|entity| entity.kind.as_str()),
+                    self.config.multi_agent_enabled,
+                    &devtoolbox_core::agents::AgentBudget::default(),
+                )
+                .await;
+            if delegating {
                 // V9-F1：session_id 前端可控 → 过 task id 校验，不合法则用 uid16。
                 let request_id = if devtoolbox_core::agents::is_valid_task_id(&session_id) {
                     session_id.clone()
                 } else {
                     format!("req-{}", uid16())
                 };
-                let plan = orchestration.plan(&request_id, &request.message, true);
+                let plan = orchestration.plan_for_strategy(
+                    &request_id,
+                    &request.message,
+                    decision_telemetry.strategy,
+                );
                 let parent_tools: Vec<String> = enabled_tools
                     .iter()
                     .map(|spec| spec.name.clone())
                     .collect();
                 let budget = devtoolbox_core::agents::AgentBudget::default();
-                let outcome = orchestration
+                let mut outcome = orchestration
                     .execute(
                         &request_id,
                         &request.message,
@@ -154,11 +172,13 @@ impl PersonalAgent {
                         self.config.multi_agent_enabled,
                     )
                     .await;
+                // V10 §20：把决策遥测挂到 trace（视图只暴露结构性字段）。
+                outcome.trace.decision_telemetry = Some(decision_telemetry);
                 orchestration_trace = Some(trace_view(&outcome.trace));
                 // §97：worker 结果经围栏投影后注入（不可信数据，不是指令）。
                 let fenced = crate::agents::orchestrator::untrusted_projection(
                     &serde_json::json!({
-                        "decision": format!("{decision:?}"),
+                        "decision": outcome.trace.decision.clone(),
                         "partial": outcome.partial,
                         "merged": outcome.merged,
                         "runs": outcome.trace.runs.iter().map(|run| serde_json::json!({
@@ -247,7 +267,7 @@ impl PersonalAgent {
 }
 
 
-/// `OrchestrationTrace` → 可序列化视图（§72：无 secret / 无正文）。
+/// `OrchestrationTrace` → 可序列化视图（§72：无 secret / 无正文 / 无隐藏推理）。
 fn trace_view(trace: &crate::agents::orchestrator::OrchestrationTrace) -> devtoolbox_core::OrchestrationTraceView {
     devtoolbox_core::OrchestrationTraceView {
         trace_id: trace.trace_id.clone(),
@@ -270,6 +290,37 @@ fn trace_view(trace: &crate::agents::orchestrator::OrchestrationTrace) -> devtoo
         review: trace.review.as_ref().map(|finding| finding.verdict.as_str().to_string()),
         merged: trace.merged,
         stopped_early: trace.stopped_early.map(str::to_string),
+        decision_provider: trace
+            .decision_telemetry
+            .as_ref()
+            .map(|telemetry| telemetry.provider.to_string()),
+        decision_strategy: trace
+            .decision_telemetry
+            .as_ref()
+            .map(|telemetry| telemetry.strategy.as_str().to_string()),
+        decision_confidence: trace
+            .decision_telemetry
+            .as_ref()
+            .map(|telemetry| telemetry.confidence.as_str().to_string()),
+        decision_reason_code: trace
+            .decision_telemetry
+            .as_ref()
+            .map(|telemetry| telemetry.reason_code.to_string()),
+        decision_latency_ms: trace
+            .decision_telemetry
+            .as_ref()
+            .map(|telemetry| telemetry.decision_latency_ms),
+        decision_fallback: trace
+            .decision_telemetry
+            .as_ref()
+            .is_some_and(|telemetry| telemetry.fallback),
+        shadow_decision: trace.decision_telemetry.as_ref().and_then(|telemetry| {
+            telemetry
+                .shadow
+                .as_ref()
+                .map(|shadow| shadow.shadow_strategy.as_str().to_string())
+        }),
+        worker_count: trace.runs.len(),
     }
 }
 

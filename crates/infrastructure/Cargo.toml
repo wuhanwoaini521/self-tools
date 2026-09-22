@@ -29,3 +29,6 @@ zip.workspace = true
 [lints]
 workspace = true
 
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt", "rt-multi-thread", "time"] }
+

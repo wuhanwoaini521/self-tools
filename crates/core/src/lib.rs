@@ -40,8 +40,8 @@ pub use parser::{
     set_task_mark,
 };
 pub use settings::{
-    AiSettings, AppSettings, GeographySettings, KnowledgeSettings, MarkdownView, McpSettings,
-    ThemeMode,
+    AiSettings, AppSettings, DecisionSettings, GeographySettings, KnowledgeSettings, MarkdownView,
+    McpSettings, ThemeMode,
     TravelSearchBackend, TravelSettings,
 };
 pub use task_state::{TaskState, TaskStateRegistry, default_registry};

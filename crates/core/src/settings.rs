@@ -97,6 +97,8 @@ pub struct AppSettings {
     pub knowledge: KnowledgeSettings,
     /// Home Server 设置（V7；注册表为空 = 无能力，fail-closed）。
     pub server: ServerSettings,
+    /// 决策层设置（V10；默认 rule 模式，Jev 未配置 = 纯规则）。
+    pub decision: DecisionSettings,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -132,6 +134,7 @@ impl Default for AppSettings {
             ai: AiSettings::default(),
             knowledge: KnowledgeSettings::default(),
             server: ServerSettings::default(),
+            decision: DecisionSettings::default(),
         }
     }
 }
@@ -356,6 +359,90 @@ impl Default for ServerSettings {
     }
 }
 
+/// 决策层设置（V10 §26/§37/§52）。
+///
+/// 默认 `rule`：未配置 Jev key 时禁止 Shadow/Active（fail-closed）。
+/// `jev_failure_fallback` 恒 true（不可关闭）：provider 失败必须回落 Rule。
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct DecisionSettings {
+    /// 决策模式：`rule` / `jev_shadow` / `jev_active`。
+    #[serde(default = "default_decision_mode")]
+    pub mode: String,
+    /// Jev API key（只进后端配置；**永不**进日志 / 前端 / git）。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub jev_api_key: Option<String>,
+    /// Jev API base（缺省官方）。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub jev_base_url: Option<String>,
+    /// Jev 模型别名（缺省 `jev-latest`）。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub jev_model: Option<String>,
+    /// 单次决策超时（秒；1..60，缺省 5）。
+    #[serde(default = "default_decision_timeout")]
+    pub jev_timeout_secs: u64,
+    /// Jev 失败是否回落 Rule（恒 true；字段保留供将来扩展，反序列化忽略 false）。
+    #[serde(default = "default_true")]
+    pub jev_failure_fallback: bool,
+    /// 多 Agent 编排总开关（§52：默认开，但有界）。
+    #[serde(default = "default_true")]
+    pub multi_agent_enabled: bool,
+    /// worker 并发硬上限（来自 AgentBudget.max_agents；默认 4）。
+    #[serde(default = "default_max_workers")]
+    pub max_workers: usize,
+}
+
+fn default_decision_mode() -> String {
+    "rule".to_string()
+}
+
+fn default_decision_timeout() -> u64 {
+    5
+}
+
+fn default_max_workers() -> usize {
+    4
+}
+
+impl Default for DecisionSettings {
+    fn default() -> Self {
+        Self {
+            mode: default_decision_mode(),
+            jev_api_key: None,
+            jev_base_url: None,
+            jev_model: None,
+            jev_timeout_secs: default_decision_timeout(),
+            jev_failure_fallback: true,
+            multi_agent_enabled: true,
+            max_workers: default_max_workers(),
+        }
+    }
+}
+
+impl DecisionSettings {
+    /// 解析后的决策模式（非法值 → Rule，fail-closed）。
+    #[must_use]
+    pub fn mode_enum(&self) -> crate::agents::DecisionMode {
+        crate::agents::DecisionMode::parse(&self.mode).unwrap_or_default()
+    }
+
+    /// Jev 是否已配置（只暴露布尔；绝不暴露 key 本身）。
+    #[must_use]
+    pub fn jev_configured(&self) -> bool {
+        self.jev_api_key
+            .as_deref()
+            .is_some_and(|key| !key.trim().is_empty())
+    }
+
+    /// 生效模式：未配置 Jev 时强制 Rule（§28/§52）。
+    #[must_use]
+    pub fn effective_mode(&self) -> crate::agents::DecisionMode {
+        if !self.jev_configured() {
+            return crate::agents::DecisionMode::Rule;
+        }
+        self.mode_enum()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -405,5 +492,59 @@ mod tests {
             "kn", "知识库", "/data/knowledge",
         ));
         assert_eq!(settings.effective_document_roots()[0].id, "kn");
+    }
+
+    #[test]
+    fn decision_settings_default_to_rule_and_fail_closed() {
+        let settings = DecisionSettings::default();
+        assert_eq!(settings.mode_enum(), crate::agents::DecisionMode::Rule);
+        assert!(!settings.jev_configured());
+        // 未配置 key → 即使 mode 写了 active 也必须落到 rule。
+        let mut active = DecisionSettings {
+            mode: "jev_active".into(),
+            ..DecisionSettings::default()
+        };
+        assert_eq!(active.effective_mode(), crate::agents::DecisionMode::Rule);
+        // 配置 key 后才允许 shadow/active。
+        active.jev_api_key = Some("k".into());
+        assert_eq!(active.effective_mode(), crate::agents::DecisionMode::JevActive);
+        assert!(active.jev_configured());
+        // 非法 mode → rule。
+        let broken = DecisionSettings {
+            mode: "teleport".into(),
+            jev_api_key: Some("k".into()),
+            ..DecisionSettings::default()
+        };
+        assert_eq!(broken.effective_mode(), crate::agents::DecisionMode::Rule);
+    }
+
+    #[test]
+    fn decision_mode_parses_from_settings_string() {
+        assert_eq!(
+            crate::agents::DecisionMode::parse("jev_shadow"),
+            Some(crate::agents::DecisionMode::JevShadow)
+        );
+        assert_eq!(
+            crate::agents::DecisionMode::parse("jev-active"),
+            Some(crate::agents::DecisionMode::JevActive)
+        );
+        assert_eq!(crate::agents::DecisionMode::parse(""), None);
+    }
+
+    #[test]
+    fn legacy_settings_decode_without_decision_section() {
+        let legacy = r#"{"schema_version":1,"server":{"mcp":{"enabled":true}}}"#;
+        let settings: AppSettings = serde_json::from_str(legacy).expect("decode");
+        assert_eq!(settings.decision, DecisionSettings::default());
+        assert_eq!(settings.decision.mode, "rule");
+    }
+
+    #[test]
+    fn decision_serialization_skips_empty_key() {
+        let settings = DecisionSettings::default();
+        let json = serde_json::to_value(&settings).expect("serialize");
+        assert!(json.get("jev_api_key").is_none(), "空 key 不得序列化");
+        assert_eq!(json["mode"], "rule");
+        assert_eq!(json["max_workers"], 4);
     }
 }

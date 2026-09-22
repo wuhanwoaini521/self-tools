@@ -42,14 +42,12 @@ pub struct ToolError(pub String);
 // ToolRegistry
 
 /// 工具注册表：注册 / 发现 / schema / 参数校验 / 执行。
+///
+/// `Clone` 是浅拷贝（内部 `Arc<dyn ToolExecutor>`）：组合根可把同一份工具集
+/// 共享给 `PersonalHub` 与 `OrchestrationService`（V10 §35），无须双份注册。
+#[derive(Clone, Default)]
 pub struct ToolRegistry {
     tools: HashMap<String, Arc<dyn ToolExecutor>>,
-}
-
-impl Default for ToolRegistry {
-    fn default() -> Self {
-        Self::new()
-    }
 }
 
 impl ToolRegistry {

@@ -70,6 +70,8 @@ pub fn build_hub(
     language_llm: Option<Arc<dyn ChatModelProvider>>,
     knowledge: &crate::knowledge::KnowledgeRuntime,
     server: &crate::server::ServerRuntime,
+    settings: &devtoolbox_core::settings::AppSettings,
+    client: reqwest::Client,
 ) -> Arc<PersonalHub> {
     let port: Arc<dyn devtoolbox_application::history::HistoryQueryPort> =
         Arc::new(HistoryQueryAdapter::new(history));
@@ -130,7 +132,53 @@ pub fn build_hub(
     // 通用检索增强 stage（V6 §22/§55）：平台可选能力，无业务分支。
     hub.retrieval = Some(Arc::clone(&knowledge.retrieval)
         as Arc<dyn devtoolbox_application::personal_ai::RetrievalAugmenter>);
+    // V10：决策引擎 + 有界多 Agent 编排（rule / jev-shadow / jev-active）。
+    // 决策层只选策略；执行/授权/预算仍由 OrchestrationService + ToolRegistry 强制。
+    // `settings` 来自调用方（同 enrichment 模式：每次装配读取一次最新 settings.json）。
+    // ToolRegistry::clone 是浅拷贝（内部 Arc<dyn ToolExecutor>）：hub 与编排器
+    // 共享同一份工具执行体，无双注册、无第二 capability source。
+    let tools = Arc::new(hub.tools.clone());
+    let hub_ai = settings.ai.clone();
+    let provider = build_provider(client.clone(), &hub_ai);
+    let decision = build_decision_engine(client, &settings.decision);
+    hub.orchestration = Some(Arc::new(
+        devtoolbox_application::agents::OrchestrationService::new(
+            Arc::new(devtoolbox_application::agents::default_registry()),
+            provider,
+            tools,
+        )
+        .with_decision_engine(decision),
+    ));
     Arc::new(hub)
+}
+
+/// 装配决策引擎（V10 §13）：rule 基线 + 可选 Jev provider + 模式。
+fn build_decision_engine(
+    client: reqwest::Client,
+    decision: &devtoolbox_core::settings::DecisionSettings,
+) -> devtoolbox_application::agents::AgentDecisionEngine {
+    let jev: Option<Arc<dyn devtoolbox_core::agents::DecisionProvider>> =
+        if decision.jev_configured() {
+            Some(Arc::new(
+                devtoolbox_infrastructure::agents::JevDecisionProvider::http(
+                    client,
+                    devtoolbox_infrastructure::agents::JevConfig {
+                        base_url: decision.jev_base_url.clone(),
+                        api_key: decision.jev_api_key.clone(),
+                        model: decision.jev_model.clone(),
+                        timeout_secs: Some(decision.jev_timeout_secs),
+                    },
+                ),
+            ))
+        } else {
+            None
+        };
+    devtoolbox_application::agents::AgentDecisionEngine::new(
+        jev,
+        decision.effective_mode(),
+        Some(decision.jev_timeout_secs),
+        decision.max_workers,
+    )
 }
 
 /// 装配一次调用的 PersonalAgent（Provider 每次读取最新设置；Hub/Session 恒定）。
@@ -208,6 +256,8 @@ mod tests {
             crate::composition::LanguageStoreAdapter::new(language_store),
         );
 
+        let hub_settings = devtoolbox_core::settings::AppSettings::default();
+        let hub_client = devtoolbox_infrastructure::feed_client().expect("http client");
         build_hub(
             history_repo,
             None,
@@ -217,6 +267,8 @@ mod tests {
             None,
             &knowledge,
             &server,
+            &hub_settings,
+            hub_client,
         )
     }
 

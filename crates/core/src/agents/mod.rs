@@ -12,11 +12,17 @@
 //! `application::agents`。
 
 pub mod budget;
+pub mod decision;
 pub mod descriptor;
 pub mod result;
 pub mod task;
 
 pub use budget::{AgentBudget, BudgetUsage, BudgetVerdict, can_start_agent, check_budget, child_budget};
+pub use decision::{
+    BudgetTier, DECISION_MESSAGE_MAX_CHARS, DecisionConfidence, DecisionEngine, DecisionMode,
+    DecisionProvider, DecisionProviderError, DecisionRequest, DecisionResult, DecisionShadowRecord,
+    DecisionStrategy, DecisionTelemetry, decision_timeout,
+};
 pub use descriptor::{AgentDescriptor, AgentRegistry, AgentRole, DelegatedCapabilitySet};
 pub use result::{
     ActionProposal, ActionRisk, DelegationResult, DelegationStatus, ReviewFinding, ReviewVerdict,

@@ -59,7 +59,7 @@ export interface OrchestrationRun {
   error_code?: string | null;
 }
 
-/** 编排追踪视图（V9 §72/§74）。 */
+/** 编排追踪视图（V9 §72/§74；V10 §20 决策遥测）。 */
 export interface OrchestrationTrace {
   trace_id: string;
   decision: string;
@@ -68,6 +68,51 @@ export interface OrchestrationTrace {
   review?: string | null;
   merged: boolean;
   stopped_early?: string | null;
+  /** V10：实际生效的决策 provider（rule / jev）。 */
+  decision_provider?: string | null;
+  /** V10：决策策略 label。 */
+  decision_strategy?: string | null;
+  /** V10：置信档位 high / uncertain / low。 */
+  decision_confidence?: string | null;
+  decision_reason_code?: string | null;
+  decision_latency_ms?: number | null;
+  /** V10：是否发生过 provider fallback。 */
+  decision_fallback?: boolean;
+  /** V10：shadow 模式下影子 provider 的策略（仅 label）。 */
+  shadow_decision?: string | null;
+  worker_count?: number;
+}
+
+/** 决策策略中文标签（V10 §38：只展示 label，禁止展示隐藏推理）。 */
+export const DECISION_STRATEGY_LABELS: Record<string, string> = {
+  direct: "直接回答",
+  research_only: "检索取证",
+  plan_and_research: "规划 + 检索",
+  research_and_review: "检索 + 审查",
+  bounded_multi_agent: "有界多 Agent",
+};
+
+export const DECISION_PROVIDER_LABELS: Record<string, string> = {
+  rule: "规则",
+  jev: "Jev",
+};
+
+export const DECISION_CONFIDENCE_LABELS: Record<string, string> = {
+  high: "高",
+  uncertain: "不确定",
+  low: "低",
+};
+
+export function decisionStrategyLabel(strategy: string): string {
+  return DECISION_STRATEGY_LABELS[strategy] ?? strategy;
+}
+
+export function decisionProviderLabel(provider: string): string {
+  return DECISION_PROVIDER_LABELS[provider] ?? provider;
+}
+
+export function decisionConfidenceLabel(confidence: string): string {
+  return DECISION_CONFIDENCE_LABELS[confidence] ?? confidence;
 }
 
 /** Agent 角色中文标签（§76 UI）。 */

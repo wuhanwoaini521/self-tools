@@ -10,11 +10,19 @@
 //! 铁律：**能力只能来自 ToolRegistry**；子 Agent capability = parent ∩ profile ∩ task
 //! （§34-§36）；worker 不可再委派（depth = 1，§49）。
 
+pub mod decision_engine;
+pub mod decision_eval;
+pub mod decision_rule;
+#[cfg(test)]
+pub mod decision_security_tests;
 pub mod executor;
 pub mod orchestrator;
 pub mod profiles;
 pub mod prompt;
 
+pub use decision_eval::{DecisionEvalReport, DecisionEvalHarness, golden_decision_cases};
+pub use decision_engine::AgentDecisionEngine;
+pub use decision_rule::{RuleDecisionProvider, decide_by_rule};
 pub use executor::{AgentExecutor, AgentExecutorDeps, RunOutcome};
 pub use orchestrator::{
     DelegationDecision, ExecutionPlan, OrchestrationService, OrchestrationTrace, PlanTask,

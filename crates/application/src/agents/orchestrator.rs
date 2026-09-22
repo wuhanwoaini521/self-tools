@@ -22,11 +22,12 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use devtoolbox_core::agents::{
-    ActionProposal, AgentBudget, AgentRegistry, AgentRunState, BudgetUsage,
+    ActionProposal, AgentBudget, AgentRegistry, AgentRunState, BudgetUsage, DecisionTelemetry,
     DelegationResult, DelegationStatus, ReviewFinding, TaskEnvelope, TaskPriority,
 };
 use devtoolbox_core::personal_ai::{ChatModelProvider, ToolSpec};
 
+use super::decision_engine::AgentDecisionEngine;
 use super::executor::{AgentExecutor, RunOutcome};
 use crate::personal_ai::registry::ToolRegistry;
 
@@ -103,6 +104,8 @@ pub struct OrchestrationTrace {
     pub review: Option<ReviewFinding>,
     pub merged: bool,
     pub stopped_early: Option<&'static str>,
+    /// V10 决策遥测（provider / strategy / confidence / fallback / shadow）。
+    pub decision_telemetry: Option<DecisionTelemetry>,
 }
 
 #[derive(Clone, Debug)]
@@ -136,6 +139,8 @@ pub struct OrchestrationService {
     registry: Arc<AgentRegistry>,
     executor: AgentExecutor,
     registry_tools: Arc<ToolRegistry>,
+    /// V10 决策引擎（可选；未装配 = 纯 rule 路径，行为与 V9 一致）。
+    decision: Option<AgentDecisionEngine>,
 }
 
 impl OrchestrationService {
@@ -149,7 +154,110 @@ impl OrchestrationService {
             registry,
             executor: AgentExecutor::new(super::executor::AgentExecutorDeps { provider, registry: Arc::clone(&tools) }),
             registry_tools: tools,
+            decision: None,
         }
+    }
+
+    /// 装配决策引擎（V10：rule / jev-shadow / jev-active 皆可热切换）。
+    #[must_use]
+    pub fn with_decision_engine(mut self, engine: AgentDecisionEngine) -> Self {
+        self.decision = Some(engine);
+        self
+    }
+
+    /// 决策引擎是否已装配。
+    #[must_use]
+    pub fn has_decision_engine(&self) -> bool {
+        self.decision.is_some()
+    }
+
+    /// 当前决策模式（未装配 = Rule）。
+    #[must_use]
+    pub fn decision_mode(&self) -> devtoolbox_core::agents::DecisionMode {
+        self.decision
+            .as_ref()
+            .map(AgentDecisionEngine::mode)
+            .unwrap_or_default()
+    }
+
+    /// V10 决策路径：返回（是否委派, 策略, 遥测视图）。
+    ///
+    /// **边界（§35）**：这里只选策略；执行 / 授权 / 预算仍在本服务其余部分。
+    /// 引擎不可用或失败 → 冻结的 V9 规则（`decide_by_rule`）。
+    pub async fn decide_v10(
+        &self,
+        message: &str,
+        module: Option<&str>,
+        page: Option<&str>,
+        entity_kind: Option<&str>,
+        multi_agent_enabled: bool,
+        budget: &devtoolbox_core::agents::AgentBudget,
+    ) -> (
+        bool,
+        DecisionTelemetry,
+    ) {
+        let workers = self.registry.ids();
+        let tool_groups = self
+            .registry_tools
+            .specs()
+            .into_iter()
+            .map(|spec| spec.module)
+            .collect::<std::collections::BTreeSet<_>>()
+            .into_iter()
+            .collect::<Vec<_>>();
+        // 预算档位（V9 AgentBudget 语义 → 三档）。
+        let budget_tier = if budget.max_agents == 0
+            || budget.max_steps == 0
+            || budget.max_tokens == 0
+            || budget.max_duration_ms == 0
+        {
+            devtoolbox_core::agents::BudgetTier::None
+        } else if budget.max_agents <= 1 {
+            devtoolbox_core::agents::BudgetTier::Single
+        } else {
+            devtoolbox_core::agents::BudgetTier::Full
+        };
+
+        if let Some(engine) = self.decision.as_ref() {
+            let request = engine.request(
+                "decide",
+                message,
+                module,
+                page,
+                entity_kind,
+                &workers,
+                &tool_groups,
+                budget_tier,
+            );
+            // 用户显式关闭 = 请求里带 multi_agent_off；引擎会看到该信号。
+            let request = devtoolbox_core::agents::DecisionRequest {
+                multi_agent_off: request.multi_agent_off || !multi_agent_enabled,
+                ..request
+            };
+            let (result, telemetry) = engine.decide(&request).await;
+            return (result.is_orchestrating(), telemetry);
+        }
+
+        // 无引擎：冻结 V9 规则（行为不变）。
+        let decision = self.decide(message, multi_agent_enabled);
+        (
+            decision.is_delegating(),
+            DecisionTelemetry {
+                mode: devtoolbox_core::agents::DecisionMode::Rule,
+                provider: "rule",
+                strategy: if decision.is_delegating() {
+                    devtoolbox_core::agents::DecisionStrategy::ResearchOnly
+                } else {
+                    devtoolbox_core::agents::DecisionStrategy::Direct
+                },
+                confidence: devtoolbox_core::agents::DecisionConfidence::High,
+                reason_code: decision.reason().unwrap_or("simple_direct"),
+                decision_latency_ms: 0,
+                fallback: false,
+                shadow: None,
+                workers: Vec::new(),
+            },
+        )
     }
 
     /// 规则式委派判定（§44 第一版：rule + 后续可加模型结构化决策）。
@@ -191,8 +299,57 @@ impl OrchestrationService {
     ///
     /// 计划是**确定性规则**（不让模型自选 agent 类型，§45）：按请求形态选择
     /// research 任务集合 + 可选 reviewer。
+    ///
+    /// V10：`strategy` 由 `DecisionEngine` 给出（默认 = deep 的旧形状，
+    /// 保持 V9 行为冻结）；计划形状只依赖策略，**不**依赖 provider。
     #[must_use]
     pub fn plan(&self, request_id: &str, objective: &str, deep: bool) -> ExecutionPlan {
+        self.plan_for_strategy(
+            request_id,
+            objective,
+            if deep {
+                devtoolbox_core::agents::DecisionStrategy::BoundedMultiAgent
+            } else {
+                devtoolbox_core::agents::DecisionStrategy::ResearchOnly
+            },
+        )
+    }
+
+    /// 按决策策略生成计划（V10 §25 的策略 → plan 形态映射）。
+    #[must_use]
+    pub fn plan_for_strategy(
+        &self,
+        request_id: &str,
+        objective: &str,
+        strategy: devtoolbox_core::agents::DecisionStrategy,
+    ) -> ExecutionPlan {
+        use devtoolbox_core::agents::DecisionStrategy;
+        match strategy {
+            DecisionStrategy::Direct => ExecutionPlan {
+                tasks: Vec::new(),
+                parallel_groups: Vec::new(),
+                final_review_required: false,
+                rationale: "direct: no workers".into(),
+            },
+            DecisionStrategy::ResearchOnly => self.research_plan(request_id, objective, false),
+            DecisionStrategy::PlanAndResearch => self.research_plan(request_id, objective, true),
+            DecisionStrategy::ResearchAndReview => {
+                let mut plan = self.research_plan(request_id, objective, false);
+                plan.final_review_required = true;
+                plan.rationale = "research + review".into();
+                plan
+            }
+            DecisionStrategy::BoundedMultiAgent => {
+                let mut plan = self.research_plan(request_id, objective, true);
+                plan.final_review_required = true;
+                plan.rationale = "deep request: 2 research + planner + reviewer".into();
+                plan
+            }
+        }
+    }
+
+    /// research 主体计划（planner 可选）。
+    fn research_plan(&self, request_id: &str, objective: &str, with_planner: bool) -> ExecutionPlan {
         let mut tasks: Vec<PlanTask> = Vec::new();
         // 两个独立研究任务（证据面拆分：服务器 / 知识）。
         tasks.push(PlanTask {
@@ -217,7 +374,7 @@ impl OrchestrationService {
             format!("{request_id}-r1"),
             format!("{request_id}-r2"),
         ]];
-        if deep {
+        if with_planner {
             tasks.push(PlanTask {
                 task_id: format!("{request_id}-plan"),
                 agent_id: "planner".into(),
@@ -231,9 +388,9 @@ impl OrchestrationService {
         ExecutionPlan {
             tasks,
             parallel_groups,
-            final_review_required: deep,
-            rationale: if deep {
-                "deep request: 2 research + planner + reviewer".into()
+            final_review_required: false,
+            rationale: if with_planner {
+                "plan + research: planner + 2 research".into()
             } else {
                 "cross-module request: 2 parallel research".into()
             },

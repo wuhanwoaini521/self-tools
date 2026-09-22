@@ -77,7 +77,8 @@ pub struct ToolSpec {
     pub module: String,
 }
 
-/// 编排追踪视图（V9 §72）：只含结构与计数，**不含** secret / 正文 / 完整 prompt（§73）。
+/// 编排追踪视图（V9 §72；V10 §20 扩展决策遥测）：
+/// 只含结构与计数，**不含** secret / 正文 / 完整 prompt / 隐藏推理（§73）。
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 pub struct OrchestrationTraceView {
     pub trace_id: String,
@@ -91,6 +92,30 @@ pub struct OrchestrationTraceView {
     /// 提前停止原因（预算 / 取消）。
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stopped_early: Option<String>,
+    /// 实际生效的决策 provider（rule / jev）。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub decision_provider: Option<String>,
+    /// 决策策略（direct / research_only / ...）。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub decision_strategy: Option<String>,
+    /// 决策置信档位（high / uncertain / low）。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub decision_confidence: Option<String>,
+    /// 决策 reason code（机器可读）。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub decision_reason_code: Option<String>,
+    /// 决策延迟（ms）。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub decision_latency_ms: Option<u64>,
+    /// 是否发生过 provider fallback（jev 失败 → rule）。
+    #[serde(default)]
+    pub decision_fallback: bool,
+    /// JEV_SHADOW 下影子 provider 的策略（仅 label；无 CoT）。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub shadow_decision: Option<String>,
+    /// 实际执行的 worker 数。
+    #[serde(default)]
+    pub worker_count: usize,
 }
 
 /// 单次 worker run 的视图（§75：只展示任务/角色/状态/工具数/时长）。
