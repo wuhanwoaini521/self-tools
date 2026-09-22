@@ -11,13 +11,21 @@
 use std::net::SocketAddr;
 
 // 这些依赖由 lib target 使用；显式引用让 binary target 的
+// workspace 级 `unused-crate-dependencies` lint 保持有效（desktop 同模式）。
+use async_trait as _;
+use devtoolbox_application as _;
+use devtoolbox_core as _;
+use devtoolbox_infrastructure as _;
+use serde as _;
+use serde_json as _;
+
+// 这些依赖由 lib target 使用；显式引用让 binary target 的
 // `unused_crate_dependencies` lint 保持满意（与 desktop 的 main.rs 同模式）。
 use devtoolbox_core as _;
 use serde as _;
 use serde_json as _;
-mod compose;
 
-use compose::Composition;
+use devtoolbox_mcp::compose::Composition;
 
 /// 命令行参数（显式 > 环境变量 > 默认；未知参数 → 用法错误）。
 #[derive(Debug)]
@@ -25,6 +33,8 @@ struct Cli {
     transport: Transport,
     bind: String,
     remote_enabled: bool,
+    /// 业务数据目录（真实 store 装配；None = fail-closed 空能力集）。
+    stores_dir: Option<std::path::PathBuf>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -39,6 +49,7 @@ impl Default for Cli {
             transport: Transport::Stdio,
             bind: "127.0.0.1:8787".to_string(),
             remote_enabled: false,
+            stores_dir: None,
         }
     }
 }
@@ -53,6 +64,11 @@ fn parse_args() -> Result<Cli, String> {
     if std::env::var("SELF_TOOLS_MCP_REMOTE").as_deref() == Ok("1") {
         cli.remote_enabled = true;
     }
+    if let Ok(dir) = std::env::var("SELF_TOOLS_MCP_STORES")
+        && !dir.trim().is_empty()
+    {
+        cli.stores_dir = Some(std::path::PathBuf::from(dir.trim()));
+    }
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {
         match arg.as_str() {
@@ -66,6 +82,12 @@ fn parse_args() -> Result<Cli, String> {
                     .to_string();
             }
             "--remote" => cli.remote_enabled = true,
+            "--stores" => {
+                cli.stores_dir = args
+                    .next()
+                    .map(|value| std::path::PathBuf::from(value.trim()))
+                    .filter(|path| !path.as_os_str().is_empty());
+            }
             "--help" | "-h" => {
                 println!(
                     "usage: self-tools mcp [--stdio|--http] [--bind ADDR] [--remote]\n\n\
@@ -74,7 +96,9 @@ fn parse_args() -> Result<Cli, String> {
                      --http    streamable HTTP (default bind 127.0.0.1:8787)\n\n\
                      safety:\n  \
                      --remote  allow non-loopback bind; requires a configured identity\n  \
-                     provider, otherwise startup fails (V8 §46)\n"
+                     provider, otherwise startup fails (V8 §46)\n  \
+                     --stores DIR  wire the production stores (memory/documents/files/audit)\n  \
+                     from DIR; without it MCP runs fail-closed with an empty catalog\n"
                 );
                 std::process::exit(0);
             }
@@ -94,7 +118,9 @@ fn main() -> std::process::ExitCode {
         }
     };
 
-    let composition = match compose::build() {
+    let composition = match devtoolbox_mcp::compose::build(devtoolbox_mcp::compose::BuildOptions {
+        stores_dir: cli.stores_dir.clone(),
+    }) {
         Ok(composition) => composition,
         Err(message) => {
             eprintln!("mcp: composition failed: {message}");
@@ -175,3 +201,7 @@ fn run_http(composition: Composition, cli: &Cli) -> Result<(), String> {
 use async_trait as _;
 #[cfg(test)]
 use tower as _;
+
+// lib target 的单元测试使用 tempfile；bin test target 编译它时同样需要引用。
+#[cfg(test)]
+use tempfile as _;
