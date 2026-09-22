@@ -12,8 +12,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use devtoolbox_core::{
-    AgentError, AgentRequest, AgentResponse, AgentUsage, ChatMessage, ChatModelProvider,
-    ChatRequest, ChatRole, ToolCallRequest, ToolResult, ToolTraceEntry,
+    AgentError, AgentRequest, AgentResponse, ChatMessage, ChatModelProvider, ChatRole,
 };
 
 use crate::personal_ai::context::ContextBudget;
@@ -21,6 +20,7 @@ use crate::personal_ai::prompt::{
     assemble_messages, assemble_system, parse_agent_envelope, ui_snapshot,
 };
 use crate::personal_ai::registry::{ModuleRegistry, ToolRegistry};
+use crate::personal_ai::runtime::{ToolLoopConfig, run_tool_loop};
 use crate::personal_ai::session::SessionStore;
 
 /// Agent 配置。
@@ -121,127 +121,57 @@ impl PersonalAgent {
 
         // 会话历史 + 用户消息
         let messages = self.session.load(&session_id);
-        let mut chat_messages =
+        let chat_messages =
             assemble_messages(&messages, &request.message, &enabled_tools, &system);
 
         let started = Instant::now();
-        let mut total_usage = AgentUsage::default();
-        let mut trace: Vec<ToolTraceEntry> = Vec::new();
-        let mut rounds = 0u8;
+        // V9 Gate 3：工具循环抽取为共享 runtime（`personal_ai::runtime`），
+        // PersonalAgent 与子 Agent 复用同一执行语义（§40）。
+        let loop_outcome = run_tool_loop(
+            self.provider.as_ref(),
+            &self.hub.tools,
+            chat_messages,
+            &enabled_tools,
+            ToolLoopConfig {
+                max_rounds: self.config.max_tool_rounds,
+                temperature: 0.2,
+            },
+        )
+        .await?;
+        let mut total_usage = loop_outcome.usage;
+        let trace = loop_outcome.tool_trace;
+        let rounds = loop_outcome.rounds;
 
-        loop {
-            rounds += 1;
-            if rounds > self.config.max_tool_rounds as u8 {
-                return Err(AgentError::max_tool_rounds(self.config.max_tool_rounds));
-            }
+        // 最终轮：解析 envelope
+        let content = loop_outcome.content;
+        let (message, actions, ui_blocks) = parse_agent_envelope(&content);
 
-            let tool_specs: Vec<_> = enabled_tools
-                .iter()
-                .map(|spec| devtoolbox_core::ChatToolSpec {
-                    name: spec.name.clone(),
-                    description: spec.description.clone(),
-                    parameters: spec.input_schema.clone(),
-                })
-                .collect();
-
-            let response = self
-                .provider
-                .chat(ChatRequest {
-                    messages: chat_messages.clone(),
-                    tools: tool_specs,
-                    temperature: Some(0.2),
-                    max_tokens: None,
-                })
-                .await
-                .map_err(map_provider_error)?;
-
-            total_usage = total_usage.combine(AgentUsage {
-                input_tokens: response.usage.input_tokens,
-                output_tokens: response.usage.output_tokens,
-                total_tokens: response.usage.total_tokens,
-                duration_ms: response.usage.duration_ms,
-                tool_rounds: 0,
+        // 写入会话并返回
+        let mut session_messages = messages;
+        session_messages.push(ChatMessage::user(request.message.as_str()));
+        if !content.is_empty() {
+            session_messages.push(devtoolbox_core::ChatMessage {
+                role: ChatRole::Assistant,
+                content: Some(message.clone()),
+                tool_calls: None,
+                tool_call_id: None,
             });
-
-            if response.tool_calls.is_empty() {
-                // 最终轮：解析 envelope
-                let content = response.content.unwrap_or_default();
-                let (message, actions, ui_blocks) = parse_agent_envelope(&content);
-
-                // 写入会话并返回
-                let mut session_messages = messages;
-                session_messages.push(ChatMessage::user(request.message.as_str()));
-                if !content.is_empty() {
-                    session_messages.push(devtoolbox_core::ChatMessage {
-                        role: ChatRole::Assistant,
-                        content: Some(message.clone()),
-                        tool_calls: None,
-                        tool_call_id: None,
-                    });
-                }
-                self.session.append(&session_id, &session_messages);
-
-                total_usage.duration_ms = started.elapsed().as_millis() as u64;
-                total_usage.tool_rounds = rounds;
-                return Ok(AgentResponse {
-                    session_id,
-                    message,
-                    actions,
-                    ui_blocks,
-                    tool_trace: trace,
-                    usage: Some(total_usage),
-                    messages: ui_snapshot(&session_messages, self.config.snapshot_cap),
-                    provider: Some(self.provider.name().to_string()),
-                    model: None,
-                });
-            }
-
-            // 工具轮：执行（受控失败转为 ToolResult::fail，不 panic）
-            for call in &response.tool_calls {
-                let tool_started = Instant::now();
-                let tool_result = self
-                    .hub
-                    .tools
-                    .execute(&ToolCallRequest {
-                        id: call.id.clone(),
-                        name: call.name.clone(),
-                        arguments: call.arguments.clone(),
-                    })
-                    .await
-                    .unwrap_or_else(|error| ToolResult::fail(error.message.clone()));
-
-                let duration = tool_started.elapsed().as_millis() as u64;
-                let ok = tool_result.ok;
-                let note = tool_result.error.clone();
-                trace.push(ToolTraceEntry {
-                    tool: call.name.clone(),
-                    ok,
-                    duration_ms: duration,
-                    note,
-                });
-
-                let result_json = serde_json::to_string(&tool_result).unwrap_or_else(|_| {
-                    r#"{"ok":false,"error":"serialization failed"}"#.to_string()
-                });
-                chat_messages.push(devtoolbox_core::ChatMessage {
-                    role: ChatRole::Assistant,
-                    content: None,
-                    tool_calls: Some(vec![devtoolbox_core::ChatToolCall {
-                        id: call.id.clone(),
-                        name: call.name.clone(),
-                        arguments: call.arguments.clone(),
-                    }]),
-                    tool_call_id: None,
-                });
-                chat_messages.push(devtoolbox_core::ChatMessage {
-                    role: ChatRole::Tool,
-                    content: Some(result_json),
-                    tool_calls: None,
-                    tool_call_id: Some(call.id.clone()),
-                });
-            }
-            // 继续下一轮
         }
+        self.session.append(&session_id, &session_messages);
+
+        total_usage.duration_ms = started.elapsed().as_millis() as u64;
+        total_usage.tool_rounds = rounds;
+        Ok(AgentResponse {
+            session_id,
+            message,
+            actions,
+            ui_blocks,
+            tool_trace: trace,
+            usage: Some(total_usage),
+            messages: ui_snapshot(&session_messages, self.config.snapshot_cap),
+            provider: Some(self.provider.name().to_string()),
+            model: None,
+        })
     }
 
     fn enabled_tools(&self, capabilities: &[String]) -> Vec<devtoolbox_core::ToolSpec> {
@@ -255,15 +185,6 @@ impl PersonalAgent {
     }
 }
 
-fn map_provider_error(error: devtoolbox_core::ProviderError) -> AgentError {
-    use devtoolbox_core::ProviderErrorKind;
-    match error.kind {
-        ProviderErrorKind::Unavailable => AgentError::model_unavailable(error.message.clone()),
-        ProviderErrorKind::Timeout => AgentError::provider_timeout(error.message.clone()),
-        ProviderErrorKind::Transport => AgentError::provider(error.message.clone()),
-        ProviderErrorKind::InvalidResponse => AgentError::provider(error.message.clone()),
-    }
-}
 
 /// 8-hex 后缀的会话 id（无 crypto 依赖；仅用于一次性会话标识）。
 fn uid16() -> String {
@@ -277,6 +198,7 @@ fn uid16() -> String {
 
 #[cfg(test)]
 mod tests {
+    use devtoolbox_core::{ChatRequest, ToolResult};
     use super::*;
     use crate::personal_ai::registry::ToolExecutor;
     use devtoolbox_core::{

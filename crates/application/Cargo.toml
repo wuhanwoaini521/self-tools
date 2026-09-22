@@ -17,6 +17,7 @@ serde_json.workspace = true
 regex.workspace = true
 thiserror.workspace = true
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }
+tokio-util = { version = "0.7", features = ["rt"] }
 
 [lints]
 workspace = true

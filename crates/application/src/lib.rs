@@ -1,5 +1,6 @@
 //! UI 无关的文档、工作区与任务编辑用例。
 
+pub mod agents;
 pub mod documents;
 pub mod error;
 pub mod files;
