@@ -4,6 +4,7 @@
 //! 桌面应用和回归测试共同复用。
 
 pub mod agents;
+pub mod backup;
 pub mod documents;
 pub mod files;
 pub mod geography;
@@ -13,11 +14,15 @@ pub mod knowledge;
 pub mod language;
 pub mod memory;
 pub mod mcp;
+pub mod operations;
 pub mod parser;
 pub mod personal_ai;
+pub mod readiness;
 pub mod rss;
+pub mod search;
 pub mod server;
 pub mod settings;
+pub mod study_board;
 pub mod task_state;
 pub mod travel;
 pub mod workspace;

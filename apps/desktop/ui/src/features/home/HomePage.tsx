@@ -1,14 +1,19 @@
 import {
   ArrowRight,
   BookOpen,
+  Brain,
   CheckCircle,
   Clock,
   FileText,
+  FolderOpen,
+  HardDrives,
   MapPin,
   Note,
   NotePencil,
   Rss,
+  Sparkle,
   Translate,
+  Wrench,
 } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
 import type { ArticleDto, GeographyHome, ReviewCard, SemanticHistoryHome, TodayView } from "../../types";
@@ -30,6 +35,14 @@ interface HomePageProps {
   onOpenLanguage: (id?: string) => void;
   onNewNote: () => void;
   onRefreshRss: () => void;
+  /** V11-J：打开全局 Ask AI（Personal Hub 唯一 AI 入口）。 */
+  onAskAi?: (prompt?: string) => void;
+  /** V11-J：打开家庭服务器面板。 */
+  onOpenServer?: () => void;
+  /** V11-J：打开学习板。 */
+  onOpenStudyBoard?: () => void;
+  /** V11-J：打开知识层（Memory/Documents/Files）。 */
+  onOpenKnowledge?: () => void;
 }
 
 const LANGUAGE_LABELS: Record<string, string> = { eng: "英语", jpn: "日语", cmn: "普通话", yue: "粤语" };
@@ -46,6 +59,7 @@ function HomeSectionHeading({ eyebrow, title, action }: { eyebrow: string; title
 export function HomePage({
   recentFiles, latestArticles, geographyHome, historyHome, todayView, reviewCard, rssRefreshing,
   onOpenNote, onOpenArticle, onOpenGeography, onOpenHistory, onOpenLanguage, onNewNote, onRefreshRss,
+  onAskAi, onOpenServer, onOpenStudyBoard, onOpenKnowledge,
 }: HomePageProps) {
   const hour = new Date().getHours();
   const article = latestArticles[0] ?? null;
@@ -74,6 +88,66 @@ export function HomePage({
       </div>
       <div className="home-story-date"><Clock size={16} />{new Date().toLocaleDateString("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit", weekday: "short" })}</div>
     </header>
+
+    {/* V11-J Personal Hub：Ask AI + 分组入口（Continue / Learn / Knowledge / Home / Recent）。 */}
+    <section className="home-hub" aria-label="Personal Hub">
+      <div className="home-hub-ask">
+        <Sparkle size={18} weight="fill" />
+        <button
+          type="button"
+          className="home-hub-ask-input"
+          onClick={() => onAskAi?.()}
+        >
+          <span>问 AI：任何关于你知识、学习或家庭服务器的问题</span>
+        </button>
+        <button type="button" className="home-hub-ask-go" onClick={() => onAskAi?.()}>
+          提问 <ArrowRight size={15} />
+        </button>
+      </div>
+      <div className="home-hub-groups">
+        <section className="home-hub-group">
+          <h3>继续</h3>
+          <ul>
+            {historyStory ? (
+              <li><button type="button" onClick={() => onOpenHistory(historyStory.id)}><Clock size={15} /><span>{historyStory.title_zh_cn}</span></button></li>
+            ) : null}
+            {languageItem ? (
+              <li><button type="button" onClick={() => onOpenLanguage(languageItem.id)}><Translate size={15} /><span>{languageItem.text}</span></button></li>
+            ) : null}
+            {article ? (
+              <li><button type="button" onClick={() => onOpenArticle(article)}><Rss size={15} /><span>{article.title}</span></button></li>
+            ) : null}
+            {!historyStory && !languageItem && !article ? <li className="home-hub-empty">开始探索后，这里显示继续入口</li> : null}
+          </ul>
+        </section>
+        <section className="home-hub-group">
+          <h3>学习</h3>
+          <ul>
+            <li><button type="button" onClick={() => onOpenHistory()}><Clock size={15} /><span>History</span></button></li>
+            <li><button type="button" onClick={() => onOpenGeography()}><MapPin size={15} /><span>Geography</span></button></li>
+            <li><button type="button" onClick={() => onOpenLanguage()}><Translate size={15} /><span>Language</span></button></li>
+            {onOpenStudyBoard ? (
+              <li><button type="button" onClick={onOpenStudyBoard}><NotePencil size={15} /><span>Study Board</span></button></li>
+            ) : null}
+          </ul>
+        </section>
+        <section className="home-hub-group">
+          <h3>我的知识</h3>
+          <ul>
+            <li><button type="button" onClick={() => onOpenKnowledge?.()}><Brain size={15} /><span>Memory</span></button></li>
+            <li><button type="button" onClick={() => onOpenKnowledge?.()}><FileText size={15} /><span>Documents</span></button></li>
+            <li><button type="button" onClick={() => onOpenKnowledge?.()}><FolderOpen size={15} /><span>Files</span></button></li>
+          </ul>
+        </section>
+        <section className="home-hub-group">
+          <h3>家庭</h3>
+          <ul>
+            <li><button type="button" onClick={() => onOpenServer?.()}><HardDrives size={15} /><span>Server</span></button></li>
+            <li><button type="button" onClick={() => onOpenServer?.()}><Wrench size={15} /><span>Applications</span></button></li>
+          </ul>
+        </section>
+      </div>
+    </section>
 
     <main className="home-story-layout">
       <section className="home-story-column">

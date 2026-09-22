@@ -26,6 +26,8 @@ pub enum AgentErrorKind {
     MaxToolRounds,
     /// 会话错误。
     Session,
+    /// 输入超出模型能力（V11 §104：如 vision=false 时收到图片）。
+    UnsupportedInput,
 }
 
 impl AgentErrorKind {
@@ -41,6 +43,7 @@ impl AgentErrorKind {
             Self::ContextError => "personal_ai_context_error",
             Self::MaxToolRounds => "personal_ai_max_tool_rounds",
             Self::Session => "personal_ai_session_error",
+            Self::UnsupportedInput => "personal_ai_unsupported_input",
         }
     }
 }
@@ -100,6 +103,12 @@ impl AgentError {
     #[must_use]
     pub fn session(message: impl Into<String>) -> Self {
         Self::new(AgentErrorKind::Session, message)
+    }
+
+    /// 输入超出模型能力（V11 §104：明确拒绝，不假装分析）。
+    #[must_use]
+    pub fn unsupported_input(message: impl Into<String>) -> Self {
+        Self::new(AgentErrorKind::UnsupportedInput, message)
     }
 
     #[must_use]

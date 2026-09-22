@@ -4,6 +4,7 @@
 //! 实现（messages + tools + tool_calls + usage）。V5：travel 的旧
 //! `OpenAiCompatibleLlmProvider` 已删除，本实现是唯一的模型 Provider。
 
+pub mod conversation_store;
 pub mod llm;
 
 pub use llm::{AiModelConfig, OpenAiCompatibleChatModelProvider, parse_chat_response};

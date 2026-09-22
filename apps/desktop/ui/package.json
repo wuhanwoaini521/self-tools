@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1 --port 1420",
     "build": "tsc --noEmit && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest run"
   },
   "dependencies": {
     "@codemirror/lang-markdown": "^6.5.2",
@@ -33,6 +34,7 @@
     "@types/react-dom": "^19",
     "@vitejs/plugin-react": "^5",
     "typescript": "^5",
-    "vite": "^7"
+    "vite": "^7",
+    "vitest": "^5.0.1"
   }
 }

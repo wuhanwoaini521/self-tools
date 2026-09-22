@@ -7,6 +7,7 @@
 pub mod agent;
 pub mod args;
 pub mod context;
+pub mod conversation;
 pub mod documents;
 pub mod files;
 pub mod geography;
@@ -21,6 +22,7 @@ pub mod runtime;
 pub mod retrieval;
 pub mod server;
 pub mod session;
+pub mod study_board;
 pub mod travel;
 
 pub use agent::{AgentConfig, PersonalAgent, PersonalHub};
@@ -39,6 +41,9 @@ pub use knowledge::{
 pub use language::{LanguageProviderOwned, LanguageTools, language_tool_names, register_language};
 pub use memory::{MemoryProviderOwned, MemoryTools, memory_tool_names, register_memory};
 pub use server::{ServerProviderOwned, ServerTools, register_server, server_tool_names};
+pub use study_board::{
+    StudyBoardProviderOwned, StudyBoardTools, register_study_board, study_board_tool_names,
+};
 pub use registry::{ModuleRegistration, ModuleRegistry, ToolExecutor, ToolRegistry, allowed_risk};
 pub use runtime::{ToolLoopConfig, ToolLoopOutcome, run_tool_loop};
 pub use retrieval::RetrievalAugmenter;

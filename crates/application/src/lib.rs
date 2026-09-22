@@ -1,6 +1,7 @@
 //! UI 无关的文档、工作区与任务编辑用例。
 
 pub mod agents;
+pub mod backup;
 pub mod documents;
 pub mod error;
 pub mod files;
@@ -11,11 +12,14 @@ pub mod language;
 pub mod memory;
 pub mod mcp;
 pub mod personal_ai;
+pub mod readiness;
 pub mod rss;
+pub mod search;
 pub mod server;
 pub(crate) mod text;
 pub(crate) mod time;
 pub mod travel;
+pub mod study_board;
 pub mod workflows;
 
 pub use error::{ApplicationError, RssErrorKind, TravelErrorKind, TravelFailure};
@@ -44,6 +48,7 @@ pub use rss::{
     validate_feed_url,
 };
 pub use travel::{TravelResearchRequest, TravelResearchService};
+pub use study_board::{StudyBoardStoreError, StudyBoardStorePort};
 pub use workflows::{
     DocumentDto, cycle_lines, load_document, load_settings, save_document, save_settings,
     scan_workspace,

@@ -103,6 +103,16 @@ impl PersonalAgent {
             .clone()
             .unwrap_or_else(|| format!("once-{}", uid16()));
 
+        // V11 §104：provider 不支持的多模态输入 → 受控拒绝，不假装分析。
+        let parts = request.effective_parts();
+        if let Some(reason) = self
+            .provider
+            .capabilities()
+            .unsupported_reason(&parts)
+        {
+            return Err(AgentError::unsupported_input(reason));
+        }
+
         // 有效模块集合（capabilities 过滤；空 = 全部）。
         let enabled_tools = self.enabled_tools(&request.capabilities);
         let mut system = assemble_system(
@@ -514,6 +524,7 @@ mod tests {
             },
             capabilities: vec!["history".into()],
             locale: Some("zh-CN".into()),
+            parts: Vec::new(),
         }
     }
 
@@ -619,6 +630,7 @@ mod tests {
             app_context: AppContext::default(),
             capabilities: vec!["travel".into()], // history 不在启用列表
             locale: None,
+            parts: Vec::new(),
         };
         let _ = agent.run(request).await.unwrap();
         // 若工具被注入，模型可能会调用；此场景仅确认不 panic 且正常返回。

@@ -9,6 +9,8 @@
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
+use crate::personal_ai::ModelCapabilities;
+
 /// Provider 错误（transport 层）。kind 供上层归类到 `AgentError`。
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ProviderErrorKind {
@@ -209,6 +211,11 @@ pub struct ChatResponse {
 pub trait ChatModelProvider: Send + Sync {
     /// 提供方标识（如 "openai-compatible" / "fake"）。
     fn name(&self) -> &'static str;
+
+    /// 模型能力（V11 §103）：默认仅文本（未声明的实现按保守处理）。
+    fn capabilities(&self) -> ModelCapabilities {
+        ModelCapabilities::text_only()
+    }
 
     /// 发起一次 chat 调用（messages + tools）。
     async fn chat(&self, request: ChatRequest) -> Result<ChatResponse, ProviderError>;

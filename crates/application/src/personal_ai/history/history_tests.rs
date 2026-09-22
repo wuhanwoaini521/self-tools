@@ -608,6 +608,7 @@ async fn personal_agent_can_call_ensure_enrichment() {
         },
         capabilities: vec!["history".into()],
         locale: Some("zh-CN".into()),
+        parts: Vec::new(),
     };
     let response: AgentResponse = agent.run(request).await.unwrap();
     eprintln!("trace: {:?}", response.tool_trace);

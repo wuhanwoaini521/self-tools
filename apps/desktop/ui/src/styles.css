@@ -13380,3 +13380,381 @@ main.history-v2-period {
   display: none;
  }
 }
+
+/* ---------------------------------------------------------------------------
+   V11 自适应布局（§84-§90）：device class 由 src/layout.ts 动态推导并挂到
+   documentElement.dataset.device；这里只消费，不做二次判断。
+   --------------------------------------------------------------------------- */
+
+/* 底部导航（mobile）：safe-area-inset-bottom 避让 Home Indicator（§89）。 */
+.app-bottom-nav {
+ position: fixed;
+ left: 0;
+ right: 0;
+ bottom: 0;
+ z-index: 40;
+ display: grid;
+ grid-auto-flow: column;
+ grid-auto-columns: 1fr;
+ gap: 2px;
+ padding: 4px 4px calc(4px + var(--safe-area-bottom, 0px));
+ background: color-mix(in srgb, var(--panel, #10171a) 92%, transparent);
+ backdrop-filter: blur(12px);
+ border-top: 1px solid var(--border, #1e2a2e);
+}
+.app-bottom-nav-item {
+ display: flex;
+ flex-direction: column;
+ align-items: center;
+ justify-content: center;
+ gap: 2px;
+ min-height: 48px; /* §90：≥44pt 触控目标 */
+ padding: 4px 2px;
+ border: 0;
+ border-radius: 10px;
+ background: transparent;
+ color: var(--muted, #8a979d);
+ font-size: 11px;
+ font-family: inherit;
+ cursor: pointer;
+}
+.app-bottom-nav-item.active {
+ color: var(--accent, #1688ff);
+ background: color-mix(in srgb, var(--accent, #1688ff) 14%, transparent);
+}
+.app-bottom-nav-item span {
+ max-width: 100%;
+ overflow: hidden;
+ text-overflow: ellipsis;
+ white-space: nowrap;
+}
+
+/* mobile：主内容预留底部导航高度；AI 面板全屏/底部抽屉由 presentation 决定。 */
+.app-shell-mobile .app-body {
+ padding-bottom: calc(64px + var(--safe-area-bottom, 0px));
+}
+.app-shell-mobile .app-bar-ai {
+ min-width: 44px;
+ min-height: 44px;
+}
+
+/* tablet：分栏时主内容两列（内容 + AI 侧 sheet）。 */
+.app-shell-tablet .app-body {
+ display: grid;
+ grid-template-columns: 1fr;
+}
+.app-shell-tablet[data-split="true"] .app-body {
+ grid-template-columns: minmax(0, 1fr) minmax(320px, 38%);
+}
+
+/* desktop：原有三栏结构不变（导航 + 工作区 + AI 侧栏）。 */
+.app-shell-desktop .app-body {
+ display: grid;
+ grid-template-columns: auto minmax(0, 1fr);
+}
+
+/* PWA 状态条（§81/§82）：离线 / 更新 / 版本不兼容。 */
+.pwa-banners {
+ position: sticky;
+ top: 0;
+ z-index: 50;
+ display: flex;
+ flex-direction: column;
+ gap: 1px;
+}
+.pwa-banner {
+ display: flex;
+ align-items: center;
+ gap: 8px;
+ padding: 6px 12px;
+ font-size: 12px;
+ line-height: 1.4;
+}
+.pwa-banner-offline {
+ background: #3f2d12;
+ color: #ffd79a;
+ border-bottom: 1px solid #5a4318;
+}
+.pwa-banner-update {
+ background: #12325c;
+ color: #cfe4ff;
+ border-bottom: 1px solid #1d4a85;
+}
+.pwa-banner-update button {
+ display: inline-flex;
+ align-items: center;
+ gap: 4px;
+ margin-left: auto;
+ padding: 4px 10px;
+ min-height: 28px;
+ border: 1px solid #2f6cb5;
+ border-radius: 6px;
+ background: #1b4a86;
+ color: #eaf3ff;
+ font-size: 12px;
+ font-family: inherit;
+ cursor: pointer;
+}
+.pwa-banner-warn {
+ background: #3d1414;
+ color: #ffc9c9;
+ border-bottom: 1px solid #5c1f1f;
+}
+
+/* AI 决策遥测行（V10 §38）。 */
+.ai-orchestration-decision {
+ padding: 6px 10px;
+ margin: 0 0 4px;
+ font-size: 12px;
+ color: var(--muted, #8a979d);
+ background: color-mix(in srgb, var(--accent, #1688ff) 8%, transparent);
+ border-radius: 6px;
+}
+
+/* 触控优化（§90）：窄屏下表格/密排区域允许横向滚动而非溢出。 */
+@media (max-width: 767px) {
+ .app-shell-mobile .app-content {
+ overflow-x: auto;
+ }
+}
+
+/* ---------------------------------------------------------------------------
+   V11-J Personal Hub（Ask AI + 分组入口）
+   --------------------------------------------------------------------------- */
+.home-hub {
+ display: flex;
+ flex-direction: column;
+ gap: 12px;
+ margin: 0 0 20px;
+}
+.home-hub-ask {
+ display: flex;
+ align-items: center;
+ gap: 8px;
+ padding: 8px 10px;
+ border: 1px solid var(--border, #1e2a2e);
+ border-radius: 12px;
+ background: color-mix(in srgb, var(--accent, #1688ff) 6%, var(--panel, #10171a));
+}
+.home-hub-ask > svg {
+ color: var(--accent, #1688ff);
+ flex: none;
+}
+.home-hub-ask-input {
+ flex: 1;
+ min-height: 40px;
+ padding: 0 12px;
+ text-align: left;
+ border: 1px solid transparent;
+ border-radius: 8px;
+ background: rgba(255, 255, 255, 0.04);
+ color: var(--muted, #8a979d);
+ font-size: 14px;
+ font-family: inherit;
+ cursor: text;
+}
+.home-hub-ask-input:hover {
+ border-color: var(--border, #1e2a2e);
+ color: var(--text, #d6dde1);
+}
+.home-hub-ask-go {
+ display: inline-flex;
+ align-items: center;
+ gap: 4px;
+ min-height: 40px;
+ padding: 0 14px;
+ border: 0;
+ border-radius: 8px;
+ background: var(--accent, #1688ff);
+ color: #fff;
+ font-size: 14px;
+ font-family: inherit;
+ cursor: pointer;
+}
+.home-hub-groups {
+ display: grid;
+ grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+ gap: 10px;
+}
+.home-hub-group {
+ padding: 10px 12px;
+ border: 1px solid var(--border, #1e2a2e);
+ border-radius: 10px;
+ background: var(--panel, #10171a);
+}
+.home-hub-group h3 {
+ margin: 0 0 8px;
+ font-size: 12px;
+ font-weight: 600;
+ letter-spacing: 0.06em;
+ text-transform: uppercase;
+ color: var(--muted, #8a979d);
+}
+.home-hub-group ul {
+ display: flex;
+ flex-direction: column;
+ gap: 2px;
+ margin: 0;
+ padding: 0;
+ list-style: none;
+}
+.home-hub-group li button {
+ display: flex;
+ align-items: center;
+ gap: 8px;
+ width: 100%;
+ min-height: 36px;
+ padding: 4px 8px;
+ border: 0;
+ border-radius: 6px;
+ background: transparent;
+ color: var(--text, #d6dde1);
+ font-size: 13px;
+ font-family: inherit;
+ text-align: left;
+ cursor: pointer;
+}
+.home-hub-group li button:hover {
+ background: rgba(255, 255, 255, 0.05);
+}
+.home-hub-group li button svg {
+ flex: none;
+ color: var(--muted, #8a979d);
+}
+.home-hub-group li button span {
+ overflow: hidden;
+ text-overflow: ellipsis;
+ white-space: nowrap;
+}
+.home-hub-empty {
+ font-size: 12px;
+ color: var(--muted, #8a979d);
+}
+
+/* ---------------------------------------------------------------------------
+   V11-M Study Board
+   --------------------------------------------------------------------------- */
+.study-board {
+ display: flex;
+ flex-direction: column;
+ gap: 10px;
+ height: 100%;
+}
+.study-header {
+ display: flex;
+ align-items: center;
+ gap: 12px;
+}
+.study-title {
+ flex: 1;
+ min-height: 36px;
+ padding: 4px 10px;
+ border: 1px solid var(--border, #1e2a2e);
+ border-radius: 8px;
+ background: var(--panel, #10171a);
+ color: var(--text, #d6dde1);
+ font-size: 15px;
+ font-family: inherit;
+}
+.study-meta {
+ font-size: 12px;
+ color: var(--muted, #8a979d);
+ white-space: nowrap;
+}
+.study-toolbar {
+ display: flex;
+ flex-wrap: wrap;
+ align-items: center;
+ gap: 8px;
+ padding: 6px 8px;
+ border: 1px solid var(--border, #1e2a2e);
+ border-radius: 10px;
+ background: var(--panel, #10171a);
+}
+.study-toolbar-group {
+ display: flex;
+ align-items: center;
+ gap: 4px;
+}
+.study-toolbar-right {
+ margin-left: auto;
+}
+.study-toolbar button {
+ display: inline-flex;
+ align-items: center;
+ justify-content: center;
+ gap: 4px;
+ min-width: 44px; /* §90 */
+ min-height: 44px;
+ padding: 0 10px;
+ border: 1px solid var(--border, #1e2a2e);
+ border-radius: 8px;
+ background: rgba(255, 255, 255, 0.03);
+ color: var(--text, #d6dde1);
+ font-size: 13px;
+ font-family: inherit;
+ cursor: pointer;
+}
+.study-toolbar button:disabled {
+ opacity: 0.4;
+ cursor: not-allowed;
+}
+.study-toolbar button.active {
+ border-color: var(--accent, #1688ff);
+ color: var(--accent, #1688ff);
+}
+.study-toolbar .study-ask {
+ border-color: var(--accent, #1688ff);
+ background: var(--accent, #1688ff);
+ color: #fff;
+}
+.study-swatch {
+ width: 28px;
+ min-width: 28px !important;
+ height: 28px;
+ min-height: 28px !important;
+ padding: 0 !important;
+ border: 2px solid transparent !important;
+ border-radius: 50% !important;
+}
+.study-swatch.active {
+ border-color: var(--text, #d6dde1) !important;
+}
+.study-canvas-wrap {
+ position: relative;
+ flex: 1;
+ min-height: 320px;
+ border: 1px solid var(--border, #1e2a2e);
+ border-radius: 10px;
+ overflow: hidden;
+ background: #0d1315;
+}
+.study-canvas {
+ display: block;
+ touch-action: none; /* 触控绘画必须禁用浏览器手势 */
+ cursor: crosshair;
+}
+.study-recent {
+ display: flex;
+ flex-wrap: wrap;
+ gap: 6px;
+ margin: 0;
+ padding: 0;
+ list-style: none;
+}
+.study-recent button {
+ min-height: 32px;
+ padding: 4px 10px;
+ border: 1px solid var(--border, #1e2a2e);
+ border-radius: 6px;
+ background: transparent;
+ color: var(--muted, #8a979d);
+ font-size: 12px;
+ font-family: inherit;
+ cursor: pointer;
+}
+.study-status {
+ margin: 0;
+ font-size: 12px;
+ color: var(--muted, #8a979d);
+}

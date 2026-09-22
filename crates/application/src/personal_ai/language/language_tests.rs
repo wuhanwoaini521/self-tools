@@ -464,6 +464,7 @@ async fn personal_agent_route_language() {
             },
             capabilities: vec!["language".into()],
             locale: Some("zh-CN".into()),
+            parts: Vec::new(),
         })
         .await
         .unwrap();

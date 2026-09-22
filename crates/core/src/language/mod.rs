@@ -9,6 +9,7 @@ pub mod model;
 pub mod review;
 pub mod romaji;
 pub mod speaking;
+pub mod speech;
 
 pub use license::{DatasetManifest, LanguageSource, LicenseKind, SourceLicense};
 pub use metadata::{
@@ -24,3 +25,8 @@ pub use review::{
 };
 pub use romaji::{kana_to_romaji, normalize_roman, tones_from_syllables};
 pub use speaking::{SpeakingScore, WordDiff, compare_words, score, tokenize};
+pub use speech::{
+    PronunciationFeedback, QualitativeLevel, SpeechError, SpeechErrorKind, SpeechProvider,
+    SpeechRecognition, SpeechRecognitionRequest, SpeechSynthesis, SpeechSynthesisRequest,
+    qualitative_feedback,
+};

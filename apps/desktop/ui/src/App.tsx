@@ -43,10 +43,17 @@ import type {
   OpenFileTarget,
 } from "./features/knowledge/knowledgeTypes";
 import { ServerPage } from "./features/server/ServerPage";
+import { StudyBoardPage } from "./features/study/StudyBoardPage";
 import { TravelPage } from "./features/travel/TravelPage";
 import { GeographyPage } from "./features/geography/GeographyPage";
 import { applyTheme, getTheme, storeThemeId } from "./theme/ThemeManager";
 import "./theme/themes";
+import {
+  useDeviceAttribute,
+  useLayout,
+  navigationLayout,
+} from "./layout";
+import { PwaBanner } from "./PwaBanner";
 import type {
   AppSettings,
   ArticleDto,
@@ -74,6 +81,7 @@ type PageId =
   | "history"
   | "language"
   | "knowledge"
+  | "study-board"
   | "server"
   | "tools";
 
@@ -94,6 +102,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: "history", label: "History", icon: Scroll },
   { id: "language", label: "Language", icon: Translate },
   { id: "knowledge", label: "Knowledge", icon: Brain },
+  { id: "study-board", label: "Study", icon: Notebook },
   { id: "server", label: "Server", icon: HardDrives },
   { id: "tools", label: "Tools", icon: Wrench, disabled: true },
 ];
@@ -161,6 +170,8 @@ const defaultSettings: AppSettings = {
 };
 
 export default function App() {
+  const layout = useLayout();
+  useDeviceAttribute();
   const [page, setPage] = useState<PageId>("home");
   const [settings, setSettings] = useState<AppSettings>(defaultSettings);
   const [settingsLoaded, setSettingsLoaded] = useState(!isTauriRuntime());
@@ -425,12 +436,13 @@ export default function App() {
   }, [aiContext]);
 
   return (
-    <div className="app-shell">
+    <div className={"app-shell app-shell-" + layout.device}>
+      <PwaBanner />
       <header className="app-bar">
         <div className="brand">
-          <strong>DevToolbox</strong>
+          <strong>self-tools</strong>
           <span />
-          <p>Personal Dashboard</p>
+          <p>Personal AI Hub</p>
         </div>
         <button
           className="app-bar-gear"
@@ -448,6 +460,7 @@ export default function App() {
         </button>
       </header>
       <div className="app-body">
+        {navigationLayout(layout) === "side" ? (
         <nav className="app-nav" aria-label="功能导航">
           {NAV_ITEMS.map((item) =>
             item.disabled ? (
@@ -483,6 +496,7 @@ export default function App() {
           </button>
           <footer className="app-nav-footer">Personal Workspace</footer>
         </nav>
+        ) : null}
         <main className="app-content">
           <section
             className={"page-pane" + (page === "home" ? "" : " page-hidden")}
@@ -502,11 +516,35 @@ export default function App() {
               onOpenLanguage={openLanguage}
               onNewNote={newNote}
               onRefreshRss={() => void refreshFeeds()}
+              onAskAi={() => setAiOpen(true)}
+              onOpenServer={() => setPage("server")}
+              onOpenStudyBoard={() => setPage("study-board")}
+              onOpenKnowledge={() => setPage("knowledge")}
+            />
+          </section>
+          <section
+            className={"page-pane" + (page === "study-board" ? "" : " page-hidden")}
+          >
+            <StudyBoardPage
+              active={page === "study-board"}
+              onContextChange={setAiContext}
+              onAskAi={(prompt, snapshot) => {
+                // V11 §110：snapshot 作为 BoardSnapshot ContentPart 进入 PersonalAgent。
+                // 当前 PersonalAgent 消息是 string 契约；快照经 AI 面板的粘贴通道发送，
+                // 这里先把问题和上下文写进 session（后端 multimodal 契约落地后替换）。
+                setAiContext((current) => ({
+                  ...(current ?? { module: "study-board", page: "board" }),
+                  module: "study-board",
+                  page: "board",
+                  view_state: { snapshot_bytes: snapshot?.length ?? 0, prompt },
+                }));
+                setAiOpen(true);
+              }}
             />
           </section>
           <section
             className={
-              "page-pane" + (page === "markdown" ? "" : " page-hidden")
+              "page-pane" + (page === "rss" ? "" : " page-hidden")
             }
           >
             <MarkdownPage
@@ -610,6 +648,29 @@ export default function App() {
           </section>
         </main>
       </div>
+      {navigationLayout(layout) === "bottom" ? (
+        <nav className="app-bottom-nav" aria-label="主导航">
+          {NAV_ITEMS.filter((item) => !item.disabled)
+            .slice(0, 5)
+            .map((item) => (
+              <button
+                key={item.id}
+                className={"app-bottom-nav-item" + (page === item.id ? " active" : "")}
+                onClick={() => setPage(item.id)}
+              >
+                <item.icon size={20} />
+                <span>{item.label}</span>
+              </button>
+            ))}
+          <button
+            className={"app-bottom-nav-item" + (settingsOpen ? " active" : "")}
+            onClick={() => setSettingsOpen(true)}
+          >
+            <Gear size={20} />
+            <span>Settings</span>
+          </button>
+        </nav>
+      ) : null}
       {notice ? (
         <button className="toast" onClick={() => setNotice("")}>
           {notice}

@@ -9,6 +9,7 @@
 //! application 在此之上实现 PersonalAgent / 注册表 / Context Provider；
 //! infrastructure 实现 `ChatModelProvider`；组合根（apps/desktop）完成装配。
 
+pub mod conversation;
 pub mod error;
 pub mod provider;
 pub mod types;
@@ -20,7 +21,7 @@ pub use provider::{
 };
 pub use types::{
     Action, ActionKind, AgentMessage, AgentRequest, AgentResponse, AgentUsage, AppContext,
-    OrchestrationRunView, OrchestrationTraceView,
+    ContentPart, ModelCapabilities, OrchestrationRunView, OrchestrationTraceView,
     EntityRef, ModuleDescriptor, SelectionRef, ToolCallRequest, ToolResult, ToolRisk, ToolSpec,
     ToolTraceEntry, UiBlock, UiBlockKind,
 };

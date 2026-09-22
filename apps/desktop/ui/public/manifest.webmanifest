@@ -1,0 +1,49 @@
+{
+  "id": "/",
+  "name": "self-tools · Personal AI Hub",
+  "short_name": "self-tools",
+  "description": "个人 AI 中枢：学习、知识、家庭服务器，一个入口。",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0d1315",
+  "theme_color": "#0d1315",
+  "lang": "zh-CN",
+  "dir": "ltr",
+  "categories": ["productivity", "education", "utilities"],
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "问 AI",
+      "short_name": "Ask AI",
+      "url": "/?panel=ai",
+      "description": "打开 AI 对话"
+    },
+    {
+      "name": "学习板",
+      "short_name": "Study",
+      "url": "/?module=study-board",
+      "description": "打开学习板"
+    }
+  ]
+}

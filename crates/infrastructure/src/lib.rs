@@ -1,6 +1,7 @@
 //! 本地文件系统、设置与 RSS 持久化适配器。
 
 pub mod agents;
+pub mod backup;
 pub mod document_store;
 pub mod documents;
 pub mod error;
@@ -15,6 +16,7 @@ pub mod personal_ai;
 pub mod rss_store;
 pub mod server;
 pub mod settings_store;
+pub mod study_board;
 pub mod travel;
 pub mod workspace_scanner;
 
@@ -45,6 +47,7 @@ pub use language::{LanguageStore, SearchHit, sources};
 pub use personal_ai::{AiModelConfig, OpenAiCompatibleChatModelProvider, parse_chat_response};
 pub use rss_store::{ArticleRow, FeedRepository, FeedRow, now_unix};
 pub use settings_store::SettingsStore;
+pub use study_board::{STUDY_BOARD_SCHEMA_VERSION, StudyBoardSqliteStore};
 pub use travel::{
     AmapPoiProvider, HttpWebFetcher, QWeatherProvider, SearchOptions, SearchProvider,
     TravelDataProvider, TravelDataRequest, TravelRoute, TravelRouteRequest, TravelSearchBackend,

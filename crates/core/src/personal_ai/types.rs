@@ -279,12 +279,157 @@ pub struct UiBlock {
 // Agent Request / Response（V4 §11/§12）
 // ---------------------------------------------------------------------------
 
+/// 消息内容片段（V11 §102：PersonalAgent Message 不再只是 String）。
+///
+/// 隐私铁律（§106）：图片/音频**默认**不进入 Personal Memory；
+/// 只有用户显式确认保存才落库。
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum ContentPart {
+    /// 纯文本。
+    Text { text: String },
+    /// 图片（base64 data URL 或 http(s) 引用；由 provider 决定如何编码）。
+    Image {
+        /// `base64` / `url` / `file_path`。
+        source: String,
+        /// data URL 或 base64 数据（不含前缀）。
+        data: String,
+        /// MIME（如 `image/png`）。
+        mime: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        /// 来源说明（如「学习板快照」）；仅用于 UI 展示。
+        caption: Option<String>,
+    },
+    /// 音频（可选；provider 不支持时受控拒绝，不假装分析）。
+    Audio {
+        source: String,
+        data: String,
+        mime: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        duration_ms: Option<u64>,
+    },
+    /// 文档引用（不解内容；走 Documents 模块检索）。
+    DocumentRef {
+        document_id: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        title: Option<String>,
+    },
+    /// 学习板快照（V11 §110：board → snapshot → ContentPart）。
+    BoardSnapshot {
+        board_id: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        title: Option<String>,
+        /// PNG base64。
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        image_base64: Option<String>,
+        /// 笔画数（无图时的兜底描述）。
+        #[serde(default)]
+        stroke_count: usize,
+    },
+}
+
+impl ContentPart {
+    /// 该片段是否需要 provider 的多模态能力。
+    #[must_use]
+    pub fn requires_vision(&self) -> bool {
+        matches!(
+            self,
+            ContentPart::Image { .. } | ContentPart::BoardSnapshot { .. }
+        )
+    }
+
+    /// 该片段是否需要音频能力。
+    #[must_use]
+    pub fn requires_audio(&self) -> bool {
+        matches!(self, ContentPart::Audio { .. })
+    }
+
+    /// 折叠为可读摘要（日志 / UI；不含 data 本体）。
+    #[must_use]
+    pub fn summary(&self) -> String {
+        match self {
+            ContentPart::Text { text } => {
+                let truncated: String = text.chars().take(40).collect();
+                if text.chars().count() > 40 {
+                    format!("{truncated}…")
+                } else {
+                    truncated
+                }
+            }
+            ContentPart::Image { mime, caption, .. } => {
+                format!("image[{mime}]{}", caption.as_ref().map(|c| format!(" {c}")).unwrap_or_default())
+            }
+            ContentPart::Audio { mime, .. } => format!("audio[{mime}]"),
+            ContentPart::DocumentRef { document_id, title } => {
+                format!("document:{document_id}{}", title.as_ref().map(|t| format!(" ({t})")).unwrap_or_default())
+            }
+            ContentPart::BoardSnapshot { board_id, stroke_count, .. } => {
+                format!("board:{board_id} ({stroke_count} strokes)")
+            }
+        }
+    }
+}
+
+/// 模型能力声明（V11 §103）：provider 能表达自己支持什么。
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct ModelCapabilities {
+    pub text: bool,
+    /// 图片理解（vision）。
+    pub vision: bool,
+    /// 音频理解。
+    pub audio: bool,
+    /// 工具调用。
+    pub tool_calling: bool,
+}
+
+impl ModelCapabilities {
+    /// 仅文本（未配置 / 未知模型的保守默认）。
+    #[must_use]
+    pub fn text_only() -> Self {
+        Self {
+            text: true,
+            vision: false,
+            audio: false,
+            tool_calling: false,
+        }
+    }
+
+    /// 是否支持给定片段集合。
+    #[must_use]
+    pub fn supports(&self, parts: &[ContentPart]) -> bool {
+        parts.iter().all(|part| match part {
+            ContentPart::Text { .. } | ContentPart::DocumentRef { .. } => true,
+            ContentPart::Image { .. } | ContentPart::BoardSnapshot { .. } => self.vision,
+            ContentPart::Audio { .. } => self.audio,
+        })
+    }
+
+    /// 不支持时的可读原因（§104：明确说明，不假装分析）。
+    #[must_use]
+    pub fn unsupported_reason(&self, parts: &[ContentPart]) -> Option<String> {
+        if self.supports(parts) {
+            return None;
+        }
+        if parts.iter().any(ContentPart::requires_vision) && !self.vision {
+            return Some("当前模型不支持图片（vision）；请切换到支持视觉的模型，或用文字描述内容。".into());
+        }
+        if parts.iter().any(ContentPart::requires_audio) && !self.audio {
+            return Some("当前模型不支持音频；请用文字转写后发送。".into());
+        }
+        None
+    }
+}
+
 /// Agent 请求。会话历史由后端按 `session_id` 维护（V4 §34）。
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct AgentRequest {
-    /// 用户本次消息。
+    /// 用户本次消息（文本；与 `parts` 等价冗余，兼容旧前端）。
     pub message: String,
+    /// 多模态片段（V11 §102；空 = 仅文本）。
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub parts: Vec<ContentPart>,
     /// 会话 id（缺省 = 一次性会话）。
     pub session_id: Option<String>,
     /// 用户当前 UI 状态。
@@ -293,6 +438,52 @@ pub struct AgentRequest {
     pub capabilities: Vec<String>,
     /// 语言（如 `zh-CN`），缺省后端默认。
     pub locale: Option<String>,
+}
+
+impl AgentRequest {
+    /// 纯文本快捷构造（兼容 V4-V10 调用方）。
+    #[must_use]
+    pub fn text(message: impl Into<String>) -> Self {
+        Self {
+            message: message.into(),
+            ..Self::default()
+        }
+    }
+
+    /// 有效片段：`parts` 非空则用之，否则用 `message` 构造单个 Text。
+    #[must_use]
+    pub fn effective_parts(&self) -> Vec<ContentPart> {
+        if self.parts.is_empty() {
+            if self.message.is_empty() {
+                Vec::new()
+            } else {
+                vec![ContentPart::Text {
+                    text: self.message.clone(),
+                }]
+            }
+        } else {
+            self.parts.clone()
+        }
+    }
+
+    /// 折叠后的纯文本（供 prompt / 日志）：文本原样 + 多模态摘要。
+    #[must_use]
+    pub fn flattened_text(&self) -> String {
+        let parts = self.effective_parts();
+        let mut out = String::new();
+        for part in &parts {
+            match part {
+                ContentPart::Text { text } => out.push_str(text),
+                other => {
+                    if !out.is_empty() && !out.ends_with('\n') {
+                        out.push('\n');
+                    }
+                    out.push_str(&format!("[{}]", other.summary()));
+                }
+            }
+        }
+        out
+    }
 }
 
 /// UI 可见的会话消息快照（角色 + 文本），用于前端重绘。
@@ -572,5 +763,131 @@ mod tests {
     #[test]
     fn default_app_context_is_general() {
         assert!(AppContext::default().is_general());
+    }
+
+    #[test]
+    fn content_part_round_trips_all_kinds() {
+        let parts = vec![
+            ContentPart::Text { text: "看这道题".into() },
+            ContentPart::Image {
+                source: "base64".into(),
+                data: "iVBORw0KGgo=".into(),
+                mime: "image/png".into(),
+                caption: Some("学习板快照".into()),
+            },
+            ContentPart::Audio {
+                source: "base64".into(),
+                data: "AAAA".into(),
+                mime: "audio/webm".into(),
+                duration_ms: Some(1200),
+            },
+            ContentPart::DocumentRef {
+                document_id: "doc-1".into(),
+                title: Some("合同".into()),
+            },
+            ContentPart::BoardSnapshot {
+                board_id: "board-1".into(),
+                title: None,
+                image_base64: Some("iVBOR".into()),
+                stroke_count: 12,
+            },
+        ];
+        for part in &parts {
+            let json = serde_json::to_value(part).expect("serialize");
+            let back: ContentPart = serde_json::from_value(json).expect("deserialize");
+            assert_eq!(&back, part);
+        }
+        // tag 是 snake_case 且明确。
+        let json = serde_json::to_value(&parts[1]).unwrap();
+        assert_eq!(json["type"], "image");
+        assert_eq!(json["mime"], "image/png");
+    }
+
+    #[test]
+    fn vision_requirement_and_capability_gate() {
+        let text_only = ModelCapabilities::text_only();
+        assert!(text_only.text);
+        assert!(!text_only.vision);
+        // 图片 → 需要 vision。
+        let image = ContentPart::Image {
+            source: "base64".into(),
+            data: "x".into(),
+            mime: "image/png".into(),
+            caption: None,
+        };
+        assert!(image.requires_vision());
+        assert!(!text_only.supports(std::slice::from_ref(&image)));
+        let reason = text_only
+            .unsupported_reason(std::slice::from_ref(&image))
+            .expect("reason");
+        assert!(reason.contains("不支持图片"), "{reason}");
+        // 显式开启 vision → 支持。
+        let vision = ModelCapabilities {
+            text: true,
+            vision: true,
+            audio: false,
+            tool_calling: true,
+        };
+        assert!(vision.supports(std::slice::from_ref(&image)));
+        assert!(vision.unsupported_reason(std::slice::from_ref(&image)).is_none());
+        // 音频同理。
+        let audio = ContentPart::Audio {
+            source: "base64".into(),
+            data: "x".into(),
+            mime: "audio/webm".into(),
+            duration_ms: None,
+        };
+        assert!(!vision.supports(std::slice::from_ref(&audio)));
+        assert!(
+            vision
+                .unsupported_reason(std::slice::from_ref(&audio))
+                .is_some_and(|reason| reason.contains("不支持音频"))
+        );
+    }
+
+    #[test]
+    fn agent_request_legacy_message_still_works() {
+        // 旧前端只发 message → effective_parts 派生单个 Text。
+        let request = AgentRequest::text("你好");
+        assert!(request.parts.is_empty());
+        assert_eq!(request.effective_parts().len(), 1);
+        assert_eq!(request.flattened_text(), "你好");
+        // 序列化不含 parts（向后兼容契约）。
+        let json = serde_json::to_value(&request).unwrap();
+        assert!(json.get("parts").is_none(), "空 parts 不序列化");
+    }
+
+    #[test]
+    fn agent_request_parts_flatten_with_summaries() {
+        let request = AgentRequest {
+            message: "检查这块板".into(),
+            parts: vec![
+                ContentPart::Text { text: "检查这块板".into() },
+                ContentPart::BoardSnapshot {
+                    board_id: "b1".into(),
+                    title: None,
+                    image_base64: Some("SECRETBASE64DATA".into()),
+                    stroke_count: 3,
+                },
+            ],
+            ..AgentRequest::default()
+        };
+        let flat = request.flattened_text();
+        assert!(flat.contains("检查这块板"));
+        assert!(flat.contains("board:b1 (3 strokes)"), "{flat}");
+        // 扁平文本不含 base64 数据本体（日志/prompt 安全）。
+        assert!(!flat.contains("SECRETBASE64DATA"));
+    }
+
+    #[test]
+    fn content_part_summary_never_leaks_data() {
+        let image = ContentPart::Image {
+            source: "base64".into(),
+            data: "SECRETDATA".into(),
+            mime: "image/png".into(),
+            caption: Some("题板".into()),
+        };
+        assert!(!image.summary().contains("SECRETDATA"));
+        assert!(image.summary().contains("题板"));
     }
 }

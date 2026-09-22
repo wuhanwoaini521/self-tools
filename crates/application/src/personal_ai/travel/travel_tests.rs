@@ -343,6 +343,7 @@ fn personal_agent_route_calls_travel_tool() {
         },
         capabilities: vec!["travel".into()],
         locale: Some("zh-CN".into()),
+        parts: Vec::new(),
     };
     let response: AgentResponse = block_on(agent.run(request)).unwrap();
     assert!(response.message.contains("大连 3 天"));

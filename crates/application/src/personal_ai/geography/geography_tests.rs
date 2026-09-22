@@ -394,6 +394,7 @@ async fn personal_agent_routes_geography_tool() {
         },
         capabilities: vec!["geography".into()],
         locale: Some("zh-CN".into()),
+        parts: Vec::new(),
     };
     let response: AgentResponse = agent.run(request).await.unwrap();
     assert!(response.message.contains("珠穆朗玛峰"));
