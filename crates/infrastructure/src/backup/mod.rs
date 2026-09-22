@@ -9,7 +9,9 @@
 //! `PRAGMA integrity_check` 失败的副本——比没有备份更危险（错误的安全感）。
 //!
 //! - SQLite：`VACUUM INTO '<dest>'`，SQLite 自己重写一份压缩库，天然避开中间态；
-//! - DuckDB：`COPY FROM DATABASE TO '<dest>'`，同样是引擎重写；
+//! - DuckDB：`ATTACH '<dest>' AS __backup_snapshot` +
+//!   `COPY FROM DATABASE <主库> TO __backup_snapshot` + `DETACH`（同样是引擎
+//!   重写；DuckDB 1.10505 实测一行式 `COPY FROM DATABASE TO '...'` 解析报错）；
 //! - 普通文件 / JSON：无写入并发，裸拷贝安全（`FileBackupSource`）。
 //!
 //! ## 摘要计算
@@ -24,6 +26,27 @@ use sha2::{Digest, Sha256};
 
 #[cfg(test)]
 pub mod drill;
+
+/// 确保快照目标所在目录存在（`VACUUM INTO` / DuckDB `COPY` / 普通写文件都要求
+/// 父目录已就绪：引擎不会代为创建）。
+fn ensure_dest_dir(dest: &Path) -> Result<(), String> {
+    if let Some(parent) = dest.parent()
+        && !parent.as_os_str().is_empty()
+    {
+        fs::create_dir_all(parent)
+            .map_err(|error| format!("create snapshot dir {}: {error}", parent.display()))?;
+    }
+    Ok(())
+}
+
+/// 删除已存在的旧快照（保证重复备份幂等：引擎都拒绝写已有目标）。
+fn clear_stale(dest: &Path) -> Result<(), String> {
+    if dest.exists() {
+        fs::remove_file(dest)
+            .map_err(|error| format!("remove stale snapshot {}: {error}", dest.display()))?;
+    }
+    Ok(())
+}
 
 /// SQLite 活动库的快照实现。
 ///
@@ -78,11 +101,9 @@ impl BackupSource for SqliteBackupSource {
     fn snapshot(&self, dest_dir: &Path) -> Result<BackupEntry, String> {
         let name = self.snapshot_name();
         let dest = dest_dir.join(&name);
+        ensure_dest_dir(&dest)?;
         // VACUUM INTO 不覆盖已有目标：先删旧的，保证重复备份幂等。
-        if dest.exists() {
-            fs::remove_file(&dest)
-                .map_err(|error| format!("remove stale snapshot {}: {error}", dest.display()))?;
-        }
+        clear_stale(&dest)?;
         let connection = rusqlite::Connection::open(&self.path)
             .map_err(|error| format!("open sqlite source {}: {error}", self.path.display()))?;
         sqlite_vacuum_into(&connection, &dest)?;
@@ -172,10 +193,9 @@ impl BackupSource for DuckDbBackupSource {
     fn snapshot(&self, dest_dir: &Path) -> Result<BackupEntry, String> {
         let name = self.snapshot_file_name();
         let dest = dest_dir.join(&name);
-        if dest.exists() {
-            fs::remove_file(&dest)
-                .map_err(|error| format!("remove stale snapshot {}: {error}", dest.display()))?;
-        }
+        ensure_dest_dir(&dest)?;
+        // DuckDB 的 COPY FROM DATABASE 不覆盖已有目标：先删旧快照保证幂等。
+        clear_stale(&dest)?;
         if !self.path.exists() {
             let connection = duckdb::Connection::open(&self.path).map_err(|error| {
                 format!("create empty duckdb {}: {error}", self.path.display())
@@ -200,12 +220,13 @@ impl BackupSource for DuckDbBackupSource {
         let connection = duckdb::Connection::open(restored_path).map_err(|error| {
             format!("reopen restored duckdb {}: {error}", restored_path.display())
         })?;
-        let verdict: String = connection
-            .query_row("SELECT count(*) FROM duckdb_tables()", [], |row| row.get(0))
-            .map_err(|error| format!("inspect restored duckdb {}: {error}", restored_path.display()))?;
-        let count = verdict
-            .parse::<usize>()
-            .map_err(|_| format!("restored duckdb {} unreadable table count", restored_path.display()))?;
+        let count: i64 = connection
+            .query_row("SELECT count(*) FROM duckdb_tables()", [], |row| {
+                row.get::<_, i64>(0)
+            })
+            .map_err(|error| {
+                format!("inspect restored duckdb {}: {error}", restored_path.display())
+            })?;
         drop(connection);
         if count == 0 {
             return Err(format!(
@@ -261,8 +282,9 @@ impl BackupSource for FileBackupSource {
         if !self.path.is_file() {
             return Err(format!("backup source missing: {}", self.path.display()));
         }
-        let name = format!("{}.json", self.id);
+        let name = self.snapshot_file_name();
         let dest = dest_dir.join(&name);
+        ensure_dest_dir(&dest)?;
         let mut source = File::open(&self.path)
             .map_err(|error| format!("open backup source {}: {error}", self.path.display()))?;
         let mut target = OpenOptions::new()
@@ -358,18 +380,46 @@ fn sqlite_vacuum_into(connection: &rusqlite::Connection, dest: &Path) -> Result<
         .map_err(|error| format!("vacuum into {}: {error}", dest.display()))
 }
 
-/// 执行 DuckDB 引擎内快照：`COPY FROM DATABASE TO '<dest>'`。
+/// 执行 DuckDB 引擎内快照。
 ///
-/// DuckDB 默认关闭外部文件访问，先用 `SET external_access = true` 放开；
-/// 用 RAII guard 保证无论成败都恢复为 `false`。
+/// DuckDB 没有 `VACUUM INTO` 的一行等价物，可用的是
+/// `ATTACH '<dest>' AS __backup_snapshot` +
+/// `COPY FROM DATABASE <主库> TO __backup_snapshot` + `DETACH`：同样由引擎
+/// 重写整库，避开「裸拷可能截在写事务中间态」的问题（一行式
+/// `COPY FROM DATABASE TO '...'` 在 duckdb 1.10505 实测解析报错，不可用）。
+///
+/// 源库就是连接打开时的主库（`current_database()`），目标库以别名 ATTACH 到
+/// 同一连接，因此不额外持有源库的写锁。
+///
+/// DuckDB 默认关闭外部文件访问，先用 `SET external_access = true` 放开，
+/// 并在结束时恢复为 `false`。
 fn duckdb_copy_into(connection: &duckdb::Connection, dest: &Path) -> Result<(), String> {
+    let dest_literal = sql_literal(dest);
+    let source = duckdb_alias(connection);
     let guard = ExternalAccessGuard::enable(connection);
-    let literal = sql_literal(dest);
+
+    let script = format!(
+        "ATTACH '{dest_literal}' AS __backup_snapshot;\n\
+         COPY FROM DATABASE {source} TO __backup_snapshot;\n\
+         DETACH __backup_snapshot;"
+    );
     let result = connection
-        .execute_batch(&format!("COPY FROM DATABASE TO '{literal}'"))
+        .execute_batch(&script)
         .map_err(|error| format!("duckdb copy into {}: {error}", dest.display()));
+
+    // 无论成败都 DETACH，避免快照文件被本进程继续占用（后续 read_digest 会打不开）。
+    let _ = connection.execute_batch("DETACH __backup_snapshot");
     drop(guard);
     result
+}
+
+/// 取主库（活动库）的 ATTACH 别名：`current_database()` 即连接打开时用的库。
+fn duckdb_alias(connection: &duckdb::Connection) -> String {
+    connection
+        .query_row("SELECT current_database()", [], |row| {
+            row.get::<_, String>(0)
+        })
+        .unwrap_or_else(|_| "memory".to_string())
 }
 
 /// 路径 → SQL 字符串字面量（双写单引号）。

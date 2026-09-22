@@ -2073,6 +2073,19 @@ pub fn run() {
             let hub_settings: AppSettings = (enrichment_settings)()
                 .unwrap_or_default();
             let client_for_hub = client.clone();
+            // V11-M Study Board：SQLite 存储（与 memory/documents/files 同一 data 目录）。
+            let study_board_store: Arc<dyn devtoolbox_application::StudyBoardStorePort> = Arc::new(
+                composition::StudyBoardStoreAdapter::new(Arc::new(
+                    devtoolbox_infrastructure::StudyBoardSqliteStore::open(
+                        config_directory.join("study_boards.db"),
+                    )
+                    .unwrap_or_else(|error| {
+                        eprintln!("[study-board] store unavailable: {error}");
+                        devtoolbox_infrastructure::StudyBoardSqliteStore::open_in_memory()
+                            .expect("in-memory study board store")
+                    }),
+                )),
+            );
             app.manage(AppState {
                 rss_repository,
                 rss_fetcher: composition::FeedFetcherAdapter::new(client.clone()),
@@ -2091,6 +2104,7 @@ pub fn run() {
                     language_llm_plug,
                     &knowledge,
                     &server_runtime,
+                    study_board_store,
                     &hub_settings,
                     client_for_hub,
                 ),

@@ -194,16 +194,15 @@ impl BackupService {
                 .map_err(|error| format!("create restore parent {}: {error}", parent.display()))?;
         }
         let staging = staging_path(&target);
-        {
-            let mut file = File::create(&staging)
-                .map_err(|error| format!("create staging {}: {error}", staging.display()))?;
-            file.write_all(&bytes)
-                .map_err(|error| format!("write staging {}: {error}", staging.display()))?;
-            file.flush()
-                .map_err(|error| format!("flush staging {}: {error}", staging.display()))?;
+        let write_result = write_staging(&staging, &bytes).and_then(|()| {
+            fs::rename(&staging, &target)
+                .map_err(|error| format!("move into dest {}: {error}", target.display()))
+        });
+        if let Err(error) = write_result {
+            // 任何一步失败都清掉 staging 残file，绝不在 dest 留半截文件。
+            let _ = fs::remove_file(&staging);
+            return Err(error);
         }
-        fs::rename(&staging, &target)
-            .map_err(|error| format!("move into dest {}: {error}", target.display()))?;
 
         // 6) 来源级复核（SQLite → integrity_check；DuckDB → 重新打开）。
         if let Some(source) = self.source_for_entry(entry)
@@ -225,6 +224,16 @@ impl BackupService {
             .find(|source| source.snapshot_file_name() == entry.path)
             .cloned()
     }
+}
+
+/// 把载荷写入 staging 文件（原子 rename 的前半步；失败不留半截目标）。
+fn write_staging(staging: &Path, bytes: &[u8]) -> Result<(), String> {
+    let mut file = File::create(staging)
+        .map_err(|error| format!("create staging {}: {error}", staging.display()))?;
+    file.write_all(bytes)
+        .map_err(|error| format!("write staging {}: {error}", staging.display()))?;
+    file.flush()
+        .map_err(|error| format!("flush staging {}: {error}", staging.display()))
 }
 
 /// 写入 `manifest.json`（覆盖写；先写临时文件再 rename）。

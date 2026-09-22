@@ -290,6 +290,54 @@ fn map_count(count: devtoolbox_core::language::LanguageCount) -> LanguageCount {
 fn err_text(error: devtoolbox_infrastructure::InfrastructureError) -> String {
     error.to_string()
 }
+// ---------- Study Board（SQLite 适配器 → application 端口，V11 §112） ----------
+
+use devtoolbox_application::study_board::ports::{StudyBoardStoreError, StudyBoardStorePort};
+use devtoolbox_core::study_board::{StudyBoard, StudyBoardSnapshot, StudyBoardSummary};
+
+/// 把 `devtoolbox_infrastructure::StudyBoardSqliteStore` 包装成 application 端口。
+///
+/// 只做错误类型转换：端口语义（upsert 幂等、列表不含笔迹）由 store 本身保证。
+pub struct StudyBoardStoreAdapter {
+    store: Arc<devtoolbox_infrastructure::StudyBoardSqliteStore>,
+}
+
+impl StudyBoardStoreAdapter {
+    #[must_use]
+    pub fn new(store: Arc<devtoolbox_infrastructure::StudyBoardSqliteStore>) -> Self {
+        Self { store }
+    }
+}
+
+impl StudyBoardStorePort for StudyBoardStoreAdapter {
+    fn upsert_board(&self, board: &StudyBoard) -> Result<(), StudyBoardStoreError> {
+        self.store.upsert_board(board).map_err(|error| StudyBoardStoreError(error.to_string()))
+    }
+
+    fn get_board(&self, id: &str) -> Result<Option<StudyBoard>, StudyBoardStoreError> {
+        self.store.get_board(id).map_err(|error| StudyBoardStoreError(error.to_string()))
+    }
+
+    fn list_boards(&self, limit: usize) -> Result<Vec<StudyBoardSummary>, StudyBoardStoreError> {
+        self.store.list_boards(limit).map_err(|error| StudyBoardStoreError(error.to_string()))
+    }
+
+    fn upsert_snapshot(&self, snapshot: &StudyBoardSnapshot) -> Result<(), StudyBoardStoreError> {
+        self.store.upsert_snapshot(snapshot).map_err(|error| StudyBoardStoreError(error.to_string()))
+    }
+
+    fn get_snapshot(&self, id: &str) -> Result<Option<StudyBoardSnapshot>, StudyBoardStoreError> {
+        self.store.get_snapshot(id).map_err(|error| StudyBoardStoreError(error.to_string()))
+    }
+
+    fn latest_snapshot(
+        &self,
+        board_id: &str,
+    ) -> Result<Option<StudyBoardSnapshot>, StudyBoardStoreError> {
+        self.store.latest_snapshot(board_id).map_err(|error| StudyBoardStoreError(error.to_string()))
+    }
+}
+
 // ---------- RSS（SQLite 仓储 + HTTP 抓取适配器，Gate 7.6） ----------
 
 use devtoolbox_application::rss::{

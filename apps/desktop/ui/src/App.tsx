@@ -3,7 +3,9 @@ import {
   Compass,
   Gear,
   HardDrives,
+  Heartbeat,
   House,
+  MagnifyingGlass,
   MapTrifold,
   Notebook,
   Rss,
@@ -44,6 +46,8 @@ import type {
 } from "./features/knowledge/knowledgeTypes";
 import { ServerPage } from "./features/server/ServerPage";
 import { StudyBoardPage } from "./features/study/StudyBoardPage";
+import { SystemReadinessPage } from "./features/system/SystemReadinessPage";
+import { GlobalSearchPage } from "./features/system/GlobalSearchPage";
 import { TravelPage } from "./features/travel/TravelPage";
 import { GeographyPage } from "./features/geography/GeographyPage";
 import { applyTheme, getTheme, storeThemeId } from "./theme/ThemeManager";
@@ -83,6 +87,8 @@ type PageId =
   | "knowledge"
   | "study-board"
   | "server"
+  | "system"
+  | "search"
   | "tools";
 
 interface NavItem {
@@ -104,6 +110,8 @@ const NAV_ITEMS: NavItem[] = [
   { id: "knowledge", label: "Knowledge", icon: Brain },
   { id: "study-board", label: "Study", icon: Notebook },
   { id: "server", label: "Server", icon: HardDrives },
+  { id: "system", label: "System", icon: Heartbeat },
+  { id: "search", label: "Search", icon: MagnifyingGlass },
   { id: "tools", label: "Tools", icon: Wrench, disabled: true },
 ];
 
@@ -520,6 +528,37 @@ export default function App() {
               onOpenServer={() => setPage("server")}
               onOpenStudyBoard={() => setPage("study-board")}
               onOpenKnowledge={() => setPage("knowledge")}
+            />
+          </section>
+          <section
+            className={"page-pane" + (page === "system" ? "" : " page-hidden")}
+          >
+            <SystemReadinessPage active={page === "system"} />
+          </section>
+          <section
+            className={"page-pane" + (page === "search" ? "" : " page-hidden")}
+          >
+            <GlobalSearchPage
+              active={page === "search"}
+              onNavigate={(module, target) => {
+                // action_target.module 直接映射到 PageId；未知模块保持当前页。
+                const known: PageId[] = [
+                  "home",
+                  "markdown",
+                  "rss",
+                  "travel",
+                  "geography",
+                  "history",
+                  "language",
+                  "knowledge",
+                  "study-board",
+                  "server",
+                ];
+                if (known.includes(module as PageId)) {
+                  setPage(module as PageId);
+                }
+                void target;
+              }}
             />
           </section>
           <section

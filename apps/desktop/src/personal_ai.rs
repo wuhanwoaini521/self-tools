@@ -70,6 +70,7 @@ pub fn build_hub(
     language_llm: Option<Arc<dyn ChatModelProvider>>,
     knowledge: &crate::knowledge::KnowledgeRuntime,
     server: &crate::server::ServerRuntime,
+    study_board_store: Arc<dyn devtoolbox_application::StudyBoardStorePort>,
     settings: &devtoolbox_core::settings::AppSettings,
     client: reqwest::Client,
 ) -> Arc<PersonalHub> {
@@ -132,6 +133,14 @@ pub fn build_hub(
     // 通用检索增强 stage（V6 §22/§55）：平台可选能力，无业务分支。
     hub.retrieval = Some(Arc::clone(&knowledge.retrieval)
         as Arc<dyn devtoolbox_application::personal_ai::RetrievalAugmenter>);
+    // V11-M Study Board：标准模块接入（descriptor + 4 工具 + ContextProvider）。
+    let study_board_store = study_board_store.clone();
+    devtoolbox_application::personal_ai::register_study_board(
+        &mut hub.modules,
+        &mut hub.tools,
+        study_board_store,
+    )
+    .expect("register study-board module");
     // V10：决策引擎 + 有界多 Agent 编排（rule / jev-shadow / jev-active）。
     // 决策层只选策略；执行/授权/预算仍由 OrchestrationService + ToolRegistry 强制。
     // `settings` 来自调用方（同 enrichment 模式：每次装配读取一次最新 settings.json）。
@@ -258,6 +267,8 @@ mod tests {
 
         let hub_settings = devtoolbox_core::settings::AppSettings::default();
         let hub_client = devtoolbox_infrastructure::feed_client().expect("http client");
+        let study_board_store = devtoolbox_infrastructure::StudyBoardSqliteStore::open_in_memory()
+            .expect("study board store");
         build_hub(
             history_repo,
             None,
@@ -267,6 +278,9 @@ mod tests {
             None,
             &knowledge,
             &server,
+            Arc::new(crate::composition::StudyBoardStoreAdapter::new(Arc::new(
+                study_board_store,
+            ))),
             &hub_settings,
             hub_client,
         )
@@ -291,10 +305,33 @@ mod tests {
             "files",
             "knowledge",
             "server",
+            "study-board",
         ] {
             assert!(
                 modules.iter().any(|id| id == expected),
                 "模块 {expected} 必须注册：{modules:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn study_board_module_tools_are_reachable() {
+        let hub = build_test_hub();
+        let names: Vec<String> = hub
+            .tools
+            .specs()
+            .into_iter()
+            .map(|spec| spec.name)
+            .collect();
+        for tool in [
+            "study-board.list",
+            "study-board.get",
+            "study-board.save",
+            "study-board.snapshot",
+        ] {
+            assert!(
+                names.iter().any(|name| name == tool),
+                "工具 {tool} 必须可触达"
             );
         }
     }

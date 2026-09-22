@@ -52,6 +52,8 @@ fn seed_sqlite(path: &Path) {
 }
 
 /// 读取库里的行数与 schema 版本（恢复后校验用）。
+///
+/// 不在这里断言标题内容：调用方按场景断言，本函数只做「读得出」的事实采集。
 fn inspect_sqlite(path: &Path) -> (usize, i64) {
     let connection = Connection::open(path).expect("open db for inspection");
     let rows: i64 = connection
@@ -60,6 +62,13 @@ fn inspect_sqlite(path: &Path) -> (usize, i64) {
     let version: i64 = connection
         .query_row("PRAGMA user_version", [], |row| row.get(0))
         .expect("read user_version");
+    drop(connection);
+    (rows as usize, version)
+}
+
+/// 读取 `notes` 表的全部标题（按 id 排序）。
+fn note_titles(path: &Path) -> Vec<String> {
+    let connection = Connection::open(path).expect("open db for titles");
     let titles: Vec<String> = connection
         .prepare("SELECT title FROM notes ORDER BY id")
         .expect("prepare")
@@ -68,17 +77,33 @@ fn inspect_sqlite(path: &Path) -> (usize, i64) {
         .map(|title| title.expect("title"))
         .collect();
     drop(connection);
-    assert_eq!(titles, vec!["第一".to_string(), "第二".to_string()]);
-    (rows as usize, version)
+    titles
 }
 
 fn integrity_ok(path: &Path) -> bool {
-    let connection = Connection::open(path).expect("open db for integrity");
-    let verdict: String = connection
-        .query_row("PRAGMA integrity_check", [], |row| row.get(0))
-        .expect("integrity_check");
+    let connection = match Connection::open(path) {
+        Ok(connection) => connection,
+        Err(_) => return false,
+    };
+    let verdict: Result<String, _> =
+        connection.query_row("PRAGMA integrity_check", [], |row| row.get(0));
     drop(connection);
-    verdict == "ok"
+    verdict.map(|value| value == "ok").unwrap_or(false)
+}
+
+/// 库是否「可用」：能打开、integrity_check 通过（破坏后的源库应返回 false）。
+fn sqlite_usable(path: &Path) -> bool {
+    let connection = match Connection::open(path) {
+        Ok(connection) => connection,
+        Err(_) => return false,
+    };
+    let verdict: Result<String, _> =
+        connection.query_row("PRAGMA integrity_check", [], |row| row.get(0));
+    let rows: Result<i64, _> = connection.query_row("SELECT count(*) FROM notes", [], |row| {
+        row.get::<_, i64>(0)
+    });
+    drop(connection);
+    verdict.as_deref() == Ok("ok") && rows.is_ok()
 }
 
 // ---------------------------------------------------------------------------
@@ -120,7 +145,8 @@ fn drill_sqlite_backup_restore_preserves_data_and_schema() {
     // 把源库写坏（模拟数据丢失 / 误删：直接删掉再写个坏文件）。
     fs::remove_file(&live_db).expect("destroy live db");
     fs::write(&live_db, b"this is not a sqlite database at all").expect("corrupt live db");
-    assert!(!integrity_ok(&live_db) || !live_db.is_file() || true);
+    // 破坏后源库确实不可用（这正是要靠备份挽回的场景）。
+    assert!(!sqlite_usable(&live_db), "破坏后的源库应无法读取");
 
     // 恢复到隔离目录。
     let report = service
@@ -136,6 +162,7 @@ fn drill_sqlite_backup_restore_preserves_data_and_schema() {
     let (rows, version) = inspect_sqlite(&restored_db);
     assert_eq!(rows, 2, "恢复后行数应一致");
     assert_eq!(version, 7, "恢复后 schema 版本应一致");
+    assert_eq!(note_titles(&restored_db), vec!["第一", "第二"]);
     assert!(integrity_ok(&restored_db));
 
     // 摘要与清单一致。
@@ -195,9 +222,14 @@ fn sqlite_snapshot_does_not_corrupt_live_database() {
 
     // 再备份一次：幂等（不因已存在快照失败），且内容是新的。
     let second = source.snapshot(&backup_dir).expect("second snapshot");
+    // 注意：VACUUM INTO 会重写压缩库文件，字节数不一定随数据增长，
+    // 因此用「可读到的行数」而不是体积证明快照反映了新写入。
+    let second_snapshot = backup_dir.join("live.db.bak");
+    let (second_rows, second_version) = inspect_sqlite(&second_snapshot);
+    assert_eq!(second_rows, 3, "第二次快照应包含新写入的行");
+    assert_eq!(second_version, 7);
+    assert_ne!(second.sha256, entry.sha256, "第二次快照内容应发生变化");
     assert_eq!(second.sha256.len(), 64);
-    assert_ne!(second.sha256, entry.sha256, "第二次快照应反映新数据");
-    assert!(second.bytes > entry.bytes);
 }
 
 #[test]
@@ -211,13 +243,29 @@ fn snapshot_of_missing_sqlite_source_fails_cleanly() {
         None,
     );
     let backup_dir = work.path().join("backup");
+    // 注意：source 自己会 create_dir_all，这里显式创建只为断言干净。
     fs::create_dir_all(&backup_dir).expect("create backup dir");
-    // rusqlite 打开不存在的路径会创建空库：结果是「空快照」而不是 panic，
-    // 这是可控降级（不崩溃），调用方可按 note 判断是否有真实内容。
+    // rusqlite 打开不存在的路径会创建空库：结果是「空库快照」而不是 panic，
+    // 属于可控降级。SQLite 空库仍有 header page（约 4096 字节），因此按
+    // 「文件存在 + 能打开 + integrity_check ok」判定，而不是按体积。
     let result = source.snapshot(&backup_dir);
-    assert!(result.is_ok(), "缺源应可控降级为可读结果，不得 panic");
+    assert!(result.is_ok(), "缺源应可控降级，不得 panic");
     let entry = result.expect("degrade");
-    assert_eq!(entry.bytes, 0, "空库快照体积应为 0");
+    let snapshot = backup_dir.join("absent.db.bak");
+    assert!(snapshot.is_file(), "应产出空库快照文件");
+    assert!(integrity_ok(&snapshot));
+    // 空库没有任何用户表。
+    let connection = Connection::open(&snapshot).expect("open snapshot");
+    let tables: i64 = connection
+        .query_row(
+            "SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'",
+            [],
+            |row| row.get(0),
+        )
+        .expect("count tables");
+    drop(connection);
+    assert_eq!(tables, 0, "缺源快照不应含用户表");
+    assert_eq!(entry.kind, EntryKind::Sqlite);
 }
 
 // ---------------------------------------------------------------------------
