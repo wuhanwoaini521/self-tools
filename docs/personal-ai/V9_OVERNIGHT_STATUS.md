@@ -7,7 +7,7 @@
 
 | 命令 | 结果 |
 | --- | --- |
-| `cargo test --workspace` | **745 passed / 0 failed**（V8 基线 687，+58） |
+| `cargo test --workspace` | **749 passed / 0 failed**（V8 基线 687，+62） |
 | `cargo check --workspace --all-targets` | 0 error / 0 warning |
 | `npx tsc --noEmit`（ui） | 0 error |
 | `npm run build`（ui） | built |
@@ -30,9 +30,25 @@ apps/mcp 41（lib 29 + bin 0 + integration 8 + runtime_stores 4）/ server 7。
 | 6 | Budget + Concurrency + Cancellation | ✅ | 5 个专项测试（有界并发、取消、预算停止、max_agents、无递归） |
 | 7 | SafeAction / Security | ✅ | 端到端 + 显式关闭 + `agent.rs` 无业务分支断言 |
 | 8 | Trace + Frontend | ✅ | `OrchestrationTraceView`（无 secret/正文）+ AI Panel 折叠「执行过程」 |
-| 9 | Security Review | 🔄 | 独立 reviewer 运行中 |
+| 9 | Security Review | ✅ | 独立 reviewer A-G；**11 项发现全部修复**（2 高 3 中 6 低/信息） |
 | 10 | Full Regression | ✅ | 745 全绿；V5/V6/V7/V8 无退化 |
-| 11 | Docs | 🔄 | `MULTI_AGENT_V9.md` / `ADR-008` / 本文件 / final report 待审查结论 |
+| 11 | Docs | ✅ | `MULTI_AGENT_V9.md` / `ADR-008` / 本文件 / `V9_FINAL_REPORT.md` |
+
+## Gate 9 安全审查修复（独立 reviewer，11 项）
+
+| # | 严重度 | 发现 | 修复 |
+| --- | --- | --- | --- |
+| V9-B1 | **高** | `run_tool_loop` 执行模型点名的**任意**已注册工具 → descriptor/capability 交集只过滤了 discovery，执行侧无强制 | 每个 call 先过授权列表，未命中 → `tool_not_authorized`（记 trace）；parent 与 worker 共用同一强制点 |
+| V9-D1 | **高** | budget 的 tokens / tool_calls / duration 三维只算不强制执行（无超时、provider max_tokens 恒 None、deadline 恒 0） | executor 用 `tokio::time::timeout`（→ `TimedOut`）；token 上限传入 provider；工具调用硬上限 |
+| V9-E1 | 中 | worker 输出以「任务指令」身份进 reviewer / parent prompt | 显式不可信围栏 + 结构投影 + 截断；reviewer drafts 与 parent 注入都走它 |
+| V9-D2 | 中 | reviewer run 绕过 child_budget / 名额预扣 / 预算检查 | 与 worker 同路径 |
+| V9-G1 | 中 | MCP `--stores` 可指向桌面配置目录 → 多进程共开 SQLite（无 busy_timeout/WAL）立即 `SQLITE_BUSY` | 拒绝已含业务库的目录（`allow_existing` 显式豁免仅测试/迁移） |
+| V9-D3 | 低 | AI 票据 `session_id="ai"` vs 桌面确认 `"desktop"` → 票据永无法确认（UI 死卡） | 统一 `"ai-desktop"`；MCP client_id 仍每请求唯一 |
+| V9-A2 | 低 | `TaskEnvelope::validate` 生产从未调用（且自比较恒真） | 编排器对每个 envelope validate，失败即任务失败 |
+| V9-C1 | 低 | `worker_context_messages` 死代码（agent.rs 另有注入） | 删除 |
+| V9-A1 | 信息 | `required_tools` 空 = 全集；research 默认含 restart/open 入口 | profile 默认只读模块白名单 + 显式 deny `memory.*`/`*.open`/`services.restart` |
+| V9-D4 | 信息 | `child_budget` 的 `.max(now_ms.min(1))` 把 0 抬到 1 | 删除后缀，恢复「父耗尽 → 子 0」 |
+| V9-F1 | 信息 | trace_id 直接用前端可控 session_id | `is_valid_task_id` 校验，不合法回落 `req-{uid16}` |
 
 ## 实现期修复的真实缺陷
 

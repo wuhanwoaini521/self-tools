@@ -1,6 +1,6 @@
 # SELF-TOOLS V9 · MULTI-AGENT ORCHESTRATION — 终版架构
 
-> 状态：✅ 已实施（Gates -1–8 PASS；Gate 9 独立安全审查进行中）。
+> 状态：✅ 已实施（Gates -1–11 PASS；独立安全审查 11 项发现全部修复，测试 **749 / 749**）。
 > 计划见 [`MULTI_AGENT_V9_PLAN.md`](MULTI_AGENT_V9_PLAN.md)；决策记录见
 > [`ADR-008-bounded-worker-orchestration.md`](../architecture/ADR-008-bounded-worker-orchestration.md)。
 
@@ -122,9 +122,19 @@ AI Panel 折叠「执行过程」：角色 / 状态 / 工具次数 / 时长（**
 | --- | --- | --- |
 | core agents | 21 | 角色/注册表 / task 校验 / 预算纯函数 / 结果与 review |
 | application agents | 33 | executor 结构化 / capability 过滤 / 编排计划 / 合并 / 提议 / Gate 6（并发上限、取消、预算停止、max_agents、无递归）/ Gate 7（端到端 + 显式关闭 + agent.rs 无分支） |
-| 既有回归 | 691 | PersonalAgent 117 / V5/V6/V7/V8 全量 |
+| 既有回归 | 691 | PersonalAgent / V5/V6/V7/V8 全量 |
+| Gate 9 回归 | 4 | 未授权工具拒绝 / 授权工具执行 / 工具调用预算 / agent 超时 |
 
-## 11. 已知限制（P1/P2）
+## 11. Gate 9 安全结论
+
+执行侧 allowlist、预算四维、超时、不可信围栏、reviewer 同路径预算、
+MCP 共开防护、票据 session 贯通、envelope 校验、profile 白名单、
+`child_budget` 0 语义、trace id 校验 —— **11 项发现全部修复**（2 高 3 中 6 低/信息）。
+
+跨 Agent 注入路径已结构性关闭：worker 输出 → 围栏投影 → reviewer/parent；
+`run_tool_loop` 是唯一执行点且强制授权列表。
+
+## 12. 已知限制（P1/P2）
 
 - 远程身份：仍只有 `DenyAll` + Fake（生产 OIDC provider 未接入，远程写关闭）。
 - MCP `--stores` 与 desktop 同时打开同一 SQLite 库存在多进程写竞争
