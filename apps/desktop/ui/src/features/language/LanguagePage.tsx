@@ -126,33 +126,36 @@ export function LanguagePage({
     [],
   );
 
+  // V5 AppContext 桥：上报语言 / 选中词条（§52-§53：选中句子的指代解析）
   useEffect(() => {
-    // V5 AppContext 桥：上报语言 / 选中词条（§52-§53：选中句子的指代解析）
-    useEffect(() => {
-      if (!onContextChange) return;
-      if (!selected) {
-        onContextChange({
-          module: "language",
-          page: tab,
-          view_state: { language },
-        });
-        return;
-      }
+    if (!onContextChange) return;
+    if (!selected) {
       onContextChange({
         module: "language",
         page: tab,
-        entity: {
-          kind: "word",
-          id: selected.item.id,
-          label: selected.item.text,
-        },
-        view_state: {
-          language,
-          reading: selected.item.reading,
-          romanization: selected.item.romanization,
-        },
+        view_state: { language },
       });
-    }, [selected, tab, language, onContextChange]);
+      return;
+    }
+    onContextChange({
+      module: "language",
+      page: tab,
+      entity: {
+        kind: "word",
+        id: selected.item.id,
+        label: selected.item.text,
+      },
+      view_state: {
+        language,
+        reading: selected.item.reading,
+        romanization: selected.item.romanization,
+      },
+    });
+  }, [selected, tab, language, onContextChange]);
+
+  // intent 驱动的详情打开（与上面的 AppContext 桥**平级**，
+  // 不得嵌套：hooks 必须在组件顶层调用）。
+  useEffect(() => {
     if (active && intent?.id && hasData) openDetail(intent.id, false);
   }, [active, hasData, intent, openDetail]);
 

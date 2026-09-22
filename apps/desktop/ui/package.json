@@ -23,8 +23,8 @@
     "dompurify": "^3",
     "maplibre-gl": "^6.6.0",
     "marked": "^16",
-    "react": "^19",
-    "react-dom": "^19",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
     "three": "^0.185.1"
   },
   "devDependencies": {

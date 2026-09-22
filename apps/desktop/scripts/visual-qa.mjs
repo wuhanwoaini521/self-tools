@@ -16,7 +16,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const REPO = join(__dirname, "..");
+const REPO_ROOT = join(__dirname, "..", "..", "..");
 
 /** §137：五个必需视口。 */
 const VIEWPORTS = [
@@ -48,7 +48,9 @@ const ROUTES = [
 ];
 
 const BASE_URL = process.env.QA_BASE_URL ?? "http://127.0.0.1:1420";
-const OUT_DIR = join(REPO, "..", "..", "docs", "qa", "v11");
+// 目标目录：仓库根 docs/qa/v11（__dirname = apps/desktop/scripts → 上溯三级）。
+const OUT_DIR =
+  process.env.QA_OUT_DIR ?? join(__dirname, "..", "..", "..", "docs", "qa", "v11");
 
 function parseArgs(argv) {
   const options = { viewport: null, route: null };
@@ -81,8 +83,8 @@ async function main() {
       if (options.route && route.key !== options.route) continue;
       const url = `${BASE_URL}${route.path}`;
       try {
-        await page.goto(url, { waitUntil: "networkidle", timeout: 20_000 });
-        await page.waitForTimeout(400);
+        await page.goto(url, { waitUntil: "load", timeout: 30_000 });
+        await page.waitForTimeout(900);
 
         // §141：基本溢出 / 布局塌陷检测（JS 断言，不替代人工）。
         const metrics = await page.evaluate(() => {
@@ -112,7 +114,7 @@ async function main() {
           viewport: viewport.name,
           route: route.key,
           label: route.label,
-          file: file.replace(REPO, "."),
+          file: file.replace(REPO_ROOT, "."),
           ...metrics,
         });
         console.log(
@@ -132,6 +134,8 @@ async function main() {
   }
 
   await browser.close();
+  // 报告目录必须存在（viewpoint 循环里已建，这里兜底）。
+  await mkdir(OUT_DIR, { recursive: true });
   await writeFile(
     join(OUT_DIR, "qa-report.json"),
     `${JSON.stringify({ generated_at: new Date().toISOString(), report }, null, 2)}\n`,

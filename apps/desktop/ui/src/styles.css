@@ -359,10 +359,17 @@
 html,
 body,
 #root {
- min-width: 1120px;
+ /* 桌面布局保留 1120 工作区下限；平板 / 手机必须能收缩（V11 §84-§90）。 */
  min-height: 720px;
  margin: 0;
  background: var(--bg);
+}
+@media (min-width: 1180px) {
+ html,
+ body,
+ #root {
+  min-width: 1120px;
+ }
 }
 button,
 input {
@@ -13438,19 +13445,19 @@ main.history-v2-period {
  min-height: 44px;
 }
 
-/* tablet：分栏时主内容两列（内容 + AI 侧 sheet）。 */
+/* tablet：保留侧导航列（窄一档）；landscape 分栏时右侧给 AI side sheet。 */
 .app-shell-tablet .app-body {
  display: grid;
- grid-template-columns: 1fr;
+ grid-template-columns: 168px minmax(0, 1fr);
 }
 .app-shell-tablet[data-split="true"] .app-body {
- grid-template-columns: minmax(0, 1fr) minmax(320px, 38%);
+ grid-template-columns: 168px minmax(0, 1fr);
 }
 
-/* desktop：原有三栏结构不变（导航 + 工作区 + AI 侧栏）。 */
+/* desktop：保持原有 198px 导航 + 工作区（不覆盖基规则）。 */
 .app-shell-desktop .app-body {
  display: grid;
- grid-template-columns: auto minmax(0, 1fr);
+ grid-template-columns: 198px minmax(0, 1fr);
 }
 
 /* PWA 状态条（§81/§82）：离线 / 更新 / 版本不兼容。 */
@@ -13966,4 +13973,25 @@ main.history-v2-period {
  border-radius: 8px;
  font-size: 13px;
  color: var(--muted, #8a979d);
+}
+
+/* tablet 竖屏：导航收窄 + 文字省略，避免内容被挤出视口。 */
+.app-shell-tablet .app-nav {
+ padding: 8px 6px;
+}
+.app-shell-tablet .app-nav-item {
+ gap: 6px;
+ padding: 0 6px;
+ font-size: 12px;
+}
+.app-shell-tablet .app-nav-item {
+ overflow: hidden;
+ text-overflow: ellipsis;
+ white-space: nowrap;
+}
+.app-shell-tablet .app-nav-footer {
+ display: none;
+}
+.app-shell-tablet .app-nav-divider {
+ margin: 4px 0;
 }
