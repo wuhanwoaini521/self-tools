@@ -277,6 +277,12 @@ impl SafeActionService {
             self.audit_attempt(request, false, ActionOutcome::Denied, Some("fingerprint_mismatch"), started.elapsed());
             return Ok(ActionOutcome::Denied);
         }
+        // §103 跨 client 隔离：票据绑签发时的 session（MCP principal 的 client_id）；
+        // 其它 client 拿同一张票据也必须被拒（重放的一种形态）。
+        if confirmation.session_id != request.session_id {
+            self.audit_attempt(request, false, ActionOutcome::Denied, Some("session_mismatch"), started.elapsed());
+            return Ok(ActionOutcome::Denied);
+        }
         // 先标记消费（即使执行失败也不可重放）。
         confirmation.state = ConfirmationState::Consumed;
         self.confirmations.update(confirmation);
@@ -788,6 +794,33 @@ mod tests {
             other => panic!("expected denied, got {other:?}"),
         }
         assert_eq!(control.restarts.load(Ordering::SeqCst), 0);
+    }
+
+    #[test]
+    fn confirmation_is_bound_to_its_session() {
+        // §103：票据只属于签发它的 session（MCP client_id）。
+        let (service, _control, _audit, request) = setup(false, true, None, None);
+        let ActionPlan::ConfirmationRequired(confirmation) =
+            service.plan(&request, SessionTrust::LocalDesktop)
+        else {
+            panic!("expected confirmation");
+        };
+        let mut other_client = request.clone();
+        other_client.session_id = "someone-else".to_string();
+        assert_eq!(
+            service
+                .confirm_and_execute(&confirmation.id, &other_client)
+                .expect("outcome"),
+            ActionOutcome::Denied,
+            "其它 session 不得消费票据"
+        );
+        // 原 session 仍可执行一次。
+        assert_eq!(
+            service
+                .confirm_and_execute(&confirmation.id, &request)
+                .expect("outcome"),
+            ActionOutcome::Success
+        );
     }
 
     #[test]

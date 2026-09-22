@@ -183,7 +183,18 @@ impl McpService {
         }
         let risk = self.adapter.registry().spec(tool_name).map(|spec| spec.risk);
         // 4) SYSTEM → SafeAction 票据（§54/§55：不执行）。
-        if matches!(risk, Some(ToolRisk::System)) {
+        //    判定依据是**暴露分组**而不是 registry risk：V7 的 `services.restart`
+        //    在 ToolRegistry 注册为 Read（registry 门禁只放行 Read+SafeWrite），
+        //    SYSTEM 语义由 `ExposureGroup::SystemAction` 表达（ADR-006）。
+        let is_system = devtoolbox_core::mcp::default_exposure(tool_name)
+            .is_some_and(|exposure| {
+                matches!(
+                    exposure.group,
+                    devtoolbox_core::mcp::ExposureGroup::SystemAction
+                )
+            })
+            || matches!(risk, Some(ToolRisk::System));
+        if is_system {
             return self.handle_system_action(principal, &request_id, tool_name, arguments, started);
         }
         // 5) 走 ToolRegistry（与 PersonalAgent 同一执行路径，§110）。
@@ -226,8 +237,10 @@ impl McpService {
         let descriptor = match registry.resolve(service_id) {
             Ok(descriptor) => descriptor,
             Err(_) => {
-                self.record(principal, request_id, tool_name, Some(ToolRisk::System), McpDecision::Denied, McpResultCode::InvalidParams, started);
-                return Err(McpCallError::InvalidParams("service_id".into()));
+                // §35/§154：未注册服务 = 授权拒绝（不是参数错误）——
+                // 稳定 reason 让 client 能区分「没权限」与「调用形式错」。
+                self.record(principal, request_id, tool_name, Some(ToolRisk::System), McpDecision::Denied, McpResultCode::Denied, started);
+                return Err(McpCallError::Denied("unknown_service".into()));
             }
         };
         // §103：票据绑 client_id（跨 client 隔离）。
