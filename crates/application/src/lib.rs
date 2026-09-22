@@ -2,6 +2,8 @@
 
 pub mod agents;
 pub mod backup;
+#[cfg(test)]
+pub mod e2e_journeys;
 pub mod documents;
 pub mod error;
 pub mod files;
