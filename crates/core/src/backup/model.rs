@@ -215,16 +215,27 @@ pub fn sha256_hex(bytes: &[u8]) -> String {
     format!("{:x}", hasher.finalize())
 }
 
-/// 备份条目路径是否安全：只允许**普通组件**。
+/// 备份清单内的条目路径是否安全（相对、无逃逸）。
 ///
 /// 拒绝：空路径、`..`（traversal）、绝对路径、盘符 / 根前缀、`.` 段。
-/// 恢复时逐条调用，拒绝即记失败，绝不写盘（§44 / §160）。
+///
+/// **跨平台**：`Path::components()` 在 Unix 上会把 `C:/Windows/x.db` 当成单个
+/// Normal 组件（没有 `/` 分隔），因此盘符 / UNC / 反斜杠根必须显式拒绝 ——
+/// 否则 Windows 风格的绝对路径在 macOS/Linux 上会被误判为「安全」。
 #[must_use]
 pub fn is_safe_backup_path(relative: &str) -> bool {
     if relative.is_empty() {
         return false;
     }
-    Path::new(relative)
+    // Windows 绝对路径：`C:\...` / `C:/...` / `\\server\share` / `\\?\...`。
+    let bytes = relative.as_bytes();
+    let has_drive = bytes.len() >= 2 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':';
+    if has_drive || relative.starts_with('\\') {
+        return false;
+    }
+    // 反斜杠分隔在 Windows 上是分隔符：先归一化再判，避免 `..\..\x` 逃逸。
+    let normalized = relative.replace('\\', "/");
+    Path::new(&normalized)
         .components()
         .all(|component| matches!(component, Component::Normal(_)))
 }
@@ -342,6 +353,27 @@ mod tests {
         assert!(!is_safe_backup_path("/etc/passwd"));
         assert!(!is_safe_backup_path("C:/Windows/system.db"));
         assert!(!is_safe_backup_path("./memory.db"));
+    }
+
+    #[test]
+    fn safe_backup_path_rejects_windows_forms_on_every_platform() {
+        // 回归：`Path::components()` 在 Unix 上把 `C:/x` 当普通组件 → 必须显式拒。
+        for bad in [
+            "c:\\windows\\system.db",
+            "C:/Windows/system.db",
+            "\\\\server\\share\\x.db",
+            "\\\\?\\C:\\x.db",
+            "..\\..\\outside.db",
+            "nested\\..\\..\\outside.db",
+            ".\\memory.db",
+        ] {
+            assert!(
+                !is_safe_backup_path(bad),
+                "Windows 风格路径必须在所有平台被拒: {bad}"
+            );
+        }
+        // Windows 相对路径（反斜杠分隔但无逃逸）保持可用。
+        assert!(is_safe_backup_path("nested\\memory.db"));
     }
 
     #[test]
