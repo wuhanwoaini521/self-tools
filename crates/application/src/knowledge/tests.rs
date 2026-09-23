@@ -36,7 +36,14 @@ impl FakeRetriever {
         }
     }
 
-    fn with(mut self, id: &str, title: &str, snippet: &str, path: Option<&str>, score: f32) -> Self {
+    fn with(
+        mut self,
+        id: &str,
+        title: &str,
+        snippet: &str,
+        path: Option<&str>,
+        score: f32,
+    ) -> Self {
         self.results.push(KnowledgeResult {
             source_type: self.kind,
             source_id: id.to_string(),
@@ -118,18 +125,27 @@ fn block_on<F: Future>(future: F) -> F::Output {
 #[test]
 fn merges_all_sources_sorted_by_score() {
     let service = service(vec![
-        Arc::new(
-            FakeRetriever::new(KnowledgeSourceKind::Memory)
-                .with("mem-1", "Docker 数据目录", "/Volumes/Data/docker", None, 0.9),
-        ),
-        Arc::new(
-            FakeRetriever::new(KnowledgeSourceKind::Document)
-                .with("doc-1", "docker.md", "volume 说明", Some("/data/docs/docker.md"), 0.6),
-        ),
-        Arc::new(
-            FakeRetriever::new(KnowledgeSourceKind::File)
-                .with("file-1", "docker-compose.yml", "", Some("/data/docker-compose.yml"), 0.4),
-        ),
+        Arc::new(FakeRetriever::new(KnowledgeSourceKind::Memory).with(
+            "mem-1",
+            "Docker 数据目录",
+            "/Volumes/Data/docker",
+            None,
+            0.9,
+        )),
+        Arc::new(FakeRetriever::new(KnowledgeSourceKind::Document).with(
+            "doc-1",
+            "docker.md",
+            "volume 说明",
+            Some("/data/docs/docker.md"),
+            0.6,
+        )),
+        Arc::new(FakeRetriever::new(KnowledgeSourceKind::File).with(
+            "file-1",
+            "docker-compose.yml",
+            "",
+            Some("/data/docker-compose.yml"),
+            0.4,
+        )),
     ]);
 
     let outcome = service.search(&query("docker")).expect("search");
@@ -150,13 +166,15 @@ fn merges_all_sources_sorted_by_score() {
 fn same_score_is_deterministic() {
     let build = || {
         service(vec![
+            Arc::new(FakeRetriever::new(KnowledgeSourceKind::File).with(
+                "file-b",
+                "b.md",
+                "s",
+                Some("/data/b.md"),
+                0.8,
+            )),
             Arc::new(
-                FakeRetriever::new(KnowledgeSourceKind::File)
-                    .with("file-b", "b.md", "s", Some("/data/b.md"), 0.8),
-            ),
-            Arc::new(
-                FakeRetriever::new(KnowledgeSourceKind::Memory)
-                    .with("mem-a", "a", "s", None, 0.8),
+                FakeRetriever::new(KnowledgeSourceKind::Memory).with("mem-a", "a", "s", None, 0.8),
             ),
         ])
     };
@@ -187,24 +205,20 @@ fn empty_query_returns_empty_without_querying() {
 #[test]
 fn same_path_document_wins_over_file() {
     let service = service(vec![
-        Arc::new(
-            FakeRetriever::new(KnowledgeSourceKind::File).with(
-                "file-1",
-                "docker.md",
-                "文件元数据命中",
-                Some("/data/docs/docker.md"),
-                0.9,
-            ),
-        ),
-        Arc::new(
-            FakeRetriever::new(KnowledgeSourceKind::Document).with(
-                "doc-1",
-                "docker.md",
-                "文档正文命中",
-                Some("/data/docs/docker.md"),
-                0.6,
-            ),
-        ),
+        Arc::new(FakeRetriever::new(KnowledgeSourceKind::File).with(
+            "file-1",
+            "docker.md",
+            "文件元数据命中",
+            Some("/data/docs/docker.md"),
+            0.9,
+        )),
+        Arc::new(FakeRetriever::new(KnowledgeSourceKind::Document).with(
+            "doc-1",
+            "docker.md",
+            "文档正文命中",
+            Some("/data/docs/docker.md"),
+            0.6,
+        )),
     ]);
 
     let outcome = service.search(&query("docker")).expect("search");
@@ -264,10 +278,13 @@ fn per_source_budget_prevents_monopoly() {
                     .with("mem-1", "a", "s", None, 0.9)
                     .with("mem-2", "b", "s", None, 0.8),
             ),
-            Arc::new(
-                FakeRetriever::new(KnowledgeSourceKind::Document)
-                    .with("doc-1", "c", "s", Some("/data/c.md"), 0.7),
-            ),
+            Arc::new(FakeRetriever::new(KnowledgeSourceKind::Document).with(
+                "doc-1",
+                "c",
+                "s",
+                Some("/data/c.md"),
+                0.7,
+            )),
         ],
         KnowledgeBudget {
             max_results: 10,
@@ -280,7 +297,10 @@ fn per_source_budget_prevents_monopoly() {
     );
     let outcome = service.search(&query("s")).expect("search");
     assert_eq!(outcome.results.len(), 2, "每源一条，两源都保留");
-    assert!(outcome.diagnostics.dropped_by_budget >= 1, "第二条 memory 应被预算丢弃");
+    assert!(
+        outcome.diagnostics.dropped_by_budget >= 1,
+        "第二条 memory 应被预算丢弃"
+    );
 }
 
 #[test]
@@ -338,9 +358,16 @@ fn char_budget_truncates_and_marks() {
 #[test]
 fn sources_filter_limits_retrievers() {
     let service = service(vec![
-        Arc::new(FakeRetriever::new(KnowledgeSourceKind::Memory).with("mem-1", "a", "s", None, 0.9)),
-        Arc::new(FakeRetriever::new(KnowledgeSourceKind::Document)
-            .with("doc-1", "b", "s", Some("/data/b.md"), 0.8)),
+        Arc::new(
+            FakeRetriever::new(KnowledgeSourceKind::Memory).with("mem-1", "a", "s", None, 0.9),
+        ),
+        Arc::new(FakeRetriever::new(KnowledgeSourceKind::Document).with(
+            "doc-1",
+            "b",
+            "s",
+            Some("/data/b.md"),
+            0.8,
+        )),
     ]);
     let outcome = service
         .search(&KnowledgeQuery {
@@ -352,7 +379,10 @@ fn sources_filter_limits_retrievers() {
         .expect("search");
     assert_eq!(outcome.results.len(), 1);
     assert_eq!(outcome.results[0].source_type, KnowledgeSourceKind::Memory);
-    assert_eq!(outcome.diagnostics.sources_queried, vec![KnowledgeSourceKind::Memory]);
+    assert_eq!(
+        outcome.diagnostics.sources_queried,
+        vec![KnowledgeSourceKind::Memory]
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -363,10 +393,13 @@ fn sources_filter_limits_retrievers() {
 fn one_source_failure_does_not_block_others() {
     let service = service(vec![
         Arc::new(FakeRetriever::new(KnowledgeSourceKind::Memory).failing("索引库被占用")),
-        Arc::new(
-            FakeRetriever::new(KnowledgeSourceKind::Document)
-                .with("doc-1", "b", "s", Some("/data/b.md"), 0.8),
-        ),
+        Arc::new(FakeRetriever::new(KnowledgeSourceKind::Document).with(
+            "doc-1",
+            "b",
+            "s",
+            Some("/data/b.md"),
+            0.8,
+        )),
     ]);
     let outcome = service.search(&query("s")).expect("search");
     assert_eq!(outcome.results.len(), 1, "其它源结果必须保留");
@@ -393,8 +426,13 @@ fn augment_skips_short_queries_and_weak_hits() {
 #[test]
 fn augment_renders_prompt_block_for_strong_hits() {
     let service = service(vec![Arc::new(
-        FakeRetriever::new(KnowledgeSourceKind::Memory)
-            .with("mem-1", "Docker 数据目录", "/Volumes/Data/docker", None, 0.95),
+        FakeRetriever::new(KnowledgeSourceKind::Memory).with(
+            "mem-1",
+            "Docker 数据目录",
+            "/Volumes/Data/docker",
+            None,
+            0.95,
+        ),
     )]);
     let rendered = block_on(service.augment("docker 数据目录在哪", &AppContext::default()))
         .expect("强命中必须注入");
@@ -419,10 +457,13 @@ fn build_context_groups_and_records_omitted() {
                     .with("mem-1", "a", "s", None, 0.9)
                     .with("mem-2", "b", "s", None, 0.8),
             ),
-            Arc::new(
-                FakeRetriever::new(KnowledgeSourceKind::Document)
-                    .with("doc-1", "c", "s", Some("/data/c.md"), 0.7),
-            ),
+            Arc::new(FakeRetriever::new(KnowledgeSourceKind::Document).with(
+                "doc-1",
+                "c",
+                "s",
+                Some("/data/c.md"),
+                0.7,
+            )),
         ],
         KnowledgeBudget {
             max_results: 10,

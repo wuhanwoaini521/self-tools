@@ -104,8 +104,10 @@ impl LocalDocumentSource {
         document_type: DocumentType,
         max_bytes: u64,
     ) -> Result<ExtractedContent, InfrastructureError> {
-        let metadata = std::fs::metadata(path)
-            .map_err(|error| InfrastructureError::Io { path: path.to_path_buf(), source: error })?;
+        let metadata = std::fs::metadata(path).map_err(|error| InfrastructureError::Io {
+            path: path.to_path_buf(),
+            source: error,
+        })?;
         if metadata.len() > max_bytes {
             return Ok(ExtractedContent::MetadataOnly(format!(
                 "文件 {} 字节，超过索引上限 {max_bytes} 字节（仅索引元数据）",
@@ -121,8 +123,10 @@ impl LocalDocumentSource {
                 "不支持的文件类型（仅索引元数据）".to_string(),
             )),
             DocumentType::Markdown | DocumentType::Text | DocumentType::Json => {
-                let bytes = std::fs::read(path)
-                    .map_err(|error| InfrastructureError::Io { path: path.to_path_buf(), source: error })?;
+                let bytes = std::fs::read(path).map_err(|error| InfrastructureError::Io {
+                    path: path.to_path_buf(),
+                    source: error,
+                })?;
                 if is_binary(&bytes) {
                     return Ok(ExtractedContent::MetadataOnly(
                         "文件内容不是 UTF-8 文本（仅索引元数据）".to_string(),
@@ -191,8 +195,14 @@ mod tests {
         let (files, truncated) = LocalDocumentSource
             .scan_root(&root(directory.path()), 100)
             .unwrap();
-        let paths: Vec<&str> = files.iter().map(|file| file.relative_path.as_str()).collect();
-        assert_eq!(paths, ["data/list.json", "notes/docker.md", "notes/report.txt"]);
+        let paths: Vec<&str> = files
+            .iter()
+            .map(|file| file.relative_path.as_str())
+            .collect();
+        assert_eq!(
+            paths,
+            ["data/list.json", "notes/docker.md", "notes/report.txt"]
+        );
         assert!(!truncated);
         assert!(files.iter().all(|file| file.size_bytes > 0));
     }
@@ -213,7 +223,10 @@ mod tests {
     #[test]
     fn scan_missing_root_is_empty_not_an_error() {
         let (files, truncated) = LocalDocumentSource
-            .scan_root(&KnowledgeRoot::new("x", "x", "/definitely/missing/root"), 10)
+            .scan_root(
+                &KnowledgeRoot::new("x", "x", "/definitely/missing/root"),
+                10,
+            )
             .unwrap();
         assert!(files.is_empty());
         assert!(!truncated);
@@ -227,7 +240,10 @@ mod tests {
         let extracted = LocalDocumentSource
             .extract(&markdown, DocumentType::Markdown, 1_000_000)
             .unwrap();
-        assert_eq!(extracted, ExtractedContent::Text("# 标题\n正文".to_string()));
+        assert_eq!(
+            extracted,
+            ExtractedContent::Text("# 标题\n正文".to_string())
+        );
 
         let too_large = LocalDocumentSource
             .extract(&markdown, DocumentType::Markdown, 2)

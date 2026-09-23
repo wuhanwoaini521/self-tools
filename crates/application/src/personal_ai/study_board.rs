@@ -27,7 +27,9 @@ use devtoolbox_core::{AgentError, ModuleDescriptor, ToolResult, ToolRisk, ToolSp
 
 use crate::personal_ai::args::{optional_string, require_string, tool_error, usize_arg};
 use crate::personal_ai::context::{ContextBudget, ContextBundle, ModuleContextProvider};
-use crate::personal_ai::registry::{ModuleRegistration, ModuleRegistry, ToolExecutor, ToolRegistry};
+use crate::personal_ai::registry::{
+    ModuleRegistration, ModuleRegistry, ToolExecutor, ToolRegistry,
+};
 use crate::study_board::ports::{StudyBoardStoreError, StudyBoardStorePort};
 
 /// 模块 id（descriptor id、ContextProvider id、工具名前缀必须一致）。
@@ -171,7 +173,13 @@ impl StudyBoardTools {
                 };
                 let strokes = strokes.unwrap_or_else(|| serde_json::json!({"strokes": []}));
                 (
-                    StudyBoard::new(board_id, title, strokes, now, module_origin.unwrap_or_default()),
+                    StudyBoard::new(
+                        board_id,
+                        title,
+                        strokes,
+                        now,
+                        module_origin.unwrap_or_default(),
+                    ),
                     true,
                 )
             }
@@ -374,13 +382,9 @@ impl ModuleContextProvider for StudyBoardProviderOwned {
             });
         };
         let page = app_context.page.clone().unwrap_or_default();
-        let loaded = self
-            .tools
-            .store
-            .get_board(&board_id)
-            .map_err(|error| {
-                AgentError::context(store_failure("board_read_failed", &error).to_string())
-            })?;
+        let loaded = self.tools.store.get_board(&board_id).map_err(|error| {
+            AgentError::context(store_failure("board_read_failed", &error).to_string())
+        })?;
         match loaded {
             Some(board) => Ok(ContextBundle {
                 module: STUDY_BOARD_MODULE_ID.to_string(),

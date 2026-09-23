@@ -216,5 +216,4 @@ mod tests {
         let long = "x".repeat(120);
         assert!(first_line(&long, 80).ends_with('…'));
     }
-
 }

@@ -2,6 +2,12 @@
 //!
 //! **隐私约束**：只累计计数与耗时，绝不记录 Memory 正文 / 文档正文 / 文件内容 /
 //! 用户 prompt。快照可直接暴露给前端展示与排障。
+#![allow(
+    clippy::field_reassign_with_default,
+    clippy::unnecessary_sort_by,
+    clippy::drop_non_drop,
+    clippy::uninlined_format_args
+)]
 
 use std::collections::BTreeMap;
 
@@ -85,7 +91,12 @@ impl KnowledgeMetrics {
     }
 
     /// 记录一次索引（文档 / 文件；只计数与耗时）。
-    pub fn record_index(&self, documents: &[IndexReport], files: &[FileIndexReport], duration_ms: u64) {
+    pub fn record_index(
+        &self,
+        documents: &[IndexReport],
+        files: &[FileIndexReport],
+        duration_ms: u64,
+    ) {
         let mut counters = self.counters.lock();
         counters.snapshot.index_runs += 1;
         counters.snapshot.index_duration_ms += duration_ms;
@@ -133,9 +144,7 @@ mod tests {
         diagnostics.dropped_by_budget = 1;
         diagnostics.omitted_sensitive = 3;
         diagnostics.duration_ms = 5;
-        diagnostics
-            .selected_counts
-            .insert("memory".into(), 2);
+        diagnostics.selected_counts.insert("memory".into(), 2);
         let outcome = KnowledgeRetrievalOutcome {
             results: vec![KnowledgeResult::new(
                 KnowledgeSourceKind::Memory,

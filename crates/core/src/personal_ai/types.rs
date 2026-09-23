@@ -357,13 +357,29 @@ impl ContentPart {
                 }
             }
             ContentPart::Image { mime, caption, .. } => {
-                format!("image[{mime}]{}", caption.as_ref().map(|c| format!(" {c}")).unwrap_or_default())
+                format!(
+                    "image[{mime}]{}",
+                    caption
+                        .as_ref()
+                        .map(|c| format!(" {c}"))
+                        .unwrap_or_default()
+                )
             }
             ContentPart::Audio { mime, .. } => format!("audio[{mime}]"),
             ContentPart::DocumentRef { document_id, title } => {
-                format!("document:{document_id}{}", title.as_ref().map(|t| format!(" ({t})")).unwrap_or_default())
+                format!(
+                    "document:{document_id}{}",
+                    title
+                        .as_ref()
+                        .map(|t| format!(" ({t})"))
+                        .unwrap_or_default()
+                )
             }
-            ContentPart::BoardSnapshot { board_id, stroke_count, .. } => {
+            ContentPart::BoardSnapshot {
+                board_id,
+                stroke_count,
+                ..
+            } => {
                 format!("board:{board_id} ({stroke_count} strokes)")
             }
         }
@@ -412,7 +428,9 @@ impl ModelCapabilities {
             return None;
         }
         if parts.iter().any(ContentPart::requires_vision) && !self.vision {
-            return Some("当前模型不支持图片（vision）；请切换到支持视觉的模型，或用文字描述内容。".into());
+            return Some(
+                "当前模型不支持图片（vision）；请切换到支持视觉的模型，或用文字描述内容。".into(),
+            );
         }
         if parts.iter().any(ContentPart::requires_audio) && !self.audio {
             return Some("当前模型不支持音频；请用文字转写后发送。".into());
@@ -880,7 +898,10 @@ mod tests {
 
         let progress = AgentProgress::failed("personal_ai_provider_error", "模型返回 400");
         assert_eq!(progress.stage, AgentStage::Failed);
-        assert_eq!(progress.error_code.as_deref(), Some("personal_ai_provider_error"));
+        assert_eq!(
+            progress.error_code.as_deref(),
+            Some("personal_ai_provider_error")
+        );
         // 序列化形状：阶段 + detail + error_code；无其它字段。
         let json = serde_json::to_value(&progress).unwrap();
         assert_eq!(json["stage"], "failed");
@@ -896,7 +917,9 @@ mod tests {
     #[test]
     fn content_part_round_trips_all_kinds() {
         let parts = vec![
-            ContentPart::Text { text: "看这道题".into() },
+            ContentPart::Text {
+                text: "看这道题".into(),
+            },
             ContentPart::Image {
                 source: "base64".into(),
                 data: "iVBORw0KGgo=".into(),
@@ -957,7 +980,11 @@ mod tests {
             tool_calling: true,
         };
         assert!(vision.supports(std::slice::from_ref(&image)));
-        assert!(vision.unsupported_reason(std::slice::from_ref(&image)).is_none());
+        assert!(
+            vision
+                .unsupported_reason(std::slice::from_ref(&image))
+                .is_none()
+        );
         // 音频同理。
         let audio = ContentPart::Audio {
             source: "base64".into(),
@@ -990,7 +1017,9 @@ mod tests {
         let request = AgentRequest {
             message: "检查这块板".into(),
             parts: vec![
-                ContentPart::Text { text: "检查这块板".into() },
+                ContentPart::Text {
+                    text: "检查这块板".into(),
+                },
                 ContentPart::BoardSnapshot {
                     board_id: "b1".into(),
                     title: None,

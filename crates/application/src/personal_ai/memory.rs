@@ -19,7 +19,9 @@ use devtoolbox_core::{Action, AgentError, ModuleDescriptor, ToolResult, ToolRisk
 use crate::memory::MemoryService;
 use crate::personal_ai::args::{optional_string, require_string, tool_error, usize_arg};
 use crate::personal_ai::context::{ContextBudget, ContextBundle, ModuleContextProvider};
-use crate::personal_ai::registry::{ModuleRegistration, ModuleRegistry, ToolExecutor, ToolRegistry};
+use crate::personal_ai::registry::{
+    ModuleRegistration, ModuleRegistry, ToolExecutor, ToolRegistry,
+};
 
 const TOOL_SEARCH: &str = "memory.search";
 const TOOL_LIST: &str = "memory.list";
@@ -212,8 +214,9 @@ impl MemoryTools {
     /// 模型路径：**只产生候选**（§14）。返回确认动作供前端执行（§25/§81）。
     pub fn save(&self, arguments: &serde_json::Value) -> Result<ToolResult, AgentError> {
         let content = require_string(arguments, "content")?;
-        let category = category_arg(arguments, "category")?
-            .ok_or_else(|| AgentError::tool_invalid_argument("memory.save: category is required"))?;
+        let category = category_arg(arguments, "category")?.ok_or_else(|| {
+            AgentError::tool_invalid_argument("memory.save: category is required")
+        })?;
         let source_type = source_type_arg(arguments, "source_type")?
             .unwrap_or(MemorySourceType::ConversationCandidate);
         let sensitivity =
@@ -308,9 +311,6 @@ pub fn memory_json(item: &MemoryItem) -> serde_json::Value {
         "needs_confirmation": item.status == MemoryStatus::Candidate,
     })
 }
-
-
-
 
 fn category_arg(
     arguments: &serde_json::Value,

@@ -12,9 +12,7 @@
 
 use std::sync::Arc;
 
-use devtoolbox_core::knowledge::{
-    KnowledgeQuery, KnowledgeResult, KnowledgeSourceKind,
-};
+use devtoolbox_core::knowledge::{KnowledgeQuery, KnowledgeResult, KnowledgeSourceKind};
 use devtoolbox_core::memory::MemoryCategory;
 use devtoolbox_core::personal_ai::AppContext;
 use devtoolbox_core::{AgentError, ModuleDescriptor, ToolResult, ToolRisk, ToolSpec};
@@ -22,7 +20,9 @@ use devtoolbox_core::{AgentError, ModuleDescriptor, ToolResult, ToolRisk, ToolSp
 use crate::knowledge::KnowledgeRetrievalService;
 use crate::personal_ai::args::{require_string, tool_error, usize_arg};
 use crate::personal_ai::context::{ContextBudget, ContextBundle, ModuleContextProvider};
-use crate::personal_ai::registry::{ModuleRegistration, ModuleRegistry, ToolExecutor, ToolRegistry};
+use crate::personal_ai::registry::{
+    ModuleRegistration, ModuleRegistry, ToolExecutor, ToolRegistry,
+};
 
 const TOOL_SEARCH: &str = "knowledge.search";
 
@@ -54,10 +54,11 @@ impl KnowledgeTools {
 fn spec() -> ToolSpec {
     ToolSpec {
         name: TOOL_SEARCH.to_string(),
-        description: "统一检索个人资料（记忆 / 文档 / 文件 / 模块知识），一次查询覆盖全部已启用的知识源，\
+        description:
+            "统一检索个人资料（记忆 / 文档 / 文件 / 模块知识），一次查询覆盖全部已启用的知识源，\
                       结果按相关性排序且每条都带来源（provenance）。\
                       没有命中时必须如实说明「没有找到」，禁止编造。"
-            .to_string(),
+                .to_string(),
         input_schema: serde_json::json!({
             "type": "object",
             "required": ["query"],
@@ -164,7 +165,10 @@ fn ui_blocks(results: &[KnowledgeResult]) -> Vec<serde_json::Value> {
         blocks.push(block(
             "document_list",
             KnowledgeSourceKind::Document,
-            documents.iter().map(|result| document_item(result)).collect(),
+            documents
+                .iter()
+                .map(|result| document_item(result))
+                .collect(),
         ));
     }
     let files = grouped(KnowledgeSourceKind::File);
@@ -178,7 +182,11 @@ fn ui_blocks(results: &[KnowledgeResult]) -> Vec<serde_json::Value> {
     blocks
 }
 
-fn block(kind: &str, source: KnowledgeSourceKind, items: Vec<serde_json::Value>) -> serde_json::Value {
+fn block(
+    kind: &str,
+    source: KnowledgeSourceKind,
+    items: Vec<serde_json::Value>,
+) -> serde_json::Value {
     serde_json::json!({
         "kind": kind,
         "title": format!("相关{}", source.label()),
@@ -189,10 +197,8 @@ fn block(kind: &str, source: KnowledgeSourceKind, items: Vec<serde_json::Value>)
 /// `memory_list` item（§5）；检索结果来自模型可见路径 → 无需确认。
 fn memory_item(result: &KnowledgeResult) -> serde_json::Value {
     let category = meta_str(result, "category");
-    let label = MemoryCategory::parse(&category).map_or_else(
-        || category.clone(),
-        |category| category.label().to_string(),
-    );
+    let label = MemoryCategory::parse(&category)
+        .map_or_else(|| category.clone(), |category| category.label().to_string());
     serde_json::json!({
         "id": result.source_id,
         "category": category,
@@ -252,8 +258,6 @@ fn meta_str(result: &KnowledgeResult, key: &str) -> String {
         .unwrap_or_default()
         .to_string()
 }
-
-
 
 /// `sources` 数组 → 知识源枚举（未知值 → 参数错误，绝不静默忽略）。
 fn sources_arg(arguments: &serde_json::Value) -> Result<Vec<KnowledgeSourceKind>, AgentError> {

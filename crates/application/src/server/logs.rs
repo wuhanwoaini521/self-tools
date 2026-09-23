@@ -28,8 +28,10 @@ static COOKIE: LazyLock<Regex> =
 static BEARER: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"(?i)\bbearer\s+[A-Za-z0-9._\-]{12,}").expect("bearer regex"));
 static CONNECTION: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"(?i)\b(?:postgres(?:ql)?|mysql|mongodb(?:\+srv)?|redis|amqp|mssql)://[^\s/:@]+:[^\s/@]+@")
-        .expect("connection string regex")
+    Regex::new(
+        r"(?i)\b(?:postgres(?:ql)?|mysql|mongodb(?:\+srv)?|redis|amqp|mssql)://[^\s/:@]+:[^\s/@]+@",
+    )
+    .expect("connection string regex")
 });
 static KEY_VALUE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(
@@ -123,8 +125,7 @@ mod tests {
 
     #[test]
     fn structured_fields_keep_key_and_hide_value() {
-        let (text, hits) =
-            LogRedactor::redact_line("Authorization: Bearer abcdef1234567890xyz");
+        let (text, hits) = LogRedactor::redact_line("Authorization: Bearer abcdef1234567890xyz");
         assert!(text.contains("Authorization:"), "键名保留: {text}");
         assert!(!text.contains("abcdef1234567890xyz"), "值必须移除: {text}");
         assert!(hits >= 1);

@@ -264,31 +264,61 @@ impl SafeActionService {
     ) -> Result<ActionOutcome, crate::error::ApplicationError> {
         let started = std::time::Instant::now();
         let Some(mut confirmation) = self.confirmations.get(confirmation_id) else {
-            self.audit_attempt(request, false, ActionOutcome::Denied, Some("unknown_confirmation"), started.elapsed());
+            self.audit_attempt(
+                request,
+                false,
+                ActionOutcome::Denied,
+                Some("unknown_confirmation"),
+                started.elapsed(),
+            );
             return Ok(ActionOutcome::Denied);
         };
         let now = now_unix();
         // §60 一次性。
         if confirmation.state != ConfirmationState::Pending {
-            self.audit_attempt(request, false, ActionOutcome::Denied, Some("confirmation_replay"), started.elapsed());
+            self.audit_attempt(
+                request,
+                false,
+                ActionOutcome::Denied,
+                Some("confirmation_replay"),
+                started.elapsed(),
+            );
             return Ok(ActionOutcome::Denied);
         }
         // §59 过期。
         if now >= confirmation.expires_at {
             confirmation.state = ConfirmationState::Expired;
             self.confirmations.update(confirmation);
-            self.audit_attempt(request, false, ActionOutcome::Expired, Some("confirmation_expired"), started.elapsed());
+            self.audit_attempt(
+                request,
+                false,
+                ActionOutcome::Expired,
+                Some("confirmation_expired"),
+                started.elapsed(),
+            );
             return Ok(ActionOutcome::Expired);
         }
         // §58/§70 TOCTOU：指纹必须逐字节一致。
         if confirmation.request_fingerprint != request.fingerprint() {
-            self.audit_attempt(request, false, ActionOutcome::Denied, Some("fingerprint_mismatch"), started.elapsed());
+            self.audit_attempt(
+                request,
+                false,
+                ActionOutcome::Denied,
+                Some("fingerprint_mismatch"),
+                started.elapsed(),
+            );
             return Ok(ActionOutcome::Denied);
         }
         // §103 跨 client 隔离：票据绑签发时的 session（MCP principal 的 client_id）；
         // 其它 client 拿同一张票据也必须被拒（重放的一种形态）。
         if confirmation.session_id != request.session_id {
-            self.audit_attempt(request, false, ActionOutcome::Denied, Some("session_mismatch"), started.elapsed());
+            self.audit_attempt(
+                request,
+                false,
+                ActionOutcome::Denied,
+                Some("session_mismatch"),
+                started.elapsed(),
+            );
             return Ok(ActionOutcome::Denied);
         }
         // 先标记消费（即使执行失败也不可重放）。
@@ -301,7 +331,13 @@ impl SafeActionService {
                 match self.control.restart(service_id) {
                     Ok(()) => ActionOutcome::Success,
                     Err(code) => {
-                        self.audit_attempt(request, true, ActionOutcome::Failed, Some(&code), started.elapsed());
+                        self.audit_attempt(
+                            request,
+                            true,
+                            ActionOutcome::Failed,
+                            Some(&code),
+                            started.elapsed(),
+                        );
                         return Ok(ActionOutcome::Failed);
                     }
                 }
@@ -313,7 +349,10 @@ impl SafeActionService {
     }
 
     /// 取消一个待确认票据（§62）。
-    pub fn cancel(&self, confirmation_id: &str) -> Result<ActionOutcome, crate::error::ApplicationError> {
+    pub fn cancel(
+        &self,
+        confirmation_id: &str,
+    ) -> Result<ActionOutcome, crate::error::ApplicationError> {
         let Some(mut confirmation) = self.confirmations.get(confirmation_id) else {
             return Ok(ActionOutcome::Denied);
         };
@@ -371,7 +410,13 @@ impl SafeActionService {
         detail: &str,
         started: std::time::Instant,
     ) -> ActionPlan {
-        self.audit_attempt(request, false, ActionOutcome::Denied, Some(reason), started.elapsed());
+        self.audit_attempt(
+            request,
+            false,
+            ActionOutcome::Denied,
+            Some(reason),
+            started.elapsed(),
+        );
         ActionPlan::Denied {
             reason: reason.to_string(),
             detail: detail.to_string(),
@@ -522,7 +567,11 @@ mod tests {
     struct AlwaysDenyPolicy;
 
     impl ActionRiskPolicy for AlwaysDenyPolicy {
-        fn authorize(&self, _action: &RegisteredAction, _trust: SessionTrust) -> ActionAuthorizationDecision {
+        fn authorize(
+            &self,
+            _action: &RegisteredAction,
+            _trust: SessionTrust,
+        ) -> ActionAuthorizationDecision {
             ActionAuthorizationDecision::denied("policy_denied", "策略拒绝")
         }
     }
@@ -609,9 +658,13 @@ mod tests {
         assert_eq!(control.restarts.load(Ordering::SeqCst), 1);
 
         let entries = audit.recent(10);
-        assert!(entries.iter().any(|entry| entry.result == ActionOutcome::Success
-            && entry.confirmed
-            && entry.action_type == "services.restart"));
+        assert!(
+            entries
+                .iter()
+                .any(|entry| entry.result == ActionOutcome::Success
+                    && entry.confirmed
+                    && entry.action_type == "services.restart")
+        );
     }
 
     #[test]
@@ -641,12 +694,16 @@ mod tests {
             panic!("expected confirmation");
         };
         assert_eq!(
-            service.confirm_and_execute(&confirmation.id, &request).expect("first"),
+            service
+                .confirm_and_execute(&confirmation.id, &request)
+                .expect("first"),
             ActionOutcome::Success
         );
         // 重放 → Denied，且不再执行。
         assert_eq!(
-            service.confirm_and_execute(&confirmation.id, &request).expect("replay"),
+            service
+                .confirm_and_execute(&confirmation.id, &request)
+                .expect("replay"),
             ActionOutcome::Denied
         );
         assert_eq!(control.restarts.load(Ordering::SeqCst), 1);
@@ -740,7 +797,11 @@ mod tests {
             .expect("outcome");
         assert_eq!(outcome, ActionOutcome::Failed);
         let entries = audit.recent(10);
-        assert!(entries.iter().any(|entry| entry.result == ActionOutcome::Failed));
+        assert!(
+            entries
+                .iter()
+                .any(|entry| entry.result == ActionOutcome::Failed)
+        );
         assert!(
             entries
                 .iter()
@@ -759,7 +820,9 @@ mod tests {
             panic!("expected confirmation");
         };
         assert_eq!(
-            service.confirm_and_execute(&first.id, &request).expect("first"),
+            service
+                .confirm_and_execute(&first.id, &request)
+                .expect("first"),
             ActionOutcome::Success
         );
         // 第二次（冷却内）：必须 Denied。
@@ -785,7 +848,9 @@ mod tests {
                 panic!("expected confirmation");
             };
             assert_eq!(
-                service.confirm_and_execute(&confirmation.id, &request).expect("ok"),
+                service
+                    .confirm_and_execute(&confirmation.id, &request)
+                    .expect("ok"),
                 ActionOutcome::Success
             );
         }
@@ -797,7 +862,8 @@ mod tests {
 
     #[test]
     fn policy_denial_short_circuits() {
-        let (service, control, _, request) = setup(false, true, Some(Arc::new(AlwaysDenyPolicy)), None);
+        let (service, control, _, request) =
+            setup(false, true, Some(Arc::new(AlwaysDenyPolicy)), None);
         match service.plan(&request, SessionTrust::LocalDesktop) {
             ActionPlan::Denied { reason, .. } => assert_eq!(reason, "policy_denied"),
             other => panic!("expected denied, got {other:?}"),
@@ -840,9 +906,14 @@ mod tests {
         else {
             panic!("expected confirmation");
         };
-        assert_eq!(service.cancel(&confirmation.id).expect("cancel"), ActionOutcome::Cancelled);
         assert_eq!(
-            service.confirm_and_execute(&confirmation.id, &request).expect("after cancel"),
+            service.cancel(&confirmation.id).expect("cancel"),
+            ActionOutcome::Cancelled
+        );
+        assert_eq!(
+            service
+                .confirm_and_execute(&confirmation.id, &request)
+                .expect("after cancel"),
             ActionOutcome::Denied,
             "取消后不得执行"
         );

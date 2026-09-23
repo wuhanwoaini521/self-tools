@@ -394,8 +394,11 @@ mod tests {
 
     #[test]
     fn candidate_from_draft_is_never_active() {
-        let draft = MemoryDraft::new(MemoryCategory::Environment, "  Docker 数据在 /Volumes/Data/docker ")
-            .with_source(MemorySourceType::ExplicitUser, Some("chat:1".into()));
+        let draft = MemoryDraft::new(
+            MemoryCategory::Environment,
+            "  Docker 数据在 /Volumes/Data/docker ",
+        )
+        .with_source(MemorySourceType::ExplicitUser, Some("chat:1".into()));
         let item = MemoryItem::candidate("m1", &draft, 1_000);
         assert_eq!(item.status, MemoryStatus::Candidate);
         assert_eq!(item.content, "Docker 数据在 /Volumes/Data/docker");

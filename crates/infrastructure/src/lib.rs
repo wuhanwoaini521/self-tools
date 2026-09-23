@@ -30,10 +30,8 @@ pub use documents::{
     is_binary, modified_timestamp,
 };
 pub use error::InfrastructureError;
-pub use server::ServerActionAuditSqlite;
-pub use files::{FILES_SCHEMA_VERSION, FileIndexError, FileIndexSqliteStore, LocalFileSystem};
-pub use memory::{MEMORY_SCHEMA_VERSION, MemorySqliteStore};
 pub use feed_fetcher::{FetchedEntry, FetchedFeed, feed_client, fetch_feed, parse_feed};
+pub use files::{FILES_SCHEMA_VERSION, FileIndexError, FileIndexSqliteStore, LocalFileSystem};
 pub use geography::GeographyStore;
 pub use history::{
     DatasetStats, EventEvidenceResult, EventHistoricalTextResult, EventPersonResult,
@@ -44,11 +42,13 @@ pub use history::{
 };
 pub use history_enrichment::EnrichmentSqliteStore;
 pub use language::{LanguageStore, SearchHit, sources};
+pub use memory::{MEMORY_SCHEMA_VERSION, MemorySqliteStore};
 pub use personal_ai::{
-    AiModelConfig, ConversationSqliteStore, OpenAiCompatibleChatModelProvider,
-    decode_tool_name, encode_tool_name, parse_chat_response,
+    AiModelConfig, ConversationSqliteStore, OpenAiCompatibleChatModelProvider, decode_tool_name,
+    encode_tool_name, parse_chat_response,
 };
 pub use rss_store::{ArticleRow, FeedRepository, FeedRow, now_unix};
+pub use server::ServerActionAuditSqlite;
 pub use settings_store::SettingsStore;
 pub use study_board::{STUDY_BOARD_SCHEMA_VERSION, StudyBoardSqliteStore};
 pub use travel::{

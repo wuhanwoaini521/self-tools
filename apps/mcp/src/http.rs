@@ -12,12 +12,12 @@
 use std::net::SocketAddr;
 use std::sync::Arc;
 
+use axum::Router;
 use axum::body::Body;
 use axum::extract::{ConnectInfo, State};
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::Response;
 use axum::routing::post;
-use axum::Router;
 use devtoolbox_application::mcp::{McpAuthError, McpService};
 use devtoolbox_core::mcp::McpCredential;
 
@@ -91,11 +91,7 @@ pub struct HttpState {
 impl HttpState {
     /// 构造共享状态。
     #[must_use]
-    pub fn new(
-        service: Arc<McpService>,
-        loopback_trusted: bool,
-        max_body_bytes: usize,
-    ) -> Self {
+    pub fn new(service: Arc<McpService>, loopback_trusted: bool, max_body_bytes: usize) -> Self {
         Self {
             service,
             loopback_trusted,
@@ -126,7 +122,12 @@ async fn handle_mcp(
         Err(_) => {
             return json_error_frame(
                 StatusCode::OK,
-                &JsonRpcError::new(serde_json::Value::Null, PARSE_ERROR, "parse error".into(), None),
+                &JsonRpcError::new(
+                    serde_json::Value::Null,
+                    PARSE_ERROR,
+                    "parse error".into(),
+                    None,
+                ),
             );
         }
     };
@@ -135,7 +136,10 @@ async fn handle_mcp(
     // 认证（§26/§32）：本地 loopback 可免 bearer（§5 Local != Remote）。
     // 本地受信判定依据**真实对端 IP**（不再靠 header 猜测）。
     // client_id 每请求唯一（§103/§67：同机不同 loopback 客户端不得共享 session）。
-    let principal = if state.loopback_trusted && is_loopback_addr(&peer) && !has_proxy_headers(&headers) {
+    let principal = if state.loopback_trusted
+        && is_loopback_addr(&peer)
+        && !has_proxy_headers(&headers)
+    {
         // 本地 loopback = LOCAL_TRUSTED（§5/§22）：给宽 read scope，
         // 写 / SYSTEM 仍由 exposure 与 SafeAction 把关。
         crate::stdio::local_principal(&format!("http-loopback-{}", next_nonce()))
@@ -247,10 +251,10 @@ async fn handle_mcp(
                 );
             }
             match state.service.call_tool(&principal, name, arguments).await {
-                Ok(invocation) => {
-                    Ok(serde_json::to_value(&crate::stdio::payload_to_result(&invocation))
-                        .unwrap_or_default())
-                }
+                Ok(invocation) => Ok(serde_json::to_value(crate::stdio::payload_to_result(
+                    &invocation,
+                ))
+                .unwrap_or_default()),
                 Err(devtoolbox_application::mcp::McpCallError::Unauthenticated) => {
                     return json_error_frame(
                         StatusCode::UNAUTHORIZED,
@@ -370,12 +374,14 @@ mod tests {
             .body(Body::from(body.to_string()))
             .expect("request");
         // ConnectInfo 从请求扩展读取（测试手动注入）。
-        request
-            .extensions_mut()
-            .insert(ConnectInfo(peer.parse::<std::net::SocketAddr>().expect("peer addr")));
+        request.extensions_mut().insert(ConnectInfo(
+            peer.parse::<std::net::SocketAddr>().expect("peer addr"),
+        ));
         let response = app.oneshot(request).await.expect("response");
         let status = response.status();
-        let bytes = to_bytes(response.into_body(), usize::MAX).await.expect("body");
+        let bytes = to_bytes(response.into_body(), usize::MAX)
+            .await
+            .expect("body");
         (status, String::from_utf8_lossy(&bytes).to_string())
     }
 
@@ -394,12 +400,26 @@ mod tests {
     #[tokio::test]
     async fn loopback_initialize_and_tools_list() {
         let app = build_app(loopback_state());
-        let (status, body) = post_json(app, "/mcp", r#"{"jsonrpc":"2.0","id":1,"method":"initialize"}"#, None, LOOPBACK).await;
+        let (status, body) = post_json(
+            app,
+            "/mcp",
+            r#"{"jsonrpc":"2.0","id":1,"method":"initialize"}"#,
+            None,
+            LOOPBACK,
+        )
+        .await;
         assert_eq!(status, StatusCode::OK);
         assert!(body.contains("2026-07-28"), "{body}");
 
         let app = build_app(loopback_state());
-        let (_, body) = post_json(app, "/mcp", r#"{"jsonrpc":"2.0","id":2,"method":"tools/list"}"#, None, LOOPBACK).await;
+        let (_, body) = post_json(
+            app,
+            "/mcp",
+            r#"{"jsonrpc":"2.0","id":2,"method":"tools/list"}"#,
+            None,
+            LOOPBACK,
+        )
+        .await;
         assert!(body.contains("memory.search"), "{body}");
     }
 
@@ -412,7 +432,14 @@ mod tests {
             loopback_trusted: false,
             max_body_bytes: 1024 * 1_024,
         });
-        let (status, body) = post_json(app, "/mcp", r#"{"jsonrpc":"2.0","id":1,"method":"tools/list"}"#, None, LOOPBACK).await;
+        let (status, body) = post_json(
+            app,
+            "/mcp",
+            r#"{"jsonrpc":"2.0","id":1,"method":"tools/list"}"#,
+            None,
+            LOOPBACK,
+        )
+        .await;
         assert_eq!(status, StatusCode::UNAUTHORIZED);
         assert!(body.contains("-32001"), "{body}");
     }
@@ -454,7 +481,10 @@ mod tests {
         )
         .await;
         assert_eq!(status, StatusCode::UNAUTHORIZED);
-        assert!(!body.contains("super-secret-token"), "token 不得回显: {body}");
+        assert!(
+            !body.contains("super-secret-token"),
+            "token 不得回显: {body}"
+        );
     }
 
     #[tokio::test]
@@ -497,9 +527,9 @@ mod tests {
                 r#"{"jsonrpc":"2.0","id":1,"method":"tools/list"}"#.to_string(),
             ))
             .expect("request");
-        request
-            .extensions_mut()
-            .insert(ConnectInfo(LOOPBACK.parse::<std::net::SocketAddr>().expect("addr")));
+        request.extensions_mut().insert(ConnectInfo(
+            LOOPBACK.parse::<std::net::SocketAddr>().expect("addr"),
+        ));
         let response = app.oneshot(request).await.expect("response");
         assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
     }
@@ -515,7 +545,14 @@ mod tests {
     #[tokio::test]
     async fn unknown_method_is_method_not_found() {
         let app = build_app(loopback_state());
-        let (_, body) = post_json(app, "/mcp", r#"{"jsonrpc":"2.0","id":1,"method":"nope"}"#, None, LOOPBACK).await;
+        let (_, body) = post_json(
+            app,
+            "/mcp",
+            r#"{"jsonrpc":"2.0","id":1,"method":"nope"}"#,
+            None,
+            LOOPBACK,
+        )
+        .await;
         assert!(body.contains("-32601"), "{body}");
     }
 
@@ -616,7 +653,9 @@ mod tests {
         // 对端 IP 是唯一判据（§5：LAN != trusted）。
         assert!(is_loopback_addr(&"127.0.0.1:5000".parse().expect("addr")));
         assert!(is_loopback_addr(&"[::1]:5000".parse().expect("addr")));
-        assert!(!is_loopback_addr(&"192.168.1.50:5000".parse().expect("addr")));
+        assert!(!is_loopback_addr(
+            &"192.168.1.50:5000".parse().expect("addr")
+        ));
         // 代理头让「本地直连」假设失效。
         let mut headers = HeaderMap::new();
         headers.insert("x-forwarded-for", "10.0.0.5".parse().expect("header"));

@@ -12,8 +12,8 @@ pub mod history_enrichment;
 pub mod history_records;
 pub mod knowledge;
 pub mod language;
-pub mod memory;
 pub mod mcp;
+pub mod memory;
 pub mod operations;
 pub mod parser;
 pub mod personal_ai;
@@ -29,11 +29,11 @@ pub mod workspace;
 
 pub use personal_ai::{
     Action, ActionKind, AgentError, AgentErrorKind, AgentMessage, AgentProgress, AgentProgressSink,
-    AgentRequest, AgentResponse, AgentStage, AgentUsage, AppContext, ChatMessage, ChatModelProvider,
-    ChatRequest, ChatResponse, ChatRole, ChatToolCall, ChatToolSpec, ChatUsage, ContentPart,
-    EntityRef, ModelCapabilities, ModuleDescriptor, OrchestrationRunView, OrchestrationTraceView,
-    ProviderError, ProviderErrorKind, SelectionRef, ToolCallRequest, ToolResult, ToolRisk,
-    ToolSpec, ToolTraceEntry, UiBlock, UiBlockKind,
+    AgentRequest, AgentResponse, AgentStage, AgentUsage, AppContext, ChatMessage,
+    ChatModelProvider, ChatRequest, ChatResponse, ChatRole, ChatToolCall, ChatToolSpec, ChatUsage,
+    ContentPart, EntityRef, ModelCapabilities, ModuleDescriptor, OrchestrationRunView,
+    OrchestrationTraceView, ProviderError, ProviderErrorKind, SelectionRef, ToolCallRequest,
+    ToolResult, ToolRisk, ToolSpec, ToolTraceEntry, UiBlock, UiBlockKind,
 };
 
 pub use language::{
@@ -47,8 +47,7 @@ pub use parser::{
 };
 pub use settings::{
     AiSettings, AppSettings, DecisionSettings, GeographySettings, KnowledgeSettings, MarkdownView,
-    McpSettings, ThemeMode,
-    TravelSearchBackend, TravelSettings,
+    McpSettings, ThemeMode, TravelSearchBackend, TravelSettings,
 };
 pub use task_state::{TaskState, TaskStateRegistry, default_registry};
 pub use workspace::WorkspaceFile;

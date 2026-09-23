@@ -4,8 +4,7 @@
 //! 这里**没有**任何 `std::process` 引用——平台调用只存在于适配器。
 
 use devtoolbox_core::server::{
-    ApplicationDescriptor, LogReadResult, ServiceDescriptor, ServiceStatus,
-    SystemMetrics,
+    ApplicationDescriptor, LogReadResult, ServiceDescriptor, ServiceStatus, SystemMetrics,
 };
 use devtoolbox_core::server::{ApplicationStatus, HealthStatus};
 
@@ -45,7 +44,10 @@ pub trait LogTailPort: Send + Sync {
 }
 
 /// 端口错误 → `ApplicationError::Server`（稳定 reason，不回显内容）。
-pub(crate) fn server_error(reason: &str, message: impl Into<String>) -> crate::error::ApplicationError {
+pub(crate) fn server_error(
+    reason: &str,
+    message: impl Into<String>,
+) -> crate::error::ApplicationError {
     crate::error::ApplicationError::Server {
         reason: reason.to_string(),
         message: message.into(),

@@ -3,6 +3,7 @@
 //! Documents 与 Files 是**两件事**（V6 §40）：
 //! - Documents = 已进入 self-tools 知识系统的文档（抽取 + 分块 + 内容检索）；
 //! - Files = 允许根内的文件实体（元数据 + 安全读取 + 打开）。
+//!
 //! 二者物理隔离（不同表、不同端口），本模块只描述 Documents 侧。
 
 use std::path::Path;
@@ -307,7 +308,10 @@ mod tests {
             DocumentType::Markdown
         );
         assert_eq!(detect_document_type(Path::new("a.txt")), DocumentType::Text);
-        assert_eq!(detect_document_type(Path::new("a.json")), DocumentType::Json);
+        assert_eq!(
+            detect_document_type(Path::new("a.json")),
+            DocumentType::Json
+        );
         assert_eq!(detect_document_type(Path::new("a.pdf")), DocumentType::Pdf);
         assert_eq!(
             detect_document_type(Path::new("a.docx")),

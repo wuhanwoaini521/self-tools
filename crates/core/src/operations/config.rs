@@ -11,6 +11,12 @@
 //!
 //! **Safe Defaults（§52）**：远程 MCP OFF、SYSTEM 确认 ON、文件任意访问不可能、
 //! Multi-Agent 有界、Decision/Jev 失败回落开、远程写 fail-closed。
+#![allow(
+    clippy::field_reassign_with_default,
+    clippy::unnecessary_sort_by,
+    clippy::drop_non_drop,
+    clippy::uninlined_format_args
+)]
 
 use std::path::Path;
 
@@ -128,7 +134,8 @@ fn validate_mcp(mcp: &McpSettings, identity_configured: bool) -> Vec<ConfigViola
     }
     if mcp.http_enabled {
         let bind = mcp.bind.trim();
-        let loopback = bind.starts_with("127.") || bind == "localhost" || bind == "::1" || bind == "[::1]";
+        let loopback =
+            bind.starts_with("127.") || bind == "localhost" || bind == "::1" || bind == "[::1]";
         if !loopback && mcp.remote_enabled && !identity_configured {
             violations.push(ConfigViolation::new(
                 "mcp_bind_unsafe",
@@ -206,7 +213,10 @@ fn validate_limits(settings: &AppSettings) -> Vec<ConfigViolation> {
     if decision.max_workers > 32 {
         violations.push(ConfigViolation::new(
             "negative_limit",
-            format!("decision.max_workers={} 超过硬上限 32", decision.max_workers),
+            format!(
+                "decision.max_workers={} 超过硬上限 32",
+                decision.max_workers
+            ),
         ));
     }
     if decision.jev_timeout_secs == 0 || decision.jev_timeout_secs > 60 {
@@ -222,7 +232,10 @@ fn validate_limits(settings: &AppSettings) -> Vec<ConfigViolation> {
     if crate::agents::DecisionMode::parse(&decision.mode).is_none() {
         violations.push(ConfigViolation::new(
             "bad_threshold",
-            format!("decision.mode=\"{}\" 无法解析（rule|jev_shadow|jev_active）", decision.mode),
+            format!(
+                "decision.mode=\"{}\" 无法解析（rule|jev_shadow|jev_active）",
+                decision.mode
+            ),
         ));
     }
     violations
@@ -277,7 +290,10 @@ pub fn validate_startup(settings: &AppSettings, service: &ServiceConfig) -> Conf
     if let Some(violation) = validate_writable_dir(&service.config_dir, "missing_required_dir") {
         violations.push(violation);
     }
-    violations.extend(validate_mcp(&settings.server.mcp, service.identity_configured));
+    violations.extend(validate_mcp(
+        &settings.server.mcp,
+        service.identity_configured,
+    ));
     violations.extend(validate_limits(settings));
     violations.extend(validate_file_roots(settings));
     if violations.is_empty() {
@@ -290,8 +306,8 @@ pub fn validate_startup(settings: &AppSettings, service: &ServiceConfig) -> Conf
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::settings::DecisionSettings;
     use crate::operations::DeployMode;
+    use crate::settings::DecisionSettings;
 
     fn service(bind: &str, mode: DeployMode) -> ServiceConfig {
         let dir = tempfile::tempdir().expect("tempdir");
@@ -309,7 +325,10 @@ mod tests {
     #[test]
     fn loopback_development_passes() {
         let settings = AppSettings::default();
-        let report = validate_startup(&settings, &service("127.0.0.1:8080", DeployMode::Development));
+        let report = validate_startup(
+            &settings,
+            &service("127.0.0.1:8080", DeployMode::Development),
+        );
         assert!(report.is_ok(), "{report:?}");
     }
 
@@ -318,15 +337,24 @@ mod tests {
         let settings = AppSettings::default();
         let report = validate_startup(&settings, &service("127.0.0.1:0", DeployMode::Development));
         let violations = report.expect_err("must fail");
-        assert!(violations.iter().any(|v| v.code == "invalid_port"), "{violations:?}");
+        assert!(
+            violations.iter().any(|v| v.code == "invalid_port"),
+            "{violations:?}"
+        );
     }
 
     #[test]
     fn malformed_bind_is_rejected() {
         let settings = AppSettings::default();
-        let report = validate_startup(&settings, &service("not-an-address", DeployMode::Development));
+        let report = validate_startup(
+            &settings,
+            &service("not-an-address", DeployMode::Development),
+        );
         let violations = report.expect_err("must fail");
-        assert!(violations.iter().any(|v| v.code == "invalid_bind"), "{violations:?}");
+        assert!(
+            violations.iter().any(|v| v.code == "invalid_bind"),
+            "{violations:?}"
+        );
     }
 
     #[test]
@@ -334,7 +362,10 @@ mod tests {
         let settings = AppSettings::default();
         let report = validate_startup(&settings, &service("0.0.0.0:8080", DeployMode::Production));
         let violations = report.expect_err("must fail");
-        assert!(violations.iter().any(|v| v.code == "unsafe_bind"), "{violations:?}");
+        assert!(
+            violations.iter().any(|v| v.code == "unsafe_bind"),
+            "{violations:?}"
+        );
     }
 
     #[test]
@@ -350,10 +381,15 @@ mod tests {
         let mut settings = AppSettings::default();
         settings.server.mcp.remote_enabled = true;
         settings.server.mcp.http_enabled = true;
-        let report = validate_startup(&settings, &service("127.0.0.1:8080", DeployMode::Development));
+        let report = validate_startup(
+            &settings,
+            &service("127.0.0.1:8080", DeployMode::Development),
+        );
         let violations = report.expect_err("must fail");
         assert!(
-            violations.iter().any(|v| v.code == "remote_mcp_without_auth"),
+            violations
+                .iter()
+                .any(|v| v.code == "remote_mcp_without_auth"),
             "{violations:?}"
         );
     }
@@ -375,40 +411,67 @@ mod tests {
             mode: "teleport".into(),
             ..DecisionSettings::default()
         };
-        let report = validate_startup(&settings, &service("127.0.0.1:8080", DeployMode::Development));
+        let report = validate_startup(
+            &settings,
+            &service("127.0.0.1:8080", DeployMode::Development),
+        );
         let violations = report.expect_err("must fail");
-        assert!(violations.iter().any(|v| v.code == "bad_threshold"), "{violations:?}");
+        assert!(
+            violations.iter().any(|v| v.code == "bad_threshold"),
+            "{violations:?}"
+        );
     }
 
     #[test]
     fn bad_confirmation_ttl_is_rejected() {
         let mut settings = AppSettings::default();
         settings.server.confirmation_ttl_secs = 5;
-        let report = validate_startup(&settings, &service("127.0.0.1:8080", DeployMode::Development));
+        let report = validate_startup(
+            &settings,
+            &service("127.0.0.1:8080", DeployMode::Development),
+        );
         let violations = report.expect_err("must fail");
-        assert!(violations.iter().any(|v| v.code == "bad_threshold"), "{violations:?}");
+        assert!(
+            violations.iter().any(|v| v.code == "bad_threshold"),
+            "{violations:?}"
+        );
     }
 
     #[test]
     fn out_of_range_threshold_is_rejected() {
         let mut settings = AppSettings::default();
         settings.server.thresholds.cpu_warn_ratio = 1.5;
-        let report = validate_startup(&settings, &service("127.0.0.1:8080", DeployMode::Development));
+        let report = validate_startup(
+            &settings,
+            &service("127.0.0.1:8080", DeployMode::Development),
+        );
         let violations = report.expect_err("must fail");
-        assert!(violations.iter().any(|v| v.code == "bad_threshold"), "{violations:?}");
+        assert!(
+            violations.iter().any(|v| v.code == "bad_threshold"),
+            "{violations:?}"
+        );
     }
 
     #[test]
     fn missing_file_root_is_rejected() {
         let mut settings = AppSettings::default();
-        settings.knowledge.file_roots.push(crate::files::KnowledgeRoot::new(
-            "ghost",
-            "不存在",
-            "/definitely/not/here/self-tools-test",
-        ));
-        let report = validate_startup(&settings, &service("127.0.0.1:8080", DeployMode::Development));
+        settings
+            .knowledge
+            .file_roots
+            .push(crate::files::KnowledgeRoot::new(
+                "ghost",
+                "不存在",
+                "/definitely/not/here/self-tools-test",
+            ));
+        let report = validate_startup(
+            &settings,
+            &service("127.0.0.1:8080", DeployMode::Development),
+        );
         let violations = report.expect_err("must fail");
-        assert!(violations.iter().any(|v| v.code == "invalid_path"), "{violations:?}");
+        assert!(
+            violations.iter().any(|v| v.code == "invalid_path"),
+            "{violations:?}"
+        );
     }
 
     #[test]
@@ -424,6 +487,9 @@ mod tests {
             .map(|v| format!("{} {}", v.code, v.detail))
             .collect::<Vec<_>>()
             .join("\n");
-        assert!(!text.contains("ts_super_secret_key"), "校验输出不得含 key: {text}");
+        assert!(
+            !text.contains("ts_super_secret_key"),
+            "校验输出不得含 key: {text}"
+        );
     }
 }

@@ -169,6 +169,7 @@ impl KnowledgeResult {
 /// 检索请求（§58：query + sources + limit）。
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
+#[derive(Default)]
 pub struct KnowledgeQuery {
     pub query: String,
     /// 限定知识源（空 = 全部）。
@@ -180,17 +181,6 @@ pub struct KnowledgeQuery {
     /// 本次上限（缺省取预算 `max_results`）。
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub limit: Option<usize>,
-}
-
-impl Default for KnowledgeQuery {
-    fn default() -> Self {
-        Self {
-            query: String::new(),
-            sources: Vec::new(),
-            module: None,
-            limit: None,
-        }
-    }
 }
 
 impl KnowledgeQuery {
@@ -344,7 +334,10 @@ mod tests {
             assert_eq!(back, kind);
             assert!(!kind.label().is_empty());
         }
-        assert_eq!(KnowledgeSourceKind::parse("DOCUMENT"), Some(KnowledgeSourceKind::Document));
+        assert_eq!(
+            KnowledgeSourceKind::parse("DOCUMENT"),
+            Some(KnowledgeSourceKind::Document)
+        );
         assert_eq!(KnowledgeSourceKind::parse("nope"), None);
     }
 

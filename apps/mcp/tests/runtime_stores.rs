@@ -7,8 +7,8 @@
 
 use devtoolbox_application::personal_ai::registry::ToolRegistry;
 use devtoolbox_application::server::ports::SystemMetricsProvider;
-use devtoolbox_core::memory::{MemoryCategory, MemoryDraft};
 use devtoolbox_core::mcp::{McpCredential, McpTrustLevel};
+use devtoolbox_core::memory::{MemoryCategory, MemoryDraft};
 use devtoolbox_infrastructure::MemorySqliteStore;
 
 use devtoolbox_mcp::compose::{BuildOptions, build};
@@ -48,7 +48,8 @@ async fn mcp_reads_the_same_memory_store_as_the_agent() {
     let service = composition.service();
     let principal = devtoolbox_core::mcp::McpPrincipal::local("runtime-gate");
     let mut principal = principal;
-    principal.scopes = vec![devtoolbox_core::mcp::McpScope::parse("selftools.read").expect("scope")];
+    principal.scopes =
+        vec![devtoolbox_core::mcp::McpScope::parse("selftools.read").expect("scope")];
     let invocation = service
         .call_tool(
             &principal,
@@ -59,7 +60,10 @@ async fn mcp_reads_the_same_memory_store_as_the_agent() {
         .expect("call");
     assert!(!invocation.is_error, "{:?}", invocation.payload);
     let text = invocation.payload.to_string();
-    assert!(text.contains("/Volumes/Data/docker"), "必须读到真实 store 数据: {text}");
+    assert!(
+        text.contains("/Volumes/Data/docker"),
+        "必须读到真实 store 数据: {text}"
+    );
     assert!(!text.contains("没有找到"), "不得静默空结果");
 }
 
@@ -94,7 +98,10 @@ fn memory_store_adapter_shares_one_database() {
         devtoolbox_mcp::compose::MemoryStoreAdapter::new(store),
     ));
     let found = service.get(&id, true).expect("get");
-    assert!(found.content.contains("macOS"), "同一 store 同一数据: {found:?}");
+    assert!(
+        found.content.contains("macOS"),
+        "同一 store 同一数据: {found:?}"
+    );
     let _ = TestHarness::new();
 }
 

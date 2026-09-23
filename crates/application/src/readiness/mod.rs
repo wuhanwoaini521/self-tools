@@ -7,9 +7,9 @@ pub mod probes;
 pub mod service;
 
 pub use probes::{
-    AiProviderProbe, BackupProbe, BackendProbe, DatabaseProbe, DecisionProbe, DeviceSessionProbe,
-    FileRootsProbe, HomeServerProbe, JevProbe, McpLocalProbe, McpRemoteProbe, PwaSecureContextProbe,
-    SearchProbe, VisionProbe, default_probes,
+    AiProviderProbe, BackendProbe, BackupProbe, DatabaseProbe, DecisionProbe, DeviceSessionProbe,
+    FileRootsProbe, HomeServerProbe, JevProbe, McpLocalProbe, McpRemoteProbe,
+    PwaSecureContextProbe, SearchProbe, VisionProbe, default_probes,
 };
 pub use service::{ReadinessProbe, ReadinessService};
 

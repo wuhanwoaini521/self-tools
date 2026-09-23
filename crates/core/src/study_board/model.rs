@@ -277,7 +277,10 @@ mod tests {
         assert_eq!(summary, "2 条矢量笔画（坐标由前端渲染，不在此展示）");
         assert!(!summary.contains("0, 0"), "摘要不得含坐标点");
         assert!(summary.chars().count() <= STROKE_SUMMARY_MAX_CHARS);
-        assert_eq!(strokes_summary(&serde_json::Value::Null), "空学习板（无笔画）");
+        assert_eq!(
+            strokes_summary(&serde_json::Value::Null),
+            "空学习板（无笔画）"
+        );
         assert_eq!(strokes_summary(&json!([])), "空学习板（无笔画）");
         // 裸数组笔画也被计数（前端旧形状）。
         assert_eq!(stroke_count(&json!([[[0, 0], [1, 1]]])), 1);
@@ -292,14 +295,8 @@ mod tests {
 
     #[test]
     fn snapshot_summary_is_bounded_on_construction() {
-        let snapshot = StudyBoardSnapshot::new(
-            "snap-1",
-            "b-1",
-            "标题",
-            None,
-            "板".repeat(20_000),
-            3_000,
-        );
+        let snapshot =
+            StudyBoardSnapshot::new("snap-1", "b-1", "标题", None, "板".repeat(20_000), 3_000);
         assert_eq!(
             snapshot.strokes_summary.chars().count(),
             STROKE_SUMMARY_MAX_CHARS

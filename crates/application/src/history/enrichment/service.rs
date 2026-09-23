@@ -46,8 +46,6 @@ impl Default for EnrichmentConfig {
     }
 }
 
-/// 把 LLM 生成的来源 id 白名单。
-
 /// History 富化服务。`ensure` 单飞（同一 key 并发只 1 次 search + 1 次 generation，§30）。
 pub struct HistoryEnrichmentService {
     store: Arc<dyn EnrichmentStore>,

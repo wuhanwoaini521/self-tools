@@ -68,7 +68,10 @@ impl ReadinessService {
     /// 逐项诊断（§127）：与 `report()` 共用一次探测结果，仍为只读。
     #[must_use]
     pub fn diagnostics(&self) -> Vec<DiagnosticCheck> {
-        self.probe_all().into_iter().map(DiagnosticCheck::from).collect()
+        self.probe_all()
+            .into_iter()
+            .map(DiagnosticCheck::from)
+            .collect()
     }
 
     /// 执行全部探测。单个探测 panic 视为该项 `Failed`，其余探测照常执行
@@ -78,16 +81,14 @@ impl ReadinessService {
             .probes
             .iter()
             .map(|probe| {
-                std::panic::catch_unwind(AssertUnwindSafe(|| probe.probe())).unwrap_or_else(
-                    |_| {
-                        ReadinessCheck::with_label(
-                            FALLBACK_CHECK_ID.to_string(),
-                            "后端探测".to_string(),
-                            ReadinessStatus::Failed,
-                            "探测执行失败",
-                        )
-                    },
-                )
+                std::panic::catch_unwind(AssertUnwindSafe(|| probe.probe())).unwrap_or_else(|_| {
+                    ReadinessCheck::with_label(
+                        FALLBACK_CHECK_ID.to_string(),
+                        "后端探测".to_string(),
+                        ReadinessStatus::Failed,
+                        "探测执行失败",
+                    )
+                })
             })
             .collect();
         sort_stable(&mut checks);
@@ -98,13 +99,12 @@ impl ReadinessService {
 /// 按 `ReadinessCheckId::ALL` 的契约顺序稳定排序；未知 id 保持相对顺序置尾。
 fn sort_stable(checks: &mut [ReadinessCheck]) {
     let rank = |check: &ReadinessCheck| {
-        ReadinessCheckId::parse(&check.id)
-            .map_or(ReadinessCheckId::ALL.len(), |id| {
-                ReadinessCheckId::ALL
-                    .iter()
-                    .position(|candidate| *candidate == id)
-                    .unwrap_or(ReadinessCheckId::ALL.len())
-            })
+        ReadinessCheckId::parse(&check.id).map_or(ReadinessCheckId::ALL.len(), |id| {
+            ReadinessCheckId::ALL
+                .iter()
+                .position(|candidate| *candidate == id)
+                .unwrap_or(ReadinessCheckId::ALL.len())
+        })
     };
     checks.sort_by_key(rank);
 }

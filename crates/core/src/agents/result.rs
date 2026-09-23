@@ -294,7 +294,7 @@ mod tests {
             DelegationStatus::TimedOut
         );
         assert!(
-            DelegationStatus::from_run(AgentRunState::Running).is_usable() == false,
+            !DelegationStatus::from_run(AgentRunState::Running).is_usable(),
             "未完成的结果不可用"
         );
         assert!(DelegationStatus::Partial.is_usable(), "PARTIAL 仍可用");
@@ -370,8 +370,16 @@ mod tests {
 
     #[test]
     fn token_usage_accumulates() {
-        let left = TokenUsage { input_tokens: 10, output_tokens: 5, total_tokens: 15 };
-        let right = TokenUsage { input_tokens: 1, output_tokens: 1, total_tokens: 2 };
+        let left = TokenUsage {
+            input_tokens: 10,
+            output_tokens: 5,
+            total_tokens: 15,
+        };
+        let right = TokenUsage {
+            input_tokens: 1,
+            output_tokens: 1,
+            total_tokens: 2,
+        };
         assert_eq!(left.combine(right).total_tokens, 17);
     }
 }

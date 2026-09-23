@@ -61,6 +61,7 @@ pub fn build_provider(client: reqwest::Client, ai: &AiSettings) -> Arc<dyn ChatM
 ///
 /// 模块接入一律走 `ModuleDescriptor + tools + ContextProvider + register_*`
 /// （V6 §99/§100）：`PersonalAgent` 核心不含任何模块业务分支。
+#[allow(clippy::too_many_arguments)]
 pub fn build_hub(
     history: Arc<HistoryDuckDbRepository>,
     runner: Option<Arc<dyn devtoolbox_application::history::enrichment::EnrichmentRunnerPort>>,
@@ -360,12 +361,7 @@ mod tests {
         // 风险面：SYSTEM 语义不在工具上（工具全 Read）；写入口只有 confirm_action。
         for spec in hub.tools.specs() {
             if spec.module == "server" {
-                assert_eq!(
-                    spec.risk,
-                    devtoolbox_core::ToolRisk::Read,
-                    "{}",
-                    spec.name
-                );
+                assert_eq!(spec.risk, devtoolbox_core::ToolRisk::Read, "{}", spec.name);
             }
         }
     }

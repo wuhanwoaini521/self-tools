@@ -128,10 +128,7 @@ impl DocumentService {
             root_id: root.id.clone(),
             ..IndexReport::default()
         };
-        let (scanned, truncated) = self
-            .source
-            .scan_root(root, settings.max_indexed_files)
-            ?;
+        let (scanned, truncated) = self.source.scan_root(root, settings.max_indexed_files)?;
         report.scanned = scanned.len();
         report.truncated = truncated;
 
@@ -141,8 +138,7 @@ impl DocumentService {
         };
         let existing: std::collections::HashMap<String, (u64, i64)> = self
             .index
-            .fingerprints(&root.id)
-            ?
+            .fingerprints(&root.id)?
             .into_iter()
             .map(|fingerprint| {
                 (
@@ -178,7 +174,9 @@ impl DocumentService {
                 now,
                 &deny_policy,
             ) {
-                Ok(IndexOutcome::Indexed { metadata_only: true }) => report.metadata_only += 1,
+                Ok(IndexOutcome::Indexed {
+                    metadata_only: true,
+                }) => report.metadata_only += 1,
                 Ok(IndexOutcome::Indexed {
                     metadata_only: false,
                 }) => report.indexed += 1,
@@ -190,9 +188,7 @@ impl DocumentService {
         // 清理已消失的文件（只清索引，不动文件系统，§88）。
         for (relative, _) in existing {
             if !seen.contains(&relative) {
-                self.index
-                    .remove(&document_id(&root.id, &relative))
-                    ?;
+                self.index.remove(&document_id(&root.id, &relative))?;
                 report.removed += 1;
             }
         }
@@ -246,17 +242,21 @@ impl DocumentService {
             });
         }
 
-        let extracted = match self.source.extract(path, document_type, chunk_config.max_document_bytes) {
-            Ok(extracted) => extracted,
-            Err(error) => {
-                // §91：单文件失败不拖垮整轮索引，但如实记录原因。
-                let mut meta = meta_base;
-                meta.index_error = Some(error.0);
-                self.index.upsert(&meta)?;
-                self.index.replace_chunks(&id, &[])?;
-                return Ok(IndexOutcome::Failed);
-            }
-        };
+        let extracted =
+            match self
+                .source
+                .extract(path, document_type, chunk_config.max_document_bytes)
+            {
+                Ok(extracted) => extracted,
+                Err(error) => {
+                    // §91：单文件失败不拖垮整轮索引，但如实记录原因。
+                    let mut meta = meta_base;
+                    meta.index_error = Some(error.0);
+                    self.index.upsert(&meta)?;
+                    self.index.replace_chunks(&id, &[])?;
+                    return Ok(IndexOutcome::Failed);
+                }
+            };
 
         match extracted {
             ExtractedContent::Text(text) => {
@@ -265,9 +265,7 @@ impl DocumentService {
                 meta.chunk_count = chunks.len();
                 meta.content_available = !chunks.is_empty();
                 self.index.upsert(&meta)?;
-                self.index
-                    .replace_chunks(&id, &chunks)
-                    ?;
+                self.index.replace_chunks(&id, &chunks)?;
                 Ok(IndexOutcome::Indexed {
                     metadata_only: !meta.content_available,
                 })
@@ -277,7 +275,9 @@ impl DocumentService {
                 meta.index_error = Some(reason);
                 self.index.upsert(&meta)?;
                 self.index.replace_chunks(&id, &[])?;
-                Ok(IndexOutcome::Indexed { metadata_only: true })
+                Ok(IndexOutcome::Indexed {
+                    metadata_only: true,
+                })
             }
         }
     }
@@ -299,14 +299,13 @@ impl DocumentService {
             limit
         };
         let tokens = keywords(query);
-        let candidates = self
-            .index
-            .search_candidates(
-                &tokens,
-                document_type,
-                limit.saturating_mul(self.config.candidate_factor).max(limit),
-            )
-            ?;
+        let candidates = self.index.search_candidates(
+            &tokens,
+            document_type,
+            limit
+                .saturating_mul(self.config.candidate_factor)
+                .max(limit),
+        )?;
         let mut hits: Vec<DocumentHit> = candidates
             .into_iter()
             // §4.3：deny 命中的文档不进模型检索结果（与 Files `include_restricted=false` 对齐）。
@@ -336,8 +335,7 @@ impl DocumentService {
 
     pub fn get(&self, document_id: &str) -> Result<DocumentMeta, ApplicationError> {
         self.index
-            .get(document_id)
-            ?
+            .get(document_id)?
             .ok_or_else(|| documents_error(format!("文档 `{document_id}` 不存在")))
     }
 
@@ -402,7 +400,12 @@ impl DocumentService {
             return Ok(single_chunk_result(&meta, chunk, max_chars));
         }
 
-        if let Some(section) = request.section.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+        if let Some(section) = request
+            .section
+            .as_deref()
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+        {
             let needle = normalize(section);
             // 按 chunk 归属章节筛选（一个 chunk 只归属一个章节标题，§37）。
             let matched: Vec<&DocumentChunk> = chunks
@@ -458,19 +461,14 @@ impl DocumentService {
     }
 
     /// 检索命中 → 统一结果（provenance 保留文档 id + 位置）。
-    pub fn to_knowledge_results(
-        &self,
-        hits: &[DocumentHit],
-        query: &str,
-    ) -> Vec<KnowledgeResult> {
+    pub fn to_knowledge_results(&self, hits: &[DocumentHit], query: &str) -> Vec<KnowledgeResult> {
         let tokens = keywords(query);
         hits.iter()
             .map(|hit| {
                 let score = document_score(hit, &tokens);
-                let location = hit
-                    .location
-                    .clone()
-                    .unwrap_or_else(|| format!("chunk#{}", hit.chunk_id.clone().unwrap_or_default()));
+                let location = hit.location.clone().unwrap_or_else(|| {
+                    format!("chunk#{}", hit.chunk_id.clone().unwrap_or_default())
+                });
                 KnowledgeResult::new(
                     KnowledgeSourceKind::Document,
                     hit.meta.document_id.clone(),
@@ -573,11 +571,12 @@ fn range_result(
         }
         // 起始 chunk 的 section 属于前文（读取点在其中段），用**后续** chunk 的
         // 第一个 section 覆盖 —— 那才是读取区间真正落入的章节。
-        if pending_section && !just_started {
-            if let Some(section) = chunk.location.section.clone() {
-                location.section = Some(section);
-                pending_section = false;
-            }
+        if pending_section
+            && !just_started
+            && let Some(section) = chunk.location.section.clone()
+        {
+            location.section = Some(section);
+            pending_section = false;
         }
         just_started = false;
         chunk_ids.push(chunk.chunk_id.clone());
@@ -606,7 +605,11 @@ pub fn document_score(hit: &DocumentHit, tokens: &[String]) -> f32 {
     let body_normalized = normalize(&hit.snippet);
     let title_coverage = coverage(&title_normalized, tokens);
     let body_coverage = coverage(&body_normalized, tokens);
-    let length_bonus = if hit.meta.content_available { 0.05 } else { 0.0 };
+    let length_bonus = if hit.meta.content_available {
+        0.05
+    } else {
+        0.0
+    };
     (base + 0.2 * title_coverage + 0.1 * body_coverage + length_bonus).clamp(0.0, 1.0)
 }
 

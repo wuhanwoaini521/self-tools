@@ -107,9 +107,7 @@ impl ReadinessCheckId {
     #[must_use]
     pub fn parse(raw: &str) -> Option<Self> {
         let trimmed = raw.trim();
-        Self::ALL
-            .into_iter()
-            .find(|id| id.as_str() == trimmed)
+        Self::ALL.into_iter().find(|id| id.as_str() == trimmed)
     }
 }
 
@@ -167,7 +165,12 @@ impl ReadinessCheck {
     /// 以稳定 id 构造（label 取 `ReadinessCheckId::label`）。
     #[must_use]
     pub fn new(id: ReadinessCheckId, status: ReadinessStatus, detail: impl Into<String>) -> Self {
-        Self::with_label(id.as_str().to_string(), id.label().to_string(), status, detail)
+        Self::with_label(
+            id.as_str().to_string(),
+            id.label().to_string(),
+            status,
+            detail,
+        )
     }
 
     /// 完全自定义（测试 / 特殊探测用）。
@@ -226,9 +229,7 @@ impl ReadinessReport {
 
     #[must_use]
     pub fn check(&self, id: ReadinessCheckId) -> Option<&ReadinessCheck> {
-        self.checks
-            .iter()
-            .find(|check| check.id == id.as_str())
+        self.checks.iter().find(|check| check.id == id.as_str())
     }
 }
 
@@ -316,10 +317,7 @@ mod tests {
             "pwa_secure_context",
             "device_session",
         ];
-        let actual: Vec<&str> = ReadinessCheckId::ALL
-            .iter()
-            .map(|id| id.as_str())
-            .collect();
+        let actual: Vec<&str> = ReadinessCheckId::ALL.iter().map(|id| id.as_str()).collect();
         assert_eq!(actual, expected);
     }
 
@@ -329,7 +327,10 @@ mod tests {
             assert_eq!(ReadinessCheckId::parse(id.as_str()), Some(id));
         }
         assert_eq!(ReadinessCheckId::parse("unknown"), None);
-        assert_eq!(ReadinessCheckId::parse("  backend  "), Some(ReadinessCheckId::Backend));
+        assert_eq!(
+            ReadinessCheckId::parse("  backend  "),
+            Some(ReadinessCheckId::Backend)
+        );
     }
 
     #[test]
@@ -342,12 +343,20 @@ mod tests {
 
     #[test]
     fn check_new_fills_label_and_blocking_from_status() {
-        let failed = ReadinessCheck::new(ReadinessCheckId::Database, ReadinessStatus::Failed, "连接失败");
+        let failed = ReadinessCheck::new(
+            ReadinessCheckId::Database,
+            ReadinessStatus::Failed,
+            "连接失败",
+        );
         assert_eq!(failed.id, "database");
         assert_eq!(failed.label, "本地数据库");
         assert!(failed.blocking);
 
-        let degraded = ReadinessCheck::new(ReadinessCheckId::Search, ReadinessStatus::Degraded, "部分降级");
+        let degraded = ReadinessCheck::new(
+            ReadinessCheckId::Search,
+            ReadinessStatus::Degraded,
+            "部分降级",
+        );
         assert!(!degraded.blocking);
     }
 
@@ -364,7 +373,8 @@ mod tests {
         ));
         assert_eq!(aggregate_status(&checks), ReadinessStatus::Ready);
 
-        checks[1] = ReadinessCheck::new(ReadinessCheckId::Search, ReadinessStatus::Degraded, "降级");
+        checks[1] =
+            ReadinessCheck::new(ReadinessCheckId::Search, ReadinessStatus::Degraded, "降级");
         assert_eq!(aggregate_status(&checks), ReadinessStatus::Degraded);
 
         checks[1] = ReadinessCheck::new(ReadinessCheckId::Search, ReadinessStatus::Failed, "失败");
@@ -395,7 +405,10 @@ mod tests {
             .generated_at(1_700_000_000);
         assert_eq!(report.overall, ReadinessStatus::Ready);
         assert_eq!(report.generated_at, 1_700_000_000);
-        assert_eq!(report.check(ReadinessCheckId::Backend).unwrap().status, ReadinessStatus::Ready);
+        assert_eq!(
+            report.check(ReadinessCheckId::Backend).unwrap().status,
+            ReadinessStatus::Ready
+        );
         assert!(report.check(ReadinessCheckId::Database).is_none());
     }
 

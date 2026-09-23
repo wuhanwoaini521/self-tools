@@ -14,8 +14,8 @@ use devtoolbox_application::mcp::{McpAuthError, McpCallError, McpService};
 use devtoolbox_core::mcp::{McpCredential, McpPrincipal};
 
 use crate::protocol::{
-    ContentBlock, INVALID_PARAMS, INTERNAL_ERROR, JsonRpcError, JsonRpcRequest,
-    JsonRpcResponse, METHOD_NOT_FOUND, MCP_PROTOCOL_VERSION, PARSE_ERROR, SERVER_NAME, SERVER_VERSION,
+    ContentBlock, INTERNAL_ERROR, INVALID_PARAMS, JsonRpcError, JsonRpcRequest, JsonRpcResponse,
+    MCP_PROTOCOL_VERSION, METHOD_NOT_FOUND, PARSE_ERROR, SERVER_NAME, SERVER_VERSION,
     ToolCallResult, ToolsListResult,
 };
 
@@ -62,7 +62,7 @@ impl StdioServer {
             if trimmed.is_empty() {
                 continue;
             }
-            let Some(response) = self.handle_line(trimmed, principal, &runtime) else {
+            let Some(response) = self.handle_line(trimmed, principal, runtime) else {
                 continue; // 通知：不响应
             };
             writeln!(out, "{}", response.to_line())?;
@@ -106,9 +106,9 @@ impl StdioServer {
             })),
             "ping" => Ok(serde_json::json!({})),
             "tools/list" => self.list_tools(principal),
-            "tools/call" => runtime.block_on(async {
-                self.call_tool(principal, request.params.as_ref()).await
-            }),
+            "tools/call" => {
+                runtime.block_on(async { self.call_tool(principal, request.params.as_ref()).await })
+            }
             other => Err(JsonRpcError::new(
                 id.clone(),
                 METHOD_NOT_FOUND,
@@ -142,10 +142,7 @@ impl StdioServer {
                     .collect();
                 Ok(serde_json::to_value(ToolsListResult { tools }).unwrap_or_default())
             }
-            Err(error) => Err(auth_error(
-                serde_json::Value::Null,
-                error,
-            )),
+            Err(error) => Err(auth_error(serde_json::Value::Null, error)),
         }
     }
 
@@ -183,9 +180,9 @@ impl StdioServer {
             ));
         }
         match self.service.call_tool(principal, name, arguments).await {
-            Ok(invocation) => Ok(
-                serde_json::to_value(&payload_to_result(&invocation)).unwrap_or_default(),
-            ),
+            Ok(invocation) => {
+                Ok(serde_json::to_value(payload_to_result(&invocation)).unwrap_or_default())
+            }
             Err(McpCallError::Unauthenticated) => Err(JsonRpcError::new(
                 serde_json::Value::Null,
                 crate::protocol::UNAUTHENTICATED,
@@ -204,24 +201,21 @@ impl StdioServer {
                 format!("unknown tool: {tool}"),
                 None,
             )),
-            Err(McpCallError::InvalidParams(detail)) => {
-                Err(JsonRpcError::new(
-                    serde_json::Value::Null,
-                    INVALID_PARAMS,
-                    format!("invalid params: {detail}"),
-                    None,
-                ))
-            }
+            Err(McpCallError::InvalidParams(detail)) => Err(JsonRpcError::new(
+                serde_json::Value::Null,
+                INVALID_PARAMS,
+                format!("invalid params: {detail}"),
+                None,
+            )),
             Err(McpCallError::PayloadTooLarge) => Err(JsonRpcError::new(
                 serde_json::Value::Null,
                 INVALID_PARAMS,
                 "payload too large".into(),
                 None,
             )),
-            Err(McpCallError::ToolFailed(message)) => Ok(serde_json::to_value(
-                ToolCallResult::error(message),
-            )
-            .unwrap_or_default()),
+            Err(McpCallError::ToolFailed(message)) => {
+                Ok(serde_json::to_value(ToolCallResult::error(message)).unwrap_or_default())
+            }
         }
     }
 }
@@ -267,8 +261,8 @@ pub fn local_principal(client_id: &str) -> McpPrincipal {
     let mut principal = McpPrincipal::local(client_id);
     // 本地 STDIO 默认给宽 read scope（§69：READ 全允许）；
     // 写 / SYSTEM scope 由 exposure 与 SafeAction 继续把关。
-    principal.scopes = vec![devtoolbox_core::mcp::McpScope::parse("selftools.read")
-        .expect("builtin scope")];
+    principal.scopes =
+        vec![devtoolbox_core::mcp::McpScope::parse("selftools.read").expect("builtin scope")];
     principal
 }
 
@@ -294,7 +288,12 @@ mod tests {
             .expect("runtime");
         let mut out: Vec<u8> = Vec::new();
         server
-            .serve_with(&runtime, Cursor::new(input), &mut out, &local_principal("test"))
+            .serve_with(
+                &runtime,
+                Cursor::new(input),
+                &mut out,
+                &local_principal("test"),
+            )
             .expect("serve");
         String::from_utf8(out).expect("utf8")
     }
@@ -329,7 +328,10 @@ mod tests {
 
     #[test]
     fn notifications_produce_no_response() {
-        assert!(serve_input("{\"jsonrpc\":\"2.0\",\"method\":\"notifications/initialized\"}\n").is_empty());
+        assert!(
+            serve_input("{\"jsonrpc\":\"2.0\",\"method\":\"notifications/initialized\"}\n")
+                .is_empty()
+        );
     }
 
     #[test]

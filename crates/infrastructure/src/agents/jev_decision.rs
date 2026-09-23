@@ -86,7 +86,11 @@ impl JevConfig {
     }
 
     fn timeout(&self) -> Duration {
-        Duration::from_secs(self.timeout_secs.unwrap_or(DEFAULT_TIMEOUT_SECS).clamp(1, 60))
+        Duration::from_secs(
+            self.timeout_secs
+                .unwrap_or(DEFAULT_TIMEOUT_SECS)
+                .clamp(1, 60),
+        )
     }
 }
 
@@ -155,7 +159,10 @@ fn review_question() -> JevQuestion {
 #[async_trait]
 pub trait JevTransport: Send + Sync {
     /// 发起一次评估；实现方必须自带超时。
-    async fn evaluate(&self, body: &JevRequestBody) -> Result<JevResponseBody, DecisionProviderError>;
+    async fn evaluate(
+        &self,
+        body: &JevRequestBody,
+    ) -> Result<JevResponseBody, DecisionProviderError>;
 }
 
 /// Jev HTTP 传输（生产实现；key 只进 header，不进日志）。
@@ -173,7 +180,10 @@ impl JevHttpTransport {
 
 #[async_trait]
 impl JevTransport for JevHttpTransport {
-    async fn evaluate(&self, body: &JevRequestBody) -> Result<JevResponseBody, DecisionProviderError> {
+    async fn evaluate(
+        &self,
+        body: &JevRequestBody,
+    ) -> Result<JevResponseBody, DecisionProviderError> {
         let url = format!("{}/v1/systemone", self.config.base());
         let mut builder = self
             .client
@@ -271,7 +281,10 @@ impl JevDecisionProvider {
     /// 从 HTTP client 构造（生产路径）。
     #[must_use]
     pub fn http(client: reqwest::Client, config: JevConfig) -> Self {
-        Self::new(Arc::new(JevHttpTransport::new(client, config.clone())), config)
+        Self::new(
+            Arc::new(JevHttpTransport::new(client, config.clone())),
+            config,
+        )
     }
 
     /// 构造请求体（导出供测试断言序列化形状）。
@@ -304,7 +317,10 @@ impl DecisionProvider for JevDecisionProvider {
         self.config.is_configured()
     }
 
-    async fn decide(&self, request: &DecisionRequest) -> Result<DecisionResult, DecisionProviderError> {
+    async fn decide(
+        &self,
+        request: &DecisionRequest,
+    ) -> Result<DecisionResult, DecisionProviderError> {
         if !self.config.is_configured() {
             return Err(DecisionProviderError::unavailable(
                 "jev api key is not configured",
@@ -329,8 +345,11 @@ impl DecisionProvider for JevDecisionProvider {
 }
 
 /// 从 choice 答案解析策略；缺失 / 非法 / 未知选项 → InvalidResponse（§28）。
-fn parse_strategy_answer(answer: Option<&serde_json::Value>) -> Result<DecisionStrategy, DecisionProviderError> {
-    let answer = answer.ok_or_else(|| DecisionProviderError::invalid_response("missing strategy answer"))?;
+fn parse_strategy_answer(
+    answer: Option<&serde_json::Value>,
+) -> Result<DecisionStrategy, DecisionProviderError> {
+    let answer =
+        answer.ok_or_else(|| DecisionProviderError::invalid_response("missing strategy answer"))?;
     let raw = answer
         .get("choice")
         .and_then(serde_json::Value::as_str)
@@ -358,7 +377,9 @@ fn answer_confidence(answer: Option<&serde_json::Value>) -> f32 {
 
 /// 策略 → worker 集（与 Rule 基线保持同形状；engine clamp 到可用集合）。
 fn strategy_workers(strategy: DecisionStrategy, review: bool) -> Vec<&'static str> {
-    use DecisionStrategy::{BoundedMultiAgent, Direct, PlanAndResearch, ResearchAndReview, ResearchOnly};
+    use DecisionStrategy::{
+        BoundedMultiAgent, Direct, PlanAndResearch, ResearchAndReview, ResearchOnly,
+    };
     match strategy {
         Direct => Vec::new(),
         ResearchOnly => vec!["research", "research"],
@@ -437,13 +458,21 @@ impl FakeJevTransport {
 
 #[async_trait]
 impl JevTransport for FakeJevTransport {
-    async fn evaluate(&self, _body: &JevRequestBody) -> Result<JevResponseBody, DecisionProviderError> {
-        self.received.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+    async fn evaluate(
+        &self,
+        _body: &JevRequestBody,
+    ) -> Result<JevResponseBody, DecisionProviderError> {
+        self.received
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         self.script
             .lock()
             .unwrap_or_else(|error| error.into_inner())
             .pop_front()
-            .unwrap_or_else(|| Err(DecisionProviderError::invalid_response("fake script exhausted")))
+            .unwrap_or_else(|| {
+                Err(DecisionProviderError::invalid_response(
+                    "fake script exhausted",
+                ))
+            })
     }
 }
 
@@ -470,11 +499,7 @@ mod tests {
             external_evidence_needed: false,
             explicit_deep: false,
             multi_agent_off: false,
-            available_workers: vec![
-                "research".into(),
-                "planner".into(),
-                "reviewer".into(),
-            ],
+            available_workers: vec!["research".into(), "planner".into(), "reviewer".into()],
             available_tool_groups: vec!["documents".into(), "server".into()],
             budget_tier: BudgetTier::Full,
             capability_constraints: vec!["read_only".into()],

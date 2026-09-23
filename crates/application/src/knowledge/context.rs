@@ -29,6 +29,7 @@ impl OmittedSummary {
 /// 统一个人知识上下文（V6 §63）。
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(default)]
+#[derive(Default)]
 pub struct KnowledgeContext {
     pub app_context: AppContext,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -38,20 +39,6 @@ pub struct KnowledgeContext {
     pub file_refs: Vec<KnowledgeResult>,
     pub omitted: OmittedSummary,
     pub diagnostics: KnowledgeDiagnostics,
-}
-
-impl Default for KnowledgeContext {
-    fn default() -> Self {
-        Self {
-            app_context: AppContext::default(),
-            module_context: None,
-            memories: Vec::new(),
-            document_refs: Vec::new(),
-            file_refs: Vec::new(),
-            omitted: OmittedSummary::default(),
-            diagnostics: KnowledgeDiagnostics::default(),
-        }
-    }
 }
 
 impl KnowledgeContext {
@@ -89,9 +76,8 @@ impl KnowledgeContext {
         if self.is_empty() {
             return String::new();
         }
-        let mut lines: Vec<String> = vec![
-            "[个人知识检索]（按相关性排序；每条都带来源，仅用于回答本次问题）".to_string(),
-        ];
+        let mut lines: Vec<String> =
+            vec!["[个人知识检索]（按相关性排序；每条都带来源，仅用于回答本次问题）".to_string()];
         for result in self
             .memories
             .iter()
@@ -149,9 +135,24 @@ mod tests {
     #[test]
     fn push_classifies_by_source_kind() {
         let mut context = KnowledgeContext::new(AppContext::default());
-        context.push(result(KnowledgeSourceKind::Memory, "m1", "偏好", "喜欢历史"));
-        context.push(result(KnowledgeSourceKind::Document, "d1", "Jenkins", "记录"));
-        context.push(result(KnowledgeSourceKind::File, "f1", "a.pdf", "大小 1 MB"));
+        context.push(result(
+            KnowledgeSourceKind::Memory,
+            "m1",
+            "偏好",
+            "喜欢历史",
+        ));
+        context.push(result(
+            KnowledgeSourceKind::Document,
+            "d1",
+            "Jenkins",
+            "记录",
+        ));
+        context.push(result(
+            KnowledgeSourceKind::File,
+            "f1",
+            "a.pdf",
+            "大小 1 MB",
+        ));
         assert_eq!(context.memories.len(), 1);
         assert_eq!(context.document_refs.len(), 1);
         assert_eq!(context.file_refs.len(), 1);
@@ -162,7 +163,12 @@ mod tests {
     #[test]
     fn render_includes_provenance_and_omissions() {
         let mut context = KnowledgeContext::new(AppContext::default());
-        context.push(result(KnowledgeSourceKind::Memory, "mem-1", "偏好", "喜欢历史旅行"));
+        context.push(result(
+            KnowledgeSourceKind::Memory,
+            "mem-1",
+            "偏好",
+            "喜欢历史旅行",
+        ));
         context.omitted.documents = 2;
         let text = context.render_for_prompt(4_000);
         assert!(text.contains("[记忆]"));

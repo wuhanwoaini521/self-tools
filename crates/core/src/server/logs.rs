@@ -10,7 +10,7 @@ use super::contains_traversal;
 use std::path::Path;
 
 /// 日志读取请求（§38：三硬限制）。
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, Default)]
 pub struct LogReadRequest {
     /// 注册服务 id（模型唯一可传的标识）。
     pub service_id: String,
@@ -26,18 +26,6 @@ pub struct LogReadRequest {
     /// 只取最近 N 秒（0 = 不限，仍受其它上限约束）。
     #[serde(default)]
     pub max_age_secs: u64,
-}
-
-impl Default for LogReadRequest {
-    fn default() -> Self {
-        Self {
-            service_id: String::new(),
-            log_source_id: None,
-            max_lines: 0,
-            max_bytes: 0,
-            max_age_secs: 0,
-        }
-    }
 }
 
 /// 读取结果（脱敏后；`redactions` 计数不含内容）。
@@ -118,7 +106,10 @@ mod tests {
     #[test]
     fn clamp_uses_defaults_and_hard_caps() {
         let (lines, bytes, age) = clamp_limits(&LogReadRequest::default());
-        assert_eq!((lines, bytes, age), (DEFAULT_MAX_LINES, DEFAULT_MAX_BYTES, DEFAULT_MAX_AGE_SECS));
+        assert_eq!(
+            (lines, bytes, age),
+            (DEFAULT_MAX_LINES, DEFAULT_MAX_BYTES, DEFAULT_MAX_AGE_SECS)
+        );
 
         let greedy = LogReadRequest {
             max_lines: 999_999,
@@ -127,7 +118,10 @@ mod tests {
             ..LogReadRequest::default()
         };
         let (lines, bytes, age) = clamp_limits(&greedy);
-        assert_eq!((lines, bytes, age), (MAX_LINES_LIMIT, MAX_BYTES_LIMIT, MAX_AGE_LIMIT_SECS));
+        assert_eq!(
+            (lines, bytes, age),
+            (MAX_LINES_LIMIT, MAX_BYTES_LIMIT, MAX_AGE_LIMIT_SECS)
+        );
     }
 
     #[test]

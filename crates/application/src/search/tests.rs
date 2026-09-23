@@ -8,8 +8,7 @@
 use std::sync::Arc;
 
 use devtoolbox_core::search::{
-    GlobalSearchHit, GlobalSearchQuery, MAX_SNIPPET_CHARS, MAX_TOTAL_HITS,
-    SearchSource,
+    GlobalSearchHit, GlobalSearchQuery, MAX_SNIPPET_CHARS, MAX_TOTAL_HITS, SearchSource,
 };
 
 use super::ports::GlobalSearchPort;
@@ -140,7 +139,11 @@ fn one_failing_source_degrades_while_others_succeed() {
     let sources: Vec<SearchSource> = result.hits.iter().map(|hit| hit.source).collect();
     assert_eq!(
         sources,
-        vec![SearchSource::Files, SearchSource::Memory, SearchSource::Memory]
+        vec![
+            SearchSource::Files,
+            SearchSource::Memory,
+            SearchSource::Memory
+        ]
     );
 }
 
@@ -191,7 +194,10 @@ fn per_source_limit_zero_falls_back_to_default() {
         limit_per_source: 0,
         ..query()
     });
-    assert_eq!(result.total, devtoolbox_core::search::DEFAULT_LIMIT_PER_SOURCE);
+    assert_eq!(
+        result.total,
+        devtoolbox_core::search::DEFAULT_LIMIT_PER_SOURCE
+    );
 }
 
 // ---------- 总数上限 ----------
@@ -255,7 +261,8 @@ fn equal_scores_keep_stable_order() {
 #[test]
 fn blank_query_returns_empty_result() {
     for blank in ["", "   ", "\n\t "] {
-        let result = service(vec![history_port(), memory_port()]).search(&GlobalSearchQuery::new(blank));
+        let result =
+            service(vec![history_port(), memory_port()]).search(&GlobalSearchQuery::new(blank));
         assert_eq!(result.total, 0);
         assert!(result.hits.is_empty());
         assert!(result.degraded_sources.is_empty());
@@ -274,9 +281,11 @@ fn query_is_trimmed_in_result() {
 #[test]
 fn snippet_is_bounded_to_max_chars() {
     let long = "长".repeat(MAX_SNIPPET_CHARS + 100);
-    let port = Arc::new(FakePort::new(SearchSource::Documents).with("d1", 1.0, move |hit| {
-        hit.snippet = long.clone();
-    }));
+    let port = Arc::new(
+        FakePort::new(SearchSource::Documents).with("d1", 1.0, move |hit| {
+            hit.snippet = long.clone();
+        }),
+    );
     let result = service(vec![port]).search(&query());
     let snippet = &result.hits[0].snippet;
     assert!(snippet.chars().count() <= MAX_SNIPPET_CHARS);
@@ -287,12 +296,11 @@ fn snippet_is_bounded_to_max_chars() {
 
 #[test]
 fn sources_filter_selects_only_requested_source() {
-    let result = service(vec![history_port(), memory_port(), files_port()]).search(
-        &GlobalSearchQuery {
+    let result =
+        service(vec![history_port(), memory_port(), files_port()]).search(&GlobalSearchQuery {
             sources: vec![SearchSource::Files],
             ..query()
-        },
-    );
+        });
     assert_eq!(result.total, 1);
     assert_eq!(result.hits[0].source, SearchSource::Files);
 }

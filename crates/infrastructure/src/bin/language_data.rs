@@ -26,7 +26,7 @@ use devtoolbox_infrastructure::error::InfrastructureError;
 use devtoolbox_infrastructure::language::{
     ImportError, ImportingError, LanguageStore, StarterError, importing,
 };
-use devtoolbox_infrastructure::language::{starter, import};
+use devtoolbox_infrastructure::language::{import, starter};
 
 const DEFAULT_DB: &str = "config/language.db";
 
@@ -186,9 +186,9 @@ fn run(args: &[String]) -> Result<(), CliError> {
                         args.iter()
                             .position(|arg| arg == name)
                             .map(|index| {
-                                args.get(index + 1).map(PathBuf::from).ok_or_else(|| {
-                                    CliError::License(format!("{name} 缺少值"))
-                                })
+                                args.get(index + 1)
+                                    .map(PathBuf::from)
+                                    .ok_or_else(|| CliError::License(format!("{name} 缺少值")))
                             })
                             .transpose()
                     };
@@ -219,18 +219,12 @@ fn run(args: &[String]) -> Result<(), CliError> {
                             }
                         },
                         None => {
-                            return Err(CliError::License(
-                                "--license CC0|CCBY 必填".to_string(),
-                            ));
+                            return Err(CliError::License("--license CC0|CCBY 必填".to_string()));
                         }
                     };
                     let mut store = open_store(args)?;
-                    let report = importing::import_sentences(
-                        &mut store,
-                        &path,
-                        license,
-                        "full-tatoeba",
-                    )?;
+                    let report =
+                        importing::import_sentences(&mut store, &path, license, "full-tatoeba")?;
                     println!("Tatoeba: +{} / ~{}", report.inserted, report.updated);
                     Ok(())
                 }
@@ -253,8 +247,7 @@ fn run(args: &[String]) -> Result<(), CliError> {
             let content = importing::read_raw(&path)?;
             let count = match dataset {
                 "english" => {
-                    let items =
-                        import::oewn::parse(&[("e.json", content.clone())], &[])?;
+                    let items = import::oewn::parse(&[("e.json", content.clone())], &[])?;
                     items.len()
                 }
                 "japanese" => import::jmdict::parse(&content)?.len(),
@@ -321,4 +314,3 @@ fn run(args: &[String]) -> Result<(), CliError> {
         other => Err(CliError::License(format!("未知命令：{other}（试试 help）"))),
     }
 }
-

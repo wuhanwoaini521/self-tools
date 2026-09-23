@@ -214,7 +214,10 @@ impl AgentRegistry {
 
     #[must_use]
     pub fn ids(&self) -> Vec<String> {
-        self.descriptors().into_iter().map(|agent| agent.id).collect()
+        self.descriptors()
+            .into_iter()
+            .map(|agent| agent.id)
+            .collect()
     }
 }
 
@@ -325,13 +328,19 @@ mod tests {
             id: "reviewer".into(),
             ..research_profile()
         });
-        assert_eq!(registry.ids(), vec!["research".to_string(), "reviewer".to_string()]);
+        assert_eq!(
+            registry.ids(),
+            vec!["research".to_string(), "reviewer".to_string()]
+        );
         // 同 id 替换（不重复）。
         registry.register(AgentDescriptor {
             description: "更新".into(),
             ..research_profile()
         });
-        assert_eq!(registry.get("research").expect("research").description, "更新");
+        assert_eq!(
+            registry.get("research").expect("research").description,
+            "更新"
+        );
         assert!(registry.get("planner").is_none());
     }
 }

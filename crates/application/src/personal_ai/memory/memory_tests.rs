@@ -7,9 +7,7 @@ use std::sync::Arc;
 
 use parking_lot::Mutex;
 
-use devtoolbox_core::memory::{
-    MemoryCategory, MemoryItem, MemoryQuery, MemoryStatus,
-};
+use devtoolbox_core::memory::{MemoryCategory, MemoryItem, MemoryQuery, MemoryStatus};
 use devtoolbox_core::personal_ai::AppContext;
 use devtoolbox_core::{ActionKind, ToolRisk, UiBlockKind};
 use serde_json::json;
@@ -17,8 +15,8 @@ use serde_json::json;
 use crate::memory::ports::{MemoryStoreError, MemoryStorePort};
 use crate::memory::service::MemoryService;
 use crate::personal_ai::context::ContextBudget;
-use crate::personal_ai::registry::{ModuleRegistry, ToolRegistry};
 use crate::personal_ai::memory::{memory_tool_names, register_memory};
+use crate::personal_ai::registry::{ModuleRegistry, ToolRegistry};
 
 #[derive(Default)]
 struct FakeStore {
@@ -46,7 +44,10 @@ impl MemoryStorePort for FakeStore {
             .lock()
             .values()
             .filter(|item| spec.include_sensitive || item.sensitivity.is_model_visible())
-            .filter(|item| spec.category.is_none_or(|category| item.category == category))
+            .filter(|item| {
+                spec.category
+                    .is_none_or(|category| item.category == category)
+            })
             .filter(|item| spec.status.is_none_or(|status| item.status == status))
             .filter(|item| {
                 tokens.is_empty()
@@ -113,7 +114,8 @@ fn hub() -> (Arc<MemoryService>, ToolRegistry, ModuleRegistry) {
     let service = Arc::new(MemoryService::new(Arc::new(FakeStore::default())));
     let mut modules = ModuleRegistry::new();
     let mut tools = ToolRegistry::new();
-    register_memory(&mut modules, &mut tools, Arc::clone(&service)).expect("register memory module");
+    register_memory(&mut modules, &mut tools, Arc::clone(&service))
+        .expect("register memory module");
     (service, tools, modules)
 }
 
@@ -205,7 +207,10 @@ fn save_tool_only_creates_candidate_and_returns_confirm_action() {
     assert_eq!(actions[0]["type"], "confirm_memory");
     assert_eq!(actions[0]["module"], "memory");
     assert_eq!(actions[0]["target"]["category"], "environment");
-    let id = actions[0]["target"]["memory_id"].as_str().unwrap().to_string();
+    let id = actions[0]["target"]["memory_id"]
+        .as_str()
+        .unwrap()
+        .to_string();
 
     // 关键不变量：模型路径写出来的仍是 Candidate（§113）。
     assert_eq!(
@@ -252,11 +257,9 @@ fn save_tool_rejects_secrets_and_bad_category() {
 #[test]
 fn get_and_list_never_expose_sensitive_items() {
     let (service, tools, _modules) = hub();
-    let draft = devtoolbox_core::memory::MemoryDraft::new(
-        MemoryCategory::PersonalFact,
-        "体检记录在协和",
-    )
-    .with_sensitivity(devtoolbox_core::memory::MemorySensitivity::Sensitive);
+    let draft =
+        devtoolbox_core::memory::MemoryDraft::new(MemoryCategory::PersonalFact, "体检记录在协和")
+            .with_sensitivity(devtoolbox_core::memory::MemorySensitivity::Sensitive);
     let sensitive = service.save_confirmed(draft).unwrap();
 
     let blocked = block_on(tools.execute(&devtoolbox_core::ToolCallRequest {

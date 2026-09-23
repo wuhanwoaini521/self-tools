@@ -103,13 +103,21 @@ impl ServerService {
     }
 
     /// 存储卷（§17：默认只返回用户可见卷）。
-    pub fn storage(&self) -> Result<Vec<devtoolbox_core::server::StorageMetrics>, crate::error::ApplicationError>
-    {
-        Ok(self.metrics()?.visible_storage().into_iter().cloned().collect())
+    pub fn storage(
+        &self,
+    ) -> Result<Vec<devtoolbox_core::server::StorageMetrics>, crate::error::ApplicationError> {
+        Ok(self
+            .metrics()?
+            .visible_storage()
+            .into_iter()
+            .cloned()
+            .collect())
     }
 
     /// CPU / 内存明细（§18：可合并为 status 的一部分，工具单独暴露）。
-    pub fn cpu(&self) -> Result<devtoolbox_core::server::CpuMetrics, crate::error::ApplicationError> {
+    pub fn cpu(
+        &self,
+    ) -> Result<devtoolbox_core::server::CpuMetrics, crate::error::ApplicationError> {
         Ok(self.metrics()?.cpu)
     }
 
@@ -320,7 +328,9 @@ mod tests {
     #[test]
     fn provider_failure_degrades_without_panicking() {
         let service = service_with(SystemMetrics::default(), vec![], vec![], true);
-        let error = service.status().expect_err("provider failure → controlled error");
+        let error = service
+            .status()
+            .expect_err("provider failure → controlled error");
         match error {
             crate::error::ApplicationError::Server { reason, .. } => {
                 assert_eq!(reason, "metrics_unavailable")
@@ -353,13 +363,20 @@ mod tests {
         let service = service_with(metrics, vec![], vec![], false);
         let health = service.health().expect("health");
         assert_eq!(health.overall, HealthStatus::Degraded);
-        assert!(health.reasons.iter().any(|reason| reason.code == "cpu_usage"));
+        assert!(
+            health
+                .reasons
+                .iter()
+                .any(|reason| reason.code == "cpu_usage")
+        );
     }
 
     #[test]
     fn storage_hides_temporary_volumes() {
         let mut metrics = healthy_metrics();
-        metrics.storage.push(volume("/Volumes/ram", 99, 100, VolumeKind::Temporary));
+        metrics
+            .storage
+            .push(volume("/Volumes/ram", 99, 100, VolumeKind::Temporary));
         let service = service_with(metrics, vec![], vec![], false);
         let storage = service.storage().expect("storage");
         assert_eq!(storage.len(), 1, "临时卷默认隐藏");

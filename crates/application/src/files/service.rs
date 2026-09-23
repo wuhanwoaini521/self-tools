@@ -152,9 +152,7 @@ impl FileService {
             return Err(file_error(FileAccessDenied::Traversal));
         }
         let canonical = self.files.canonicalize(&input_path)?;
-        let root_id = policy
-            .authorize(Path::new(&input_path), &canonical)
-            ?;
+        let root_id = policy.authorize(Path::new(&input_path), &canonical)?;
         let root = policy
             .roots()
             .iter()
@@ -187,7 +185,9 @@ impl FileService {
             extension: extension_of(&relative_path),
             size_bytes: raw.size_bytes,
             modified_at: raw.modified_at,
-            indexed_at: indexed.as_ref().map_or_else(now_unix, |entry| entry.indexed_at),
+            indexed_at: indexed
+                .as_ref()
+                .map_or_else(now_unix, |entry| entry.indexed_at),
             content_kind,
             restricted: denied,
             index_error: indexed.and_then(|entry| entry.index_error),
@@ -222,7 +222,8 @@ impl FileService {
         settings: &KnowledgeSettings,
         target: &str,
     ) -> Result<FileMetadata, ApplicationError> {
-        self.authorize(settings, target).map(|(metadata, _)| metadata)
+        self.authorize(settings, target)
+            .map(|(metadata, _)| metadata)
     }
 
     /// 安全读取（§42/§47）：受限文件拒绝；二进制/超大 → 受控错误，由调用方降级为元数据。
@@ -300,8 +301,7 @@ impl FileService {
             .collect();
         let mut results: Vec<FileMetadata> = self
             .index
-            .search(&spec)
-            ?
+            .search(&spec)?
             .into_iter()
             .filter(|entry| enabled.contains(&entry.root_id))
             .collect();
@@ -348,17 +348,13 @@ impl FileService {
             root_id: root.id.clone(),
             ..FileIndexReport::default()
         };
-        let (raw_files, truncated) = self
-            .files
-            .walk(root, settings.max_indexed_files)
-            ?;
+        let (raw_files, truncated) = self.files.walk(root, settings.max_indexed_files)?;
         report.scanned = raw_files.len();
         report.truncated = truncated;
 
         let existing: std::collections::HashMap<String, (u64, i64)> = self
             .index
-            .fingerprints(&root.id)
-            ?
+            .fingerprints(&root.id)?
             .into_iter()
             .map(|fingerprint| {
                 (
@@ -373,9 +369,12 @@ impl FileService {
         let mut batch: Vec<FileMetadata> = Vec::new();
         for raw in &raw_files {
             seen.push(raw.relative_path.clone());
-            if existing.get(&raw.relative_path).is_some_and(|(size, modified)| {
-                *size == raw.size_bytes && *modified == raw.modified_at
-            }) {
+            if existing
+                .get(&raw.relative_path)
+                .is_some_and(|(size, modified)| {
+                    *size == raw.size_bytes && *modified == raw.modified_at
+                })
+            {
                 report.unchanged += 1;
                 continue;
             }
@@ -409,9 +408,7 @@ impl FileService {
         }
         for relative in existing.keys() {
             if !seen.contains(relative) {
-                self.index
-                    .remove(&file_id(&root.id, relative))
-                    ?;
+                self.index.remove(&file_id(&root.id, relative))?;
                 report.removed += 1;
             }
         }
@@ -464,7 +461,11 @@ impl FileService {
                     entry.file_id.clone(),
                     entry.file_name.clone(),
                     snippet(
-                        &format!("{}（{}）", entry.relative_path, format_size(entry.size_bytes)),
+                        &format!(
+                            "{}（{}）",
+                            entry.relative_path,
+                            format_size(entry.size_bytes)
+                        ),
                         self.config.snippet_chars,
                     ),
                     file_score(entry, query),
@@ -492,15 +493,15 @@ fn live_entry(
     if spec.root_id.as_deref().is_some_and(|id| id != root.id) {
         return None;
     }
-    if let Some(extension) = spec.extension.as_deref() {
-        if extension_of(&raw.relative_path).as_deref() != Some(extension) {
-            return None;
-        }
+    if let Some(extension) = spec.extension.as_deref()
+        && extension_of(&raw.relative_path).as_deref() != Some(extension)
+    {
+        return None;
     }
-    if let Some(threshold) = spec.modified_after {
-        if raw.modified_at < threshold {
-            return None;
-        }
+    if let Some(threshold) = spec.modified_after
+        && raw.modified_at < threshold
+    {
+        return None;
     }
     let denied = policy.is_denied(&raw.relative_path, &file_name_of(&raw.relative_path));
     if denied && !spec.include_restricted {
@@ -550,9 +551,9 @@ fn classify(
     match outcome {
         Ok(FileReadOutcome::Text(_)) => FileContentKind::Text,
         Ok(FileReadOutcome::Binary) => FileContentKind::Binary,
-        Ok(FileReadOutcome::TooLarge) => indexed.map_or(FileContentKind::Unknown, |entry| {
-            entry.content_kind
-        }),
+        Ok(FileReadOutcome::TooLarge) => {
+            indexed.map_or(FileContentKind::Unknown, |entry| entry.content_kind)
+        }
         Err(_) => indexed.map_or(FileContentKind::Unknown, |entry| entry.content_kind),
     }
 }

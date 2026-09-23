@@ -119,7 +119,8 @@ impl KnowledgeRetrievalService {
         let mut diagnostics = KnowledgeDiagnostics::default();
         let trimmed = query.trim();
         // 本次每源上限（与候选阶段同一函数，避免两处语义分叉）。
-        let per_source_limit = |kind: KnowledgeSourceKind| self.limit_for(kind, mode, limit_override);
+        let per_source_limit =
+            |kind: KnowledgeSourceKind| self.limit_for(kind, mode, limit_override);
         let max_results = limit_override
             .unwrap_or(self.budget.max_results)
             .min(self.budget.max_results);
@@ -174,7 +175,8 @@ impl KnowledgeRetrievalService {
             match result.canonical_path().map(str::to_string) {
                 Some(path) => match path_winners.get(&path).copied() {
                     Some(index) => {
-                        if kind_priority(result.source_type) < kind_priority(deduped[index].source_type)
+                        if kind_priority(result.source_type)
+                            < kind_priority(deduped[index].source_type)
                         {
                             deduped[index] = result;
                         }
@@ -329,7 +331,11 @@ impl RetrievalAugmenter for KnowledgeRetrievalService {
         }
         self.metrics.record_context(context.total_items());
         let rendered = context.render_for_prompt(self.budget.max_chars);
-        if rendered.is_empty() { None } else { Some(rendered) }
+        if rendered.is_empty() {
+            None
+        } else {
+            Some(rendered)
+        }
     }
 }
 

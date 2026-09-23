@@ -93,7 +93,7 @@ impl McpToolAdapter {
     #[must_use]
     pub fn definition(&self, tool_name: &str) -> Option<McpToolDefinition> {
         let spec = self.registry.spec(tool_name)?;
-        Some(definition_from_spec(&spec, default_exposure(tool_name)))
+        Some(definition_from_spec(spec, default_exposure(tool_name)))
     }
 
     /// 该工具对给定 principal 的暴露策略（None = 不暴露）。
@@ -209,7 +209,10 @@ mod tests {
             &SPEC
         }
 
-        async fn execute(&self, arguments: serde_json::Value) -> Result<ToolResult, devtoolbox_core::AgentError> {
+        async fn execute(
+            &self,
+            arguments: serde_json::Value,
+        ) -> Result<ToolResult, devtoolbox_core::AgentError> {
             Ok(ToolResult::ok(arguments))
         }
     }
@@ -230,8 +233,7 @@ mod tests {
         assert_eq!(definition.description, "检索记忆");
         assert_eq!(definition.input_schema["type"], "object");
         assert_eq!(
-            definition.input_schema["properties"]["query"]["type"],
-            "string",
+            definition.input_schema["properties"]["query"]["type"], "string",
             "schema 必须从 ToolSpec 原样派生"
         );
         let annotations = definition.annotations.as_ref().expect("annotations");
@@ -250,16 +252,20 @@ mod tests {
         #[async_trait::async_trait]
         impl ToolExecutor for SecondTool {
             fn spec(&self) -> &ToolSpec {
-                static SPEC: std::sync::LazyLock<ToolSpec> = std::sync::LazyLock::new(|| ToolSpec {
-                    name: "files.search".into(),
-                    description: "检索文件".into(),
-                    input_schema: serde_json::json!({"type": "object"}),
-                    risk: ToolRisk::Read,
-                    module: "files".into(),
-                });
+                static SPEC: std::sync::LazyLock<ToolSpec> =
+                    std::sync::LazyLock::new(|| ToolSpec {
+                        name: "files.search".into(),
+                        description: "检索文件".into(),
+                        input_schema: serde_json::json!({"type": "object"}),
+                        risk: ToolRisk::Read,
+                        module: "files".into(),
+                    });
                 &SPEC
             }
-            async fn execute(&self, _arguments: serde_json::Value) -> Result<ToolResult, devtoolbox_core::AgentError> {
+            async fn execute(
+                &self,
+                _arguments: serde_json::Value,
+            ) -> Result<ToolResult, devtoolbox_core::AgentError> {
                 Ok(ToolResult::ok(serde_json::json!({})))
             }
         }
@@ -280,7 +286,12 @@ mod tests {
             .expect("execute");
         assert_eq!(result.data["query"], "docker");
         // 未注册工具 → 与 agent 路径同样的 not-found 错误。
-        assert!(adapter.execute("nope", serde_json::json!({})).await.is_err());
+        assert!(
+            adapter
+                .execute("nope", serde_json::json!({}))
+                .await
+                .is_err()
+        );
     }
 
     #[tokio::test]
@@ -294,7 +305,7 @@ mod tests {
         assert!(adapter.exposure_for("memory.search", &local).is_some());
 
         let remote = devtoolbox_core::mcp::McpPrincipal::anonymous_remote("curl");
-        assert!(adapter.exposure_for("memory.search", &remote).is_none() == false);
+        assert!(adapter.exposure_for("memory.search", &remote).is_some());
         // 未暴露工具（不在默认表）不能借 exposure 通道出现。
         assert!(adapter.exposure_for("files.search", &remote).is_some());
         assert!(adapter.exposure_for("shell.exec", &remote).is_none());

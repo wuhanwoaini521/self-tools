@@ -398,7 +398,9 @@ fn row_to_summary(row: &rusqlite::Row<'_>) -> Result<ConversationSummary, Infras
     Ok(ConversationSummary {
         conversation_id: row.get(0)?,
         title: row.get(1)?,
-        module_origin: row.get::<_, Option<String>>(2)?.filter(|value| !value.is_empty()),
+        module_origin: row
+            .get::<_, Option<String>>(2)?
+            .filter(|value| !value.is_empty()),
         created_at: row.get(3).unwrap_or(0),
         updated_at: row.get(4).unwrap_or(0),
         archived: archived != 0,
@@ -427,7 +429,6 @@ fn row_to_message(row: &rusqlite::Row<'_>) -> Result<ConversationMessage, Infras
 fn sqlite(error: rusqlite::Error) -> InfrastructureError {
     InfrastructureError::Sqlite(error.to_string())
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -470,7 +471,10 @@ mod tests {
         assert_eq!(loaded.messages[0].role, ConversationRole::User);
         assert_eq!(loaded.messages[0].content, "帮我规划");
         assert_eq!(loaded.messages[1].role, ConversationRole::Assistant);
-        assert_eq!(loaded.messages[1].provider.as_deref(), Some("openai-compatible"));
+        assert_eq!(
+            loaded.messages[1].provider.as_deref(),
+            Some("openai-compatible")
+        );
         assert_eq!(loaded.messages[1].model.as_deref(), Some("step-5-preview"));
         assert!(!loaded.archived);
 
@@ -484,7 +488,9 @@ mod tests {
     fn rename_updates_title_and_blank_falls_back_to_default() {
         let store = ConversationSqliteStore::open_in_memory().unwrap();
         let conversation = store.create("旧标题", None, 10).unwrap();
-        store.rename(&conversation.conversation_id, "新标题").unwrap();
+        store
+            .rename(&conversation.conversation_id, "新标题")
+            .unwrap();
         let loaded = store.load(&conversation.conversation_id).unwrap().unwrap();
         assert_eq!(loaded.title, "新标题");
 
@@ -501,7 +507,9 @@ mod tests {
             .append_message(&conversation.conversation_id, &user("你好"), 11)
             .unwrap();
 
-        store.set_archived(&conversation.conversation_id, true).unwrap();
+        store
+            .set_archived(&conversation.conversation_id, true)
+            .unwrap();
         assert!(
             store.list(0, false).unwrap().is_empty(),
             "列表默认隐藏归档会话"
@@ -515,7 +523,9 @@ mod tests {
         assert_eq!(loaded.messages.len(), 1, "归档不删消息");
 
         // 恢复。
-        store.set_archived(&conversation.conversation_id, false).unwrap();
+        store
+            .set_archived(&conversation.conversation_id, false)
+            .unwrap();
         assert_eq!(store.list(0, false).unwrap().len(), 1);
         assert!(!store.list(0, false).unwrap()[0].archived);
     }
@@ -584,15 +594,20 @@ mod tests {
 
         let loaded = store.load("bad-1").unwrap().expect("脏行仍可读");
         assert_eq!(loaded.messages.len(), 2);
-        assert_eq!(loaded.messages[0].role, ConversationRole::User, "未知 role 兜底");
+        assert_eq!(
+            loaded.messages[0].role,
+            ConversationRole::User,
+            "未知 role 兜底"
+        );
         assert_eq!(loaded.messages[0].content, "");
         assert!(loaded.messages[0].provider.is_none(), "NULL provider 归一");
         assert_eq!(loaded.messages[0].created_at, Some(0), "0 时间戳如实保留");
-        assert!(
-            loaded.messages[0].model.is_none(),
-            "NULL model 归一"
+        assert!(loaded.messages[0].model.is_none(), "NULL model 归一");
+        assert_eq!(
+            loaded.messages[1].role,
+            ConversationRole::Assistant,
+            "大小写宽容"
         );
-        assert_eq!(loaded.messages[1].role, ConversationRole::Assistant, "大小写宽容");
         assert!(loaded.module_origin.is_none(), "NULL 来源归一");
 
         let summaries = store.list(0, true).unwrap();
@@ -613,10 +628,7 @@ mod tests {
             )
             .unwrap();
         let loaded = store.load(&conversation.conversation_id).unwrap().unwrap();
-        assert_eq!(
-            loaded.messages[0].content.chars().count(),
-            MAX_CHARS
-        );
+        assert_eq!(loaded.messages[0].content.chars().count(), MAX_CHARS);
         assert_eq!(
             loaded.messages[0].content,
             truncate(&"字".repeat(MAX_CHARS + 500))
@@ -700,7 +712,11 @@ mod tests {
             .append_message(&conversation.conversation_id, &message, 777)
             .unwrap();
         let loaded = store.load(&conversation.conversation_id).unwrap().unwrap();
-        assert_eq!(loaded.messages[0].created_at, Some(777), "缺失值跟随操作时间");
+        assert_eq!(
+            loaded.messages[0].created_at,
+            Some(777),
+            "缺失值跟随操作时间"
+        );
         assert_eq!(loaded.updated_at, 777);
     }
 
@@ -722,6 +738,9 @@ mod tests {
             "updated_at 倒序"
         );
         assert_eq!(store.list(1, false).unwrap().len(), 1);
-        assert_eq!(store.list(1, false).unwrap()[0].conversation_id, ordered[0].conversation_id);
+        assert_eq!(
+            store.list(1, false).unwrap()[0].conversation_id,
+            ordered[0].conversation_id
+        );
     }
 }

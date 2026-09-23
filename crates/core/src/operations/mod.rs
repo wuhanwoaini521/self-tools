@@ -22,8 +22,8 @@ pub mod observability;
 
 pub use config::{ConfigReport, ConfigViolation, ServiceConfig, validate_startup};
 pub use lifecycle::{
-    CrashRecoveryReport, InstanceLock, LAUNCHD_LABEL, LaunchdCommand, SERVICE_NAME,
-    ShutdownStage, StartupMarker, render_launchd_plist,
+    CrashRecoveryReport, InstanceLock, LAUNCHD_LABEL, LaunchdCommand, SERVICE_NAME, ShutdownStage,
+    StartupMarker, render_launchd_plist,
 };
 pub use observability::{
     DependencyHealth, HealthReport, HealthState, LogLevel, MetricsSnapshot, StructuredLogEvent,
@@ -225,8 +225,14 @@ mod tests {
         assert_eq!(paths.logs(), PathBuf::from("/tmp/self-tools/logs"));
         assert_eq!(paths.backup(), PathBuf::from("/tmp/self-tools/backup"));
         assert_eq!(paths.runtime(), PathBuf::from("/tmp/self-tools/runtime"));
-        assert_eq!(paths.settings_file(), PathBuf::from("/tmp/self-tools/config/settings.json"));
-        assert_eq!(paths.crash_marker().file_name().unwrap(), "unclean-shutdown");
+        assert_eq!(
+            paths.settings_file(),
+            PathBuf::from("/tmp/self-tools/config/settings.json")
+        );
+        assert_eq!(
+            paths.crash_marker().file_name().unwrap(),
+            "unclean-shutdown"
+        );
         assert_eq!(paths.lock_file().file_name().unwrap(), "instance.lock");
     }
 
@@ -235,7 +241,14 @@ mod tests {
         let dir = tempfile::tempdir().expect("tempdir");
         let paths = AppPaths::from_root(dir.path().join("home"));
         paths.ensure_dirs().expect("create");
-        for path in [paths.config(), paths.data(), paths.cache(), paths.logs(), paths.backup(), paths.runtime()] {
+        for path in [
+            paths.config(),
+            paths.data(),
+            paths.cache(),
+            paths.logs(),
+            paths.backup(),
+            paths.runtime(),
+        ] {
             assert!(path.is_dir(), "{}", path.display());
         }
         // 幂等。

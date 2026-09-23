@@ -31,9 +31,11 @@ pub trait FileSystemPort: Send + Sync {
     fn canonicalize(&self, path: &str) -> FileSystemResult<PathBuf>;
 
     /// 读取元数据（大小 / 修改时间 / 是否普通文件）。
+    #[allow(clippy::ptr_arg)] // V4-V9 历史签名；改用 &Path 会波及全部实现与调用点
     fn metadata(&self, path: &PathBuf) -> FileSystemResult<RawFile>;
 
     /// 只读文本读取（UTF-8；含 NUL 或解码失败 → `Binary`）。
+    #[allow(clippy::ptr_arg)] // 同上
     fn read_text(&self, path: &PathBuf, max_bytes: u64) -> FileSystemResult<FileReadOutcome>;
 
     /// 递归扫描允许根内的**文件**（跳过噪音目录；返回 (文件列表, 是否截断)）。

@@ -6,9 +6,7 @@
 
 use std::sync::Arc;
 
-use devtoolbox_core::agents::{
-    DecisionEngine, DecisionMode, DecisionProvider, DecisionTelemetry,
-};
+use devtoolbox_core::agents::{DecisionEngine, DecisionMode, DecisionProvider, DecisionTelemetry};
 
 /// `OrchestrationService` 使用的决策门面。
 #[derive(Clone)]
@@ -21,7 +19,9 @@ impl AgentDecisionEngine {
     #[must_use]
     pub fn rule_only() -> Self {
         Self {
-            engine: DecisionEngine::rule_only(Arc::new(super::decision_rule::RuleDecisionProvider::new())),
+            engine: DecisionEngine::rule_only(Arc::new(
+                super::decision_rule::RuleDecisionProvider::new(),
+            )),
         }
     }
 
@@ -61,6 +61,7 @@ impl AgentDecisionEngine {
 
     /// 生成 `DecisionRequest`（把 orchestration 侧已知信号填进最小化契约）。
     #[must_use]
+    #[allow(clippy::too_many_arguments)]
     pub fn request(
         &self,
         request_id: &str,
@@ -72,20 +73,24 @@ impl AgentDecisionEngine {
         available_tool_groups: &[String],
         budget_tier: devtoolbox_core::agents::BudgetTier,
     ) -> devtoolbox_core::agents::DecisionRequest {
-        use devtoolbox_core::agents::{
-            BudgetTier, DECISION_MESSAGE_MAX_CHARS, DecisionRequest,
-        };
+        use devtoolbox_core::agents::{BudgetTier, DECISION_MESSAGE_MAX_CHARS, DecisionRequest};
         let _ = BudgetTier::Full;
-        let message_truncated: String = message
-            .chars()
-            .take(DECISION_MESSAGE_MAX_CHARS)
-            .collect();
+        let message_truncated: String = message.chars().take(DECISION_MESSAGE_MAX_CHARS).collect();
         // 跨模块启发式：多个模块关键词命中（与 Rule provider 同一组词，§18）。
         let lowered = message_truncated.to_lowercase();
-        let cross_module_hint = ["日志", "文档", "记忆", "服务器", "history", "documents", "memory", "server"]
-            .iter()
-            .filter(|needle| lowered.contains(**needle))
-            .count()
+        let cross_module_hint = [
+            "日志",
+            "文档",
+            "记忆",
+            "服务器",
+            "history",
+            "documents",
+            "memory",
+            "server",
+        ]
+        .iter()
+        .filter(|needle| lowered.contains(**needle))
+        .count()
             >= 2;
         let explicit_deep = lowered.contains("深入研究")
             || lowered.contains("深入分析")
@@ -153,7 +158,10 @@ mod tests {
             devtoolbox_core::agents::BudgetTier::Full,
         );
         let (result, telemetry) = engine.decide(&request).await;
-        assert_eq!(result.strategy, devtoolbox_core::agents::DecisionStrategy::Direct);
+        assert_eq!(
+            result.strategy,
+            devtoolbox_core::agents::DecisionStrategy::Direct
+        );
         assert_eq!(telemetry.provider, "rule");
     }
 

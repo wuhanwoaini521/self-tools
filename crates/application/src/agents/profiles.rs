@@ -132,28 +132,55 @@ mod tests {
     #[test]
     fn default_registry_has_three_workers() {
         let registry = default_registry();
-        assert_eq!(registry.ids(), vec!["planner".to_string(), "research".to_string(), "reviewer".to_string()]);
+        assert_eq!(
+            registry.ids(),
+            vec![
+                "planner".to_string(),
+                "research".to_string(),
+                "reviewer".to_string()
+            ]
+        );
     }
 
     #[test]
     fn every_profile_is_read_only_and_cannot_delegate() {
-        for profile in [research_profile(), planner_profile(), reviewer_profile(), synthesizer_profile()] {
+        for profile in [
+            research_profile(),
+            planner_profile(),
+            reviewer_profile(),
+            synthesizer_profile(),
+        ] {
             assert!(profile.is_read_only(), "{} 必须 READ only", profile.id);
-            assert!(!profile.can_delegate, "{} 不允许再委派（depth=1）", profile.id);
+            assert!(
+                !profile.can_delegate,
+                "{} 不允许再委派（depth=1）",
+                profile.id
+            );
         }
     }
 
     #[test]
     fn sensitive_entries_are_denied_for_all_workers() {
         // §93：子 Agent 禁止 memory.save。
-        for profile in [research_profile(), planner_profile(), reviewer_profile(), synthesizer_profile()] {
+        for profile in [
+            research_profile(),
+            planner_profile(),
+            reviewer_profile(),
+            synthesizer_profile(),
+        ] {
             assert!(
-                profile.denied_tools.iter().any(|tool| tool == "memory.save"),
+                profile
+                    .denied_tools
+                    .iter()
+                    .any(|tool| tool == "memory.save"),
                 "{} 必须显式拒绝 memory.save",
                 profile.id
             );
             assert!(
-                profile.denied_tools.iter().any(|tool| tool == "services.restart"),
+                profile
+                    .denied_tools
+                    .iter()
+                    .any(|tool| tool == "services.restart"),
                 "{} 必须显式拒绝 services.restart（§A1）",
                 profile.id
             );

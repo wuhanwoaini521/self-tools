@@ -1,5 +1,11 @@
 //! History 用例层测试：Fake Port（不启动 DuckDB），验证聚合 / 分组 / 截断 /
 //! 来源 ID 合并 / period 解析 / 空结果与错误传播等用例决策。
+#![allow(
+    clippy::field_reassign_with_default,
+    clippy::unnecessary_sort_by,
+    clippy::drop_non_drop,
+    clippy::uninlined_format_args
+)]
 
 use std::sync::{Arc, Mutex};
 
@@ -1064,7 +1070,7 @@ fn story_detail_merges_sources_across_all_sections() {
         let mut data = FakePortData::default();
         data.story = Some(story);
         data.story_events = vec![
-            story_event("s1", Some(r#"["s3"]"#.into())),
+            story_event("s1", Some(r#"["s3"]"#)),
             story_event("s1", None),
         ];
         data.story_people = vec![event_person(Some("s4")), event_person(None)];

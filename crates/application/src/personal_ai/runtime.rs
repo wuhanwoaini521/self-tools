@@ -167,7 +167,9 @@ pub async fn run_tool_loop(
             }
             // §53：工具调用硬上限。
             if config.max_tool_calls > 0 && tool_calls >= config.max_tool_calls {
-                return Err(AgentError::tool_execution_failed("tool_call_budget_exhausted"));
+                return Err(AgentError::tool_execution_failed(
+                    "tool_call_budget_exhausted",
+                ));
             }
             tool_calls += 1;
             let started = Instant::now();
@@ -199,10 +201,8 @@ pub async fn run_tool_loop(
                 }]),
                 tool_call_id: None,
             });
-            let result_json =
-                serde_json::to_string(&tool_result).unwrap_or_else(|_| {
-                    r#"{"ok":false,"error":"serialization failed"}"#.to_string()
-                });
+            let result_json = serde_json::to_string(&tool_result)
+                .unwrap_or_else(|_| r#"{"ok":false,"error":"serialization failed"}"#.to_string());
             chat_messages.push(ChatMessage {
                 role: ChatRole::Tool,
                 content: Some(result_json),

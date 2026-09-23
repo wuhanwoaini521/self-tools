@@ -133,9 +133,15 @@ mod tests {
             McpResultCode::ConfirmationRequired,
         ] {
             let json = serde_json::to_string(&code).expect("json");
-            assert_eq!(serde_json::from_str::<McpResultCode>(&json).ok(), Some(code));
+            assert_eq!(
+                serde_json::from_str::<McpResultCode>(&json).ok(),
+                Some(code)
+            );
         }
-        assert_eq!(McpResultCode::ConfirmationRequired.as_str(), "confirmation_required");
+        assert_eq!(
+            McpResultCode::ConfirmationRequired.as_str(),
+            "confirmation_required"
+        );
     }
 
     #[test]

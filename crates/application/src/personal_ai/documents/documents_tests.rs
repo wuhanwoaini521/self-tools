@@ -13,23 +13,19 @@ use std::sync::Arc;
 use parking_lot::Mutex;
 
 use devtoolbox_core::documents::{
-    DocumentChunk, DocumentHit, DocumentMeta, DocumentType, DocumentFingerprint, chunk_text,
+    DocumentChunk, DocumentFingerprint, DocumentHit, DocumentMeta, DocumentType, chunk_text,
 };
 use devtoolbox_core::files::KnowledgeRoot;
 use devtoolbox_core::personal_ai::AppContext;
 use devtoolbox_core::settings::KnowledgeSettings;
 use devtoolbox_core::{ToolRisk, UiBlockKind};
 
-use crate::documents::ports::{
-    DocumentIndexPort, DocumentSourcePort, DocumentStoreError,
-};
+use crate::documents::ports::{DocumentIndexPort, DocumentSourcePort, DocumentStoreError};
 use crate::documents::{
     DocumentConfig, DocumentService, ExtractedContent, IndexReport, ScannedDocument,
 };
 use crate::personal_ai::context::ContextBudget;
-use crate::personal_ai::documents::{
-    DocumentsTools, documents_tool_names, register_documents,
-};
+use crate::personal_ai::documents::{DocumentsTools, documents_tool_names, register_documents};
 use crate::personal_ai::registry::{ModuleRegistry, ToolRegistry};
 
 // ---------------------------------------------------------------------------
@@ -75,7 +71,6 @@ impl DocumentIndexPort for FakeDocumentIndex {
         chunks.sort_by_key(|chunk| chunk.ordinal);
         Ok(chunks)
     }
-
 
     fn search_candidates(
         &self,
@@ -208,7 +203,10 @@ impl DocumentSourcePort for FakeDocumentSource {
             .map(|path| ScannedDocument {
                 path: PathBuf::from(path),
                 relative_path: path[prefix.len()..].to_string(),
-                size_bytes: self.files.get(path).map_or(0, |content| content.len() as u64),
+                size_bytes: self
+                    .files
+                    .get(path)
+                    .map_or(0, |content| content.len() as u64),
                 modified_at: 1_700_000_000,
             })
             .collect();
@@ -302,10 +300,8 @@ fn index(service: &DocumentService, path: &str, _content: &str) -> String {
 
 #[test]
 fn registers_descriptor_and_five_read_tools_without_write() {
-    let (_service, tools, modules) = hub(FakeDocumentSource::default().with_file(
-        "/data/docs/notes/docker.md",
-        "# Docker\nvolume 说明",
-    ));
+    let (_service, tools, modules) = hub(FakeDocumentSource::default()
+        .with_file("/data/docs/notes/docker.md", "# Docker\nvolume 说明"));
     let descriptors = modules.descriptors();
     assert_eq!(descriptors.len(), 1);
     assert_eq!(descriptors[0].id, "documents");
@@ -330,18 +326,22 @@ fn registers_descriptor_and_five_read_tools_without_write() {
     }
     // §6：索引写入不是模型工具。
     assert!(
-        !names.iter().any(|name| name.contains("scan") || name.contains("index")),
+        !names
+            .iter()
+            .any(|name| name.contains("scan") || name.contains("index")),
         "模型不得拥有索引写入工具: {names:?}"
     );
 }
 
 #[test]
 fn search_returns_hits_and_ui_hint_document_list() {
-    let (service, tools, _modules) = hub(FakeDocumentSource::default().with_file(
+    let (service, tools, _modules) = hub(FakeDocumentSource::default()
+        .with_file("/data/docs/notes/docker.md", "# Docker\nvolume 挂载说明"));
+    let _ = index(
+        &service,
         "/data/docs/notes/docker.md",
         "# Docker\nvolume 挂载说明",
-    ));
-    let _ = index(&service, "/data/docs/notes/docker.md", "# Docker\nvolume 挂载说明");
+    );
 
     let result = block_on(tools.execute(&devtoolbox_core::ToolCallRequest {
         id: "c1".into(),
@@ -380,10 +380,8 @@ fn search_no_hit_states_not_found() {
 
 #[test]
 fn get_and_get_context_return_card_and_outline() {
-    let (service, tools, _modules) = hub(FakeDocumentSource::default().with_file(
-        "/data/docs/notes/docker.md",
-        "# Docker\nvolume 挂载说明\n",
-    ));
+    let (service, tools, _modules) = hub(FakeDocumentSource::default()
+        .with_file("/data/docs/notes/docker.md", "# Docker\nvolume 挂载说明\n"));
     let id = index(
         &service,
         "/data/docs/notes/docker.md",
@@ -462,10 +460,7 @@ fn read_chunk_and_section_and_range() {
     .unwrap();
     assert!(by_section.ok);
     assert!(
-        by_section.data["text"]
-            .as_str()
-            .unwrap()
-            .contains('b'),
+        by_section.data["text"].as_str().unwrap().contains('b'),
         "应返回该章节的正文"
     );
     assert!(
@@ -500,10 +495,9 @@ fn read_unknown_document_fails() {
 
 #[test]
 fn list_recent_returns_document_list_block() {
-    let (service, tools, _modules) = hub(FakeDocumentSource::default().with_file(
-        "/data/docs/notes/docker.md",
-        "# Docker\nvolume",
-    ));
+    let (service, tools, _modules) =
+        hub(FakeDocumentSource::default()
+            .with_file("/data/docs/notes/docker.md", "# Docker\nvolume"));
     let _ = index(&service, "/data/docs/notes/docker.md", "# Docker\nvolume");
 
     let result = block_on(tools.execute(&devtoolbox_core::ToolCallRequest {
@@ -526,10 +520,9 @@ fn list_recent_returns_document_list_block() {
 
 #[test]
 fn context_provider_reports_overview_and_entity() {
-    let (service, _tools, modules) = hub(FakeDocumentSource::default().with_file(
-        "/data/docs/notes/docker.md",
-        "# Docker\nvolume",
-    ));
+    let (service, _tools, modules) =
+        hub(FakeDocumentSource::default()
+            .with_file("/data/docs/notes/docker.md", "# Docker\nvolume"));
     let id = index(&service, "/data/docs/notes/docker.md", "# Docker\nvolume");
     let provider = modules
         .context_provider("documents")
@@ -559,7 +552,7 @@ fn context_provider_reports_overview_and_entity() {
     let wrong = AppContext {
         entity: Some(devtoolbox_core::personal_ai::EntityRef {
             kind: "file".into(),
-            id: id,
+            id,
             label: None,
         }),
         ..AppContext::default()
@@ -577,7 +570,8 @@ fn context_provider_reports_overview_and_entity() {
 #[test]
 fn tools_read_settings_each_call() {
     // 组合根闭包每次调用读取设置 → 改变 max_read_chars 立即影响模块。
-    let source = FakeDocumentSource::default().with_file("/data/docs/notes/docker.md", "0123456789");
+    let source =
+        FakeDocumentSource::default().with_file("/data/docs/notes/docker.md", "0123456789");
     let service = Arc::new(DocumentService::with_config(
         Arc::new(FakeDocumentIndex::default()),
         Arc::new(source),

@@ -46,7 +46,10 @@ impl ServiceRegistryService {
     }
 
     /// 模型入参 → 注册服务（§35：未注册 DENIED）。
-    pub fn resolve(&self, service_id: &str) -> Result<ServiceDescriptor, crate::error::ApplicationError> {
+    pub fn resolve(
+        &self,
+        service_id: &str,
+    ) -> Result<ServiceDescriptor, crate::error::ApplicationError> {
         if !is_valid_id(service_id) {
             return Err(server_error("invalid_service_id", "服务 id 不合法"));
         }
@@ -55,7 +58,10 @@ impl ServiceRegistryService {
     }
 
     /// 探测单个注册服务。
-    pub fn status(&self, service_id: &str) -> Result<ServiceStatus, crate::error::ApplicationError> {
+    pub fn status(
+        &self,
+        service_id: &str,
+    ) -> Result<ServiceStatus, crate::error::ApplicationError> {
         let service = self.resolve(service_id)?;
         Ok(self.probe.probe(&service))
     }
@@ -102,7 +108,10 @@ impl ApplicationRegistryService {
     }
 
     /// 模型入参 → 注册应用（§48/§154）。
-    pub fn resolve(&self, app_id: &str) -> Result<ApplicationDescriptor, crate::error::ApplicationError> {
+    pub fn resolve(
+        &self,
+        app_id: &str,
+    ) -> Result<ApplicationDescriptor, crate::error::ApplicationError> {
         if !is_valid_id(app_id) {
             return Err(server_error("invalid_app_id", "应用 id 不合法"));
         }
@@ -110,7 +119,10 @@ impl ApplicationRegistryService {
             .ok_or_else(|| server_error("unknown_app", "该应用未在注册表中"))
     }
 
-    pub fn status(&self, app_id: &str) -> Result<ApplicationStatus, crate::error::ApplicationError> {
+    pub fn status(
+        &self,
+        app_id: &str,
+    ) -> Result<ApplicationStatus, crate::error::ApplicationError> {
         let app = self.resolve(app_id)?;
         Ok(self.probe.probe(&app))
     }
@@ -194,7 +206,8 @@ mod tests {
 
     #[test]
     fn registered_service_is_visible_and_probeable() {
-        let registry = ServiceRegistryService::new(vec![service("self-tools")], Arc::new(FakeProbe));
+        let registry =
+            ServiceRegistryService::new(vec![service("self-tools")], Arc::new(FakeProbe));
         assert_eq!(registry.list().len(), 1);
         let status = registry.status("self-tools").expect("registered");
         assert_eq!(status.status, HealthStatus::Healthy);
@@ -202,10 +215,13 @@ mod tests {
 
     #[test]
     fn unknown_or_invalid_service_is_denied() {
-        let registry = ServiceRegistryService::new(vec![service("self-tools")], Arc::new(FakeProbe));
+        let registry =
+            ServiceRegistryService::new(vec![service("self-tools")], Arc::new(FakeProbe));
         let unknown = registry.resolve("sshd").expect_err("unregistered");
         match unknown {
-            crate::error::ApplicationError::Server { reason, .. } => assert_eq!(reason, "unknown_service"),
+            crate::error::ApplicationError::Server { reason, .. } => {
+                assert_eq!(reason, "unknown_service")
+            }
             other => panic!("unexpected: {other:?}"),
         }
         // §155：注入形态在 id 校验层就被拒（稳定码，不回显输入）。

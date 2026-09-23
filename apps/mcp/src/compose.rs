@@ -17,11 +17,11 @@ use devtoolbox_application::mcp::auth::{DenyAllIdentityProvider, RemoteIdentityP
 use devtoolbox_application::mcp::service::{McpAuditPort, McpService, McpServiceConfig};
 use devtoolbox_application::personal_ai::registry::{ToolExecutor, ToolRegistry};
 use devtoolbox_application::server::action::{
-    InMemoryActionAudit, InMemoryConfirmationStore, SafeActionConfig,
-    SafeActionService, ServiceControlPort,
+    InMemoryActionAudit, InMemoryConfirmationStore, SafeActionConfig, SafeActionService,
+    ServiceControlPort,
 };
-use devtoolbox_application::server::registry::ServiceRegistryService;
 use devtoolbox_application::server::ports::ServiceProbePort;
+use devtoolbox_application::server::registry::ServiceRegistryService;
 use devtoolbox_core::mcp::McpAuditEntry;
 use devtoolbox_core::server::{HealthStatus, ServiceDescriptor, ServiceStatus};
 use std::sync::Mutex;
@@ -34,7 +34,10 @@ pub struct MemoryAuditStore {
 
 impl McpAuditPort for MemoryAuditStore {
     fn record(&self, entry: &McpAuditEntry) {
-        let mut entries = self.entries.lock().unwrap_or_else(|error| error.into_inner());
+        let mut entries = self
+            .entries
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
         entries.push(entry.clone());
     }
 }
@@ -221,18 +224,17 @@ fn build_stores(
             FileIndexSqliteStore::open(dir.join("files.db")).map_err(|error| error.to_string())?,
         )),
     ));
-    let registration = devtoolbox_application::personal_ai::register_memory(
+    devtoolbox_application::personal_ai::register_memory(
         &mut modules,
         &mut registry,
         Arc::clone(&memory),
     )
     .map_err(|error| error.to_string())?;
-    let _ = registration;
     devtoolbox_application::personal_ai::register_documents(
         &mut modules,
         &mut registry,
         Arc::clone(&documents),
-        Arc::new(|| devtoolbox_core::settings::KnowledgeSettings::default())
+        Arc::new(devtoolbox_core::settings::KnowledgeSettings::default)
             as Arc<dyn Fn() -> devtoolbox_core::settings::KnowledgeSettings + Send + Sync>,
     )
     .map_err(|error| error.to_string())?;
@@ -240,7 +242,7 @@ fn build_stores(
         &mut modules,
         &mut registry,
         Arc::clone(&files),
-        Arc::new(|| devtoolbox_core::settings::KnowledgeSettings::default())
+        Arc::new(devtoolbox_core::settings::KnowledgeSettings::default)
             as Arc<dyn Fn() -> devtoolbox_core::settings::KnowledgeSettings + Send + Sync>,
     )
     .map_err(|error| error.to_string())?;
@@ -251,7 +253,7 @@ fn build_stores(
             Arc::new(DocumentRetriever::new(Arc::clone(&documents))),
             Arc::new(FileRetriever::new(
                 Arc::clone(&files),
-                Arc::new(|| devtoolbox_core::settings::KnowledgeSettings::default())
+                Arc::new(devtoolbox_core::settings::KnowledgeSettings::default)
                     as Arc<dyn Fn() -> devtoolbox_core::settings::KnowledgeSettings + Send + Sync>,
             )),
         ],
@@ -352,11 +354,13 @@ impl Composition {
     /// 工具数量（Runtime gate：证明 MCP catalog 来自真实注册）。
     #[must_use]
     pub fn tool_names(&self) -> Vec<String> {
-        self.registry.specs().into_iter().map(|spec| spec.name).collect()
+        self.registry
+            .specs()
+            .into_iter()
+            .map(|spec| spec.name)
+            .collect()
     }
 }
-
-
 
 // ---------------------------------------------------------------------------
 // Store → Port 适配器（MCP 组合根内联；与 desktop `knowledge.rs` 同形态）
@@ -386,8 +390,10 @@ impl devtoolbox_application::memory::MemoryStorePort for MemoryStoreAdapter {
     fn get(
         &self,
         id: &str,
-    ) -> Result<Option<devtoolbox_core::memory::MemoryItem>, devtoolbox_application::memory::MemoryStoreError>
-    {
+    ) -> Result<
+        Option<devtoolbox_core::memory::MemoryItem>,
+        devtoolbox_application::memory::MemoryStoreError,
+    > {
         self.store
             .get(id)
             .map_err(|error| devtoolbox_application::memory::MemoryStoreError(error.to_string()))
@@ -395,8 +401,10 @@ impl devtoolbox_application::memory::MemoryStorePort for MemoryStoreAdapter {
     fn query(
         &self,
         spec: &devtoolbox_core::memory::MemoryQuery,
-    ) -> Result<Vec<devtoolbox_core::memory::MemoryItem>, devtoolbox_application::memory::MemoryStoreError>
-    {
+    ) -> Result<
+        Vec<devtoolbox_core::memory::MemoryItem>,
+        devtoolbox_application::memory::MemoryStoreError,
+    > {
         self.store
             .query(spec)
             .map_err(|error| devtoolbox_application::memory::MemoryStoreError(error.to_string()))
@@ -449,9 +457,9 @@ impl devtoolbox_application::documents::DocumentIndexPort for DocumentIndexAdapt
         &self,
         meta: &devtoolbox_core::documents::DocumentMeta,
     ) -> Result<(), devtoolbox_application::documents::DocumentStoreError> {
-        self.store
-            .upsert(meta)
-            .map_err(|error| devtoolbox_application::documents::DocumentStoreError(error.to_string()))
+        self.store.upsert(meta).map_err(|error| {
+            devtoolbox_application::documents::DocumentStoreError(error.to_string())
+        })
     }
     fn replace_chunks(
         &self,
@@ -460,7 +468,9 @@ impl devtoolbox_application::documents::DocumentIndexPort for DocumentIndexAdapt
     ) -> Result<(), devtoolbox_application::documents::DocumentStoreError> {
         self.store
             .replace_chunks(document_id, chunks)
-            .map_err(|error| devtoolbox_application::documents::DocumentStoreError(error.to_string()))
+            .map_err(|error| {
+                devtoolbox_application::documents::DocumentStoreError(error.to_string())
+            })
     }
     fn get(
         &self,
@@ -469,9 +479,9 @@ impl devtoolbox_application::documents::DocumentIndexPort for DocumentIndexAdapt
         Option<devtoolbox_core::documents::DocumentMeta>,
         devtoolbox_application::documents::DocumentStoreError,
     > {
-        self.store
-            .get(document_id)
-            .map_err(|error| devtoolbox_application::documents::DocumentStoreError(error.to_string()))
+        self.store.get(document_id).map_err(|error| {
+            devtoolbox_application::documents::DocumentStoreError(error.to_string())
+        })
     }
     fn chunks(
         &self,
@@ -480,9 +490,9 @@ impl devtoolbox_application::documents::DocumentIndexPort for DocumentIndexAdapt
         Vec<devtoolbox_core::documents::DocumentChunk>,
         devtoolbox_application::documents::DocumentStoreError,
     > {
-        self.store
-            .chunks(document_id)
-            .map_err(|error| devtoolbox_application::documents::DocumentStoreError(error.to_string()))
+        self.store.chunks(document_id).map_err(|error| {
+            devtoolbox_application::documents::DocumentStoreError(error.to_string())
+        })
     }
     fn search_candidates(
         &self,
@@ -495,7 +505,9 @@ impl devtoolbox_application::documents::DocumentIndexPort for DocumentIndexAdapt
     > {
         self.store
             .search_candidates(keywords, document_type, limit)
-            .map_err(|error| devtoolbox_application::documents::DocumentStoreError(error.to_string()))
+            .map_err(|error| {
+                devtoolbox_application::documents::DocumentStoreError(error.to_string())
+            })
     }
     fn recent(
         &self,
@@ -504,9 +516,9 @@ impl devtoolbox_application::documents::DocumentIndexPort for DocumentIndexAdapt
         Vec<devtoolbox_core::documents::DocumentMeta>,
         devtoolbox_application::documents::DocumentStoreError,
     > {
-        self.store
-            .recent(limit)
-            .map_err(|error| devtoolbox_application::documents::DocumentStoreError(error.to_string()))
+        self.store.recent(limit).map_err(|error| {
+            devtoolbox_application::documents::DocumentStoreError(error.to_string())
+        })
     }
     fn fingerprints(
         &self,
@@ -515,17 +527,17 @@ impl devtoolbox_application::documents::DocumentIndexPort for DocumentIndexAdapt
         Vec<devtoolbox_core::documents::DocumentFingerprint>,
         devtoolbox_application::documents::DocumentStoreError,
     > {
-        self.store
-            .fingerprints(root_id)
-            .map_err(|error| devtoolbox_application::documents::DocumentStoreError(error.to_string()))
+        self.store.fingerprints(root_id).map_err(|error| {
+            devtoolbox_application::documents::DocumentStoreError(error.to_string())
+        })
     }
     fn remove(
         &self,
         document_id: &str,
     ) -> Result<(), devtoolbox_application::documents::DocumentStoreError> {
-        self.store
-            .remove(document_id)
-            .map_err(|error| devtoolbox_application::documents::DocumentStoreError(error.to_string()))
+        self.store.remove(document_id).map_err(|error| {
+            devtoolbox_application::documents::DocumentStoreError(error.to_string())
+        })
     }
     fn stats(
         &self,
@@ -533,9 +545,9 @@ impl devtoolbox_application::documents::DocumentIndexPort for DocumentIndexAdapt
         devtoolbox_core::documents::DocumentIndexStats,
         devtoolbox_application::documents::DocumentStoreError,
     > {
-        self.store
-            .stats()
-            .map_err(|error| devtoolbox_application::documents::DocumentStoreError(error.to_string()))
+        self.store.stats().map_err(|error| {
+            devtoolbox_application::documents::DocumentStoreError(error.to_string())
+        })
     }
 }
 
@@ -615,20 +627,15 @@ impl devtoolbox_application::files::FileIndexPort for FileIndexAdapter {
             .fingerprints(root_id)
             .map_err(|error| devtoolbox_application::files::FileIndexError(error.to_string()))
     }
-    fn remove(
-        &self,
-        file_id: &str,
-    ) -> Result<(), devtoolbox_application::files::FileIndexError> {
+    fn remove(&self, file_id: &str) -> Result<(), devtoolbox_application::files::FileIndexError> {
         self.store
             .remove(file_id)
             .map_err(|error| devtoolbox_application::files::FileIndexError(error.to_string()))
     }
     fn stats(
         &self,
-    ) -> Result<
-        devtoolbox_core::files::FileIndexStats,
-        devtoolbox_application::files::FileIndexError,
-    > {
+    ) -> Result<devtoolbox_core::files::FileIndexStats, devtoolbox_application::files::FileIndexError>
+    {
         self.store
             .stats()
             .map_err(|error| devtoolbox_application::files::FileIndexError(error.to_string()))
@@ -649,10 +656,7 @@ impl devtoolbox_application::documents::DocumentSourcePort for DocumentSourcePor
         _root: &devtoolbox_core::files::KnowledgeRoot,
         _limit: usize,
     ) -> Result<
-        (
-            Vec<devtoolbox_core::documents::ScannedDocument>,
-            bool,
-        ),
+        (Vec<devtoolbox_core::documents::ScannedDocument>, bool),
         devtoolbox_application::documents::DocumentStoreError,
     > {
         Ok((Vec::new(), false))
@@ -694,10 +698,8 @@ impl devtoolbox_application::files::FileSystemPort for FileSystemPortProbe {
         &self,
         _path: &std::path::PathBuf,
         _max_bytes: u64,
-    ) -> Result<
-        devtoolbox_core::files::FileReadOutcome,
-        devtoolbox_core::files::FileAccessDenied,
-    > {
+    ) -> Result<devtoolbox_core::files::FileReadOutcome, devtoolbox_core::files::FileAccessDenied>
+    {
         Err(devtoolbox_core::files::FileAccessDenied::NotFound)
     }
     fn walk(
@@ -756,7 +758,6 @@ impl devtoolbox_application::server::ports::ApplicationProbePort for Application
         }
     }
 }
-
 
 /// 审计桥：SQLite 审计 → MCP audit（同一 store，§11）。
 pub struct SqliteAuditBridge {

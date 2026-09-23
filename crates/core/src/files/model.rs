@@ -6,6 +6,7 @@
 //! 安全模型（§44）分两层：
 //! - 本模块 = 纯策略（允许根、deny 规则、遍历检测）——确定性、可单测；
 //! - infrastructure = canonicalize（解析 symlink）与文件系统访问。
+//!
 //! 两者组合后，任何「先解析再校验」的路径都必须通过 [`FileAccessPolicy`]。
 
 use std::path::{Component, Path};
@@ -327,6 +328,48 @@ impl FileAccessPolicy {
     }
 }
 
+/// 文件 id（稳定：`root_id` + 相对路径）。
+#[must_use]
+pub fn file_id(root_id: &str, relative_path: &str) -> String {
+    crate::knowledge::stable_id("file", &[root_id, relative_path])
+}
+
+/// 文件名（跨平台：同时接受 `/` 与 `\` 分隔）。
+#[must_use]
+pub fn file_name_of(relative_path: &str) -> String {
+    relative_path
+        .rsplit(['/', '\\'])
+        .next()
+        .unwrap_or(relative_path)
+        .to_string()
+}
+
+/// 展示用路径：去掉 Windows 的 verbatim 前缀（`\\?\D:\a` → `D:\a`）。
+///
+/// 授权与 `strip_prefix` 一律使用 canonical 形式；此函数只用于**对用户与模型
+/// 展示**的路径（`FileMetadata::path`），避免把 `\\?\` 暴露到 UI 与 prompt。
+#[must_use]
+pub fn display_path(path: &str) -> String {
+    if let Some(rest) = path.strip_prefix(r"\\?\UNC\") {
+        return format!(r"\\{rest}");
+    }
+    if let Some(rest) = path.strip_prefix(r"\\?\") {
+        return rest.to_string();
+    }
+    path.to_string()
+}
+
+/// 扩展名（小写；无扩展名 → None）。
+#[must_use]
+pub fn extension_of(relative_path: &str) -> Option<String> {
+    let name = file_name_of(relative_path);
+    let (_, extension) = name.rsplit_once('.')?;
+    if extension.is_empty() || extension == name {
+        return None;
+    }
+    Some(extension.to_ascii_lowercase())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -465,14 +508,17 @@ mod tests {
             FileAccessDenied::NotText,
         ] {
             assert!(!denial.as_str().is_empty());
-            assert!(denial.message().chars().any(|c| !c.is_ascii()));
+            assert!(!denial.message().is_ascii());
         }
     }
 
     #[test]
     fn display_path_strips_windows_verbatim_prefix() {
         assert_eq!(display_path(r"\\?\D:\资料\a.md"), r"D:\资料\a.md");
-        assert_eq!(display_path(r"\\?\UNC\server\share\a.md"), r"\\server\share\a.md");
+        assert_eq!(
+            display_path(r"\\?\UNC\server\share\a.md"),
+            r"\\server\share\a.md"
+        );
         assert_eq!(display_path("/data/a.md"), "/data/a.md");
     }
 
@@ -498,46 +544,4 @@ mod tests {
         assert_eq!(metadata.file_id, file_id("docs", "notes/a.md"));
         assert_ne!(metadata.file_id, file_id("other", "notes/a.md"));
     }
-}
-
-/// 文件 id（稳定：`root_id` + 相对路径）。
-#[must_use]
-pub fn file_id(root_id: &str, relative_path: &str) -> String {
-    crate::knowledge::stable_id("file", &[root_id, relative_path])
-}
-
-/// 文件名（跨平台：同时接受 `/` 与 `\` 分隔）。
-#[must_use]
-pub fn file_name_of(relative_path: &str) -> String {
-    relative_path
-        .rsplit(['/', '\\'])
-        .next()
-        .unwrap_or(relative_path)
-        .to_string()
-}
-
-/// 展示用路径：去掉 Windows 的 verbatim 前缀（`\\?\D:\a` → `D:\a`）。
-///
-/// 授权与 `strip_prefix` 一律使用 canonical 形式；此函数只用于**对用户与模型
-/// 展示**的路径（`FileMetadata::path`），避免把 `\\?\` 暴露到 UI 与 prompt。
-#[must_use]
-pub fn display_path(path: &str) -> String {
-    if let Some(rest) = path.strip_prefix(r"\\?\UNC\") {
-        return format!(r"\\{rest}");
-    }
-    if let Some(rest) = path.strip_prefix(r"\\?\") {
-        return rest.to_string();
-    }
-    path.to_string()
-}
-
-/// 扩展名（小写；无扩展名 → None）。
-#[must_use]
-pub fn extension_of(relative_path: &str) -> Option<String> {
-    let name = file_name_of(relative_path);
-    let (_, extension) = name.rsplit_once('.')?;
-    if extension.is_empty() || extension == name {
-        return None;
-    }
-    Some(extension.to_ascii_lowercase())
 }

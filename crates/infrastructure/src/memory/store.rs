@@ -242,11 +242,11 @@ impl MemorySqliteStore {
     }
 
     pub fn count_by_status(&self) -> Result<Vec<(MemoryStatus, usize)>, InfrastructureError> {
-        self.group_counts("status", |raw| MemoryStatus::parse(raw))
+        self.group_counts("status", MemoryStatus::parse)
     }
 
     pub fn count_by_category(&self) -> Result<Vec<(MemoryCategory, usize)>, InfrastructureError> {
-        self.group_counts("category", |raw| MemoryCategory::parse(raw))
+        self.group_counts("category", MemoryCategory::parse)
     }
 
     fn group_counts<T: Copy>(
@@ -295,8 +295,7 @@ fn row_to_item(row: &rusqlite::Row<'_>) -> Result<MemoryItem, InfrastructureErro
         category: MemoryCategory::parse(&category).unwrap_or(MemoryCategory::PersonalFact),
         content: row.get(2).map_err(sqlite)?,
         status: MemoryStatus::parse(&status).unwrap_or(MemoryStatus::Candidate),
-        source_type: MemorySourceType::parse(&source_type)
-            .unwrap_or(MemorySourceType::System),
+        source_type: MemorySourceType::parse(&source_type).unwrap_or(MemorySourceType::System),
         source_reference: row.get(5).map_err(sqlite)?,
         created_at: row.get(6).map_err(sqlite)?,
         updated_at: row.get(7).map_err(sqlite)?,
@@ -323,13 +322,17 @@ mod tests {
     use super::*;
     use devtoolbox_core::memory::MemoryDraft;
 
-    fn item(id: &str, content: &str, status: MemoryStatus, sensitivity: MemorySensitivity) -> MemoryItem {
-        let draft = MemoryDraft::new(MemoryCategory::Preference, content)
-            .with_sensitivity(sensitivity);
+    fn item(
+        id: &str,
+        content: &str,
+        status: MemoryStatus,
+        sensitivity: MemorySensitivity,
+    ) -> MemoryItem {
+        let draft =
+            MemoryDraft::new(MemoryCategory::Preference, content).with_sensitivity(sensitivity);
         let mut item = MemoryItem::candidate(id, &draft, 1_000);
         item.status = status;
-        item
-            .metadata
+        item.metadata
             .clone_from(&serde_json::json!({"origin": "test"}));
         item
     }
@@ -341,7 +344,12 @@ mod tests {
         {
             let store = MemorySqliteStore::open(&path).unwrap();
             store
-                .upsert(&item("m1", "喜欢历史旅行", MemoryStatus::Active, MemorySensitivity::Normal))
+                .upsert(&item(
+                    "m1",
+                    "喜欢历史旅行",
+                    MemoryStatus::Active,
+                    MemorySensitivity::Normal,
+                ))
                 .unwrap();
         }
         // 第二次打开：不重建、不丢数据（§86）。
@@ -349,7 +357,10 @@ mod tests {
         let loaded = store.get("m1").unwrap().expect("row survives reopen");
         assert_eq!(loaded.content, "喜欢历史旅行");
         assert_eq!(store.count().unwrap(), 1);
-        assert_eq!(store.count_by_status().unwrap(), vec![(MemoryStatus::Active, 1)]);
+        assert_eq!(
+            store.count_by_status().unwrap(),
+            vec![(MemoryStatus::Active, 1)]
+        );
         assert_eq!(
             store.count_by_category().unwrap(),
             vec![(MemoryCategory::Preference, 1)]
@@ -359,7 +370,12 @@ mod tests {
     #[test]
     fn upsert_replaces_by_id_without_duplicating() {
         let store = MemorySqliteStore::open_in_memory().unwrap();
-        let mut first = item("m1", "第一版", MemoryStatus::Candidate, MemorySensitivity::Normal);
+        let mut first = item(
+            "m1",
+            "第一版",
+            MemoryStatus::Candidate,
+            MemorySensitivity::Normal,
+        );
         store.upsert(&first).unwrap();
         first.content = "第二版".to_string();
         first.status = MemoryStatus::Active;
@@ -377,16 +393,36 @@ mod tests {
     fn query_filters_keyword_status_category_and_sensitivity() {
         let store = MemorySqliteStore::open_in_memory().unwrap();
         store
-            .upsert(&item("m1", "Docker 数据目录是 /Volumes/Data/docker", MemoryStatus::Active, MemorySensitivity::Normal))
+            .upsert(&item(
+                "m1",
+                "Docker 数据目录是 /Volumes/Data/docker",
+                MemoryStatus::Active,
+                MemorySensitivity::Normal,
+            ))
             .unwrap();
         store
-            .upsert(&item("m2", "喜欢历史旅行", MemoryStatus::Active, MemorySensitivity::Normal))
+            .upsert(&item(
+                "m2",
+                "喜欢历史旅行",
+                MemoryStatus::Active,
+                MemorySensitivity::Normal,
+            ))
             .unwrap();
         store
-            .upsert(&item("m3", "体检记录在协和", MemoryStatus::Active, MemorySensitivity::Sensitive))
+            .upsert(&item(
+                "m3",
+                "体检记录在协和",
+                MemoryStatus::Active,
+                MemorySensitivity::Sensitive,
+            ))
             .unwrap();
         store
-            .upsert(&item("m4", "Docker 版本注意升级", MemoryStatus::Archived, MemorySensitivity::Normal))
+            .upsert(&item(
+                "m4",
+                "Docker 版本注意升级",
+                MemoryStatus::Archived,
+                MemorySensitivity::Normal,
+            ))
             .unwrap();
 
         let hits = store
@@ -434,7 +470,12 @@ mod tests {
     fn touch_used_records_timestamp() {
         let store = MemorySqliteStore::open_in_memory().unwrap();
         store
-            .upsert(&item("m1", "喜欢历史旅行", MemoryStatus::Active, MemorySensitivity::Normal))
+            .upsert(&item(
+                "m1",
+                "喜欢历史旅行",
+                MemoryStatus::Active,
+                MemorySensitivity::Normal,
+            ))
             .unwrap();
         store.touch_used(&["m1".to_string()], 4_242).unwrap();
         assert_eq!(store.get("m1").unwrap().unwrap().last_used_at, Some(4_242));

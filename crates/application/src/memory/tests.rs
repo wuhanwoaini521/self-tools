@@ -31,9 +31,7 @@ impl FakeMemoryStore {
 
 impl MemoryStorePort for FakeMemoryStore {
     fn upsert(&self, item: &MemoryItem) -> Result<(), MemoryStoreError> {
-        self.items
-            .lock()
-            .insert(item.id.clone(), item.clone());
+        self.items.lock().insert(item.id.clone(), item.clone());
         Ok(())
     }
 
@@ -50,14 +48,11 @@ impl MemoryStorePort for FakeMemoryStore {
         let mut items: Vec<MemoryItem> = self
             .all()
             .into_iter()
+            .filter(|item| spec.include_sensitive || item.sensitivity.is_model_visible())
             .filter(|item| {
-                if spec.include_sensitive || item.sensitivity.is_model_visible() {
-                    true
-                } else {
-                    false
-                }
+                spec.category
+                    .is_none_or(|category| item.category == category)
             })
-            .filter(|item| spec.category.is_none_or(|category| item.category == category))
             .filter(|item| spec.status.is_none_or(|status| item.status == status))
             .filter(|item| {
                 tokens.is_empty()
@@ -85,9 +80,7 @@ impl MemoryStorePort for FakeMemoryStore {
                 item.last_used_at = Some(now);
             }
         }
-        self.touch_calls
-            .lock()
-            .push((ids.to_vec(), now));
+        self.touch_calls.lock().push((ids.to_vec(), now));
         Ok(())
     }
 
@@ -149,7 +142,10 @@ fn case1_explicit_save_then_confirm_becomes_active() {
     let active = service.confirm(&candidate.id).expect("confirm");
     assert_eq!(active.status, MemoryStatus::Active);
     assert_eq!(active.metadata["confirmed_by"], "ui");
-    assert_eq!(store.get(&candidate.id).unwrap().unwrap().status, MemoryStatus::Active);
+    assert_eq!(
+        store.get(&candidate.id).unwrap().unwrap().status,
+        MemoryStatus::Active
+    );
 
     // 再次确认 → 受控错误（不是 panic、不是静默成功）。
     let error = service.confirm(&candidate.id).unwrap_err();
@@ -171,9 +167,7 @@ fn ui_confirmed_save_is_active_immediately() {
 #[test]
 fn case2_model_path_never_produces_active() {
     let (service, store) = service();
-    let candidate = service
-        .propose(draft("今天晚上想吃寿司"))
-        .expect("propose");
+    let candidate = service.propose(draft("今天晚上想吃寿司")).expect("propose");
     assert_eq!(candidate.status, MemoryStatus::Candidate);
     assert_ne!(candidate.status, MemoryStatus::Active);
 
@@ -203,7 +197,12 @@ fn case3_search_returns_relevant_active_memory() {
     assert_eq!(hits[0].id, docker.id);
     // 命中后应记录使用时间（写回存储，不改变本次返回快照）。
     assert!(
-        store.get(&docker.id).unwrap().unwrap().last_used_at.is_some(),
+        store
+            .get(&docker.id)
+            .unwrap()
+            .unwrap()
+            .last_used_at
+            .is_some(),
         "命中后应记录使用时间"
     );
 
@@ -212,9 +211,17 @@ fn case3_search_returns_relevant_active_memory() {
     assert_eq!(hits.len(), 1);
 
     // 类别过滤。
-    assert!(service.search("docker", Some(MemoryCategory::Routine), 5).unwrap().is_empty());
+    assert!(
+        service
+            .search("docker", Some(MemoryCategory::Routine), 5)
+            .unwrap()
+            .is_empty()
+    );
     assert_eq!(
-        service.search("docker", Some(MemoryCategory::Preference), 5).unwrap().len(),
+        service
+            .search("docker", Some(MemoryCategory::Preference), 5)
+            .unwrap()
+            .len(),
         1
     );
 
@@ -227,7 +234,9 @@ fn case3_search_returns_relevant_active_memory() {
 #[test]
 fn case4_archived_memory_is_not_retrieved() {
     let (service, store) = service();
-    let item = service.save_confirmed(draft("Docker 数据目录是 /Volumes/Data/docker")).unwrap();
+    let item = service
+        .save_confirmed(draft("Docker 数据目录是 /Volumes/Data/docker"))
+        .unwrap();
     assert_eq!(service.search("docker", None, 5).unwrap().len(), 1);
 
     let archived = service.archive(&item.id).unwrap();
@@ -268,8 +277,12 @@ fn case5_secret_like_content_is_rejected() {
     assert!(store.all().is_empty(), "拒绝的内容不得写入存储");
 
     // 编辑路径同样受 gate 保护。
-    let ok = service.save_confirmed(draft("Docker 数据目录是 /Volumes/Data/docker")).unwrap();
-    let error = service.update(&ok.id, "密码: hunter2xyz", None, None).unwrap_err();
+    let ok = service
+        .save_confirmed(draft("Docker 数据目录是 /Volumes/Data/docker"))
+        .unwrap();
+    let error = service
+        .update(&ok.id, "密码: hunter2xyz", None, None)
+        .unwrap_err();
     assert!(error.to_string().contains("credential store"));
     assert_eq!(
         store.get(&ok.id).unwrap().unwrap().content,
@@ -350,7 +363,9 @@ fn reject_transitions_candidate_and_blocks_archive() {
 #[test]
 fn stats_and_category_counts_reflect_state() {
     let (service, _) = service();
-    service.save_confirmed(draft("Docker 数据在 /Volumes/Data/docker")).unwrap();
+    service
+        .save_confirmed(draft("Docker 数据在 /Volumes/Data/docker"))
+        .unwrap();
     let candidate = service.propose(draft("喜欢夜景摄影")).unwrap();
     service.archive(&candidate.id).unwrap();
 
@@ -360,7 +375,11 @@ fn stats_and_category_counts_reflect_state() {
     assert_eq!(stats.total(), 2);
 
     let counts = service.category_counts().unwrap();
-    assert!(counts.iter().any(|(category, count)| *category == MemoryCategory::Preference && *count == 2));
+    assert!(
+        counts
+            .iter()
+            .any(|(category, count)| *category == MemoryCategory::Preference && *count == 2)
+    );
 }
 
 #[test]
@@ -380,8 +399,11 @@ fn knowledge_projection_carries_category_and_source() {
     let (service, _) = service();
     let item = service
         .save_confirmed(
-            MemoryDraft::new(MemoryCategory::Environment, "Docker 数据目录是 /Volumes/Data/docker")
-                .with_source(MemorySourceType::ExplicitUser, Some("chat:9".into())),
+            MemoryDraft::new(
+                MemoryCategory::Environment,
+                "Docker 数据目录是 /Volumes/Data/docker",
+            )
+            .with_source(MemorySourceType::ExplicitUser, Some("chat:9".into())),
         )
         .unwrap();
     let results = service.to_knowledge_results(&[item], "docker");
@@ -391,7 +413,10 @@ fn knowledge_projection_carries_category_and_source() {
     assert!(results[0].score > 0.5);
     // provenance 保留（§66）。
     assert_eq!(results[0].provenance.source_id, results[0].source_id);
-    assert_eq!(results[0].provenance.source_kind, devtoolbox_core::knowledge::KnowledgeSourceKind::Memory);
+    assert_eq!(
+        results[0].provenance.source_kind,
+        devtoolbox_core::knowledge::KnowledgeSourceKind::Memory
+    );
     assert!(!results[0].metadata.is_null());
 }
 
@@ -400,9 +425,17 @@ fn update_edits_content_and_category() {
     let (service, store) = service();
     let item = service.save_confirmed(draft("喜欢历史旅行")).unwrap();
     let updated = service
-        .update(&item.id, "喜欢历史与摄影旅行", Some(MemoryCategory::Preference), None)
+        .update(
+            &item.id,
+            "喜欢历史与摄影旅行",
+            Some(MemoryCategory::Preference),
+            None,
+        )
         .unwrap();
     assert_eq!(updated.content, "喜欢历史与摄影旅行");
     assert!(updated.updated_at >= item.updated_at);
-    assert_eq!(store.get(&item.id).unwrap().unwrap().content, "喜欢历史与摄影旅行");
+    assert_eq!(
+        store.get(&item.id).unwrap().unwrap().content,
+        "喜欢历史与摄影旅行"
+    );
 }

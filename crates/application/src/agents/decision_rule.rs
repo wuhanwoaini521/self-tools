@@ -43,7 +43,10 @@ impl DecisionProvider for RuleDecisionProvider {
         PROVIDER_NAME
     }
 
-    async fn decide(&self, request: &DecisionRequest) -> Result<DecisionResult, DecisionProviderError> {
+    async fn decide(
+        &self,
+        request: &DecisionRequest,
+    ) -> Result<DecisionResult, DecisionProviderError> {
         Ok(decide_by_rule(request))
     }
 }
@@ -86,10 +89,19 @@ pub fn decide_by_rule(request: &DecisionRequest) -> DecisionResult {
     }
 
     // 跨模块 / 多来源。
-    let cross_module = ["日志", "文档", "记忆", "服务器", "history", "documents", "memory", "server"]
-        .iter()
-        .filter(|needle| lowered.contains(**needle))
-        .count()
+    let cross_module = [
+        "日志",
+        "文档",
+        "记忆",
+        "服务器",
+        "history",
+        "documents",
+        "memory",
+        "server",
+    ]
+    .iter()
+    .filter(|needle| lowered.contains(**needle))
+    .count()
         >= 2
         || request.cross_module_hint;
     if cross_module {
@@ -187,7 +199,11 @@ mod tests {
             "系统性梳理记忆",
         ] {
             let result = decide_by_rule(&request(message));
-            assert_eq!(result.strategy, DecisionStrategy::BoundedMultiAgent, "{message}");
+            assert_eq!(
+                result.strategy,
+                DecisionStrategy::BoundedMultiAgent,
+                "{message}"
+            );
             assert_eq!(result.reason_code, "explicit_deep_request");
             assert!(result.review_required);
         }
@@ -217,7 +233,10 @@ mod tests {
             "cross_module_request"
         );
         // 为什么 + len > 30 才触发（冻结 V9 的 `lowered.len()` 字节数判断）。
-        assert_eq!(decide_by_rule(&request("为什么")).strategy, DecisionStrategy::Direct);
+        assert_eq!(
+            decide_by_rule(&request("为什么")).strategy,
+            DecisionStrategy::Direct
+        );
         // 该串字节长度 > 30 但不含第二模块词 → comparison_or_diagnosis。
         let long_why = "为什么最近系统总是在夜间出现内存占用异常升高的现象";
         assert!(long_why.to_lowercase().len() > 30);

@@ -147,10 +147,7 @@ mod tests {
         assert!(tokens.contains(&"durabletask".to_string()));
         assert!(tokens.contains(&"accessdeniedexception".to_string()));
         // 大小写归一 + 去重
-        assert_eq!(
-            tokens.iter().filter(|token| *token == "jenkins").count(),
-            1
-        );
+        assert_eq!(tokens.iter().filter(|token| *token == "jenkins").count(), 1);
     }
 
     #[test]
@@ -199,7 +196,12 @@ mod tests {
 
     #[test]
     fn snippet_around_centers_on_match() {
-        let text = format!("{}{}{}", "前言".repeat(50), "Docker volume 关键内容", "后记".repeat(50));
+        let text = format!(
+            "{}{}{}",
+            "前言".repeat(50),
+            "Docker volume 关键内容",
+            "后记".repeat(50)
+        );
         let tokens = keywords("docker volume");
         let snippet = snippet_around(&text, &tokens, 40);
         assert!(snippet.contains("Docker volume"));

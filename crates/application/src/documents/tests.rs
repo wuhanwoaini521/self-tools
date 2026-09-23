@@ -73,7 +73,6 @@ impl DocumentIndexPort for FakeDocumentIndex {
         Ok(chunks)
     }
 
-
     fn search_candidates(
         &self,
         keywords: &[String],
@@ -226,17 +225,15 @@ impl FakeDocumentSource {
     }
 
     fn size_of(&self, path: &str) -> u64 {
-        self.sizes
-            .get(path)
-            .copied()
-            .unwrap_or_else(|| self.files.get(path).map_or(0, |content| content.len() as u64))
+        self.sizes.get(path).copied().unwrap_or_else(|| {
+            self.files
+                .get(path)
+                .map_or(0, |content| content.len() as u64)
+        })
     }
 
     fn modified_of(&self, path: &str) -> i64 {
-        self.modified
-            .get(path)
-            .copied()
-            .unwrap_or(DEFAULT_MODIFIED)
+        self.modified.get(path).copied().unwrap_or(DEFAULT_MODIFIED)
     }
 }
 
@@ -311,7 +308,8 @@ fn settings() -> KnowledgeSettings {
 
 fn service(source: FakeDocumentSource) -> (DocumentService, Arc<FakeDocumentIndex>) {
     let index = Arc::new(FakeDocumentIndex::default());
-    let service = DocumentService::with_config(index.clone(), Arc::new(source), DocumentConfig::default());
+    let service =
+        DocumentService::with_config(index.clone(), Arc::new(source), DocumentConfig::default());
     (service, index)
 }
 
@@ -330,7 +328,11 @@ fn long_document() -> String {
 
 /// 带两级标题的长文：`## 网络` 之后的正文跨多个 chunk（§37 章节引用）。
 fn sectioned_document() -> String {
-    format!("# 环境\n{}\n## 网络\n{}\n", "a".repeat(400), "b".repeat(3_000))
+    format!(
+        "# 环境\n{}\n## 网络\n{}\n",
+        "a".repeat(400),
+        "b".repeat(3_000)
+    )
 }
 
 // ---------------------------------------------------------------------------
@@ -339,12 +341,10 @@ fn sectioned_document() -> String {
 
 #[test]
 fn search_正文命中返回分数位置与片段() {
-    let (service, _index) = service(
-        FakeDocumentSource::default().with_file(
-            "/data/docs/notes/jenkins.md",
-            "# Jenkins\nAccessDeniedException 出现在权限不足时\n",
-        ),
-    );
+    let (service, _index) = service(FakeDocumentSource::default().with_file(
+        "/data/docs/notes/jenkins.md",
+        "# Jenkins\nAccessDeniedException 出现在权限不足时\n",
+    ));
     index_once(&service, &settings());
 
     let hits = service
@@ -378,7 +378,10 @@ fn search_标题命中排在正文命中之前() {
     assert_eq!(hits.len(), 2);
     let title_hit = &hits[0];
     let body_hit = &hits[1];
-    assert_eq!(title_hit.meta.document_id, document_id("docs", "notes/docker.md"));
+    assert_eq!(
+        title_hit.meta.document_id,
+        document_id("docs", "notes/docker.md")
+    );
     assert!(title_hit.matched_in_title);
     assert!(title_hit.snippet.is_empty(), "标题命中不带正文片段");
     assert!(!body_hit.matched_in_title);
@@ -398,7 +401,12 @@ fn search_空查询与无命中都返回空() {
 
     assert!(service.search("", None, 10).expect("search").is_empty());
     assert!(service.search("   ", None, 10).expect("search").is_empty());
-    assert!(service.search("量子计算", None, 10).expect("search").is_empty());
+    assert!(
+        service
+            .search("量子计算", None, 10)
+            .expect("search")
+            .is_empty()
+    );
 }
 
 #[test]
@@ -496,7 +504,13 @@ fn read_按_offset与max_chars_范围读取() {
     );
     index_once(&service, &settings());
     let id = document_id("docs", "notes/long.txt");
-    let total = index.chunks(&id).expect("chunks").last().unwrap().location.char_end;
+    let total = index
+        .chunks(&id)
+        .expect("chunks")
+        .last()
+        .unwrap()
+        .location
+        .char_end;
 
     // 范围落在单个 chunk 内：字符预算硬生效，且绝不返回整份文档。
     let head = service
@@ -657,7 +671,10 @@ fn large_document_chunks_sorted_and_multiple() {
     assert_eq!(chunks.len(), meta.chunk_count);
     for (ordinal, chunk) in chunks.iter().enumerate() {
         assert_eq!(chunk.ordinal, ordinal, "chunk 必须有序");
-        assert_eq!(chunk.chunk_id, devtoolbox_core::documents::chunk_id(&id, ordinal));
+        assert_eq!(
+            chunk.chunk_id,
+            devtoolbox_core::documents::chunk_id(&id, ordinal)
+        );
     }
 
     let stats = service.stats().expect("stats");
@@ -691,21 +708,24 @@ fn index_root_增量_变更重索引_消失则移除() {
 
     // 同一扫描结果（size + mtime 未变）→ 全部 unchanged，且不再写 chunk。
     let second = index_once(&service, &settings);
-    assert_eq!((second.scanned, second.indexed, second.unchanged), (2, 0, 2));
+    assert_eq!(
+        (second.scanned, second.indexed, second.unchanged),
+        (2, 0, 2)
+    );
     assert_eq!(index.chunk_writes.lock().len(), 2);
 
     // 内容变化（size 变）→ 只有该文件重新索引。
     let changed = FakeDocumentSource::default()
         .with_file("/data/docs/notes/a.md", "Docker volume 换到了新目录")
         .with_file("/data/docs/notes/b.md", "Jenkins 记录");
-    let service = DocumentService::with_config(
-        index.clone(),
-        Arc::new(changed),
-        DocumentConfig::default(),
-    );
+    let service =
+        DocumentService::with_config(index.clone(), Arc::new(changed), DocumentConfig::default());
     let third = index_once(&service, &settings);
     assert_eq!((third.indexed, third.unchanged), (1, 1));
-    assert!(index.chunk_writes.lock().len() > 2, "变化文件必须重写 chunk");
+    assert!(
+        index.chunk_writes.lock().len() > 2,
+        "变化文件必须重写 chunk"
+    );
     assert_eq!(
         service
             .search("换到了新目录", None, 10)
@@ -720,24 +740,24 @@ fn index_root_增量_变更重索引_消失则移除() {
         .with_file("/data/docs/notes/a.md", "Docker volume 换到了新目录")
         .with_file("/data/docs/notes/b.md", "Jenkins 记录")
         .with_modified("/data/docs/notes/a.md", DEFAULT_MODIFIED + 500);
-    let service = DocumentService::with_config(
-        index.clone(),
-        Arc::new(touched),
-        DocumentConfig::default(),
-    );
+    let service =
+        DocumentService::with_config(index.clone(), Arc::new(touched), DocumentConfig::default());
     let fourth = index_once(&service, &settings);
     assert_eq!((fourth.indexed, fourth.unchanged), (1, 1));
 
     // 文件从扫描结果消失 → 只清索引（不碰文件系统）。
     let shrunk = FakeDocumentSource::default().with_file("/data/docs/notes/b.md", "Jenkins 记录");
-    let service = DocumentService::with_config(
-        index.clone(),
-        Arc::new(shrunk),
-        DocumentConfig::default(),
-    );
+    let service =
+        DocumentService::with_config(index.clone(), Arc::new(shrunk), DocumentConfig::default());
     let fifth = index_once(&service, &settings);
     assert_eq!((fifth.scanned, fifth.removed), (1, 1));
-    assert!(index.metas.lock().get(&document_id("docs", "notes/a.md")).is_none());
+    assert!(
+        index
+            .metas
+            .lock()
+            .get(&document_id("docs", "notes/a.md"))
+            .is_none()
+    );
     assert!(service.get(&document_id("docs", "notes/a.md")).is_err());
     assert_eq!(index.removed.lock().len(), 1);
 }
@@ -764,10 +784,12 @@ fn index_root_未配置根时不报错_且受文件数上限截断() {
         }],
         ..KnowledgeSettings::default()
     };
-    assert!(service
-        .index_configured_roots(&disabled)
-        .expect("禁用根")
-        .is_empty());
+    assert!(
+        service
+            .index_configured_roots(&disabled)
+            .expect("禁用根")
+            .is_empty()
+    );
 
     // max_indexed_files 截断（按 relative_path 稳定顺序）。
     let mut limited = settings();
@@ -784,8 +806,14 @@ fn denied_patterns_are_metadata_only_and_never_extracted() {
     let (service, index) = service(
         FakeDocumentSource::default()
             .with_file("/data/docs/notes/ok.md", "Docker volume 说明")
-            .with_file("/data/docs/notes/credentials.json", r#"{"api_key":"sk-abcdefghijklmnopqrstuvwx"}"#)
-            .with_file("/data/docs/notes/secrets.json", r#"{"token":"ghp_abcdefghijklmnopqrstuvwx12"}"#),
+            .with_file(
+                "/data/docs/notes/credentials.json",
+                r#"{"api_key":"sk-abcdefghijklmnopqrstuvwx"}"#,
+            )
+            .with_file(
+                "/data/docs/notes/secrets.json",
+                r#"{"token":"ghp_abcdefghijklmnopqrstuvwx12"}"#,
+            ),
     );
     let report = index_once(&service, &settings());
     assert_eq!(report.scanned, 3);
@@ -795,7 +823,10 @@ fn denied_patterns_are_metadata_only_and_never_extracted() {
     let denied = document_id("docs", "notes/credentials.json");
     let meta = service.get(&denied).expect("denied 文档写元数据");
     assert!(!meta.content_available);
-    assert_eq!(meta.index_error.as_deref(), Some("命中 deny 规则，未索引正文"));
+    assert_eq!(
+        meta.index_error.as_deref(),
+        Some("命中 deny 规则，未索引正文")
+    );
     assert!(
         index.chunks(&denied).expect("chunks").is_empty(),
         "deny 文件不得有正文 chunk"
@@ -809,9 +840,11 @@ fn denied_patterns_are_metadata_only_and_never_extracted() {
     // 凭据内容不可被检索命中（LIKE 只在 chunk/title 上跑，两者都空）。
     for query in ["sk-abcdefghijklmnopqrstuvwx", "credentials", "secrets"] {
         assert!(
-            service.search(query, None, 10).expect("search").iter().all(|hit| {
-                hit.meta.document_id != denied && hit.meta.document_id != secrets
-            }),
+            service
+                .search(query, None, 10)
+                .expect("search")
+                .iter()
+                .all(|hit| { hit.meta.document_id != denied && hit.meta.document_id != secrets }),
             "凭据内容不得可检索: {query}"
         );
     }
@@ -873,7 +906,10 @@ fn to_knowledge_results_每条都带_provenance() {
         assert_eq!(result.provenance.source_id, hit.meta.document_id);
         assert_eq!(result.title, hit.meta.title);
         assert_eq!(result.provenance.title, hit.meta.title);
-        assert_eq!(result.provenance.path.as_deref(), Some(hit.meta.path.as_str()));
+        assert_eq!(
+            result.provenance.path.as_deref(),
+            Some(hit.meta.path.as_str())
+        );
         assert!(
             result
                 .provenance
@@ -886,7 +922,10 @@ fn to_knowledge_results_每条都带_provenance() {
         let location = result.location.clone().unwrap_or_default();
         assert!(!location.is_empty(), "位置不得为空");
         if hit.matched_in_title {
-            assert!(location.starts_with("chunk#"), "无正文命中时回落到 chunk#: {location}");
+            assert!(
+                location.starts_with("chunk#"),
+                "无正文命中时回落到 chunk#: {location}"
+            );
         } else {
             assert!(
                 location.contains("字符") || location.contains('§'),

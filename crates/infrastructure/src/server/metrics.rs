@@ -10,7 +10,7 @@ use devtoolbox_core::server::{
 };
 
 /// 本地平台采样（macOS / Linux）。返回 core 的 `SystemMetrics`；
- ///「是否可用」由 application 的端口适配器判定。
+///「是否可用」由 application 的端口适配器判定。
 #[derive(Debug, Default, Clone, Copy)]
 pub struct LocalSystemMetrics;
 
@@ -148,8 +148,9 @@ fn cpu_metrics() -> CpuMetrics {
     };
     let load_average = match std::env::consts::OS {
         "linux" => linux_load_average(),
-        "macos" => run_capture("sysctl", &["-n", "vm.loadavg"])
-            .and_then(|output| parse_loadavg(&output)),
+        "macos" => {
+            run_capture("sysctl", &["-n", "vm.loadavg"]).and_then(|output| parse_loadavg(&output))
+        }
         _ => None,
     };
     CpuMetrics {
@@ -243,11 +244,7 @@ fn df_volumes() -> Vec<StorageMetrics> {
     let Some(output) = run_capture("df", &["-k", "-P"]) else {
         return Vec::new();
     };
-    output
-        .lines()
-        .skip(1)
-        .filter_map(parse_df_line)
-        .collect()
+    output.lines().skip(1).filter_map(parse_df_line).collect()
 }
 
 /// 解析一行 `df -k -P`：`Filesystem 1K-blocks Used Available Capacity Mounted on`。
@@ -358,10 +355,8 @@ mod tests {
 
     #[test]
     fn df_line_parses_into_storage_metrics() {
-        let parsed = parse_df_line(
-            "/dev/disk3s1s1 976490568 610000000 340000000    65% /",
-        )
-        .expect("parse");
+        let parsed =
+            parse_df_line("/dev/disk3s1s1 976490568 610000000 340000000    65% /").expect("parse");
         assert_eq!(parsed.mount, "/");
         assert_eq!(parsed.total_bytes, 976_490_568 * 1_024);
         assert_eq!(parsed.used_bytes, 610_000_000 * 1_024);
@@ -389,16 +384,25 @@ mod tests {
             VolumeKind::Virtual,
             "设备名优先于挂载点"
         );
-        assert_eq!(classify_volume("/System/Volumes/Data"), VolumeKind::DataDisk);
+        assert_eq!(
+            classify_volume("/System/Volumes/Data"),
+            VolumeKind::DataDisk
+        );
         assert_eq!(classify_volume("/Volumes/Backup"), VolumeKind::Removable);
-        assert_eq!(classify_volume("/private/var/folders/ab/cd"), VolumeKind::Temporary);
+        assert_eq!(
+            classify_volume("/private/var/folders/ab/cd"),
+            VolumeKind::Temporary
+        );
         assert_eq!(classify_volume("map auto_home"), VolumeKind::Virtual);
         assert_eq!(classify_volume("/Volumes/weird"), VolumeKind::Removable);
     }
 
     #[test]
     fn loadavg_parsing_handles_bsd_shape() {
-        assert_eq!(parse_loadavg("{ 1.23 1.45 1.67 }"), Some((1.23, 1.45, 1.67)));
+        assert_eq!(
+            parse_loadavg("{ 1.23 1.45 1.67 }"),
+            Some((1.23, 1.45, 1.67))
+        );
         assert_eq!(parse_loadavg("garbage"), None);
     }
 }

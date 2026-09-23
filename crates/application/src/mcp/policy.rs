@@ -119,10 +119,7 @@ impl McpAuthorizationPolicy {
         }
         // 4) 风险一致性（§37/§108）：registry 的 risk 与暴露分组不得矛盾。
         if !risk_matches_exposure(spec.risk, exposure) {
-            return AuthorizationDecision::denied(
-                "risk_mismatch",
-                "工具风险与暴露策略不一致",
-            );
+            return AuthorizationDecision::denied("risk_mismatch", "工具风险与暴露策略不一致");
         }
         AuthorizationDecision::Allowed
     }
@@ -191,7 +188,10 @@ mod tests {
         fn spec(&self) -> &ToolSpec {
             &self.spec
         }
-        async fn execute(&self, _arguments: serde_json::Value) -> Result<devtoolbox_core::ToolResult, devtoolbox_core::AgentError> {
+        async fn execute(
+            &self,
+            _arguments: serde_json::Value,
+        ) -> Result<devtoolbox_core::ToolResult, devtoolbox_core::AgentError> {
             Ok(devtoolbox_core::ToolResult::ok(serde_json::json!({})))
         }
     }
@@ -213,8 +213,6 @@ mod tests {
         }
         Arc::new(McpToolAdapter::new(Arc::new(registry)))
     }
-
-
 
     fn principal_with(scopes: Vec<&'static str>) -> McpPrincipal {
         McpPrincipal {
@@ -241,14 +239,20 @@ mod tests {
         ]);
         let only_server = principal_with(vec!["server.read"]);
         let visible = McpAuthorizationPolicy::visible_tools(&adapter, &only_server);
-        assert!(visible.contains(&"server.get_status".to_string()), "{visible:?}");
+        assert!(
+            visible.contains(&"server.get_status".to_string()),
+            "{visible:?}"
+        );
         assert!(
             !visible.contains(&"memory.search".to_string()),
             "§148：无 memory.read 不得看见 memory 工具"
         );
 
         let both = principal_with(vec!["selftools.read"]);
-        assert_eq!(McpAuthorizationPolicy::visible_tools(&adapter, &both).len(), 2);
+        assert_eq!(
+            McpAuthorizationPolicy::visible_tools(&adapter, &both).len(),
+            2
+        );
     }
 
     #[test]
@@ -281,21 +285,24 @@ mod tests {
         // §98 Case 5 / Demo J。
         let adapter = adapter_with(vec![("services.restart", ToolRisk::Read, "server")]);
         let read_only = principal_with(vec!["server.read"]);
-        let denied = McpAuthorizationPolicy::authorize_tool(&adapter, &read_only, "services.restart");
+        let denied =
+            McpAuthorizationPolicy::authorize_tool(&adapter, &read_only, "services.restart");
         assert!(!denied.is_allowed());
         // 顺序：remote 不可见先于 scope 检查（不向未授权方泄露 scope 需求）。
         assert_eq!(mcp_error_code(&denied), "tool_not_exposed");
 
         // SYSTEM 对远程不可见（§77）：即使有 scope 也不行。
         let action_scope = principal_with(vec!["server.action"]);
-        let hidden = McpAuthorizationPolicy::authorize_tool(&adapter, &action_scope, "services.restart");
+        let hidden =
+            McpAuthorizationPolicy::authorize_tool(&adapter, &action_scope, "services.restart");
         assert!(!hidden.is_allowed(), "remote 不得暴露 SYSTEM");
 
         // 本地受信 + scope  →  允许（但执行仍走 SafeAction 确认，§38）。
         let mut local = McpPrincipal::local("pi");
         local.scopes = vec![devtoolbox_core::mcp::McpScope::parse("server.action").expect("scope")];
         assert!(
-            McpAuthorizationPolicy::authorize_tool(&adapter, &local, "services.restart").is_allowed()
+            McpAuthorizationPolicy::authorize_tool(&adapter, &local, "services.restart")
+                .is_allowed()
         );
     }
 
@@ -352,7 +359,8 @@ mod tests {
     fn definition_annotations_expose_risk() {
         // §16：风险在 MCP 面不丢失。
         let adapter = adapter_with(vec![("services.restart", ToolRisk::Read, "server")]);
-        let definition: McpToolDefinition = adapter.definition("services.restart").expect("definition");
+        let definition: McpToolDefinition =
+            adapter.definition("services.restart").expect("definition");
         let annotations = definition.annotations.expect("annotations");
         // V7 形态（ADR-006）：registry risk = Read，SYSTEM 语义由暴露表 + 票据表达。
         assert_eq!(annotations.exposure_group, "system_action");

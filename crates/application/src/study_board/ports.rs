@@ -40,8 +40,10 @@ pub trait StudyBoardStorePort: Send + Sync {
     fn get_snapshot(&self, id: &str) -> Result<Option<StudyBoardSnapshot>, StudyBoardStoreError>;
 
     /// 某块板的最近快照。
-    fn latest_snapshot(&self, board_id: &str)
-        -> Result<Option<StudyBoardSnapshot>, StudyBoardStoreError>;
+    fn latest_snapshot(
+        &self,
+        board_id: &str,
+    ) -> Result<Option<StudyBoardSnapshot>, StudyBoardStoreError>;
 }
 
 /// 基础设施错误 → 端口错误文本（组合根/测试复用；不含正文）。

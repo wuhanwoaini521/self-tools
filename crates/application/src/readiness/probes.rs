@@ -13,7 +13,11 @@ pub struct BackendProbe;
 
 impl ReadinessProbe for BackendProbe {
     fn probe(&self) -> ReadinessCheck {
-        ReadinessCheck::new(ReadinessCheckId::Backend, ReadinessStatus::Ready, "后端进程已响应")
+        ReadinessCheck::new(
+            ReadinessCheckId::Backend,
+            ReadinessStatus::Ready,
+            "后端进程已响应",
+        )
     }
 }
 
@@ -125,10 +129,8 @@ impl ReadinessProbe for DecisionProbe {
     fn probe(&self) -> ReadinessCheck {
         // Rule 基线永远可用；Jev 模式需要 key。
         let mode = self.decision.effective_mode();
-        let usable = matches!(
-            mode,
-            devtoolbox_core::agents::DecisionMode::Rule
-        ) || self.decision.jev_configured();
+        let usable = matches!(mode, devtoolbox_core::agents::DecisionMode::Rule)
+            || self.decision.jev_configured();
         ReadinessCheck::new(
             ReadinessCheckId::Decision,
             if usable {

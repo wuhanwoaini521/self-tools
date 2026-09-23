@@ -99,9 +99,8 @@ fn sqlite_usable(path: &Path) -> bool {
     };
     let verdict: Result<String, _> =
         connection.query_row("PRAGMA integrity_check", [], |row| row.get(0));
-    let rows: Result<i64, _> = connection.query_row("SELECT count(*) FROM notes", [], |row| {
-        row.get::<_, i64>(0)
-    });
+    let rows: Result<i64, _> =
+        connection.query_row("SELECT count(*) FROM notes", [], |row| row.get::<_, i64>(0));
     drop(connection);
     verdict.as_deref() == Ok("ok") && rows.is_ok()
 }
@@ -149,9 +148,7 @@ fn drill_sqlite_backup_restore_preserves_data_and_schema() {
     assert!(!sqlite_usable(&live_db), "破坏后的源库应无法读取");
 
     // 恢复到隔离目录。
-    let report = service
-        .restore(&backup_dir, &restore_dir)
-        .expect("restore");
+    let report = service.restore(&backup_dir, &restore_dir).expect("restore");
     assert!(report.is_ok(), "{:?}", report);
     assert_eq!(report.restored, vec!["memory.db.bak"]);
     assert_eq!(report.verified, report.restored);
@@ -192,9 +189,7 @@ fn sqlite_snapshot_does_not_corrupt_live_database() {
     let backup_dir = work.path().join("backup");
 
     let source = SqliteBackupSource::new("live", &live_db, false, false, Some(7));
-    let entry = source
-        .snapshot(&backup_dir)
-        .expect("snapshot live db");
+    let entry = source.snapshot(&backup_dir).expect("snapshot live db");
 
     // 快照内容是单一时间点的一致副本。
     let snapshot = backup_dir.join("live.db.bak");
@@ -235,13 +230,7 @@ fn sqlite_snapshot_does_not_corrupt_live_database() {
 #[test]
 fn snapshot_of_missing_sqlite_source_fails_cleanly() {
     let work = TempDir::new().expect("temp dir");
-    let source = SqliteBackupSource::new(
-        "absent",
-        work.path().join("nope.db"),
-        false,
-        false,
-        None,
-    );
+    let source = SqliteBackupSource::new("absent", work.path().join("nope.db"), false, false, None);
     let backup_dir = work.path().join("backup");
     // 注意：source 自己会 create_dir_all，这里显式创建只为断言干净。
     fs::create_dir_all(&backup_dir).expect("create backup dir");
@@ -301,10 +290,17 @@ fn drill_restore_refuses_path_traversal() {
     let service = BackupService::new();
     let report = service.restore(&backup_dir, &restore_dir).expect("restore");
     assert!(!report.is_ok(), "{:?}", report);
-    assert!(report.failed[0].contains("unsafe entry path"), "{:?}", report.failed);
+    assert!(
+        report.failed[0].contains("unsafe entry path"),
+        "{:?}",
+        report.failed
+    );
     assert!(report.restored.is_empty());
     // 逃逸目标未被写、恢复目录里也没生成逃逸路径。
-    assert_eq!(fs::read(outside.join("escaped.json")).expect("decoy intact"), payload);
+    assert_eq!(
+        fs::read(outside.join("escaped.json")).expect("decoy intact"),
+        payload
+    );
     assert!(!restore_dir.join("outside").exists());
 }
 
@@ -345,7 +341,11 @@ fn drill_detects_tampered_snapshot() {
 
     let report = service.restore(&backup_dir, &restore_dir).expect("restore");
     assert!(!report.is_ok());
-    assert!(report.failed[0].contains("checksum mismatch"), "{:?}", report.failed);
+    assert!(
+        report.failed[0].contains("checksum mismatch"),
+        "{:?}",
+        report.failed
+    );
     // 坏文件没有进入恢复目录。
     assert!(!restore_dir.join("memory.db.bak").exists());
 }
@@ -367,7 +367,10 @@ fn json_source_backup_and_restore_round_trip() {
     let source = FileBackupSource::new("settings", &settings, false, false);
     let entry = source.snapshot(&backup_dir).expect("snapshot settings");
     assert_eq!(entry.kind, EntryKind::Json);
-    assert_eq!(entry.sha256, sha256_hex(br#"{"theme":"dark","language":"zh-CN"}"#));
+    assert_eq!(
+        entry.sha256,
+        sha256_hex(br#"{"theme":"dark","language":"zh-CN"}"#)
+    );
 
     let snapshot = backup_dir.join("settings.json");
     assert_eq!(
@@ -380,16 +383,16 @@ fn json_source_backup_and_restore_round_trip() {
         entries: vec![entry],
         ..BackupManifest::default()
     };
-    fs::write(backup_dir.join("manifest.json"), manifest.to_json().expect("encode"))
-        .expect("write manifest");
+    fs::write(
+        backup_dir.join("manifest.json"),
+        manifest.to_json().expect("encode"),
+    )
+    .expect("write manifest");
 
     let mut service = BackupService::new();
     service
         .register(Arc::new(FileBackupSource::new(
-            "settings",
-            &settings,
-            false,
-            false,
+            "settings", &settings, false, false,
         )))
         .expect("register");
     let report = service.restore(&backup_dir, &restore_dir).expect("restore");
@@ -426,8 +429,12 @@ fn drill_repeated_backup_is_idempotent() {
         .expect("register");
 
     // 连续两次备份到同一目录：第二次不得因旧文件存在而失败。
-    let first = service.backup(&backup_dir, "0.1.0", "").expect("first backup");
-    let second = service.backup(&backup_dir, "0.1.0", "").expect("second backup");
+    let first = service
+        .backup(&backup_dir, "0.1.0", "")
+        .expect("first backup");
+    let second = service
+        .backup(&backup_dir, "0.1.0", "")
+        .expect("second backup");
     assert_eq!(first.entries.len(), 1);
     assert_eq!(second.entries.len(), 1);
     // 内容未变 → 摘要稳定（幂等的可观测证据）。

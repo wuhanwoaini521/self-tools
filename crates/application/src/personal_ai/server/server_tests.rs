@@ -8,11 +8,11 @@
 
 use std::sync::Arc;
 
+use devtoolbox_core::personal_ai::AppContext;
 use devtoolbox_core::server::{
     ApplicationDescriptor, ApplicationStatus, HealthCheckKind, HealthStatus, LogReadResult,
     LogSource, ServiceDescriptor, ServiceProviderType, ServiceStatus, SessionTrust, SystemMetrics,
 };
-use devtoolbox_core::personal_ai::AppContext;
 use devtoolbox_core::{ToolRisk, UiBlockKind};
 
 use crate::error::ApplicationError;
@@ -211,10 +211,7 @@ fn hub(services: Vec<ServiceDescriptor>, apps: Vec<ApplicationDescriptor>) -> Hu
         restarts: AtomicUsize::new(0),
     });
     let audit = Arc::new(MemoryAudit::default());
-    let service_registry = Arc::new(ServiceRegistryService::new(
-        services,
-        Arc::new(FakeProbe),
-    ));
+    let service_registry = Arc::new(ServiceRegistryService::new(services, Arc::new(FakeProbe)));
     let app_registry = Arc::new(ApplicationRegistryService::new(apps, Arc::new(FakeProbe)));
     let server = Arc::new(ServerService::new(
         Arc::new(FakeMetrics),
@@ -258,7 +255,11 @@ fn block_on<F: Future>(future: F) -> F::Output {
     tokio::runtime::Runtime::new().unwrap().block_on(future)
 }
 
-fn call(tools: &ToolRegistry, name: &str, arguments: serde_json::Value) -> devtoolbox_core::ToolResult {
+fn call(
+    tools: &ToolRegistry,
+    name: &str,
+    arguments: serde_json::Value,
+) -> devtoolbox_core::ToolResult {
     block_on(tools.execute(&devtoolbox_core::ToolCallRequest {
         id: "c1".into(),
         name: name.into(),
@@ -280,7 +281,12 @@ fn registers_descriptor_and_fourteen_read_tools() {
     assert_eq!(descriptors[0].tools.len(), 14);
     assert!(hub.modules.context_provider("server").is_some());
 
-    let mut names: Vec<String> = hub.tools.specs().iter().map(|spec| spec.name.clone()).collect();
+    let mut names: Vec<String> = hub
+        .tools
+        .specs()
+        .iter()
+        .map(|spec| spec.name.clone())
+        .collect();
     names.sort();
     let mut expected: Vec<String> = server_tool_names()
         .iter()
@@ -316,7 +322,11 @@ fn context_provider_gives_compact_summary_without_logs() {
         .build_context(&AppContext::default(), &ContextBudget::default())
         .expect("context");
     assert_eq!(bundle.module, "server");
-    assert!(bundle.headline.contains("mac-studio"), "{}", bundle.headline);
+    assert!(
+        bundle.headline.contains("mac-studio"),
+        "{}",
+        bundle.headline
+    );
     assert_eq!(bundle.summary["service_ids"][0], "self-tools");
     assert_eq!(bundle.summary["app_ids"][0], "self-tools");
     // §13：上下文不得夹带日志正文。
@@ -395,7 +405,8 @@ fn service_tools_expose_registered_only() {
     }))
     .expect_err("injection");
     assert!(
-        unknown.to_string().contains("unknown_service") || injected.to_string().contains("invalid_service_id"),
+        unknown.to_string().contains("unknown_service")
+            || injected.to_string().contains("invalid_service_id"),
         "{injected}"
     );
 }
@@ -415,9 +426,15 @@ fn logs_are_bounded_redacted_and_marked_untrusted() {
     assert!(result.ok);
     assert_eq!(result.data["untrusted"], true, "§41：日志是不受信数据");
     assert_eq!(result.data["lines"], 2, "行数上限必须生效");
-    assert!(result.data["redactions"].as_u64().unwrap() >= 1, "secret 必须脱敏");
+    assert!(
+        result.data["redactions"].as_u64().unwrap() >= 1,
+        "secret 必须脱敏"
+    );
     let text = result.data["text"].as_str().unwrap();
-    assert!(!text.contains("abcdef1234567890xyz"), "token 不得进入模型上下文");
+    assert!(
+        !text.contains("abcdef1234567890xyz"),
+        "token 不得进入模型上下文"
+    );
     assert!(text.contains("<untrusted_log>"), "日志必须标记为不可信数据");
 }
 
@@ -498,7 +515,10 @@ fn apps_open_rejects_injection_shaped_ids() {
             arguments: serde_json::json!({"app_id": bad}),
         }))
         .expect_err("invalid id");
-        assert!(error.to_string().contains("invalid_app_id"), "{bad}: {error}");
+        assert!(
+            error.to_string().contains("invalid_app_id"),
+            "{bad}: {error}"
+        );
     }
 }
 
@@ -517,7 +537,12 @@ fn restart_tool_never_executes_and_requests_confirmation() {
     assert!(result.ok);
     assert_eq!(result.data["confirmation_required"], true);
     assert_eq!(result.data["risk"], "system");
-    assert!(result.data["note"].as_str().unwrap().contains("未经确认不会执行"));
+    assert!(
+        result.data["note"]
+            .as_str()
+            .unwrap()
+            .contains("未经确认不会执行")
+    );
 
     let actions = result.metadata["ui_hint"]["actions"]
         .as_array()

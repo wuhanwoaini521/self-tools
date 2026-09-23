@@ -18,16 +18,16 @@ pub mod language;
 pub mod memory;
 pub mod prompt;
 pub mod registry;
-pub mod runtime;
 pub mod retrieval;
+pub mod runtime;
 pub mod server;
 pub mod session;
 pub mod study_board;
 pub mod travel;
 
 pub use agent::{AgentConfig, PersonalAgent, PersonalHub};
-pub use conversation::{ConversationService, ConversationStore, ConversationStoreError};
 pub use context::{ContextBudget, ContextBundle, ModuleContextProvider, bundle_to_text};
+pub use conversation::{ConversationService, ConversationStore, ConversationStoreError};
 pub use documents::{
     DocumentsProviderOwned, DocumentsTools, documents_tool_names, register_documents,
 };
@@ -41,14 +41,14 @@ pub use knowledge::{
 };
 pub use language::{LanguageProviderOwned, LanguageTools, language_tool_names, register_language};
 pub use memory::{MemoryProviderOwned, MemoryTools, memory_tool_names, register_memory};
+pub use registry::{ModuleRegistration, ModuleRegistry, ToolExecutor, ToolRegistry, allowed_risk};
+pub use retrieval::RetrievalAugmenter;
+pub use runtime::{ToolLoopConfig, ToolLoopOutcome, run_tool_loop};
 pub use server::{ServerProviderOwned, ServerTools, register_server, server_tool_names};
+pub use session::{InMemorySessionStore, SessionStore};
 pub use study_board::{
     StudyBoardProviderOwned, StudyBoardTools, register_study_board, study_board_tool_names,
 };
-pub use registry::{ModuleRegistration, ModuleRegistry, ToolExecutor, ToolRegistry, allowed_risk};
-pub use runtime::{ToolLoopConfig, ToolLoopOutcome, run_tool_loop};
-pub use retrieval::RetrievalAugmenter;
-pub use session::{InMemorySessionStore, SessionStore};
 pub use travel::{TravelContextProvider, TravelTools, register_travel, travel_tool_names};
 
 /// agent 循环测试（Fake provider 五种场景，V4 §79）。

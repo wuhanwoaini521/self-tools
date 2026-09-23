@@ -6,16 +6,22 @@
 //! - `save` 幂等 upsert；新板必须有 title；注入形态的 board_id 被拒；
 //! - `snapshot` 只登记引用、不生成图像；
 //! - ContextProvider 对其他模块返回 None / 对 study-board 返回当前板标题。
+#![allow(
+    clippy::field_reassign_with_default,
+    clippy::unnecessary_sort_by,
+    clippy::drop_non_drop,
+    clippy::uninlined_format_args
+)]
 
 use std::collections::HashMap;
-use std::sync::Arc;
 use std::future::Future;
+use std::sync::Arc;
 
 use parking_lot::Mutex;
 
+use devtoolbox_core::ToolRisk;
 use devtoolbox_core::personal_ai::{AppContext, EntityRef};
 use devtoolbox_core::study_board::{StudyBoard, StudyBoardSnapshot, StudyBoardSummary};
-use devtoolbox_core::ToolRisk;
 use serde_json::json;
 
 use crate::error::ApplicationError;
@@ -63,9 +69,7 @@ impl FakeStore {
 impl StudyBoardStorePort for FakeStore {
     fn upsert_board(&self, board: &StudyBoard) -> Result<(), StudyBoardStoreError> {
         self.check("board_save_failed")?;
-        self.boards
-            .lock()
-            .insert(board.id.clone(), board.clone());
+        self.boards.lock().insert(board.id.clone(), board.clone());
         Ok(())
     }
 
@@ -77,10 +81,7 @@ impl StudyBoardStorePort for FakeStore {
     fn list_boards(&self, limit: usize) -> Result<Vec<StudyBoardSummary>, StudyBoardStoreError> {
         self.check("board_list_failed")?;
         let boards = self.boards.lock();
-        let mut items: Vec<StudyBoardSummary> = boards
-            .values()
-            .map(StudyBoard::summary)
-            .collect();
+        let mut items: Vec<StudyBoardSummary> = boards.values().map(StudyBoard::summary).collect();
         items.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
         Ok(items.into_iter().take(limit).collect())
     }
@@ -198,7 +199,12 @@ fn registers_descriptor_and_four_tools_with_expected_risks() {
     assert_eq!(descriptors[0].tools.len(), 4);
     assert!(hub.modules.context_provider("study-board").is_some());
 
-    let mut names: Vec<String> = hub.tools.specs().iter().map(|spec| spec.name.clone()).collect();
+    let mut names: Vec<String> = hub
+        .tools
+        .specs()
+        .iter()
+        .map(|spec| spec.name.clone())
+        .collect();
     names.sort();
     let mut expected: Vec<String> = study_board_tool_names()
         .iter()
@@ -245,7 +251,9 @@ fn no_write_or_draw_capability_is_exposed() {
     let hub = hub();
     // 后端永不执行绘画/删除/执行命令（§108）。
     for spec in hub.tools.specs() {
-        for forbidden in ["draw", "render", "delete", "remove", "exec", "shell", "command"] {
+        for forbidden in [
+            "draw", "render", "delete", "remove", "exec", "shell", "command",
+        ] {
             assert!(
                 !spec.name.contains(forbidden),
                 "禁止暴露 {forbidden} 能力: {}",
@@ -282,13 +290,10 @@ fn list_returns_metadata_without_stroke_geometry() {
 fn get_returns_metadata_and_bounded_summary_only() {
     let hub = hub();
     hub.store.seed(board("b-1", "遵义会议", 1_000));
-    hub.store
-        .snapshots
-        .lock()
-        .insert(
-            "snap-seed".into(),
-            StudyBoardSnapshot::new("snap-seed", "b-1", "t", None, "1 条矢量笔画", 5_000),
-        );
+    hub.store.snapshots.lock().insert(
+        "snap-seed".into(),
+        StudyBoardSnapshot::new("snap-seed", "b-1", "t", None, "1 条矢量笔画", 5_000),
+    );
 
     let result = call(&hub, "study-board.get", json!({"board_id": "b-1"}));
     assert!(result.ok);
@@ -316,7 +321,11 @@ fn get_missing_board_is_controlled_failure_not_panic() {
 #[test]
 fn get_with_injection_shaped_board_id_is_rejected() {
     let hub = hub();
-    let error = call_err(&hub, "study-board.get", json!({"board_id": "b-1; DROP TABLE boards"}));
+    let error = call_err(
+        &hub,
+        "study-board.get",
+        json!({"board_id": "b-1; DROP TABLE boards"}),
+    );
     assert_eq!(error.code(), "personal_ai_tool_invalid_argument");
     // schema 缺必填参数同样被前置校验拒绝（不进执行器）。
     let missing = call_err(&hub, "study-board.get", json!({}));
@@ -451,7 +460,11 @@ fn snapshot_registers_reference_without_generating_image() {
 #[test]
 fn snapshot_for_missing_board_is_controlled_failure() {
     let hub = hub();
-    let result = call(&hub, "study-board.snapshot", json!({"board_id": "b-missing"}));
+    let result = call(
+        &hub,
+        "study-board.snapshot",
+        json!({"board_id": "b-missing"}),
+    );
     assert!(!result.ok);
     assert!(result.error.unwrap().contains("不存在"));
 }
@@ -498,7 +511,12 @@ fn context_provider_returns_current_board_for_study_board_module() {
         .build_context(&AppContext::default(), &ContextBudget::default())
         .expect("overview context");
     assert_eq!(overview.module, "study-board");
-    assert!(overview.summary["note"].as_str().unwrap().contains("study-board.list"));
+    assert!(
+        overview.summary["note"]
+            .as_str()
+            .unwrap()
+            .contains("study-board.list")
+    );
 
     // 上下文里的板不存在 → 摘要提示去 list，不 panic。
     let unknown = provider
@@ -586,7 +604,10 @@ fn tools_never_write_to_personal_memory() {
         let result = call(&hub, tool, arguments);
         assert!(result.ok, "{tool}");
         let rendered = serde_json::to_string(&result).unwrap();
-        assert!(!rendered.contains("memory"), "{tool} 结果不得涉及 memory 语义");
+        assert!(
+            !rendered.contains("memory"),
+            "{tool} 结果不得涉及 memory 语义"
+        );
         assert!(!rendered.contains("points"), "{tool} 不得回传笔迹坐标");
     }
 }
@@ -598,8 +619,5 @@ fn application_error_variant_for_store_failure_is_reused() {
         path: std::path::PathBuf::from("study_board"),
         message: "board_read_failed: boom".into(),
     });
-    assert!(
-        error.to_string().contains("board_read_failed"),
-        "{error}"
-    );
+    assert!(error.to_string().contains("board_read_failed"), "{error}");
 }

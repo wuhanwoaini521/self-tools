@@ -64,7 +64,10 @@ impl SessionTrust {
     /// 是否允许非 Read 操作（§73 fail-closed）。
     #[must_use]
     pub fn allows_writes(self) -> bool {
-        matches!(self, SessionTrust::LocalDesktop | SessionTrust::RemoteAuthenticated)
+        matches!(
+            self,
+            SessionTrust::LocalDesktop | SessionTrust::RemoteAuthenticated
+        )
     }
 }
 
@@ -188,7 +191,11 @@ impl ActionAuthorizationDecision {
 
 /// 授权策略（§75：V7 只建接口；当前实现 fail-closed）。
 pub trait ActionRiskPolicy: Send + Sync {
-    fn authorize(&self, action: &RegisteredAction, trust: SessionTrust) -> ActionAuthorizationDecision;
+    fn authorize(
+        &self,
+        action: &RegisteredAction,
+        trust: SessionTrust,
+    ) -> ActionAuthorizationDecision;
 }
 
 /// 默认策略（§73/§74/§76）：
@@ -198,7 +205,11 @@ pub trait ActionRiskPolicy: Send + Sync {
 pub struct DefaultActionRiskPolicy;
 
 impl ActionRiskPolicy for DefaultActionRiskPolicy {
-    fn authorize(&self, action: &RegisteredAction, trust: SessionTrust) -> ActionAuthorizationDecision {
+    fn authorize(
+        &self,
+        action: &RegisteredAction,
+        trust: SessionTrust,
+    ) -> ActionAuthorizationDecision {
         if action.risk().requires_confirmation() && !trust.allows_writes() {
             return ActionAuthorizationDecision::denied(
                 "untrusted_session",
@@ -439,7 +450,11 @@ mod tests {
     fn untrusted_session_denies_system_actions() {
         let policy = DefaultActionRiskPolicy;
         let action = RegisteredAction::restart_service("self-tools").expect("valid");
-        assert!(policy.authorize(&action, SessionTrust::LocalDesktop).is_allowed());
+        assert!(
+            policy
+                .authorize(&action, SessionTrust::LocalDesktop)
+                .is_allowed()
+        );
         let denied = policy.authorize(&action, SessionTrust::RemoteUntrusted);
         assert!(!denied.is_allowed());
         match denied {

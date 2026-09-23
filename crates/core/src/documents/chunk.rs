@@ -202,10 +202,7 @@ mod tests {
     #[test]
     fn chunks_prefer_line_boundaries() {
         let line = "0123456789";
-        let text = (0..40)
-            .map(|_| line)
-            .collect::<Vec<_>>()
-            .join("\n");
+        let text = (0..40).map(|_| line).collect::<Vec<_>>().join("\n");
         let chunks = chunk_text("doc-1", &text, &config());
         assert!(chunks.len() > 1);
         // 每个 chunk 都应以换行结尾（段落界对齐）。

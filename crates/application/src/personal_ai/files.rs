@@ -23,7 +23,9 @@ use crate::error::ApplicationError;
 use crate::files::{FileQuery, FileService};
 use crate::personal_ai::args::{optional_string, require_string, tool_error, usize_arg};
 use crate::personal_ai::context::{ContextBudget, ContextBundle, ModuleContextProvider};
-use crate::personal_ai::registry::{ModuleRegistration, ModuleRegistry, ToolExecutor, ToolRegistry};
+use crate::personal_ai::registry::{
+    ModuleRegistration, ModuleRegistry, ToolExecutor, ToolRegistry,
+};
 
 const TOOL_SEARCH: &str = "files.search";
 const TOOL_GET_METADATA: &str = "files.get_metadata";
@@ -221,7 +223,10 @@ impl FilesTools {
                 message,
                 ..
             }) => {
-                let entry = self.service.metadata(&settings, &target).map_err(tool_error)?;
+                let entry = self
+                    .service
+                    .metadata(&settings, &target)
+                    .map_err(tool_error)?;
                 Ok(ToolResult::ok(serde_json::json!({
                     "file": file_json(&entry),
                     "text": "",
@@ -277,9 +282,6 @@ fn file_list_block(title: &str, items: &[serde_json::Value]) -> serde_json::Valu
         "data": {"items": items},
     })
 }
-
-
-
 
 /// 扩展名归一化（去掉前导点、转小写；与 `extension_of` 的输出格式一致）。
 fn extension_arg(arguments: &serde_json::Value) -> Option<String> {
@@ -342,9 +344,8 @@ impl ModuleContextProvider for FilesProviderOwned {
                 "file": file_json(&entry),
             });
             if entry.restricted {
-                summary["note"] = serde_json::Value::String(
-                    "该文件属于受限文件，内容不可读".to_string(),
-                );
+                summary["note"] =
+                    serde_json::Value::String("该文件属于受限文件，内容不可读".to_string());
             }
             return Ok(ContextBundle {
                 module: "files".to_string(),

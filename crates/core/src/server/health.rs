@@ -200,10 +200,7 @@ pub fn evaluate_storage(volumes: &[StorageMetrics], thresholds: &Thresholds) -> 
 #[must_use]
 pub fn evaluate_memory(memory: &MemoryMetrics, thresholds: &Thresholds) -> HealthReport {
     let Some(ratio) = memory.usage_ratio() else {
-        return HealthReport::unknown(HealthReason::new(
-            "metrics_unavailable",
-            "内存指标不可用",
-        ));
+        return HealthReport::unknown(HealthReason::new("metrics_unavailable", "内存指标不可用"));
     };
     let thresholds = thresholds.normalized();
     if ratio >= thresholds.memory_warn_ratio {

@@ -61,19 +61,15 @@ pub struct LogSource {
 /// 健康检查方式（§49/§50：URL 必须来自注册表，禁止模型提供）。
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", tag = "kind")]
+#[derive(Default)]
 pub enum HealthCheckKind {
     /// 不探活。
+    #[default]
     None,
     /// launchd 状态（PID 存在即活）。
     Launchd,
     /// HTTP GET；`url` 来自注册表（SSRF 边界）。
     Http { url: String },
-}
-
-impl Default for HealthCheckKind {
-    fn default() -> Self {
-        HealthCheckKind::None
-    }
 }
 
 /// 服务描述符（§27）。
@@ -100,9 +96,7 @@ impl ServiceDescriptor {
     /// 是否允许某操作（§35：白名单，缺省拒绝）。
     #[must_use]
     pub fn allows(&self, action: &str) -> bool {
-        self.allowed_actions
-            .iter()
-            .any(|allowed| allowed == action)
+        self.allowed_actions.iter().any(|allowed| allowed == action)
     }
 
     /// 注册表合法性（id 形态 + 必填字段）。
@@ -140,14 +134,8 @@ impl ApplicationDescriptor {
         is_valid_id(&self.id)
             && !self.name.trim().is_empty()
             && is_http_url(&self.url)
-            && self
-                .health_url
-                .as_deref()
-                .is_none_or(|url| is_http_url(url))
-            && self
-                .service_id
-                .as_deref()
-                .is_none_or(|id| is_valid_id(id))
+            && self.health_url.as_deref().is_none_or(is_http_url)
+            && self.service_id.as_deref().is_none_or(is_valid_id)
     }
 }
 
@@ -164,10 +152,7 @@ pub fn is_http_url(raw: &str) -> bool {
     let Some((scheme, _)) = trimmed.split_once(':') else {
         return false;
     };
-    matches!(
-        scheme.to_ascii_lowercase().as_str(),
-        "http" | "https"
-    )
+    matches!(scheme.to_ascii_lowercase().as_str(), "http" | "https")
 }
 
 /// 运行时健康快照（registry + 探测结果的合并视图）。
@@ -265,7 +250,10 @@ mod tests {
             ServiceProviderType::parse("launchd"),
             Some(ServiceProviderType::Launchd)
         );
-        assert_eq!(ServiceProviderType::parse("docker"), Some(ServiceProviderType::Docker));
+        assert_eq!(
+            ServiceProviderType::parse("docker"),
+            Some(ServiceProviderType::Docker)
+        );
         assert_eq!(ServiceProviderType::parse("k8s"), None);
     }
 }

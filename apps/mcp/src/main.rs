@@ -145,10 +145,8 @@ fn main() -> std::process::ExitCode {
 fn run_stdio(composition: Composition) -> std::process::ExitCode {
     let server = devtoolbox_mcp::stdio::StdioServer::new(composition.service());
     // §103/§67：STDIO 会话 id 含进程 id（同机多个 client 不共享 session）。
-    let principal = devtoolbox_mcp::stdio::local_principal(&format!(
-        "local-stdio-{}",
-        std::process::id()
-    ));
+    let principal =
+        devtoolbox_mcp::stdio::local_principal(&format!("local-stdio-{}", std::process::id()));
     let stdin = std::io::stdin();
     let stdout = std::io::stdout();
     let mut out = stdout.lock();
@@ -181,7 +179,9 @@ fn run_http(composition: Composition, cli: &Cli) -> Result<(), String> {
             .map_err(|error| format!("bind {} failed: {error}", config.bind))?;
         eprintln!("mcp: listening on http://{}/mcp", config.bind);
         if config.bind.starts_with("127.0.0.1") || config.bind.starts_with("localhost") {
-            eprintln!("mcp: loopback only; use --remote with a configured identity provider for LAN");
+            eprintln!(
+                "mcp: loopback only; use --remote with a configured identity provider for LAN"
+            );
         }
         let state = devtoolbox_mcp::http::HttpState::new(
             composition.service(),
@@ -192,8 +192,8 @@ fn run_http(composition: Composition, cli: &Cli) -> Result<(), String> {
             listener,
             devtoolbox_mcp::http::router(state).into_make_service_with_connect_info::<SocketAddr>(),
         )
-            .await
-            .map_err(|error| format!("serve failed: {error}"))
+        .await
+        .map_err(|error| format!("serve failed: {error}"))
     })
 }
 

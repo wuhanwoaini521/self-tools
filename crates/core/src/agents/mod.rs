@@ -17,7 +17,9 @@ pub mod descriptor;
 pub mod result;
 pub mod task;
 
-pub use budget::{AgentBudget, BudgetUsage, BudgetVerdict, can_start_agent, check_budget, child_budget};
+pub use budget::{
+    AgentBudget, BudgetUsage, BudgetVerdict, can_start_agent, check_budget, child_budget,
+};
 pub use decision::{
     BudgetTier, DECISION_MESSAGE_MAX_CHARS, DecisionConfidence, DecisionEngine, DecisionMode,
     DecisionProvider, DecisionProviderError, DecisionRequest, DecisionResult, DecisionShadowRecord,

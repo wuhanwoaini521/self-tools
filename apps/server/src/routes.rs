@@ -35,7 +35,7 @@ pub struct ErrorBody {
 }
 
 /// 组装全部路由（服务由组合根注入，测试可替换为假实现）。
-#[must_use]
+#[must_use = "router must be served"]
 pub fn router(service: Arc<HistoryService>) -> Router {
     Router::new()
         .route("/health", get(health))

@@ -146,14 +146,7 @@ mod tests {
         struct NoopSource;
         impl BackupSource for NoopSource {
             fn describe(&self) -> BackupTargetDescriptor {
-                BackupTargetDescriptor::new(
-                    "noop",
-                    "noop.json",
-                    EntryKind::Json,
-                    false,
-                    true,
-                    None,
-                )
+                BackupTargetDescriptor::new("noop", "noop.json", EntryKind::Json, false, true, None)
             }
             fn snapshot(&self, _dest_dir: &Path) -> Result<BackupEntry, String> {
                 Err("not implemented".to_string())
@@ -170,6 +163,10 @@ mod tests {
             false,
             false,
         );
-        assert!(source.verify_restored(Path::new("noop.json"), &entry).is_ok());
+        assert!(
+            source
+                .verify_restored(Path::new("noop.json"), &entry)
+                .is_ok()
+        );
     }
 }

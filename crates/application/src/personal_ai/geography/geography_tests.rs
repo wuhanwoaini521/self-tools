@@ -349,7 +349,12 @@ async fn personal_agent_routes_geography_tool() {
     let mut modules = ModuleRegistry::new();
     let mut tools = ToolRegistry::new();
     register_geography(&mut modules, &mut tools, port).unwrap();
-    let hub = Arc::new(PersonalHub { modules, tools, retrieval: None, orchestration: None });
+    let hub = Arc::new(PersonalHub {
+        modules,
+        tools,
+        retrieval: None,
+        orchestration: None,
+    });
 
     let chat = MiniChat {
         steps: Mutex::new(std::collections::VecDeque::new()),

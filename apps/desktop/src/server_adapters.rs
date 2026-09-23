@@ -9,14 +9,14 @@
 //!
 //! 依赖方向不变：desktop 是唯一组合根；`application → infrastructure` = 0。
 
-use std::collections::HashMap;
 use parking_lot::Mutex;
+use std::collections::HashMap;
 
+use devtoolbox_application::server::action::ServiceControlPort;
+use devtoolbox_application::server::ports::LogTailPort;
 use devtoolbox_application::server::ports::{
     ApplicationProbePort, ServiceProbePort, SystemMetricsProvider,
 };
-use devtoolbox_application::server::action::ServiceControlPort;
-use devtoolbox_application::server::ports::LogTailPort;
 use devtoolbox_core::server::{
     ApplicationDescriptor, ApplicationStatus, HealthStatus, ServiceDescriptor, ServiceStatus,
     SystemMetrics,
@@ -241,9 +241,7 @@ mod tests {
 
     #[test]
     fn metrics_adapter_samples_without_panicking() {
-        let metrics = SystemMetricsAdapter::default()
-            .metrics()
-            .expect("metrics");
+        let metrics = SystemMetricsAdapter::default().metrics().expect("metrics");
         assert!(!metrics.architecture.is_empty());
     }
 }

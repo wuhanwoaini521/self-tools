@@ -56,7 +56,11 @@ impl LocalFileSystem {
         })
     }
 
-    pub fn read_text(&self, path: &PathBuf, max_bytes: u64) -> Result<FileReadOutcome, FileAccessDenied> {
+    pub fn read_text(
+        &self,
+        path: &PathBuf,
+        max_bytes: u64,
+    ) -> Result<FileReadOutcome, FileAccessDenied> {
         let metadata = std::fs::metadata(path).map_err(|_| FileAccessDenied::NotFound)?;
         if !metadata.is_file() {
             return Err(FileAccessDenied::NotAFile);
@@ -149,7 +153,9 @@ mod tests {
         let directory = tempfile::tempdir().unwrap();
         let file = directory.path().join("a.md");
         std::fs::write(&file, "hi").unwrap();
-        let canonical = LocalFileSystem.canonicalize(&file.to_string_lossy()).unwrap();
+        let canonical = LocalFileSystem
+            .canonicalize(&file.to_string_lossy())
+            .unwrap();
         assert!(canonical.is_absolute());
         assert!(canonical.ends_with("a.md"));
         assert_eq!(
@@ -214,7 +220,10 @@ mod tests {
         std::fs::write(directory.path().join(".git/d.md"), "d").unwrap();
 
         let (files, truncated) = LocalFileSystem.walk(&root(directory.path()), 100).unwrap();
-        let paths: Vec<&str> = files.iter().map(|file| file.relative_path.as_str()).collect();
+        let paths: Vec<&str> = files
+            .iter()
+            .map(|file| file.relative_path.as_str())
+            .collect();
         assert_eq!(paths, ["notes/a.md", "notes/b.pdf"]);
         assert!(!truncated);
     }

@@ -13,17 +13,19 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use devtoolbox_application::personal_ai::registry::{ToolExecutor, ToolRegistry};
+use devtoolbox_application::server::ActionOutcome;
 use devtoolbox_application::server::action::{
-    ActionAuditPort, InMemoryConfirmationStore, SafeActionConfig,
-    SafeActionService, ServiceControlPort,
+    ActionAuditPort, InMemoryConfirmationStore, SafeActionConfig, SafeActionService,
+    ServiceControlPort,
 };
 use devtoolbox_application::server::ports::ServiceProbePort;
 use devtoolbox_application::server::registry::ServiceRegistryService;
 use devtoolbox_core::mcp::McpCredential;
-use devtoolbox_application::server::ActionOutcome;
-use devtoolbox_core::server::AuditEntry;
 use devtoolbox_core::personal_ai::{ToolResult, ToolRisk, ToolSpec};
-use devtoolbox_core::server::{HealthCheckKind, HealthStatus, ServiceDescriptor, ServiceProviderType, ServiceStatus};
+use devtoolbox_core::server::AuditEntry;
+use devtoolbox_core::server::{
+    HealthCheckKind, HealthStatus, ServiceDescriptor, ServiceProviderType, ServiceStatus,
+};
 
 use devtoolbox_application::mcp::adapter::McpToolAdapter;
 use devtoolbox_application::mcp::auth::StaticTokenIdentityProvider;
@@ -65,10 +67,20 @@ struct MemoryActionAudit {
 
 impl ActionAuditPort for MemoryActionAudit {
     fn record(&self, entry: &AuditEntry) {
-        self.entries.lock().unwrap_or_else(|e| e.into_inner()).push(entry.clone());
+        self.entries
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .push(entry.clone());
     }
     fn recent(&self, limit: usize) -> Vec<AuditEntry> {
-        self.entries.lock().unwrap_or_else(|e| e.into_inner()).iter().rev().take(limit).cloned().collect()
+        self.entries
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .iter()
+            .rev()
+            .take(limit)
+            .cloned()
+            .collect()
     }
 }
 
@@ -93,7 +105,10 @@ impl ToolExecutor for RestartTool {
         &SPEC
     }
 
-    async fn execute(&self, _arguments: serde_json::Value) -> Result<ToolResult, devtoolbox_core::AgentError> {
+    async fn execute(
+        &self,
+        _arguments: serde_json::Value,
+    ) -> Result<ToolResult, devtoolbox_core::AgentError> {
         // MCP 层永不到达这里：SYSTEM 工具在 service 层被拦成确认票据。
         // 若到达说明门禁失效 —— 直接失败让测试爆掉。
         Err(devtoolbox_core::AgentError::tool_execution_failed(
@@ -110,13 +125,19 @@ struct MemoryMcpAudit {
 
 impl McpAuditPort for MemoryMcpAudit {
     fn record(&self, entry: &devtoolbox_core::mcp::McpAuditEntry) {
-        self.entries.lock().unwrap_or_else(|e| e.into_inner()).push(entry.clone());
+        self.entries
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .push(entry.clone());
     }
 }
 
 impl MemoryMcpAudit {
     fn snapshot(&self) -> Vec<devtoolbox_core::mcp::McpAuditEntry> {
-        self.entries.lock().unwrap_or_else(|e| e.into_inner()).clone()
+        self.entries
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone()
     }
 }
 
@@ -131,7 +152,9 @@ struct Harness {
 
 fn harness() -> Harness {
     let mut registry = ToolRegistry::new();
-    registry.register(Arc::new(RestartTool)).expect("register restart");
+    registry
+        .register(Arc::new(RestartTool))
+        .expect("register restart");
     let services = Arc::new(ServiceRegistryService::new(
         vec![ServiceDescriptor {
             id: "self-tools".into(),
@@ -161,9 +184,30 @@ fn harness() -> Harness {
         },
     ));
     let identity = Arc::new(StaticTokenIdentityProvider::new());
-    identity.insert("tok-a", "p-a", "client-a", vec!["server.action"], None, None);
-    identity.insert("tok-b", "p-b", "client-b", vec!["server.action"], None, None);
-    identity.insert("tok-read", "p-r", "client-r", vec!["server.read"], None, None);
+    identity.insert(
+        "tok-a",
+        "p-a",
+        "client-a",
+        vec!["server.action"],
+        None,
+        None,
+    );
+    identity.insert(
+        "tok-b",
+        "p-b",
+        "client-b",
+        vec!["server.action"],
+        None,
+        None,
+    );
+    identity.insert(
+        "tok-read",
+        "p-r",
+        "client-r",
+        vec!["server.read"],
+        None,
+        None,
+    );
     let mcp_audit = Arc::new(MemoryMcpAudit::default());
     let service = Arc::new(
         McpService::new(
@@ -184,7 +228,12 @@ fn harness() -> Harness {
 }
 
 /// 用票据执行（模拟 self-tools UI 的确认命令）。
-fn confirm_with(actions: &SafeActionService, confirmation_id: &str, client_id: &str, service_id: &str) -> ActionOutcome {
+fn confirm_with(
+    actions: &SafeActionService,
+    confirmation_id: &str,
+    client_id: &str,
+    service_id: &str,
+) -> ActionOutcome {
     let request = devtoolbox_application::server::action::restart_request(
         service_id,
         client_id,
@@ -287,10 +336,17 @@ async fn cross_client_ticket_reuse_is_denied() {
     let a = local_action_principal("client-a");
     let invocation = harness
         .service
-        .call_tool(&a, "services.restart", serde_json::json!({"service_id": "self-tools"}))
+        .call_tool(
+            &a,
+            "services.restart",
+            serde_json::json!({"service_id": "self-tools"}),
+        )
         .await
         .expect("call");
-    let ticket = invocation.payload["confirmation_id"].as_str().expect("id").to_string();
+    let ticket = invocation.payload["confirmation_id"]
+        .as_str()
+        .expect("id")
+        .to_string();
 
     // Client B 用自己的身份尝试消费该票据 → Denied。
     let outcome = confirm_with(&actions_of(&harness), &ticket, "client-b", "self-tools");
@@ -310,10 +366,17 @@ async fn expired_ticket_and_target_mutation_are_denied() {
     let a = local_action_principal("client-a");
     let invocation = harness
         .service
-        .call_tool(&a, "services.restart", serde_json::json!({"service_id": "self-tools"}))
+        .call_tool(
+            &a,
+            "services.restart",
+            serde_json::json!({"service_id": "self-tools"}),
+        )
         .await
         .expect("call");
-    let ticket = invocation.payload["confirmation_id"].as_str().expect("id").to_string();
+    let ticket = invocation.payload["confirmation_id"]
+        .as_str()
+        .expect("id")
+        .to_string();
 
     // 目标变化（self-tools → 未注册的 other）→ Denied。
     let outcome = confirm_with(&actions_of(&harness), &ticket, "client-a", "other-service");
@@ -343,10 +406,17 @@ async fn scope_without_server_action_cannot_even_see_the_tool() {
     );
     let error = harness
         .service
-        .call_tool(&reader, "services.restart", serde_json::json!({"service_id": "self-tools"}))
+        .call_tool(
+            &reader,
+            "services.restart",
+            serde_json::json!({"service_id": "self-tools"}),
+        )
         .await
         .expect_err("denied");
-    assert!(format!("{error:?}").contains("server.action") || format!("{error:?}").contains("not_exposed"));
+    assert!(
+        format!("{error:?}").contains("server.action")
+            || format!("{error:?}").contains("not_exposed")
+    );
 }
 
 #[tokio::test]
@@ -356,13 +426,24 @@ async fn unknown_service_is_denied_before_any_ticket() {
     let a = local_action_principal("client-a");
     let error = harness
         .service
-        .call_tool(&a, "services.restart", serde_json::json!({"service_id": "sshd"}))
+        .call_tool(
+            &a,
+            "services.restart",
+            serde_json::json!({"service_id": "sshd"}),
+        )
         .await
         .expect_err("denied");
-    assert!(format!("{error:?}").contains("unknown_service"), "{error:?}");
+    assert!(
+        format!("{error:?}").contains("unknown_service"),
+        "{error:?}"
+    );
     assert_eq!(harness.control.restarts.load(Ordering::SeqCst), 0);
     assert!(
-        harness.action_audit.recent(10).iter().all(|entry| entry.result != ActionOutcome::Success),
+        harness
+            .action_audit
+            .recent(10)
+            .iter()
+            .all(|entry| entry.result != ActionOutcome::Success),
         "未注册服务不得有成功审计"
     );
 }
@@ -375,22 +456,42 @@ async fn every_write_attempt_is_audited() {
     // 未注册服务（拒绝）。
     let _ = harness
         .service
-        .call_tool(&a, "services.restart", serde_json::json!({"service_id": "nope"}))
+        .call_tool(
+            &a,
+            "services.restart",
+            serde_json::json!({"service_id": "nope"}),
+        )
         .await;
     // 已注册服务（票据）。
     let invocation = harness
         .service
-        .call_tool(&a, "services.restart", serde_json::json!({"service_id": "self-tools"}))
+        .call_tool(
+            &a,
+            "services.restart",
+            serde_json::json!({"service_id": "self-tools"}),
+        )
         .await
         .expect("call");
-    let ticket = invocation.payload["confirmation_id"].as_str().expect("id").to_string();
+    let ticket = invocation.payload["confirmation_id"]
+        .as_str()
+        .expect("id")
+        .to_string();
     // 确认执行。
     let _ = confirm_with(&actions_of(&harness), &ticket, "client-a", "self-tools");
 
     // MCP 侧审计：两次调用都留痕，且都记了 tool 名（§78/§80）。
     let mcp_entries = harness.mcp_audit.snapshot();
-    assert_eq!(mcp_entries.len(), 2, "{:?}", mcp_entries.iter().map(|e| e.result).collect::<Vec<_>>());
-    assert!(mcp_entries.iter().any(|entry| entry.tool == "services.restart"));
+    assert_eq!(
+        mcp_entries.len(),
+        2,
+        "{:?}",
+        mcp_entries.iter().map(|e| e.result).collect::<Vec<_>>()
+    );
+    assert!(
+        mcp_entries
+            .iter()
+            .any(|entry| entry.tool == "services.restart")
+    );
     assert!(
         mcp_entries
             .iter()
@@ -420,10 +521,17 @@ async fn audit_never_contains_tokens() {
     let a = local_action_principal("client-a");
     let _ = harness
         .service
-        .call_tool(&a, "services.restart", serde_json::json!({"service_id": "self-tools"}))
+        .call_tool(
+            &a,
+            "services.restart",
+            serde_json::json!({"service_id": "self-tools"}),
+        )
         .await;
     let json = serde_json::to_string(&harness.mcp_audit.snapshot()).expect("json");
     assert!(!json.contains("tok-a"), "MCP 审计不得含 token");
     let action_json = serde_json::to_string(&harness.action_audit.recent(10)).expect("json");
-    assert!(!action_json.contains("tok-a"), "SafeAction 审计不得含 token");
+    assert!(
+        !action_json.contains("tok-a"),
+        "SafeAction 审计不得含 token"
+    );
 }

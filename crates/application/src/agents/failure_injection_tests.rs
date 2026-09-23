@@ -3,6 +3,12 @@
 //!
 //! 期望：degrade / fail safely / recover；**不得** panic / 数据损坏 / 安全回落打开。
 //! 全部用 Fake 与临时目录，不碰真实用户数据、不需要外网。
+#![allow(
+    clippy::field_reassign_with_default,
+    clippy::unnecessary_sort_by,
+    clippy::drop_non_drop,
+    clippy::uninlined_format_args
+)]
 
 use std::sync::Arc;
 
@@ -10,8 +16,8 @@ use devtoolbox_core::agents::{
     AgentBudget, BudgetTier, DecisionConfidence, DecisionMode, DecisionProvider,
     DecisionProviderError, DecisionRequest, DecisionResult, DecisionStrategy,
 };
-use devtoolbox_core::personal_ai::{ChatModelProvider, ChatRequest, ChatResponse, ProviderError};
 use devtoolbox_core::operations::{AppPaths, StartupMarker};
+use devtoolbox_core::personal_ai::{ChatModelProvider, ChatRequest, ChatResponse, ProviderError};
 
 use crate::agents::decision_engine::AgentDecisionEngine;
 use crate::agents::orchestrator::OrchestrationService;
@@ -62,7 +68,10 @@ impl DecisionProvider for JevDown {
     fn is_available(&self) -> bool {
         true
     }
-    async fn decide(&self, _request: &DecisionRequest) -> Result<DecisionResult, DecisionProviderError> {
+    async fn decide(
+        &self,
+        _request: &DecisionRequest,
+    ) -> Result<DecisionResult, DecisionProviderError> {
         Err(DecisionProviderError::unavailable("injected: jev down"))
     }
 }
@@ -78,7 +87,10 @@ impl DecisionProvider for JevHostile {
     fn is_available(&self) -> bool {
         true
     }
-    async fn decide(&self, _request: &DecisionRequest) -> Result<DecisionResult, DecisionProviderError> {
+    async fn decide(
+        &self,
+        _request: &DecisionRequest,
+    ) -> Result<DecisionResult, DecisionProviderError> {
         Ok(DecisionResult {
             strategy: DecisionStrategy::BoundedMultiAgent,
             workers: vec!["admin".into(), "root".into()],
@@ -184,8 +196,14 @@ async fn llm_down_returns_controlled_error_not_panic() {
         .await;
     // worker 失败但编排服务本身安全返回（§61：失败结果进入 merged）。
     assert!(!outcome.trace.runs.is_empty(), "失败的 run 也要记账");
-    let all_usable = outcome.results.iter().all(|result| result.status.is_usable());
-    assert!(!all_usable || outcome.partial, "失败必须体现在 partial/status 上");
+    let all_usable = outcome
+        .results
+        .iter()
+        .all(|result| result.status.is_usable());
+    assert!(
+        !all_usable || outcome.partial,
+        "失败必须体现在 partial/status 上"
+    );
 }
 
 #[tokio::test]
@@ -219,12 +237,8 @@ async fn llm_hang_is_bounded_by_worker_timeout() {
 
 #[tokio::test]
 async fn jev_down_falls_back_to_rule_and_request_succeeds() {
-    let engine = AgentDecisionEngine::new(
-        Some(Arc::new(JevDown)),
-        DecisionMode::JevActive,
-        Some(2),
-        4,
-    );
+    let engine =
+        AgentDecisionEngine::new(Some(Arc::new(JevDown)), DecisionMode::JevActive, Some(2), 4);
     let service = orchestration(Arc::new(DownProvider)).with_decision_engine(engine);
     let (delegating, telemetry) = service
         .decide_v10(
@@ -252,7 +266,14 @@ async fn jev_hostile_choice_cannot_escalate() {
     );
     let service = orchestration(Arc::new(DownProvider)).with_decision_engine(engine);
     let (delegating, telemetry) = service
-        .decide_v10("随便分析一下", None, None, None, true, &AgentBudget::default())
+        .decide_v10(
+            "随便分析一下",
+            None,
+            None,
+            None,
+            true,
+            &AgentBudget::default(),
+        )
         .await;
     assert!(!delegating, "未注册 worker 不得触发编排");
     assert_eq!(telemetry.strategy, DecisionStrategy::Direct);
@@ -361,8 +382,10 @@ fn mcp_unauthorized_is_fail_closed() {
     };
     assert!(
         request.capability_constraints.is_empty()
-            || request.capability_constraints.iter().all(|tag| tag.starts_with("no_")
-                || matches!(tag.as_str(), "read_only")),
+            || request
+                .capability_constraints
+                .iter()
+                .all(|tag| tag.starts_with("no_") || matches!(tag.as_str(), "read_only")),
         "能力标签只能是约束，不得含授权语义"
     );
     assert!(request.allows_orchestration());

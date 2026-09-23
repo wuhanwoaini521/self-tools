@@ -2,6 +2,12 @@
 //!
 //! 覆盖验收搜索 / 详情 / Today / Review / 收藏 / 进度 / 来源 / 句子等真实使用面，
 //! 数据完全内置，不访问任何文件或网络。
+#![allow(
+    clippy::field_reassign_with_default,
+    clippy::unnecessary_sort_by,
+    clippy::drop_non_drop,
+    clippy::uninlined_format_args
+)]
 
 use std::collections::{HashMap, HashSet};
 use std::sync::Mutex;
@@ -320,8 +326,7 @@ impl FakeLanguageStore {
             ),
         ]
         .into_iter()
-        .enumerate()
-        .map(|(_index, (id, name, homepage, license))| LanguageSource {
+        .map(|(id, name, homepage, license)| LanguageSource {
             id: id.to_string(),
             name: name.to_string(),
             homepage: homepage.to_string(),
@@ -433,10 +438,10 @@ impl LanguageStorePort for FakeLanguageStore {
 
         let mut matched: Vec<SearchHitModel> = Vec::new();
         for item in &self.items {
-            if let Some(code) = language {
-                if item.language != code {
-                    continue;
-                }
+            if let Some(code) = language
+                && item.language != code
+            {
+                continue;
             }
             let kind_matched = if item.text == query {
                 Some("exact")

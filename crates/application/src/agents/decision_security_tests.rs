@@ -5,12 +5,14 @@
 
 use std::sync::Arc;
 
+use devtoolbox_core::ToolResult;
 use devtoolbox_core::agents::{
     AgentBudget, AgentRegistry, BudgetTier, DecisionConfidence, DecisionMode, DecisionProvider,
     DecisionProviderError, DecisionRequest, DecisionResult, DecisionStrategy,
 };
-use devtoolbox_core::personal_ai::{ChatModelProvider, ChatRequest, ChatResponse, ChatUsage, ProviderError, ToolRisk, ToolSpec};
-use devtoolbox_core::ToolResult;
+use devtoolbox_core::personal_ai::{
+    ChatModelProvider, ChatRequest, ChatResponse, ChatUsage, ProviderError, ToolRisk, ToolSpec,
+};
 
 use crate::agents::decision_engine::AgentDecisionEngine;
 use crate::agents::orchestrator::OrchestrationService;
@@ -34,7 +36,10 @@ impl DecisionProvider for FixedStrategyProvider {
     fn is_available(&self) -> bool {
         true
     }
-    async fn decide(&self, _request: &DecisionRequest) -> Result<DecisionResult, DecisionProviderError> {
+    async fn decide(
+        &self,
+        _request: &DecisionRequest,
+    ) -> Result<DecisionResult, DecisionProviderError> {
         Ok(DecisionResult {
             strategy: self.strategy,
             workers: self.workers.clone(),
@@ -73,7 +78,10 @@ impl ToolExecutor for DeniedTool {
     fn spec(&self) -> &ToolSpec {
         &self.spec
     }
-    async fn execute(&self, _arguments: serde_json::Value) -> Result<ToolResult, devtoolbox_core::AgentError> {
+    async fn execute(
+        &self,
+        _arguments: serde_json::Value,
+    ) -> Result<ToolResult, devtoolbox_core::AgentError> {
         Ok(ToolResult::fail("must not be called"))
     }
 }
@@ -102,7 +110,10 @@ fn registry_with_denied_tools() -> Arc<ToolRegistry> {
     Arc::new(registry)
 }
 
-fn service_with_engine(engine: AgentDecisionEngine, tools: Arc<ToolRegistry>) -> OrchestrationService {
+fn service_with_engine(
+    engine: AgentDecisionEngine,
+    tools: Arc<ToolRegistry>,
+) -> OrchestrationService {
     OrchestrationService::new(
         Arc::new(default_registry()),
         Arc::new(FakeProvider),
@@ -159,11 +170,7 @@ async fn real_workers_still_never_get_write_tools() {
     let service = service_with_engine(engine, Arc::clone(&tools));
     let parent: Vec<String> = tools.specs().into_iter().map(|spec| spec.name).collect();
     assert!(parent.contains(&"memory.save".to_string()), "父有能力");
-    let plan = service.plan_for_strategy(
-        "req-sec",
-        "分析",
-        DecisionStrategy::BoundedMultiAgent,
-    );
+    let plan = service.plan_for_strategy("req-sec", "分析", DecisionStrategy::BoundedMultiAgent);
     let outcome = service
         .execute("req-sec", "分析", &plan, &parent, &budget_full(), true)
         .await;
@@ -209,7 +216,10 @@ async fn decision_cannot_elevate_worker_risk() {
         );
         assert!(!descriptor.can_delegate, "{} 不得再委派", task.agent_id);
         assert!(
-            descriptor.denied_tools.iter().any(|tool| tool == "memory.save"),
+            descriptor
+                .denied_tools
+                .iter()
+                .any(|tool| tool == "memory.save"),
             "{} 必须拒绝 memory.save",
             task.agent_id
         );
@@ -291,7 +301,14 @@ async fn multi_agent_disabled_user_switch_beats_provider() {
     );
     let service = service_with_engine(engine, registry_with_denied_tools());
     let (delegating, _telemetry) = service
-        .decide_v10("不要使用多 agent，深入研究日志", None, None, None, true, &budget_full())
+        .decide_v10(
+            "不要使用多 agent，深入研究日志",
+            None,
+            None,
+            None,
+            true,
+            &budget_full(),
+        )
         .await;
     assert!(!delegating, "用户显式关闭必须优先");
 }
@@ -319,7 +336,11 @@ async fn decision_request_never_carries_private_content() {
     // DecisionRequest 结构本身没有 memory/documents/files 字段。
     assert!(!json.contains("hunter2") || request.message.chars().count() <= 256);
     // capability 约束只暴露标签。
-    assert!(request.capability_constraints.contains(&"no_memory_write".to_string()));
+    assert!(
+        request
+            .capability_constraints
+            .contains(&"no_memory_write".to_string())
+    );
 }
 
 #[tokio::test]
@@ -394,5 +415,5 @@ fn worker_profiles_are_static_and_read_only() {
     }
     // research profile 的 allowed_modules 不含 memory 写入口。
     let research = research_profile();
-    assert!(!research.denied_tools.contains(&"memory.save".to_string()) == false);
+    assert!(research.denied_tools.contains(&"memory.save".to_string()));
 }

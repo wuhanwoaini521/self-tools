@@ -14,11 +14,8 @@ pub trait KnowledgeSourceRetriever: Send + Sync {
     fn kind(&self) -> KnowledgeSourceKind;
 
     /// 执行检索（返回候选，可多于最终上限；合并层负责截断）。
-    fn retrieve(
-        &self,
-        query: &str,
-        limit: usize,
-    ) -> Result<Vec<KnowledgeResult>, ApplicationError>;
+    fn retrieve(&self, query: &str, limit: usize)
+    -> Result<Vec<KnowledgeResult>, ApplicationError>;
 }
 
 /// 检索模式：决定「哪些源参与、每源多少条」（V6 §22/§64/§68）。

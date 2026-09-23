@@ -94,7 +94,9 @@ impl StudyBoardSqliteStore {
         }
         if stored < STUDY_BOARD_SCHEMA_VERSION {
             connection
-                .execute_batch(&format!("PRAGMA user_version = {STUDY_BOARD_SCHEMA_VERSION}"))
+                .execute_batch(&format!(
+                    "PRAGMA user_version = {STUDY_BOARD_SCHEMA_VERSION}"
+                ))
                 .map_err(sqlite)?;
         }
         Ok(())
@@ -149,7 +151,9 @@ impl StudyBoardSqliteStore {
     ///
     /// 只返回元数据摘要，**不含** `strokes`（笔迹正文只在显式 `get_board` 时返回）。
     pub fn list_boards(&self, limit: usize) -> Result<Vec<StudyBoardSummary>, InfrastructureError> {
-        let limit = i64::try_from(limit).unwrap_or(MAX_LIST_LIMIT).clamp(1, MAX_LIST_LIMIT);
+        let limit = i64::try_from(limit)
+            .unwrap_or(MAX_LIST_LIMIT)
+            .clamp(1, MAX_LIST_LIMIT);
         let connection = self.connection.lock();
         let mut statement = connection
             .prepare(
@@ -193,7 +197,10 @@ impl StudyBoardSqliteStore {
     /// 登记（或更新）一块板的快照（按 id 幂等）。
     ///
     /// `png_base64` 非空时解码为 BLOB 落库；非法 base64 → 受控错误。
-    pub fn upsert_snapshot(&self, snapshot: &StudyBoardSnapshot) -> Result<(), InfrastructureError> {
+    pub fn upsert_snapshot(
+        &self,
+        snapshot: &StudyBoardSnapshot,
+    ) -> Result<(), InfrastructureError> {
         let png = snapshot
             .png_base64
             .as_deref()
@@ -222,7 +229,10 @@ impl StudyBoardSqliteStore {
     }
 
     /// 按 id 读取快照（`title` 为空串 —— schema 不存 title，调用方补当前板标题）。
-    pub fn get_snapshot(&self, id: &str) -> Result<Option<StudyBoardSnapshot>, InfrastructureError> {
+    pub fn get_snapshot(
+        &self,
+        id: &str,
+    ) -> Result<Option<StudyBoardSnapshot>, InfrastructureError> {
         self.connection
             .lock()
             .query_row(
@@ -332,8 +342,7 @@ fn base64_encode(bytes: &[u8]) -> String {
     for chunk in bytes.chunks(3) {
         let mut group = [0u8; 3];
         group[..chunk.len()].copy_from_slice(chunk);
-        let buffer =
-            (u32::from(group[0]) << 16) | (u32::from(group[1]) << 8) | u32::from(group[2]);
+        let buffer = (u32::from(group[0]) << 16) | (u32::from(group[1]) << 8) | u32::from(group[2]);
         let symbols = [
             ALPHABET[(buffer >> 18) as usize & 0x3f],
             ALPHABET[(buffer >> 12) as usize & 0x3f],
@@ -396,11 +405,16 @@ mod tests {
         {
             let store = StudyBoardSqliteStore::open(&path).unwrap();
             store.upsert_board(&board("b-1", "第一版", 1_000)).unwrap();
-            store.upsert_snapshot(&snapshot("snap-1", "b-1", 1_100)).unwrap();
+            store
+                .upsert_snapshot(&snapshot("snap-1", "b-1", 1_100))
+                .unwrap();
         }
         // 第二次打开：不重建、不丢数据（§86）。
         let store = StudyBoardSqliteStore::open(&path).unwrap();
-        let loaded = store.get_board("b-1").unwrap().expect("row survives reopen");
+        let loaded = store
+            .get_board("b-1")
+            .unwrap()
+            .expect("row survives reopen");
         assert_eq!(loaded.title, "第一版");
         assert_eq!(loaded.stroke_count(), 1);
         assert_eq!(store.board_count().unwrap(), 1);
@@ -495,13 +509,7 @@ mod tests {
         assert_eq!(loaded.png_base64.as_deref(), Some(encoded.as_str()));
         assert_eq!(loaded.board_id, "b-1");
         assert_eq!(loaded.title, "", "title 不落库");
-        assert!(
-            loaded
-                .strokes_summary
-                .chars()
-                .count()
-                <= STROKE_SUMMARY_MAX_CHARS
-        );
+        assert!(loaded.strokes_summary.chars().count() <= STROKE_SUMMARY_MAX_CHARS);
         assert_eq!(
             store
                 .latest_snapshot("b-1")

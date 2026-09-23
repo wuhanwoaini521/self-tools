@@ -8,6 +8,12 @@
 //! 端口属于用例层：实现（SQLite `config/conversations.db`）在 infrastructure，
 //! 组合根（`apps/desktop`）负责装配（与 `MemoryStorePort` 完全同构）。用例层不感知
 //! SQL / 序列化细节，因此本模块的错误类型不携带基础设施类型。
+#![allow(
+    clippy::field_reassign_with_default,
+    clippy::unnecessary_sort_by,
+    clippy::drop_non_drop,
+    clippy::uninlined_format_args
+)]
 
 use std::sync::Arc;
 
@@ -42,10 +48,7 @@ pub trait ConversationStore: Send + Sync {
     fn list(&self, limit: usize) -> Result<Vec<ConversationSummary>, ConversationStoreError>;
 
     /// 列表（含已归档；UI 的「显示已归档」开关用）。
-    fn list_all(
-        &self,
-        limit: usize,
-    ) -> Result<Vec<ConversationSummary>, ConversationStoreError>;
+    fn list_all(&self, limit: usize) -> Result<Vec<ConversationSummary>, ConversationStoreError>;
 
     /// 按 id 读取完整会话（含正文）。不存在返回 `None`；归档会话仍可读。
     fn load(&self, conversation_id: &str) -> Result<Option<Conversation>, ConversationStoreError>;
@@ -67,11 +70,7 @@ pub trait ConversationStore: Send + Sync {
     ) -> Result<(), ConversationStoreError>;
 
     /// 重命名（空标题被归一为默认标题）。
-    fn rename(
-        &self,
-        conversation_id: &str,
-        title: &str,
-    ) -> Result<(), ConversationStoreError>;
+    fn rename(&self, conversation_id: &str, title: &str) -> Result<(), ConversationStoreError>;
 
     /// 归档 / 取消归档（`false` = 恢复）。归档不删消息。
     fn set_archived(
@@ -118,11 +117,7 @@ impl ConversationService {
 
     /// `limit = 0` 归一为默认上限（不做隐式通配）。
     fn effective_limit(&self, limit: usize) -> usize {
-        if limit == 0 {
-            self.list_limit
-        } else {
-            limit
-        }
+        if limit == 0 { self.list_limit } else { limit }
     }
 
     #[allow(dead_code)]
@@ -131,11 +126,7 @@ impl ConversationService {
         limit: usize,
         include_archived: bool,
     ) -> Result<Vec<ConversationSummary>, ApplicationError> {
-        let limit = if limit == 0 {
-            self.list_limit
-        } else {
-            limit
-        };
+        let limit = if limit == 0 { self.list_limit } else { limit };
         Ok(if include_archived {
             self.store.list_all(limit)?
         } else {
@@ -372,11 +363,7 @@ mod tests {
             Ok(())
         }
 
-        fn rename(
-            &self,
-            conversation_id: &str,
-            title: &str,
-        ) -> Result<(), ConversationStoreError> {
+        fn rename(&self, conversation_id: &str, title: &str) -> Result<(), ConversationStoreError> {
             let title = if title.trim().is_empty() {
                 DEFAULT_CONVERSATION_TITLE
             } else {
@@ -423,7 +410,9 @@ mod tests {
         assert_eq!(created.title, DEFAULT_CONVERSATION_TITLE);
         assert!(created.module_origin.is_none(), "空白来源归一为 None");
 
-        let named = service.create("杭州两日游", Some("travel")).expect("创建成功");
+        let named = service
+            .create("杭州两日游", Some("travel"))
+            .expect("创建成功");
         assert_eq!(named.title, "杭州两日游");
         assert_eq!(named.module_origin.as_deref(), Some("travel"));
     }
@@ -445,7 +434,10 @@ mod tests {
             .expect("读取成功")
             .expect("会话存在");
         assert_eq!(loaded.messages.len(), 2);
-        assert_eq!(loaded.messages[1].content.chars().count(), CONVERSATION_MAX_CONTENT_CHARS);
+        assert_eq!(
+            loaded.messages[1].content.chars().count(),
+            CONVERSATION_MAX_CONTENT_CHARS
+        );
     }
 
     #[test]
@@ -479,7 +471,10 @@ mod tests {
         assert_eq!(loaded.messages.len(), 3);
         assert_eq!(loaded.messages[0].role, ConversationRole::User);
         assert_eq!(loaded.messages[1].role, ConversationRole::Assistant);
-        assert_eq!(loaded.messages[1].provider.as_deref(), Some("openai-compatible"));
+        assert_eq!(
+            loaded.messages[1].provider.as_deref(),
+            Some("openai-compatible")
+        );
         assert_eq!(loaded.messages[1].model.as_deref(), Some("step-5-preview"));
         assert_eq!(loaded.messages[2].role, ConversationRole::Tool);
     }
@@ -491,7 +486,9 @@ mod tests {
             .append_user("missing", "你好")
             .expect_err("不存在的会话必须报错");
         // 复用 PersonalAi(Session) 变体：前端 code 与「会话错误」语义一致。
-        assert!(matches!(error, ApplicationError::PersonalAi(ref agent) if agent.code() == "personal_ai_session_error"));
+        assert!(
+            matches!(error, ApplicationError::PersonalAi(ref agent) if agent.code() == "personal_ai_session_error")
+        );
         assert!(error.to_string().contains("missing"));
     }
 
@@ -514,7 +511,9 @@ mod tests {
         let service = ConversationService::new(store());
         let first = service.create("第一个", None).expect("创建成功");
         let second = service.create("第二个", None).expect("创建成功");
-        service.set_archived(&first.conversation_id, true).expect("归档成功");
+        service
+            .set_archived(&first.conversation_id, true)
+            .expect("归档成功");
 
         let visible = service.list(0).expect("列表成功");
         assert_eq!(visible.len(), 1);

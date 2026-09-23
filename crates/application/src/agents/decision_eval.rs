@@ -403,7 +403,10 @@ mod tests {
         fn name(&self) -> &'static str {
             self.0
         }
-        async fn decide(&self, _request: &DecisionRequest) -> Result<DecisionResult, ProviderError> {
+        async fn decide(
+            &self,
+            _request: &DecisionRequest,
+        ) -> Result<DecisionResult, ProviderError> {
             // 恒定选 research_only：用于度量 unnecessary/missed orchestration。
             Ok(DecisionResult {
                 strategy: DecisionStrategy::ResearchOnly,
@@ -424,7 +427,10 @@ mod tests {
         fn name(&self) -> &'static str {
             "always-direct"
         }
-        async fn decide(&self, _request: &DecisionRequest) -> Result<DecisionResult, ProviderError> {
+        async fn decide(
+            &self,
+            _request: &DecisionRequest,
+        ) -> Result<DecisionResult, ProviderError> {
             Ok(DecisionResult::direct("always-direct", "constant_direct"))
         }
     }
@@ -434,13 +440,38 @@ mod tests {
         let report = DecisionEvalHarness::run(&RuleDecisionProvider::new()).await;
         assert_eq!(report.total, 15);
         // 有期望的 case 全部一致（rule 是这些期望的来源）。
-        assert_eq!(report.unmatched, 0, "rule 未命中: {:?}", report.outcomes.iter().filter(|o| !o.strategy_match).map(|o| o.id.clone()).collect::<Vec<_>>());
+        assert_eq!(
+            report.unmatched,
+            0,
+            "rule 未命中: {:?}",
+            report
+                .outcomes
+                .iter()
+                .filter(|o| !o.strategy_match)
+                .map(|o| o.id.clone())
+                .collect::<Vec<_>>()
+        );
         assert_eq!(report.reason_mismatches, 0);
         assert_eq!(report.accuracy(), 1.0);
         // 标签分布包含三类（§33）。
-        assert!(report.outcomes.iter().any(|o| o.label == LabelSource::Reviewed));
-        assert!(report.outcomes.iter().any(|o| o.label == LabelSource::Heuristic));
-        assert!(report.outcomes.iter().any(|o| o.label == LabelSource::Baseline));
+        assert!(
+            report
+                .outcomes
+                .iter()
+                .any(|o| o.label == LabelSource::Reviewed)
+        );
+        assert!(
+            report
+                .outcomes
+                .iter()
+                .any(|o| o.label == LabelSource::Heuristic)
+        );
+        assert!(
+            report
+                .outcomes
+                .iter()
+                .any(|o| o.label == LabelSource::Baseline)
+        );
     }
 
     #[tokio::test]
@@ -467,13 +498,26 @@ mod tests {
             fn name(&self) -> &'static str {
                 "failing"
             }
-            async fn decide(&self, _request: &DecisionRequest) -> Result<DecisionResult, ProviderError> {
+            async fn decide(
+                &self,
+                _request: &DecisionRequest,
+            ) -> Result<DecisionResult, ProviderError> {
                 Err(ProviderError::unavailable("down"))
             }
         }
         let report = DecisionEvalHarness::run(&Failing).await;
-        assert!(report.outcomes.iter().all(|o| o.actual == DecisionStrategy::Direct));
-        assert!(report.outcomes.iter().any(|o| o.actual_reason_code == "provider_failed"));
+        assert!(
+            report
+                .outcomes
+                .iter()
+                .all(|o| o.actual == DecisionStrategy::Direct)
+        );
+        assert!(
+            report
+                .outcomes
+                .iter()
+                .any(|o| o.actual_reason_code == "provider_failed")
+        );
     }
 
     #[tokio::test]

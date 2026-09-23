@@ -417,7 +417,9 @@ pub fn relevance(item: &MemoryItem, keyword: &str) -> f32 {
         }
     };
     let label = item.category.label().to_lowercase();
-    let category_score: f32 = if !needle.is_empty() && (label.contains(&needle) || item.category.as_str().contains(&needle)) {
+    let category_score: f32 = if !needle.is_empty()
+        && (label.contains(&needle) || item.category.as_str().contains(&needle))
+    {
         1.0
     } else {
         0.0

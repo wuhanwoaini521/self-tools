@@ -233,23 +233,15 @@ impl HealthReport {
     /// 汇总 liveness/readiness（核心依赖全 Ready → Ready；外部依赖故障 → Degraded）。
     #[must_use]
     pub fn summarize(core: Vec<DependencyHealth>, external: Vec<DependencyHealth>) -> Self {
-        let readiness = if core
-            .iter()
-            .any(|dep| dep.state == HealthState::Down)
-        {
+        let readiness = if core.iter().any(|dep| dep.state == HealthState::Down) {
             HealthState::Down
-        } else if core
-            .iter()
-            .any(|dep| dep.state == HealthState::Degraded)
-        {
+        } else if core.iter().any(|dep| dep.state == HealthState::Degraded) {
             HealthState::Degraded
         } else {
             HealthState::Ready
         };
         let mut dependencies = core;
-        let external_degraded = external
-            .iter()
-            .any(|dep| dep.state != HealthState::Ready);
+        let external_degraded = external.iter().any(|dep| dep.state != HealthState::Ready);
         dependencies.extend(external);
         Self {
             liveness: HealthState::Alive,
@@ -298,11 +290,7 @@ impl MetricsSnapshot {
     /// 工具调用平均延迟（无调用 = 0）。
     #[must_use]
     pub fn avg_tool_latency_ms(&self) -> u64 {
-        if self.tool_calls == 0 {
-            0
-        } else {
-            self.tool_call_latency_ms / self.tool_calls
-        }
+        self.tool_call_latency_ms / self.tool_calls.max(1)
     }
 
     /// 编排率（0..1；无请求 = 0）。
@@ -365,7 +353,11 @@ mod tests {
             }],
         );
         assert_eq!(report.liveness, HealthState::Alive);
-        assert_eq!(report.readiness, HealthState::Degraded, "外部依赖故障 = degraded");
+        assert_eq!(
+            report.readiness,
+            HealthState::Degraded,
+            "外部依赖故障 = degraded"
+        );
         assert_eq!(report.readiness.http_status(), 200);
     }
 

@@ -152,7 +152,10 @@ impl OrchestrationService {
     ) -> Self {
         Self {
             registry,
-            executor: AgentExecutor::new(super::executor::AgentExecutorDeps { provider, registry: Arc::clone(&tools) }),
+            executor: AgentExecutor::new(super::executor::AgentExecutorDeps {
+                provider,
+                registry: Arc::clone(&tools),
+            }),
             registry_tools: tools,
             decision: None,
         }
@@ -192,10 +195,7 @@ impl OrchestrationService {
         entity_kind: Option<&str>,
         multi_agent_enabled: bool,
         budget: &devtoolbox_core::agents::AgentBudget,
-    ) -> (
-        bool,
-        DecisionTelemetry,
-    ) {
+    ) -> (bool, DecisionTelemetry) {
         let workers = self.registry.ids();
         let tool_groups = self
             .registry_tools
@@ -265,7 +265,10 @@ impl OrchestrationService {
     pub fn decide(&self, message: &str, multi_agent_enabled: bool) -> DelegationDecision {
         let lowered = message.to_lowercase();
         // §81：用户显式关闭。
-        if lowered.contains("不要使用多 agent") || lowered.contains("别用多 agent") || lowered.contains("不用多智能体") {
+        if lowered.contains("不要使用多 agent")
+            || lowered.contains("别用多 agent")
+            || lowered.contains("不用多智能体")
+        {
             return DelegationDecision::Direct;
         }
         if !multi_agent_enabled {
@@ -278,19 +281,37 @@ impl OrchestrationService {
             || lowered.contains("全面比较")
             || lowered.contains("系统性")
         {
-            return DelegationDecision::Delegate { reason: "explicit_deep_request" };
+            return DelegationDecision::Delegate {
+                reason: "explicit_deep_request",
+            };
         }
         // 规则：跨模块 / 多来源 / 比较 / 规划类。
-        let cross_module = ["日志", "文档", "记忆", "服务器", "history", "documents", "memory", "server"]
-            .iter()
-            .filter(|needle| lowered.contains(**needle))
-            .count()
+        let cross_module = [
+            "日志",
+            "文档",
+            "记忆",
+            "服务器",
+            "history",
+            "documents",
+            "memory",
+            "server",
+        ]
+        .iter()
+        .filter(|needle| lowered.contains(**needle))
+        .count()
             >= 2;
         if cross_module {
-            return DelegationDecision::Delegate { reason: "cross_module_request" };
+            return DelegationDecision::Delegate {
+                reason: "cross_module_request",
+            };
         }
-        if lowered.contains("比较") || lowered.contains("对比") || lowered.contains("为什么") && lowered.len() > 30 {
-            return DelegationDecision::Delegate { reason: "comparison_or_diagnosis" };
+        if lowered.contains("比较")
+            || lowered.contains("对比")
+            || lowered.contains("为什么") && lowered.len() > 30
+        {
+            return DelegationDecision::Delegate {
+                reason: "comparison_or_diagnosis",
+            };
         }
         DelegationDecision::Direct
     }
@@ -349,7 +370,12 @@ impl OrchestrationService {
     }
 
     /// research 主体计划（planner 可选）。
-    fn research_plan(&self, request_id: &str, objective: &str, with_planner: bool) -> ExecutionPlan {
+    fn research_plan(
+        &self,
+        request_id: &str,
+        objective: &str,
+        with_planner: bool,
+    ) -> ExecutionPlan {
         let mut tasks: Vec<PlanTask> = Vec::new();
         // 两个独立研究任务（证据面拆分：服务器 / 知识）。
         tasks.push(PlanTask {
@@ -370,10 +396,7 @@ impl OrchestrationService {
             required_tools: Vec::new(),
             required: false,
         });
-        let parallel_groups = vec![vec![
-            format!("{request_id}-r1"),
-            format!("{request_id}-r2"),
-        ]];
+        let parallel_groups = vec![vec![format!("{request_id}-r1"), format!("{request_id}-r2")]];
         if with_planner {
             tasks.push(PlanTask {
                 task_id: format!("{request_id}-plan"),
@@ -407,11 +430,20 @@ impl OrchestrationService {
         budget: &AgentBudget,
         multi_agent_enabled: bool,
     ) -> OrchestrationOutcome {
-        self.execute_cancellable(request_id, objective, plan, parent_tools, budget, multi_agent_enabled, None)
-            .await
+        self.execute_cancellable(
+            request_id,
+            objective,
+            plan,
+            parent_tools,
+            budget,
+            multi_agent_enabled,
+            None,
+        )
+        .await
     }
 
     /// 带取消令牌的编排（§58）。
+    #[allow(clippy::too_many_arguments)]
     pub async fn execute_cancellable(
         &self,
         request_id: &str,
@@ -441,9 +473,15 @@ impl OrchestrationService {
             let group_semaphore = Arc::clone(&semaphore);
             let mut handles = Vec::new();
             for task_id in group {
-                let Some(task) = plan.task(task_id) else { continue };
+                let Some(task) = plan.task(task_id) else {
+                    continue;
+                };
                 let Some(descriptor) = self.registry.get(&task.agent_id).cloned() else {
-                    results.push(DelegationResult::failed(task_id, &task.agent_id, "unknown_agent"));
+                    results.push(DelegationResult::failed(
+                        task_id,
+                        &task.agent_id,
+                        "unknown_agent",
+                    ));
                     continue;
                 };
                 // §35：parent ∩ profile ∩ task。
@@ -452,13 +490,17 @@ impl OrchestrationService {
                     |name| {
                         self.registry_tools
                             .spec(name)
-                            .is_some_and(|spec| descriptor.allows_tool(&spec))
+                            .is_some_and(|spec| descriptor.allows_tool(spec))
                     },
                     &task.required_tools,
                 );
                 // §36：child ⊆ parent（双保险）。
                 if !capability.is_subset_of(parent_tools) {
-                    results.push(DelegationResult::failed(task_id, &descriptor.id, "capability_escalation"));
+                    results.push(DelegationResult::failed(
+                        task_id,
+                        &descriptor.id,
+                        "capability_escalation",
+                    ));
                     continue;
                 }
                 let envelope = TaskEnvelope {
@@ -491,8 +533,13 @@ impl OrchestrationService {
                 );
                 // §48：agent 数量上限。**预扣**额度（在 join 之前），
                 // 否则同组后续任务看不到已启动的名额 → 上限失效。
-                if child.max_steps == 0 || !devtoolbox_core::agents::can_start_agent(budget, &used) {
-                    results.push(DelegationResult::failed(task_id, &descriptor.id, "budget_exhausted"));
+                if child.max_steps == 0 || !devtoolbox_core::agents::can_start_agent(budget, &used)
+                {
+                    results.push(DelegationResult::failed(
+                        task_id,
+                        &descriptor.id,
+                        "budget_exhausted",
+                    ));
                     if stopped_early.is_none() {
                         stopped_early = Some("budget_exhausted");
                     }
@@ -531,7 +578,11 @@ impl OrchestrationService {
                 results.push(outcome.result);
             }
             if !devtoolbox_core::agents::check_budget(budget, &used).is_within() {
-                stopped_early = Some(devtoolbox_core::agents::check_budget(budget, &used).reason().unwrap_or("budget"));
+                stopped_early = Some(
+                    devtoolbox_core::agents::check_budget(budget, &used)
+                        .reason()
+                        .unwrap_or("budget"),
+                );
                 break;
             }
         }
@@ -548,13 +599,14 @@ impl OrchestrationService {
                 .filter(|result| result.status.is_usable())
                 .map(DelegationResult::trusted_view)
                 .collect();
-            let drafts_block = untrusted_projection(&serde_json::json!({ "workers": drafts }), 8_000);
+            let drafts_block =
+                untrusted_projection(&serde_json::json!({ "workers": drafts }), 8_000);
             let capability = devtoolbox_core::agents::DelegatedCapabilitySet::intersect(
                 parent_tools,
                 |name| {
                     self.registry_tools
                         .spec(name)
-                        .is_some_and(|spec| descriptor.allows_tool(&spec))
+                        .is_some_and(|spec| descriptor.allows_tool(spec))
                 },
                 &[],
             );
@@ -587,7 +639,8 @@ impl OrchestrationService {
                     descriptor.max_tokens,
                     descriptor.timeout_ms,
                 );
-                if child.max_steps == 0 || !devtoolbox_core::agents::can_start_agent(budget, &used) {
+                if child.max_steps == 0 || !devtoolbox_core::agents::can_start_agent(budget, &used)
+                {
                     results.push(DelegationResult::failed(
                         &review_task_id,
                         &descriptor.id,
@@ -713,11 +766,16 @@ pub fn merge_results(results: &[DelegationResult]) -> serde_json::Value {
 pub fn collect_proposals(results: &[DelegationResult]) -> Vec<ActionProposal> {
     let mut proposals: Vec<ActionProposal> = Vec::new();
     for result in results.iter().filter(|result| result.status.is_usable()) {
-        let Some(items) = result.structured_output.get("action_proposals").and_then(|v| v.as_array()) else {
+        let Some(items) = result
+            .structured_output
+            .get("action_proposals")
+            .and_then(|v| v.as_array())
+        else {
             continue;
         };
         for item in items {
-            let Some(action_type) = item.get("action_type").and_then(serde_json::Value::as_str) else {
+            let Some(action_type) = item.get("action_type").and_then(serde_json::Value::as_str)
+            else {
                 continue;
             };
             let Some(target_id) = item.get("target_id").and_then(serde_json::Value::as_str) else {
@@ -831,11 +889,16 @@ mod tests {
     fn simple_request_is_direct() {
         let (service, _) = service("{}");
         // §43/§105：简单事实问题不委派。
-        assert_eq!(service.decide("珠穆朗玛峰多高？", true), DelegationDecision::Direct);
+        assert_eq!(
+            service.decide("珠穆朗玛峰多高？", true),
+            DelegationDecision::Direct
+        );
         // §81：用户显式关闭优先于一切。
         assert_eq!(
             service.decide("结合日志和文档深入分析", true),
-            DelegationDecision::Delegate { reason: "explicit_deep_request" }
+            DelegationDecision::Delegate {
+                reason: "explicit_deep_request"
+            }
         );
         assert_eq!(
             service.decide("结合日志和文档深入分析", false),
@@ -858,7 +921,14 @@ mod tests {
         let parent = parent_tools(&tools);
         let plan = service.plan("req-1", "分析不稳定原因", false);
         let outcome = service
-            .execute("req-1", "分析不稳定原因", &plan, &parent, &AgentBudget::default(), true)
+            .execute(
+                "req-1",
+                "分析不稳定原因",
+                &plan,
+                &parent,
+                &AgentBudget::default(),
+                true,
+            )
             .await;
         // 两个并行 research 都完成。
         let research: Vec<_> = outcome
@@ -867,7 +937,11 @@ mod tests {
             .filter(|result| result.agent_id == "research")
             .collect();
         assert_eq!(research.len(), 2);
-        assert!(outcome.merged["sections"].as_array().is_some_and(|items| items.len() == 2));
+        assert!(
+            outcome.merged["sections"]
+                .as_array()
+                .is_some_and(|items| items.len() == 2)
+        );
         assert!(!outcome.partial);
         assert_eq!(outcome.trace.runs.len(), 2);
     }
@@ -880,11 +954,21 @@ mod tests {
         assert!(parent.contains(&"memory.save".to_string()), "父有能力");
         let plan = service.plan("req-2", "分析", false);
         let outcome = service
-            .execute("req-2", "分析", &plan, &parent, &AgentBudget::default(), true)
+            .execute(
+                "req-2",
+                "分析",
+                &plan,
+                &parent,
+                &AgentBudget::default(),
+                true,
+            )
             .await;
         for result in &outcome.results {
             assert!(
-                result.tool_calls.iter().all(|call| call.tool != "memory.save"),
+                result
+                    .tool_calls
+                    .iter()
+                    .all(|call| call.tool != "memory.save"),
                 "worker 不得调用 memory.save"
             );
         }
@@ -898,13 +982,17 @@ mod tests {
         let parent = parent_tools(&tools);
         let plan = service.plan("req-3", "分析", true);
         let outcome = service
-            .execute("req-3", "分析", &plan, &parent, &AgentBudget::default(), true)
+            .execute(
+                "req-3",
+                "分析",
+                &plan,
+                &parent,
+                &AgentBudget::default(),
+                true,
+            )
             .await;
         for result in &outcome.results {
-            assert!(
-                result.agent_id != "orchestrator",
-                "worker 不得作为编排者"
-            );
+            assert!(result.agent_id != "orchestrator", "worker 不得作为编排者");
         }
     }
 
@@ -925,7 +1013,10 @@ mod tests {
             .execute("req-4", "分析", &plan, &parent, &budget, true)
             .await;
         assert!(
-            outcome.results.iter().any(|result| !result.status.is_usable()),
+            outcome
+                .results
+                .iter()
+                .any(|result| !result.status.is_usable()),
             "预算耗尽必须产生失败结果"
         );
         assert!(outcome.partial);
@@ -938,10 +1029,20 @@ mod tests {
         let plan = service.plan("req-5", "深入分析", true);
         assert!(plan.final_review_required);
         let outcome = service
-            .execute("req-5", "深入分析", &plan, &parent, &AgentBudget::default(), true)
+            .execute(
+                "req-5",
+                "深入分析",
+                &plan,
+                &parent,
+                &AgentBudget::default(),
+                true,
+            )
             .await;
         assert!(
-            outcome.results.iter().any(|result| result.agent_id == "reviewer"),
+            outcome
+                .results
+                .iter()
+                .any(|result| result.agent_id == "reviewer"),
             "deep 请求必须跑 reviewer"
         );
         assert!(outcome.trace.review.is_some());
@@ -967,7 +1068,10 @@ mod tests {
         let proposals = collect_proposals(std::slice::from_ref(&result));
         assert_eq!(proposals.len(), 1);
         assert_eq!(proposals[0].action_type, "services.restart");
-        assert!(proposals[0].risk.requires_confirmation(), "§90：提议必须走确认");
+        assert!(
+            proposals[0].risk.requires_confirmation(),
+            "§90：提议必须走确认"
+        );
         let merged = merge_results(std::slice::from_ref(&result));
         assert_eq!(merged["worker_count"], 1);
         assert_eq!(merged["sections"][0]["agent_id"], "research");
@@ -977,7 +1081,10 @@ mod tests {
     fn untrusted_projection_wraps_and_truncates() {
         let fenced = untrusted_projection(&serde_json::json!({"a": "x".repeat(500)}), 50);
         assert!(fenced.starts_with(UNTRUSTED_OPEN_TAG), "{fenced}");
-        assert!(fenced.contains("<<<END_UNTRUSTED_WORKER_OUTPUT>>>"), "{fenced}");
+        assert!(
+            fenced.contains("<<<END_UNTRUSTED_WORKER_OUTPUT>>>"),
+            "{fenced}"
+        );
         assert!(fenced.contains("…[truncated]"), "{fenced}");
         assert!(fenced.chars().count() < 200, "围栏后仍受截断约束");
     }
@@ -987,7 +1094,7 @@ mod tests {
         let registry = super::super::profiles::default_registry();
         for id in registry.ids() {
             let descriptor = registry.get(&id).expect("profile");
-            assert_eq!(descriptor.role != AgentRole::Research || id == "research", true);
+            assert!(descriptor.role != AgentRole::Research || id == "research");
         }
     }
 }
@@ -1074,7 +1181,11 @@ mod gate6_tests {
         let _ = service
             .execute("req-p", "分析", &plan, &[], &budget, true)
             .await;
-        assert!(peak.load(Ordering::SeqCst) <= 2, "peak={}", peak.load(Ordering::SeqCst));
+        assert!(
+            peak.load(Ordering::SeqCst) <= 2,
+            "peak={}",
+            peak.load(Ordering::SeqCst)
+        );
     }
 
     #[tokio::test]
@@ -1245,14 +1356,22 @@ mod integration_tests {
         let mut registry = ToolRegistry::new();
         registry
             .register(Arc::new(NoopTool {
-                spec: spec("services.restart", devtoolbox_core::personal_ai::ToolRisk::Read, "server"),
+                spec: spec(
+                    "services.restart",
+                    devtoolbox_core::personal_ai::ToolRisk::Read,
+                    "server",
+                ),
             }))
             .expect("register");
         let tools = Arc::new(registry);
         let mut hub_tools = ToolRegistry::new();
         hub_tools
             .register(Arc::new(NoopTool {
-                spec: spec("services.restart", devtoolbox_core::personal_ai::ToolRisk::Read, "server"),
+                spec: spec(
+                    "services.restart",
+                    devtoolbox_core::personal_ai::ToolRisk::Read,
+                    "server",
+                ),
             }))
             .expect("register");
         let orchestration = Arc::new(OrchestrationService::new(
@@ -1296,8 +1415,7 @@ mod integration_tests {
             Arc::new(ProposalProvider),
             Arc::new(ToolRegistry::new()),
         ));
-        let decision =
-            orchestration.decide("不要使用多 agent，直接看服务器日志", true);
+        let decision = orchestration.decide("不要使用多 agent，直接看服务器日志", true);
         assert_eq!(decision, DelegationDecision::Direct);
     }
 
@@ -1346,10 +1464,7 @@ mod gate9_tests {
         fn name(&self) -> &'static str {
             "unauth"
         }
-        async fn chat(
-            &self,
-            _request: ChatRequest,
-        ) -> Result<ChatResponse, ProviderError> {
+        async fn chat(&self, _request: ChatRequest) -> Result<ChatResponse, ProviderError> {
             let mut calls = self.calls.lock().unwrap_or_else(|e| e.into_inner());
             calls.push("chat".into());
             if calls.len() == 1 {
@@ -1396,13 +1511,14 @@ mod gate9_tests {
     #[async_trait::async_trait]
     impl ToolExecutor for RecordingTool {
         fn spec(&self) -> &devtoolbox_core::personal_ai::ToolSpec {
-            self.spec.get_or_init(|| devtoolbox_core::personal_ai::ToolSpec {
-                name: self.name.into(),
-                description: "test".into(),
-                input_schema: serde_json::json!({"type": "object"}),
-                risk: devtoolbox_core::personal_ai::ToolRisk::Read,
-                module: self.module.into(),
-            })
+            self.spec
+                .get_or_init(|| devtoolbox_core::personal_ai::ToolSpec {
+                    name: self.name.into(),
+                    description: "test".into(),
+                    input_schema: serde_json::json!({"type": "object"}),
+                    risk: devtoolbox_core::personal_ai::ToolRisk::Read,
+                    module: self.module.into(),
+                })
         }
         async fn execute(
             &self,
@@ -1606,7 +1722,11 @@ mod gate9_tests {
         )
         .await;
         assert!(result.is_err(), "超过工具调用上限必须受控停止");
-        assert_eq!(ran.load(std::sync::atomic::Ordering::SeqCst), 3, "恰好 3 次");
+        assert_eq!(
+            ran.load(std::sync::atomic::Ordering::SeqCst),
+            3,
+            "恰好 3 次"
+        );
     }
 
     #[tokio::test]
@@ -1617,12 +1737,11 @@ mod gate9_tests {
             .register(RecordingTool::new("server.probe", "server"))
             .expect("register");
         let descriptor = crate::agents::profiles::research_profile();
-        let executor = super::super::executor::AgentExecutor::new(
-            super::super::executor::AgentExecutorDeps {
+        let executor =
+            super::super::executor::AgentExecutor::new(super::super::executor::AgentExecutorDeps {
                 provider: Arc::new(SlowProvider),
                 registry: Arc::new(registry),
-            },
-        );
+            });
         let task = devtoolbox_core::agents::TaskEnvelope {
             task_id: "t-1".into(),
             parent_task_id: "r-1".into(),
@@ -1641,7 +1760,10 @@ mod gate9_tests {
         };
         let budget = AgentBudget::default();
         let outcome = executor.run(&descriptor, &task, &budget).await;
-        assert_eq!(outcome.state, devtoolbox_core::agents::AgentRunState::TimedOut);
+        assert_eq!(
+            outcome.state,
+            devtoolbox_core::agents::AgentRunState::TimedOut
+        );
         assert_eq!(
             outcome.result.status,
             devtoolbox_core::agents::DelegationStatus::TimedOut

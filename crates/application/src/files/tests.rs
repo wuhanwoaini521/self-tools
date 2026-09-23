@@ -381,9 +381,8 @@ fn recent_hides_restricted_files() {
 
 #[test]
 fn read_text_within_root_and_truncates() {
-    let (service, _index) = service(
-        FakeFileSystem::default().with_file("/data/docs/notes/a.md", "hello world", 100),
-    );
+    let (service, _index) =
+        service(FakeFileSystem::default().with_file("/data/docs/notes/a.md", "hello world", 100));
     let settings = settings();
 
     let result = service
@@ -430,9 +429,8 @@ fn path_outside_root_denied() {
 
 #[test]
 fn directory_target_denied() {
-    let (service, _index) = service(
-        FakeFileSystem::default().with_file("/data/docs/notes/a.md", "notes", 100),
-    );
+    let (service, _index) =
+        service(FakeFileSystem::default().with_file("/data/docs/notes/a.md", "notes", 100));
 
     let error = service
         .read_text(&settings(), "/data/docs/../../etc/passwd", 0)
@@ -461,9 +459,11 @@ fn symlink_escape_denied() {
 
 #[test]
 fn deny规则命中时元数据受限且永不返回内容() {
-    let (service, _index) = service(
-        FakeFileSystem::default().with_file("/data/docs/config/.env", "SECRET_TOKEN=abc", 100),
-    );
+    let (service, _index) = service(FakeFileSystem::default().with_file(
+        "/data/docs/config/.env",
+        "SECRET_TOKEN=abc",
+        100,
+    ));
     let settings = settings();
 
     let metadata = service
@@ -544,9 +544,8 @@ fn missing_and_directory_targets_denied() {
 
 #[test]
 fn no_configured_roots_denies_all() {
-    let (service, _index) = service(
-        FakeFileSystem::default().with_file("/data/docs/notes/a.md", "notes", 100),
-    );
+    let (service, _index) =
+        service(FakeFileSystem::default().with_file("/data/docs/notes/a.md", "notes", 100));
     let empty = KnowledgeSettings::default();
     assert!(!empty.is_configured());
 
@@ -557,7 +556,9 @@ fn no_configured_roots_denies_all() {
     assert_eq!(reason, FileAccessDenied::NoRootsConfigured);
     assert!(text.contains("no_roots_configured"), "{text}");
 
-    let error = service.search(&empty, &query("")).expect_err("检索也必须拒绝");
+    let error = service
+        .search(&empty, &query(""))
+        .expect_err("检索也必须拒绝");
     assert_eq!(denial(&error).0, FileAccessDenied::NoRootsConfigured);
     let error = service
         .index_configured_roots(&empty)
@@ -591,7 +592,10 @@ fn open_action_产出_open_file_动作() {
     );
     assert_eq!(action.kind, ActionKind::OpenFile);
     assert_eq!(action.module, "files");
-    assert_eq!(action.target["file_id"].as_str(), Some(metadata.file_id.as_str()));
+    assert_eq!(
+        action.target["file_id"].as_str(),
+        Some(metadata.file_id.as_str())
+    );
     assert_eq!(action.target["path"].as_str(), Some(metadata.path.as_str()));
     assert_eq!(action.target["file_name"].as_str(), Some("a.md"));
     assert_eq!(action.target["root_id"].as_str(), Some("docs"));
@@ -622,12 +626,16 @@ fn search_索引为空时走实时扫描() {
     let found = service.search(&settings, &query("")).expect("live search");
     assert_eq!(found.len(), 2);
     assert!(found.iter().all(|entry| !entry.restricted));
-    assert!(found
-        .iter()
-        .any(|entry| entry.relative_path == "notes/a.md"));
-    assert!(found
-        .iter()
-        .all(|entry| entry.content_kind == FileContentKind::Unknown));
+    assert!(
+        found
+            .iter()
+            .any(|entry| entry.relative_path == "notes/a.md")
+    );
+    assert!(
+        found
+            .iter()
+            .all(|entry| entry.content_kind == FileContentKind::Unknown)
+    );
 
     let with_restricted = service
         .search(
@@ -644,10 +652,12 @@ fn search_索引为空时走实时扫描() {
     let keyword = service.search(&settings, &query("a.md")).expect("search");
     assert_eq!(keyword.len(), 1);
     assert_eq!(keyword[0].relative_path, "notes/a.md");
-    assert!(service
-        .search(&settings, &query("量子计算"))
-        .expect("search")
-        .is_empty());
+    assert!(
+        service
+            .search(&settings, &query("量子计算"))
+            .expect("search")
+            .is_empty()
+    );
 }
 
 #[test]
@@ -665,9 +675,15 @@ fn search_使用索引过滤关键词扩展名根与时间() {
         .index_configured_roots(&settings)
         .expect("index roots");
     assert_eq!(reports.len(), 2);
-    assert_eq!(reports.iter().map(|report| report.indexed).sum::<usize>(), 4);
     assert_eq!(
-        reports.iter().map(|report| report.restricted).sum::<usize>(),
+        reports.iter().map(|report| report.indexed).sum::<usize>(),
+        4
+    );
+    assert_eq!(
+        reports
+            .iter()
+            .map(|report| report.restricted)
+            .sum::<usize>(),
         1
     );
     assert_eq!(index.stats().expect("stats").restricted, 1);
@@ -761,7 +777,10 @@ fn index_configured_roots_增量_受限标记与消失移除() {
     let second = service
         .index_configured_roots(&settings)
         .expect("index roots");
-    assert_eq!((second[0].scanned, second[0].indexed, second[0].unchanged), (3, 0, 3));
+    assert_eq!(
+        (second[0].scanned, second[0].indexed, second[0].unchanged),
+        (3, 0, 3)
+    );
 
     // 文件消失 → 只清索引（不碰文件系统）。
     let shrunk = FakeFileSystem::default().with_file("/data/docs/notes/a.md", "notes", 100);
@@ -769,7 +788,10 @@ fn index_configured_roots_增量_受限标记与消失移除() {
     let third = service
         .index_configured_roots(&settings)
         .expect("index roots");
-    assert_eq!((third[0].scanned, third[0].unchanged, third[0].removed), (1, 1, 2));
+    assert_eq!(
+        (third[0].scanned, third[0].unchanged, third[0].removed),
+        (1, 1, 2)
+    );
     assert_eq!(index.removed.lock().len(), 2);
     assert_eq!(index.stats().expect("stats").files, 1);
 

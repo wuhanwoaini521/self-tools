@@ -12,14 +12,14 @@ use devtoolbox_application::server::action::{
     ActionAuditPort, InMemoryConfirmationStore, SafeActionConfig, SafeActionService,
     ServiceControlPort,
 };
-use devtoolbox_application::server::{
-    ActionOutcome, ActionRequest, ActionRisk, AuditEntry, Confirmation,
-};
 use devtoolbox_application::server::ports::LogTailPort;
 use devtoolbox_application::server::registry::{
     ApplicationRegistryService, ServiceRegistryService,
 };
 use devtoolbox_application::server::service::{ServerConfig, ServerService};
+use devtoolbox_application::server::{
+    ActionOutcome, ActionRequest, ActionRisk, AuditEntry, Confirmation,
+};
 use devtoolbox_core::server::{
     ApplicationDescriptor, ApplicationStatus, HealthStatus, RegisteredAction, ServiceDescriptor,
     ServiceStatus, SessionTrust,
@@ -64,9 +64,9 @@ impl ActionAuditPort for SqliteAuditStore {
         }
         // §112：惰性裁剪（每 64 条一次，避免每次写入都全表 DELETE）。
         if entry.timestamp % 64 == 0
-            && let Err(error) = self
-                .store
-                .prune(self.max_entries, self.retention_days, entry.timestamp)
+            && let Err(error) =
+                self.store
+                    .prune(self.max_entries, self.retention_days, entry.timestamp)
         {
             eprintln!("[server] audit prune failed: {error}");
         }
@@ -147,9 +147,7 @@ impl ServerRuntime {
     ) -> Result<Self, String> {
         // §22/§59/§67/§112：阈值 / TTL / 冷却 / 会话上限 / 审计保留全部来自设置
         // （旧 settings.json 无 server 段 → serde default）。
-        let server_settings = (settings)()
-            .map(|loaded| loaded.server)
-            .unwrap_or_default();
+        let server_settings = (settings)().map(|loaded| loaded.server).unwrap_or_default();
         let server_config = ServerConfig {
             thresholds: server_settings.thresholds,
             health_cache_secs: 5,
@@ -208,7 +206,9 @@ impl ServerRuntime {
 
     /// 从设置读取注册表（过滤非法条目；`serde(default)` 保证旧 settings 可用）。
     #[must_use]
-    pub fn settings_snapshot(loader: &SettingsLoader) -> (Vec<ServiceDescriptor>, Vec<ApplicationDescriptor>) {
+    pub fn settings_snapshot(
+        loader: &SettingsLoader,
+    ) -> (Vec<ServiceDescriptor>, Vec<ApplicationDescriptor>) {
         registered_from(loader)
     }
 
@@ -218,10 +218,7 @@ impl ServerRuntime {
         self.server.status().map_err(|error| error.to_string())
     }
 
-    pub fn service_status(
-        &self,
-        service_id: &str,
-    ) -> Result<ServiceStatus, String> {
+    pub fn service_status(&self, service_id: &str) -> Result<ServiceStatus, String> {
         self.services
             .status(service_id)
             .map_err(|error| error.to_string())
@@ -232,10 +229,7 @@ impl ServerRuntime {
     }
 
     /// 请求重启（模型路径）：只签发票据。
-    pub fn request_restart(
-        &self,
-        service_id: &str,
-    ) -> Result<Confirmation, String> {
+    pub fn request_restart(&self, service_id: &str) -> Result<Confirmation, String> {
         let service = self
             .services
             .resolve(service_id)
@@ -378,9 +372,9 @@ mod tests {
     #[test]
     fn registered_service_flows_through_confirmation() {
         let directory = tempfile::tempdir().unwrap();
-        let services = vec![
-            devtoolbox_infrastructure::server::test_support::service("self-tools"),
-        ];
+        let services = vec![devtoolbox_infrastructure::server::test_support::service(
+            "self-tools",
+        )];
         let runtime = ServerRuntime::assemble(
             directory.path(),
             loader(),
@@ -393,7 +387,10 @@ mod tests {
 
         // 1) 请求 → 票据（不执行）。
         let confirmation = runtime.request_restart("self-tools").expect("confirmation");
-        assert_eq!(confirmation.state, devtoolbox_core::server::ConfirmationState::Pending);
+        assert_eq!(
+            confirmation.state,
+            devtoolbox_core::server::ConfirmationState::Pending
+        );
 
         // 2) 未确认 → 拒绝。
         let denied = runtime
@@ -407,7 +404,11 @@ mod tests {
             .expect("outcome");
         assert_eq!(outcome, ActionOutcome::Success);
         let audit = runtime.recent_actions(10);
-        assert!(audit.iter().any(|entry| entry.result == ActionOutcome::Success));
+        assert!(
+            audit
+                .iter()
+                .any(|entry| entry.result == ActionOutcome::Success)
+        );
         assert!(audit.iter().any(|entry| entry.confirmed));
 
         // 4) 冷却期内再次请求 → 拒绝。
@@ -417,9 +418,9 @@ mod tests {
     #[test]
     fn untrusted_session_denies_write_even_with_registry() {
         let directory = tempfile::tempdir().unwrap();
-        let services = vec![
-            devtoolbox_infrastructure::server::test_support::service("self-tools"),
-        ];
+        let services = vec![devtoolbox_infrastructure::server::test_support::service(
+            "self-tools",
+        )];
         let runtime = ServerRuntime::assemble(
             directory.path(),
             loader(),
@@ -436,8 +437,8 @@ mod tests {
     #[test]
     fn plan_reports_denied_reason_for_unknown_service() {
         let directory = tempfile::tempdir().unwrap();
-        let runtime = ServerRuntime::build(directory.path(), loader(), desktop_trust())
-            .expect("build");
+        let runtime =
+            ServerRuntime::build(directory.path(), loader(), desktop_trust()).expect("build");
         let request = ActionRequest {
             action: RegisteredAction::restart_service("sshd").expect("valid id"),
             session_id: "s".into(),

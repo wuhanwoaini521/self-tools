@@ -168,54 +168,105 @@ impl McpService {
 
         // 1) 认证门禁。
         if !McpAuthorizationPolicy::authenticate(principal, now).is_allowed() {
-            self.record(principal, &request_id, tool_name, None, McpDecision::Denied, McpResultCode::AuthFailed, started);
+            self.record(
+                principal,
+                &request_id,
+                tool_name,
+                None,
+                McpDecision::Denied,
+                McpResultCode::AuthFailed,
+                started,
+            );
             return Err(McpCallError::Unauthenticated);
         }
         // 2) payload 限制（§83）。
-        let argument_size = serde_json::to_vec(&arguments).map(|bytes| bytes.len()).unwrap_or(usize::MAX);
+        let argument_size = serde_json::to_vec(&arguments)
+            .map(|bytes| bytes.len())
+            .unwrap_or(usize::MAX);
         if argument_size > self.config.max_argument_bytes {
-            self.record(principal, &request_id, tool_name, None, McpDecision::Denied, McpResultCode::InvalidParams, started);
+            self.record(
+                principal,
+                &request_id,
+                tool_name,
+                None,
+                McpDecision::Denied,
+                McpResultCode::InvalidParams,
+                started,
+            );
             return Err(McpCallError::PayloadTooLarge);
         }
         // 3) 暴露 + scope 授权（§18：execution 也授权）。
         let decision = McpAuthorizationPolicy::authorize_tool(&self.adapter, principal, tool_name);
         if !decision.is_allowed() {
-            self.record(principal, &request_id, tool_name, None, McpDecision::Denied, McpResultCode::Denied, started);
+            self.record(
+                principal,
+                &request_id,
+                tool_name,
+                None,
+                McpDecision::Denied,
+                McpResultCode::Denied,
+                started,
+            );
             return Err(McpCallError::Denied(decision_reason(&decision)));
         }
-        let risk = self.adapter.registry().spec(tool_name).map(|spec| spec.risk);
+        let risk = self
+            .adapter
+            .registry()
+            .spec(tool_name)
+            .map(|spec| spec.risk);
         // 4) SYSTEM → SafeAction 票据（§54/§55：不执行）。
         //    判定依据是**暴露分组**而不是 registry risk：V7 的 `services.restart`
         //    在 ToolRegistry 注册为 Read（registry 门禁只放行 Read+SafeWrite），
         //    SYSTEM 语义由 `ExposureGroup::SystemAction` 表达（ADR-006）。
-        let is_system = devtoolbox_core::mcp::default_exposure(tool_name)
-            .is_some_and(|exposure| {
-                matches!(
-                    exposure.group,
-                    devtoolbox_core::mcp::ExposureGroup::SystemAction
-                )
-            })
-            || matches!(risk, Some(ToolRisk::System));
+        let is_system = devtoolbox_core::mcp::default_exposure(tool_name).is_some_and(|exposure| {
+            matches!(
+                exposure.group,
+                devtoolbox_core::mcp::ExposureGroup::SystemAction
+            )
+        }) || matches!(risk, Some(ToolRisk::System));
         if is_system {
-            return self.handle_system_action(principal, &request_id, tool_name, arguments, started);
+            return self.handle_system_action(
+                principal,
+                &request_id,
+                tool_name,
+                arguments,
+                started,
+            );
         }
         // 5) 走 ToolRegistry（与 PersonalAgent 同一执行路径，§110）。
         //    §85：请求层超时（tool 自身超时由 tool 实现负责）。
         let timeout = std::time::Duration::from_millis(self.config.request_timeout_ms.max(1));
-        let executed = match tokio::time::timeout(timeout, self.adapter.execute(tool_name, arguments)).await {
-            Ok(result) => result,
-            Err(_) => {
-                self.record(principal, &request_id, tool_name, risk, McpDecision::Allowed, McpResultCode::ToolFailed, started);
-                return Err(McpCallError::ToolFailed(format!(
-                    "tool timed out after {} ms",
-                    self.config.request_timeout_ms
-                )));
-            }
-        };
+        let executed =
+            match tokio::time::timeout(timeout, self.adapter.execute(tool_name, arguments)).await {
+                Ok(result) => result,
+                Err(_) => {
+                    self.record(
+                        principal,
+                        &request_id,
+                        tool_name,
+                        risk,
+                        McpDecision::Allowed,
+                        McpResultCode::ToolFailed,
+                        started,
+                    );
+                    return Err(McpCallError::ToolFailed(format!(
+                        "tool timed out after {} ms",
+                        self.config.request_timeout_ms
+                    )));
+                }
+            };
         match executed {
             Ok(result) => {
                 let payload = truncate_json(result.data.clone(), self.config.max_response_chars);
-                self.record(principal, &request_id, tool_name, risk, McpDecision::Allowed, McpResultCode::Ok, started);
+                self.record(
+                    principal,
+                    &request_id,
+                    tool_name,
+                    risk,
+                    McpDecision::Allowed,
+                    McpResultCode::Ok,
+                    started,
+                );
                 Ok(McpInvocation {
                     outcome: McpCallOutcome::Executed(result),
                     payload,
@@ -223,7 +274,15 @@ impl McpService {
                 })
             }
             Err(error) => {
-                self.record(principal, &request_id, tool_name, risk, McpDecision::Allowed, McpResultCode::ToolFailed, started);
+                self.record(
+                    principal,
+                    &request_id,
+                    tool_name,
+                    risk,
+                    McpDecision::Allowed,
+                    McpResultCode::ToolFailed,
+                    started,
+                );
                 Err(McpCallError::ToolFailed(error.to_string()))
             }
         }
@@ -239,7 +298,15 @@ impl McpService {
         started: Instant,
     ) -> Result<McpInvocation, McpCallError> {
         let Some(actions) = &self.system_actions else {
-            self.record(principal, request_id, tool_name, Some(ToolRisk::System), McpDecision::Denied, McpResultCode::Denied, started);
+            self.record(
+                principal,
+                request_id,
+                tool_name,
+                Some(ToolRisk::System),
+                McpDecision::Denied,
+                McpResultCode::Denied,
+                started,
+            );
             return Err(McpCallError::Denied("system_actions_unavailable".into()));
         };
         // 只支持 services.restart（V8 与 V7 同一操作集）。
@@ -253,7 +320,15 @@ impl McpService {
             Err(_) => {
                 // §35/§154：未注册服务 = 授权拒绝（不是参数错误）——
                 // 稳定 reason 让 client 能区分「没权限」与「调用形式错」。
-                self.record(principal, request_id, tool_name, Some(ToolRisk::System), McpDecision::Denied, McpResultCode::Denied, started);
+                self.record(
+                    principal,
+                    request_id,
+                    tool_name,
+                    Some(ToolRisk::System),
+                    McpDecision::Denied,
+                    McpResultCode::Denied,
+                    started,
+                );
                 return Err(McpCallError::Denied("unknown_service".into()));
             }
         };
@@ -264,9 +339,20 @@ impl McpService {
             &principal.client_id,
             &descriptor.display_name,
         );
-        match actions.plan(&request, devtoolbox_core::server::SessionTrust::RemoteAuthenticated) {
+        match actions.plan(
+            &request,
+            devtoolbox_core::server::SessionTrust::RemoteAuthenticated,
+        ) {
             crate::server::action::ActionPlan::ConfirmationRequired(confirmation) => {
-                self.record(principal, request_id, tool_name, Some(ToolRisk::System), McpDecision::Allowed, McpResultCode::ConfirmationRequired, started);
+                self.record(
+                    principal,
+                    request_id,
+                    tool_name,
+                    Some(ToolRisk::System),
+                    McpDecision::Allowed,
+                    McpResultCode::ConfirmationRequired,
+                    started,
+                );
                 let payload = serde_json::json!({
                     "confirmation_required": true,
                     "confirmation_id": confirmation.id,
@@ -289,17 +375,34 @@ impl McpService {
                 })
             }
             crate::server::action::ActionPlan::Denied { reason, .. } => {
-                self.record(principal, request_id, tool_name, Some(ToolRisk::System), McpDecision::Denied, McpResultCode::Denied, started);
+                self.record(
+                    principal,
+                    request_id,
+                    tool_name,
+                    Some(ToolRisk::System),
+                    McpDecision::Denied,
+                    McpResultCode::Denied,
+                    started,
+                );
                 Err(McpCallError::Denied(reason))
             }
             crate::server::action::ActionPlan::Executed(_) => {
                 // SYSTEM 不应有直接执行路径；出现即 fail-closed。
-                self.record(principal, request_id, tool_name, Some(ToolRisk::System), McpDecision::Denied, McpResultCode::Denied, started);
+                self.record(
+                    principal,
+                    request_id,
+                    tool_name,
+                    Some(ToolRisk::System),
+                    McpDecision::Denied,
+                    McpResultCode::Denied,
+                    started,
+                );
                 Err(McpCallError::Denied("unexpected_direct_execution".into()))
             }
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn record(
         &self,
         principal: &McpPrincipal,
@@ -422,8 +525,8 @@ mod tests {
     use super::*;
     use crate::mcp::adapter::McpToolAdapter;
     use crate::mcp::auth::StaticTokenIdentityProvider;
-    use devtoolbox_core::mcp::McpCredential;
     use crate::personal_ai::registry::{ToolExecutor, ToolRegistry};
+    use devtoolbox_core::mcp::McpCredential;
     use devtoolbox_core::personal_ai::ToolSpec;
     use std::sync::Mutex;
 
@@ -452,24 +555,24 @@ mod tests {
             });
             &SPEC
         }
-        async fn execute(&self, arguments: serde_json::Value) -> Result<devtoolbox_core::ToolResult, devtoolbox_core::AgentError> {
+        async fn execute(
+            &self,
+            arguments: serde_json::Value,
+        ) -> Result<devtoolbox_core::ToolResult, devtoolbox_core::AgentError> {
             Ok(devtoolbox_core::ToolResult::ok(arguments))
         }
     }
 
-    fn service() -> (Arc<McpService>, Arc<MemoryAudit>, Arc<StaticTokenIdentityProvider>) {
+    fn service() -> (
+        Arc<McpService>,
+        Arc<MemoryAudit>,
+        Arc<StaticTokenIdentityProvider>,
+    ) {
         let mut registry = ToolRegistry::new();
         registry.register(Arc::new(EchoTool)).expect("register");
         let adapter = Arc::new(McpToolAdapter::new(Arc::new(registry)));
         let identity = Arc::new(StaticTokenIdentityProvider::new());
-        identity.insert(
-            "tok-read",
-            "p-1",
-            "pi",
-            vec!["selftools.read"],
-            None,
-            None,
-        );
+        identity.insert("tok-read", "p-1", "pi", vec!["selftools.read"], None, None);
         let audit = Arc::new(MemoryAudit::default());
         let service = Arc::new(McpService::new(
             adapter,
@@ -503,7 +606,11 @@ mod tests {
             .authenticate(&McpCredential::Bearer("tok-read".into()))
             .expect("auth");
         let invocation = service
-            .call_tool(&principal, "memory.search", serde_json::json!({"query": "docker"}))
+            .call_tool(
+                &principal,
+                "memory.search",
+                serde_json::json!({"query": "docker"}),
+            )
             .await
             .expect("call");
         assert_eq!(invocation.payload["query"], "docker");
@@ -553,7 +660,11 @@ mod tests {
         let principal = principal_with(vec!["selftools.read"]);
         let huge = "x".repeat(300 * 1_024);
         let error = service
-            .call_tool(&principal, "memory.search", serde_json::json!({"query": huge}))
+            .call_tool(
+                &principal,
+                "memory.search",
+                serde_json::json!({"query": huge}),
+            )
             .await
             .expect_err("too large");
         assert_eq!(error, McpCallError::PayloadTooLarge, "§83：参数上限");
@@ -625,7 +736,11 @@ mod tests {
         );
         let principal = principal_with(vec!["selftools.read"]);
         let error = service
-            .call_tool(&principal, "memory.search", serde_json::json!({"query": "x"}))
+            .call_tool(
+                &principal,
+                "memory.search",
+                serde_json::json!({"query": "x"}),
+            )
             .await
             .expect_err("timeout");
         assert!(format!("{error:?}").contains("timed out"), "{error:?}");
@@ -636,7 +751,11 @@ mod tests {
         let (service, audit, _) = service();
         let principal = principal_with(vec!["selftools.read"]);
         let _ = service
-            .call_tool(&principal, "memory.search", serde_json::json!({"query": "x"}))
+            .call_tool(
+                &principal,
+                "memory.search",
+                serde_json::json!({"query": "x"}),
+            )
             .await;
         let json = serde_json::to_string(&*audit.entries.lock().unwrap()).expect("json");
         for forbidden in ["tok-read", "token", "secret", "password"] {

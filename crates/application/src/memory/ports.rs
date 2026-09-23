@@ -8,7 +8,7 @@
 
 use std::fmt;
 
-use devtoolbox_core::memory::{MemoryItem, MemoryCategory, MemoryQuery, MemoryStatus};
+use devtoolbox_core::memory::{MemoryCategory, MemoryItem, MemoryQuery, MemoryStatus};
 
 /// Memory 存储错误（适配层已把基础设施错误转换为可显示文本）。
 #[derive(Debug, Clone, PartialEq, Eq)]

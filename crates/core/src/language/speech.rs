@@ -111,12 +111,7 @@ impl QualitativeLevel {
 
     /// 由词级 diff 推导档位（确定性；阈值集中在这一点）。
     #[must_use]
-    pub fn from_word_diff(
-        target_words: usize,
-        missing: usize,
-        wrong: usize,
-        extra: usize,
-    ) -> Self {
+    pub fn from_word_diff(target_words: usize, missing: usize, wrong: usize, extra: usize) -> Self {
         if target_words == 0 {
             return QualitativeLevel::Unclear;
         }
@@ -149,13 +144,13 @@ pub trait SpeechProvider: Send + Sync {
     fn can_recognize(&self) -> bool;
 
     /// 文本 → 音频。
-    fn synthesize(
-        &self,
-        request: &SpeechSynthesisRequest,
-    ) -> Result<SpeechSynthesis, SpeechError>;
+    fn synthesize(&self, request: &SpeechSynthesisRequest) -> Result<SpeechSynthesis, SpeechError>;
 
     /// 音频 → 文本。
-    fn recognize(&self, request: &SpeechRecognitionRequest) -> Result<SpeechRecognition, SpeechError>;
+    fn recognize(
+        &self,
+        request: &SpeechRecognitionRequest,
+    ) -> Result<SpeechRecognition, SpeechError>;
 }
 
 /// 语音错误（稳定 kind + 面向用户文本）。
@@ -207,7 +202,10 @@ impl std::error::Error for SpeechError {}
 /// 复用 `crate::language::speaking` 的词级 diff（冻结实现），本函数只做
 /// 档位映射与建议生成；**不**产出任何数值分数。
 #[must_use]
-pub fn qualitative_feedback(recognition: &SpeechRecognition, reference: &str) -> PronunciationFeedback {
+pub fn qualitative_feedback(
+    recognition: &SpeechRecognition,
+    reference: &str,
+) -> PronunciationFeedback {
     use crate::language::speaking::{compare_words, tokenize};
     let target = tokenize(reference);
     let spoken = tokenize(&recognition.transcript);
@@ -219,7 +217,12 @@ pub fn qualitative_feedback(recognition: &SpeechRecognition, reference: &str) ->
         };
     }
     let diff = compare_words(&target, &spoken);
-    let overall = QualitativeLevel::from_word_diff(target.len(), diff.missing.len(), diff.wrong.len(), diff.extra.len());
+    let overall = QualitativeLevel::from_word_diff(
+        target.len(),
+        diff.missing.len(),
+        diff.wrong.len(),
+        diff.extra.len(),
+    );
     let mut suggestions = Vec::new();
     if !diff.missing.is_empty() {
         suggestions.push(format!("漏读了：{}", diff.missing.join("、")));
@@ -255,18 +258,36 @@ mod tests {
 
     #[test]
     fn qualitative_levels_are_centralized_and_non_numeric() {
-        assert_eq!(QualitativeLevel::from_word_diff(10, 0, 0, 0), QualitativeLevel::Excellent);
-        assert_eq!(QualitativeLevel::from_word_diff(10, 1, 0, 0), QualitativeLevel::Good);
-        assert_eq!(QualitativeLevel::from_word_diff(10, 2, 2, 1), QualitativeLevel::Fair);
-        assert_eq!(QualitativeLevel::from_word_diff(10, 6, 0, 0), QualitativeLevel::Unclear);
-        assert_eq!(QualitativeLevel::from_word_diff(0, 0, 0, 0), QualitativeLevel::Unclear);
+        assert_eq!(
+            QualitativeLevel::from_word_diff(10, 0, 0, 0),
+            QualitativeLevel::Excellent
+        );
+        assert_eq!(
+            QualitativeLevel::from_word_diff(10, 1, 0, 0),
+            QualitativeLevel::Good
+        );
+        assert_eq!(
+            QualitativeLevel::from_word_diff(10, 2, 2, 1),
+            QualitativeLevel::Fair
+        );
+        assert_eq!(
+            QualitativeLevel::from_word_diff(10, 6, 0, 0),
+            QualitativeLevel::Unclear
+        );
+        assert_eq!(
+            QualitativeLevel::from_word_diff(0, 0, 0, 0),
+            QualitativeLevel::Unclear
+        );
         // 无目标 → Unclear。
         assert_eq!(QualitativeLevel::label(QualitativeLevel::Good), "接近目标");
     }
 
     #[test]
     fn perfect_match_gives_excellent_with_positive_suggestion() {
-        let feedback = qualitative_feedback(&recognition("good morning everyone"), "good morning everyone");
+        let feedback = qualitative_feedback(
+            &recognition("good morning everyone"),
+            "good morning everyone",
+        );
         assert_eq!(feedback.overall, QualitativeLevel::Excellent);
         assert!(feedback.missing_words.is_empty());
         assert!(feedback.wrong_words.is_empty());
@@ -275,10 +296,7 @@ mod tests {
 
     #[test]
     fn deviations_are_reported_qualitatively_only() {
-        let feedback = qualitative_feedback(
-            &recognition("good morning"),
-            "good evening everyone",
-        );
+        let feedback = qualitative_feedback(&recognition("good morning"), "good evening everyone");
         assert_ne!(feedback.overall, QualitativeLevel::Excellent);
         assert!(!feedback.missing_words.is_empty() || !feedback.wrong_words.is_empty());
         assert!(!feedback.suggestions.is_empty());
@@ -292,7 +310,12 @@ mod tests {
     fn empty_transcript_is_unclear_with_actionable_hint() {
         let feedback = qualitative_feedback(&recognition("   "), "hello world");
         assert_eq!(feedback.overall, QualitativeLevel::Unclear);
-        assert!(feedback.suggestions.iter().any(|text| text.contains("麦克风")));
+        assert!(
+            feedback
+                .suggestions
+                .iter()
+                .any(|text| text.contains("麦克风"))
+        );
     }
 
     #[test]

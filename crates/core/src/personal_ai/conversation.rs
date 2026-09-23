@@ -97,11 +97,7 @@ impl ConversationMessage {
 
     /// 附带 provider / model 元数据（模型回答与工具回填都要标注来源）。
     #[must_use]
-    pub fn with_provider(
-        mut self,
-        provider: impl Into<String>,
-        model: impl Into<String>,
-    ) -> Self {
+    pub fn with_provider(mut self, provider: impl Into<String>, model: impl Into<String>) -> Self {
         self.provider = Some(provider.into());
         self.model = Some(model.into());
         self

@@ -33,6 +33,7 @@ const MANIFEST_NAME: &str = "manifest.json";
 ///
 /// 来源在装配期注册（`register`）；服务本身按需由组合根持有 `Arc<BackupService>`
 /// 共享给多个命令，因此不需要 `Clone`。
+#[derive(Default)]
 pub struct BackupService {
     sources: Vec<Arc<dyn BackupSource>>,
 }
@@ -41,7 +42,9 @@ impl BackupService {
     /// 空服务。
     #[must_use]
     pub fn new() -> Self {
-        Self { sources: Vec::new() }
+        Self {
+            sources: Vec::new(),
+        }
     }
 
     /// 注册一个备份来源（装配期调用；重复 id 会被拒绝，避免清单键冲突）。
@@ -51,12 +54,11 @@ impl BackupService {
     pub fn register(&mut self, source: Arc<dyn BackupSource>) -> Result<(), String> {
         let descriptor = source.describe();
         let id = descriptor.id.clone();
-        if self.sources.iter().any(|existing| {
-            existing
-                .describe()
-                .id
-                .eq_ignore_ascii_case(id.as_str())
-        }) {
+        if self
+            .sources
+            .iter()
+            .any(|existing| existing.describe().id.eq_ignore_ascii_case(id.as_str()))
+        {
             return Err(format!("backup source already registered: {id}"));
         }
         self.sources.push(source);
@@ -85,7 +87,12 @@ impl BackupService {
     ///
     /// # Errors
     /// 仅「目录不可创建」这类整轮级失败返回错误；来源级失败记录在返回值里。
-    pub fn backup(&self, dest: &Path, app_version: &str, note: &str) -> Result<BackupManifest, String> {
+    pub fn backup(
+        &self,
+        dest: &Path,
+        app_version: &str,
+        note: &str,
+    ) -> Result<BackupManifest, String> {
         fs::create_dir_all(dest)
             .map_err(|error| format!("create backup dir {}: {error}", dest.display()))?;
 
@@ -112,7 +119,11 @@ impl BackupService {
             note: if problems.is_empty() {
                 note.to_string()
             } else {
-                format!("{note} | 失败来源 {} 项: {}", problems.len(), problems.join("; "))
+                format!(
+                    "{note} | 失败来源 {} 项: {}",
+                    problems.len(),
+                    problems.join("; ")
+                )
             },
         };
         if manifest.is_empty() {
@@ -239,7 +250,9 @@ fn write_staging(staging: &Path, bytes: &[u8]) -> Result<(), String> {
 /// 写入 `manifest.json`（覆盖写；先写临时文件再 rename）。
 fn write_manifest(dir: &Path, manifest: &BackupManifest) -> Result<(), String> {
     let path = dir.join(MANIFEST_NAME);
-    let text = manifest.to_json().map_err(|error| format!("encode manifest: {error}"))?;
+    let text = manifest
+        .to_json()
+        .map_err(|error| format!("encode manifest: {error}"))?;
     let staging = staging_path(&path);
     fs::write(&staging, text)
         .map_err(|error| format!("write manifest {}: {error}", staging.display()))?;
@@ -259,9 +272,10 @@ fn read_manifest(dir: &Path) -> Result<BackupManifest, String> {
 
 /// 同目录 staging 路径（原子 rename 用；写入后立即 rename，几乎不留残file）。
 fn staging_path(target: &Path) -> PathBuf {
-    let name = target
-        .file_name()
-        .map_or_else(|| "payload".to_string(), |name| name.to_string_lossy().to_string());
+    let name = target.file_name().map_or_else(
+        || "payload".to_string(),
+        |name| name.to_string_lossy().to_string(),
+    );
     let staging_name = format!(".{name}.restoring");
     match target.parent() {
         Some(parent) => parent.join(staging_name),

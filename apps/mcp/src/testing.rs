@@ -44,7 +44,10 @@ impl ToolExecutor for EchoTool {
         &SPEC
     }
 
-    async fn execute(&self, arguments: serde_json::Value) -> Result<ToolResult, devtoolbox_core::AgentError> {
+    async fn execute(
+        &self,
+        arguments: serde_json::Value,
+    ) -> Result<ToolResult, devtoolbox_core::AgentError> {
         Ok(ToolResult::ok(serde_json::json!({"echo": arguments})))
     }
 }
@@ -60,7 +63,9 @@ impl TestHarness {
     #[must_use]
     pub fn new() -> Self {
         let mut registry = ToolRegistry::new();
-        registry.register(Arc::new(EchoTool)).expect("register echo tool");
+        registry
+            .register(Arc::new(EchoTool))
+            .expect("register echo tool");
         Self::with_registry(Arc::new(registry))
     }
 
@@ -68,8 +73,22 @@ impl TestHarness {
     pub fn with_registry(registry: Arc<ToolRegistry>) -> Self {
         let identity = Arc::new(StaticTokenIdentityProvider::new());
         identity.insert("tok-read", "p-1", "pi", vec!["selftools.read"], None, None);
-        identity.insert("tok-server", "p-2", "phone", vec!["server.read"], None, None);
-        identity.insert("tok-action", "p-3", "cli", vec!["server.action"], None, None);
+        identity.insert(
+            "tok-server",
+            "p-2",
+            "phone",
+            vec!["server.read"],
+            None,
+            None,
+        );
+        identity.insert(
+            "tok-action",
+            "p-3",
+            "cli",
+            vec!["server.action"],
+            None,
+            None,
+        );
         Self {
             adapter: Arc::new(McpToolAdapter::new(registry)),
             identity,

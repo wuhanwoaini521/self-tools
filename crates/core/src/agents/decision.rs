@@ -319,7 +319,10 @@ pub trait DecisionProvider: Send + Sync {
     fn name(&self) -> &'static str;
 
     /// 产出一次决策。实现方必须自带超时（§30）。
-    async fn decide(&self, request: &DecisionRequest) -> Result<DecisionResult, DecisionProviderError>;
+    async fn decide(
+        &self,
+        request: &DecisionRequest,
+    ) -> Result<DecisionResult, DecisionProviderError>;
 
     /// 该 provider 当前是否可用（未配置 / 无 key → false）。
     fn is_available(&self) -> bool {
@@ -361,7 +364,11 @@ pub const DEFAULT_DECISION_TIMEOUT_SECS: u64 = 5;
 /// 决策超时（§30）。
 #[must_use]
 pub fn decision_timeout(timeout_secs: Option<u64>) -> Duration {
-    Duration::from_secs(timeout_secs.unwrap_or(DEFAULT_DECISION_TIMEOUT_SECS).clamp(1, 60))
+    Duration::from_secs(
+        timeout_secs
+            .unwrap_or(DEFAULT_DECISION_TIMEOUT_SECS)
+            .clamp(1, 60),
+    )
 }
 
 /// 决策引擎（§13）：provider 链 + mode + shadow + fallback。
@@ -427,7 +434,9 @@ impl DecisionEngine {
     /// Jev（模型决策）是否已配置。设置 UI 只显示布尔，不显示 secret。
     #[must_use]
     pub fn model_configured(&self) -> bool {
-        self.model.as_ref().is_some_and(|provider| provider.is_available())
+        self.model
+            .as_ref()
+            .is_some_and(|provider| provider.is_available())
     }
 
     /// 主入口：永远返回一个可用决策（绝不向上传播错误 —— §30）。
@@ -458,7 +467,9 @@ impl DecisionEngine {
             DecisionMode::JevActive => {
                 let Some(model) = self.model.as_ref() else {
                     // 结构上不可能（构造函数已降级）；防御性回落。
-                    return self.rule_only_path(request, &hard_bound, started, true).await;
+                    return self
+                        .rule_only_path(request, &hard_bound, started, true)
+                        .await;
                 };
                 match tokio::time::timeout(self.timeout, model.decide(request)).await {
                     Ok(Ok(result))
@@ -468,7 +479,8 @@ impl DecisionEngine {
                             || result.strategy == DecisionStrategy::Direct
                                 && !result.confidence.forces_fallback() =>
                     {
-                        let clamped = result.clamp(&hard_bound.available_workers, hard_bound.max_parallelism);
+                        let clamped =
+                            result.clamp(&hard_bound.available_workers, hard_bound.max_parallelism);
                         let telemetry = DecisionTelemetry {
                             mode: self.mode,
                             provider: clamped.provider,
@@ -482,7 +494,10 @@ impl DecisionEngine {
                         };
                         (clamped, telemetry)
                     }
-                    _ => self.rule_only_path(request, &hard_bound, started, true).await,
+                    _ => {
+                        self.rule_only_path(request, &hard_bound, started, true)
+                            .await
+                    }
                 }
             }
             DecisionMode::JevShadow => {
@@ -550,10 +565,20 @@ impl DecisionEngine {
     }
 
     /// rule provider + 硬边界夹取。rule 自身失败 → Direct（可用性兜底）。
-    async fn rule_decide(&self, request: &DecisionRequest, bound: &Bound) -> (DecisionResult, bool) {
+    async fn rule_decide(
+        &self,
+        request: &DecisionRequest,
+        bound: &Bound,
+    ) -> (DecisionResult, bool) {
         match self.rule.decide(request).await {
-            Ok(result) => (result.clamp(&bound.available_workers, bound.max_parallelism), false),
-            Err(_) => (DecisionResult::direct(self.rule.name(), "rule_provider_failed"), true),
+            Ok(result) => (
+                result.clamp(&bound.available_workers, bound.max_parallelism),
+                false,
+            ),
+            Err(_) => (
+                DecisionResult::direct(self.rule.name(), "rule_provider_failed"),
+                true,
+            ),
         }
     }
 }
@@ -597,7 +622,10 @@ mod tests {
             self.available
         }
 
-        async fn decide(&self, _request: &DecisionRequest) -> Result<DecisionResult, DecisionProviderError> {
+        async fn decide(
+            &self,
+            _request: &DecisionRequest,
+        ) -> Result<DecisionResult, DecisionProviderError> {
             match self.behavior {
                 StubBehavior::Fixed(strategy) => Ok(DecisionResult {
                     strategy,
@@ -702,7 +730,10 @@ mod tests {
             fn name(&self) -> &'static str {
                 "jev"
             }
-            async fn decide(&self, _request: &DecisionRequest) -> Result<DecisionResult, DecisionProviderError> {
+            async fn decide(
+                &self,
+                _request: &DecisionRequest,
+            ) -> Result<DecisionResult, DecisionProviderError> {
                 Ok(DecisionResult {
                     strategy: DecisionStrategy::BoundedMultiAgent,
                     workers: vec!["research".into()],
@@ -869,19 +900,40 @@ mod tests {
     #[test]
     fn mode_parses_all_variants() {
         assert_eq!(DecisionMode::parse("rule"), Some(DecisionMode::Rule));
-        assert_eq!(DecisionMode::parse("jev-shadow"), Some(DecisionMode::JevShadow));
+        assert_eq!(
+            DecisionMode::parse("jev-shadow"),
+            Some(DecisionMode::JevShadow)
+        );
         assert_eq!(DecisionMode::parse("active"), Some(DecisionMode::JevActive));
         assert_eq!(DecisionMode::parse("nonsense"), None);
     }
 
     #[test]
     fn confidence_thresholds_are_centralized() {
-        assert_eq!(DecisionConfidence::from_probability(0.9), DecisionConfidence::High);
-        assert_eq!(DecisionConfidence::from_probability(0.75), DecisionConfidence::High);
-        assert_eq!(DecisionConfidence::from_probability(0.6), DecisionConfidence::Uncertain);
-        assert_eq!(DecisionConfidence::from_probability(0.45), DecisionConfidence::Uncertain);
-        assert_eq!(DecisionConfidence::from_probability(0.44), DecisionConfidence::Low);
-        assert_eq!(DecisionConfidence::from_probability(f32::NAN), DecisionConfidence::Low);
+        assert_eq!(
+            DecisionConfidence::from_probability(0.9),
+            DecisionConfidence::High
+        );
+        assert_eq!(
+            DecisionConfidence::from_probability(0.75),
+            DecisionConfidence::High
+        );
+        assert_eq!(
+            DecisionConfidence::from_probability(0.6),
+            DecisionConfidence::Uncertain
+        );
+        assert_eq!(
+            DecisionConfidence::from_probability(0.45),
+            DecisionConfidence::Uncertain
+        );
+        assert_eq!(
+            DecisionConfidence::from_probability(0.44),
+            DecisionConfidence::Low
+        );
+        assert_eq!(
+            DecisionConfidence::from_probability(f32::NAN),
+            DecisionConfidence::Low
+        );
         assert!(DecisionConfidence::Low.forces_fallback());
         assert!(!DecisionConfidence::High.forces_fallback());
     }

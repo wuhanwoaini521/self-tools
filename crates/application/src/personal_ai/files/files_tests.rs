@@ -23,8 +23,8 @@ use devtoolbox_core::{ToolRisk, UiBlockKind};
 
 use crate::files::ports::{FileIndexError, FileIndexPort, FileSystemPort, FileSystemResult};
 use crate::files::service::{FileConfig, FileService};
-use crate::personal_ai::files::{FilesTools, files_tool_names, register_files};
 use crate::personal_ai::context::ContextBudget;
+use crate::personal_ai::files::{FilesTools, files_tool_names, register_files};
 use crate::personal_ai::registry::{ModuleRegistry, ToolRegistry};
 
 // ---------------------------------------------------------------------------
@@ -333,7 +333,9 @@ fn registers_descriptor_and_four_read_tools_without_write() {
         assert_eq!(spec.module, "files");
     }
     // §42：没有任何写 / 移动 / 删除 / 执行工具。
-    for forbidden in ["write", "move", "rename", "delete", "remove", "exec", "run", "shell"] {
+    for forbidden in [
+        "write", "move", "rename", "delete", "remove", "exec", "run", "shell",
+    ] {
         assert!(
             !names.iter().any(|name| name.contains(forbidden)),
             "模块不得暴露 {forbidden} 能力: {names:?}"
@@ -343,9 +345,8 @@ fn registers_descriptor_and_four_read_tools_without_write() {
 
 #[test]
 fn search_returns_files_and_ui_hint_file_list() {
-    let (service, tools, _modules) = hub(
-        FakeFileSystem::default().with_file("/data/docs/notes/docker.md", "hello", 100),
-    );
+    let (service, tools, _modules) =
+        hub(FakeFileSystem::default().with_file("/data/docs/notes/docker.md", "hello", 100));
     // 索引（模块没有索引工具；测试手动走 service）。
     service
         .index_configured_roots(&settings())
@@ -369,9 +370,8 @@ fn search_returns_files_and_ui_hint_file_list() {
 
 #[test]
 fn search_no_hit_states_not_found() {
-    let (_service, tools, _modules) = hub(
-        FakeFileSystem::default().with_file("/data/docs/notes/a.md", "hello", 100),
-    );
+    let (_service, tools, _modules) =
+        hub(FakeFileSystem::default().with_file("/data/docs/notes/a.md", "hello", 100));
     let result = block_on(tools.execute(&devtoolbox_core::ToolCallRequest {
         id: "c1".into(),
         name: "files.search".into(),
@@ -384,9 +384,8 @@ fn search_no_hit_states_not_found() {
 
 #[test]
 fn get_metadata_returns_file_block() {
-    let (_service, tools, _modules) = hub(
-        FakeFileSystem::default().with_file("/data/docs/notes/docker.md", "hello", 100),
-    );
+    let (_service, tools, _modules) =
+        hub(FakeFileSystem::default().with_file("/data/docs/notes/docker.md", "hello", 100));
     let result = block_on(tools.execute(&devtoolbox_core::ToolCallRequest {
         id: "c1".into(),
         name: "files.get_metadata".into(),
@@ -405,9 +404,8 @@ fn get_metadata_returns_file_block() {
 
 #[test]
 fn read_text_returns_content_within_root() {
-    let (_service, tools, _modules) = hub(
-        FakeFileSystem::default().with_file("/data/docs/notes/a.md", "hello world", 100),
-    );
+    let (_service, tools, _modules) =
+        hub(FakeFileSystem::default().with_file("/data/docs/notes/a.md", "hello world", 100));
     let result = block_on(tools.execute(&devtoolbox_core::ToolCallRequest {
         id: "c1".into(),
         name: "files.read_text".into(),
@@ -422,11 +420,9 @@ fn read_text_returns_content_within_root() {
 
 #[test]
 fn read_text_outside_root_is_denied_without_content() {
-    let (_service, tools, _modules) = hub(
-        FakeFileSystem::default()
-            .with_file("/data/docs/notes/a.md", "hello", 100)
-            .with_file("/etc/passwd", "root:x:0:0", 100),
-    );
+    let (_service, tools, _modules) = hub(FakeFileSystem::default()
+        .with_file("/data/docs/notes/a.md", "hello", 100)
+        .with_file("/etc/passwd", "root:x:0:0", 100));
     let error = block_on(tools.execute(&devtoolbox_core::ToolCallRequest {
         id: "c1".into(),
         name: "files.read_text".into(),
@@ -440,11 +436,9 @@ fn read_text_outside_root_is_denied_without_content() {
 
 #[test]
 fn read_text_binary_and_oversized_degrade_to_metadata_only() {
-    let (_service, tools, _modules) = hub(
-        FakeFileSystem::default()
-            .with_binary("/data/docs/bin.dat", &[0u8, 159, 146, 150], 100)
-            .with_file("/data/docs/big.md", &"x".repeat(4096), 100),
-    );
+    let (_service, tools, _modules) = hub(FakeFileSystem::default()
+        .with_binary("/data/docs/bin.dat", &[0u8, 159, 146, 150], 100)
+        .with_file("/data/docs/big.md", &"x".repeat(4096), 100));
 
     let binary = block_on(tools.execute(&devtoolbox_core::ToolCallRequest {
         id: "c1".into(),
@@ -470,9 +464,8 @@ fn read_text_binary_and_oversized_degrade_to_metadata_only() {
 
 #[test]
 fn open_emits_action_and_never_executes() {
-    let (_service, tools, _modules) = hub(
-        FakeFileSystem::default().with_file("/data/docs/notes/docker.md", "hello", 100),
-    );
+    let (_service, tools, _modules) =
+        hub(FakeFileSystem::default().with_file("/data/docs/notes/docker.md", "hello", 100));
     let result = block_on(tools.execute(&devtoolbox_core::ToolCallRequest {
         id: "c1".into(),
         name: "files.open".into(),

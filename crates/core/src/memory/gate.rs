@@ -31,7 +31,10 @@ impl WriteIntent {
     /// 该意图是否允许直接落 ACTIVE（V6 §15）。
     #[must_use]
     pub fn grants_active(self) -> bool {
-        matches!(self, WriteIntent::UiConfirmation | WriteIntent::ExplicitUserIntent)
+        matches!(
+            self,
+            WriteIntent::UiConfirmation | WriteIntent::ExplicitUserIntent
+        )
     }
 }
 
@@ -136,7 +139,11 @@ pub fn extract_save_content(message: &str) -> Option<String> {
     let captures = EXPLICIT_INTENT_CAPTURE.captures(text)?;
     let content = captures.get(1)?.as_str().trim();
     let cleaned = content.trim_matches(|c: char| {
-        c.is_whitespace() || matches!(c, '：' | ':' | '。' | '.' | ',' | '，' | '"' | '\'' | '“' | '”')
+        c.is_whitespace()
+            || matches!(
+                c,
+                '：' | ':' | '。' | '.' | ',' | '，' | '"' | '\'' | '“' | '”'
+            )
     });
     if cleaned.is_empty() {
         None
@@ -234,14 +241,14 @@ static API_KEY: LazyLock<Regex> = LazyLock::new(|| {
     // base62 串」通用形态兜底未收录的新厂商（误报由用户确认环节吸收）。
     Regex::new(concat!(
         r"\b(",
-        r"sk-[A-Za-z0-9_\-]{16,}",           // OpenAI / Anthropic(sk-ant-) / DeepSeek …
-        r"|AKIA[0-9A-Z]{12,}",                 // AWS access key id
-        r"|ghp_[A-Za-z0-9]{20,}",              // GitHub classic PAT
-        r"|github_pat_[A-Za-z0-9_]{20,}",      // GitHub fine-grained PAT
-        r"|AIza[0-9A-Za-z_\-]{30,}",          // Google API key
-        r"|xoxb-[A-Za-z0-9\-]{10,}",          // Slack bot token
-        r"|dashscope-[A-Za-z0-9_\-]{8,}",     // 阿里云百炼
-        r"|[A-Za-z0-9]{32,}",                  // 通用高熵 token（base62 连续串）
+        r"sk-[A-Za-z0-9_\-]{16,}", // OpenAI / Anthropic(sk-ant-) / DeepSeek …
+        r"|AKIA[0-9A-Z]{12,}",     // AWS access key id
+        r"|ghp_[A-Za-z0-9]{20,}",  // GitHub classic PAT
+        r"|github_pat_[A-Za-z0-9_]{20,}", // GitHub fine-grained PAT
+        r"|AIza[0-9A-Za-z_\-]{30,}", // Google API key
+        r"|xoxb-[A-Za-z0-9\-]{10,}", // Slack bot token
+        r"|dashscope-[A-Za-z0-9_\-]{8,}", // 阿里云百炼
+        r"|[A-Za-z0-9]{32,}",      // 通用高熵 token（base62 连续串）
         r")\b",
     ))
     .expect("api key regex")
@@ -272,8 +279,10 @@ static TOKEN_NAMED: LazyLock<Regex> = LazyLock::new(|| {
 
 static CONNECTION_STRING: LazyLock<Regex> = LazyLock::new(|| {
     // `scheme://user:pass@host` 形态（数据库 / Redis / 消息队列连接串）。
-    Regex::new(r"(?i)\b(?:postgres(?:ql)?|mysql|mongodb(?:\+srv)?|redis|amqp|mssql)://[^\s/:@]+:[^\s/@]+@")
-        .expect("connection string regex")
+    Regex::new(
+        r"(?i)\b(?:postgres(?:ql)?|mysql|mongodb(?:\+srv)?|redis|amqp|mssql)://[^\s/:@]+:[^\s/@]+@",
+    )
+    .expect("connection string regex")
 });
 
 static CREDENTIAL_PATH: LazyLock<Regex> = LazyLock::new(|| {
@@ -319,11 +328,17 @@ mod tests {
     #[test]
     fn secrets_are_rejected() {
         for (sample, expected) in [
-            ("-----BEGIN RSA PRIVATE KEY-----\nMIIE", SecretKind::PrivateKey),
+            (
+                "-----BEGIN RSA PRIVATE KEY-----\nMIIE",
+                SecretKind::PrivateKey,
+            ),
             ("api key 是 sk-abcdefghijklmnopqrstuvwx", SecretKind::ApiKey),
             ("密码: hunter2xyz", SecretKind::Password),
             ("password = topsecret", SecretKind::Password),
-            ("token: eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.abcd", SecretKind::Token),
+            (
+                "token: eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.abcd",
+                SecretKind::Token,
+            ),
             ("~/.ssh/id_rsa 在这里", SecretKind::CredentialPath),
             ("aws credentials.json 位置", SecretKind::CredentialPath),
         ] {
@@ -334,9 +349,15 @@ mod tests {
             ("我的登录密码是hunter2xyz", SecretKind::Password),
             ("口令为 hunter2xyz", SecretKind::Password),
             ("AKIAIOSFODNN7EXAMPLE", SecretKind::ApiKey),
-            ("github_pat_11ABCDEFG0abcdefghijkl_1234567890abcdefghijklmnopqrstuvwxyz", SecretKind::ApiKey),
+            (
+                "github_pat_11ABCDEFG0abcdefghijkl_1234567890abcdefghijklmnopqrstuvwxyz",
+                SecretKind::ApiKey,
+            ),
             ("xoxb-1234567890-abcdefghijkl", SecretKind::ApiKey),
-            ("连接串 postgres://app:s3cret@db.internal:5432/prod", SecretKind::Token),
+            (
+                "连接串 postgres://app:s3cret@db.internal:5432/prod",
+                SecretKind::Token,
+            ),
             ("refresh_token=abcdef1234567890", SecretKind::Token),
             ("a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6", SecretKind::ApiKey),
         ] {
@@ -357,7 +378,8 @@ mod tests {
     fn draft_metadata_is_secret_checked() {
         // metadata 是自由 JSON：展平后必须过同一道门（§70）。
         let mut draft = MemoryDraft::new(MemoryCategory::Environment, "家中服务器是 macOS");
-        draft.metadata = serde_json::json!({"note": "api_key", "value": "sk-abcdefghijklmnopqrstuvwx"});
+        draft.metadata =
+            serde_json::json!({"note": "api_key", "value": "sk-abcdefghijklmnopqrstuvwx"});
         let error = validate_draft(&draft).expect_err("metadata 里的 secret 必须被拒");
         assert!(error.contains("metadata"), "{error}");
 
@@ -371,13 +393,21 @@ mod tests {
         let empty = MemoryDraft::new(MemoryCategory::Preference, "   ");
         assert!(validate_draft(&empty).unwrap_err().contains("为空"));
 
-        let long = MemoryDraft::new(MemoryCategory::Preference, "x".repeat(MEMORY_MAX_CONTENT_CHARS + 1));
+        let long = MemoryDraft::new(
+            MemoryCategory::Preference,
+            "x".repeat(MEMORY_MAX_CONTENT_CHARS + 1),
+        );
         assert!(validate_draft(&long).unwrap_err().contains("过长"));
 
         let secret = MemoryDraft::new(MemoryCategory::ProjectFact, "密码: hunter2xyz");
-        assert!(validate_draft(&secret).unwrap_err().contains("credential store"));
+        assert!(
+            validate_draft(&secret)
+                .unwrap_err()
+                .contains("credential store")
+        );
 
-        let low = MemoryDraft::new(MemoryCategory::Preference, "喜欢历史旅行").with_confidence(0.05);
+        let low =
+            MemoryDraft::new(MemoryCategory::Preference, "喜欢历史旅行").with_confidence(0.05);
         assert!(validate_draft(&low).unwrap_err().contains("置信度"));
 
         let ok = MemoryDraft::new(MemoryCategory::Preference, "喜欢历史旅行")
@@ -387,9 +417,13 @@ mod tests {
 
     #[test]
     fn explicit_intent_detection_and_extraction() {
-        assert!(detect_explicit_save_intent("记住：我的 Docker 数据都放在 /Volumes/Data/docker"));
+        assert!(detect_explicit_save_intent(
+            "记住：我的 Docker 数据都放在 /Volumes/Data/docker"
+        ));
         assert!(detect_explicit_save_intent("请记住我喜欢历史旅行"));
-        assert!(detect_explicit_save_intent("Remember this: my server runs macOS"));
+        assert!(detect_explicit_save_intent(
+            "Remember this: my server runs macOS"
+        ));
         assert!(!detect_explicit_save_intent("今天想吃寿司"));
         assert!(!detect_explicit_save_intent("我刚才打开那个页面了吗"));
 

@@ -136,9 +136,8 @@ impl AgentExecutor {
         }
         let max_rounds = task.max_steps.min(budget.max_steps).max(1);
         // §57：per-agent 超时 = min(profile timeout, 父剩余墙钟)。
-        let timeout = std::time::Duration::from_millis(
-            task.timeout_ms.min(budget.max_duration_ms.max(1)),
-        );
+        let timeout =
+            std::time::Duration::from_millis(task.timeout_ms.min(budget.max_duration_ms.max(1)));
         let loop_config = ToolLoopConfig {
             max_rounds,
             // worker 低温度：结构化、可复现。
@@ -196,10 +195,7 @@ impl AgentExecutor {
                         Some("invalid_structured_output".to_string()),
                     ),
                 };
-                let sources = structured
-                    .as_ref()
-                    .map(collect_sources)
-                    .unwrap_or_default();
+                let sources = structured.as_ref().map(collect_sources).unwrap_or_default();
                 let result = DelegationResult {
                     task_id: task.task_id.clone(),
                     agent_id,
@@ -232,11 +228,8 @@ impl AgentExecutor {
             }
             Err(elapsed) => {
                 // §57：超时是独立终态（可被 required/optional 策略区别处理）。
-                let mut result = DelegationResult::failed(
-                    &task.task_id,
-                    &agent_id,
-                    "agent_timeout",
-                );
+                let mut result =
+                    DelegationResult::failed(&task.task_id, &agent_id, "agent_timeout");
                 result.status = DelegationStatus::TimedOut;
                 result.duration_ms = duration_ms;
                 let budget_usage = BudgetUsage {
@@ -244,18 +237,15 @@ impl AgentExecutor {
                     ..BudgetUsage::default()
                 };
                 let _ = elapsed;
-                return RunOutcome {
+                RunOutcome {
                     result,
                     state: AgentRunState::TimedOut,
                     usage: budget_usage,
-                };
+                }
             }
             Ok(Err(error)) => {
-                let mut result = DelegationResult::failed(
-                    &task.task_id,
-                    &agent_id,
-                    &stable_error_code(&error),
-                );
+                let mut result =
+                    DelegationResult::failed(&task.task_id, &agent_id, &stable_error_code(&error));
                 result.duration_ms = duration_ms;
                 let budget_usage = BudgetUsage {
                     agents: 1,
@@ -332,7 +322,8 @@ fn collect_sources(value: &serde_json::Value) -> Vec<String> {
                         "sources" => {
                             if let Some(items) = item.as_array() {
                                 for entry in items.iter().filter_map(serde_json::Value::as_str) {
-                                    if !entry.is_empty() && !out.iter().any(|known| known == entry) {
+                                    if !entry.is_empty() && !out.iter().any(|known| known == entry)
+                                    {
                                         out.push(entry.to_string());
                                     }
                                 }
@@ -350,7 +341,6 @@ fn collect_sources(value: &serde_json::Value) -> Vec<String> {
     sources
 }
 
-
 /// 稳定错误码（不含内容，§73）。
 fn stable_error_code(error: &devtoolbox_core::AgentError) -> String {
     error.code().to_string()
@@ -362,7 +352,6 @@ fn now_unix() -> i64 {
         .map(|elapsed| elapsed.as_secs() as i64)
         .unwrap_or_default()
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -383,7 +372,9 @@ mod tests {
             &self,
             _arguments: serde_json::Value,
         ) -> Result<devtoolbox_core::ToolResult, devtoolbox_core::AgentError> {
-            Ok(devtoolbox_core::ToolResult::ok(serde_json::json!({"ok": true})))
+            Ok(devtoolbox_core::ToolResult::ok(
+                serde_json::json!({"ok": true}),
+            ))
         }
     }
 
@@ -483,7 +474,10 @@ mod tests {
             outcome.result.structured_output["findings"][0]["claim"],
             "磁盘 85%"
         );
-        assert_eq!(outcome.result.sources, vec!["service:self-tools".to_string()]);
+        assert_eq!(
+            outcome.result.sources,
+            vec!["service:self-tools".to_string()]
+        );
         assert_eq!(outcome.usage.tokens, 15);
         assert_eq!(outcome.usage.agents, 1);
     }
@@ -496,7 +490,10 @@ mod tests {
             .run(&profile(), &task(Vec::new()), &AgentBudget::default())
             .await;
         assert_eq!(outcome.state, AgentRunState::Failed);
-        assert_eq!(outcome.result.errors.as_deref(), Some("invalid_structured_output"));
+        assert_eq!(
+            outcome.result.errors.as_deref(),
+            Some("invalid_structured_output")
+        );
     }
 
     #[tokio::test]
@@ -512,7 +509,11 @@ mod tests {
         let tools = executor.authorized_tools(&profile(), &task(vec!["services.get_logs".into()]));
         assert_eq!(tools.len(), 1);
         // 不在能力集内 → 过滤掉（§34-§36）。
-        assert!(executor.authorized_tools(&profile(), &task(vec!["other.tool".into()])).is_empty());
+        assert!(
+            executor
+                .authorized_tools(&profile(), &task(vec!["other.tool".into()]))
+                .is_empty()
+        );
     }
 
     #[tokio::test]
@@ -520,7 +521,9 @@ mod tests {
         let executor = executor_with("{}", Vec::new());
         let mut task = task(Vec::new());
         task.deadline = 1;
-        let outcome = executor.run(&profile(), &task, &AgentBudget::default()).await;
+        let outcome = executor
+            .run(&profile(), &task, &AgentBudget::default())
+            .await;
         assert_eq!(outcome.state, AgentRunState::Failed);
         assert_eq!(outcome.result.errors.as_deref(), Some("deadline_exceeded"));
     }
@@ -541,6 +544,9 @@ mod tests {
                 {"claim": "b", "sources": ["s2", "s1"]}
             ]
         });
-        assert_eq!(collect_sources(&value), vec!["s1".to_string(), "s2".to_string()]);
+        assert_eq!(
+            collect_sources(&value),
+            vec!["s1".to_string(), "s2".to_string()]
+        );
     }
 }

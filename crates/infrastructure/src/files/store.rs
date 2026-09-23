@@ -80,9 +80,11 @@ impl FileIndexSqliteStore {
             )
             .map_err(sqlite)?;
         let stored: Option<String> = connection
-            .query_row("SELECT value FROM schema_meta WHERE key = 'version'", [], |row| {
-                row.get(0)
-            })
+            .query_row(
+                "SELECT value FROM schema_meta WHERE key = 'version'",
+                [],
+                |row| row.get(0),
+            )
             .ok();
         match stored {
             None => {
@@ -166,10 +168,7 @@ impl FileIndexSqliteStore {
 
     pub fn find_by_path(&self, path: &str) -> Result<Option<FileMetadata>, FileIndexError> {
         let connection = self.connection.lock();
-        let candidates = [
-            path.to_string(),
-            devtoolbox_core::files::display_path(path),
-        ];
+        let candidates = [path.to_string(), devtoolbox_core::files::display_path(path)];
         for candidate in candidates {
             let mut statement = connection
                 .prepare(&format!("{FILE_SELECT} WHERE path = ?1"))
@@ -192,7 +191,9 @@ impl FileIndexSqliteStore {
         }
         if let Some(extension) = spec.extension.as_deref().filter(|value| !value.is_empty()) {
             conditions.push("lower(extension) = ?".to_string());
-            values.push(Box::new(extension.trim_start_matches('.').to_ascii_lowercase()));
+            values.push(Box::new(
+                extension.trim_start_matches('.').to_ascii_lowercase(),
+            ));
         }
         if let Some(root_id) = spec.root_id.as_deref().filter(|value| !value.is_empty()) {
             conditions.push("root_id = ?".to_string());
@@ -233,7 +234,9 @@ impl FileIndexSqliteStore {
                 "{FILE_SELECT} ORDER BY indexed_at DESC, relative_path ASC LIMIT ?1"
             ))
             .map_err(store_error)?;
-        let mut rows = statement.query(params![limit.max(1) as i64]).map_err(store_error)?;
+        let mut rows = statement
+            .query(params![limit.max(1) as i64])
+            .map_err(store_error)?;
         let mut entries = Vec::new();
         while let Some(row) = rows.next().map_err(store_error)? {
             entries.push(row_to_entry(row)?);
@@ -267,7 +270,10 @@ impl FileIndexSqliteStore {
     pub fn remove(&self, file_id: &str) -> Result<(), FileIndexError> {
         self.connection
             .lock()
-            .execute("DELETE FROM file_entries WHERE file_id = ?1", params![file_id])
+            .execute(
+                "DELETE FROM file_entries WHERE file_id = ?1",
+                params![file_id],
+            )
             .map_err(store_error)?;
         Ok(())
     }
@@ -451,7 +457,11 @@ mod tests {
         let mut older = entry("root", "old/a.md", false);
         older.modified_at = 10;
         store
-            .upsert_many(&[entry("root", "new/b.md", false), older, entry("other", "c.md", false)])
+            .upsert_many(&[
+                entry("root", "new/b.md", false),
+                older,
+                entry("other", "c.md", false),
+            ])
             .unwrap();
 
         let by_root = store

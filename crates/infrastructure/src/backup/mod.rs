@@ -109,7 +109,13 @@ impl BackupSource for SqliteBackupSource {
         sqlite_vacuum_into(&connection, &dest)?;
         drop(connection);
 
-        entry_for(&dest, name, EntryKind::Sqlite, self.sensitive, self.rebuildable)
+        entry_for(
+            &dest,
+            name,
+            EntryKind::Sqlite,
+            self.sensitive,
+            self.rebuildable,
+        )
     }
 
     fn skippable(&self) -> bool {
@@ -120,13 +126,14 @@ impl BackupSource for SqliteBackupSource {
     fn verify_restored(&self, restored_path: &Path, entry: &BackupEntry) -> Result<(), String> {
         // 恢复件必须能打开并跑 integrity_check：证明快照不是半成品。
         let connection = rusqlite::Connection::open(restored_path).map_err(|error| {
-            format!("reopen restored sqlite {}: {error}", restored_path.display())
+            format!(
+                "reopen restored sqlite {}: {error}",
+                restored_path.display()
+            )
         })?;
         let verdict: String = connection
             .query_row("PRAGMA integrity_check", [], |row| row.get(0))
-            .map_err(|error| {
-                format!("integrity_check {}: {error}", restored_path.display())
-            })?;
+            .map_err(|error| format!("integrity_check {}: {error}", restored_path.display()))?;
         drop(connection);
         if verdict != "ok" {
             return Err(format!(
@@ -197,9 +204,8 @@ impl BackupSource for DuckDbBackupSource {
         // DuckDB 的 COPY FROM DATABASE 不覆盖已有目标：先删旧快照保证幂等。
         clear_stale(&dest)?;
         if !self.path.exists() {
-            let connection = duckdb::Connection::open(&self.path).map_err(|error| {
-                format!("create empty duckdb {}: {error}", self.path.display())
-            })?;
+            let connection = duckdb::Connection::open(&self.path)
+                .map_err(|error| format!("create empty duckdb {}: {error}", self.path.display()))?;
             drop(connection);
         }
         let connection = duckdb::Connection::open(&self.path)
@@ -207,7 +213,13 @@ impl BackupSource for DuckDbBackupSource {
         duckdb_copy_into(&connection, &dest)?;
         drop(connection);
 
-        entry_for(&dest, name, EntryKind::DuckDb, self.sensitive, self.rebuildable)
+        entry_for(
+            &dest,
+            name,
+            EntryKind::DuckDb,
+            self.sensitive,
+            self.rebuildable,
+        )
     }
 
     fn skippable(&self) -> bool {
@@ -218,14 +230,20 @@ impl BackupSource for DuckDbBackupSource {
         // DuckDB 恢复件只需能被引擎重新打开（引擎内元数据校验）；
         // 摘要与体积由编排层统一复核。
         let connection = duckdb::Connection::open(restored_path).map_err(|error| {
-            format!("reopen restored duckdb {}: {error}", restored_path.display())
+            format!(
+                "reopen restored duckdb {}: {error}",
+                restored_path.display()
+            )
         })?;
         let count: i64 = connection
             .query_row("SELECT count(*) FROM duckdb_tables()", [], |row| {
                 row.get::<_, i64>(0)
             })
             .map_err(|error| {
-                format!("inspect restored duckdb {}: {error}", restored_path.display())
+                format!(
+                    "inspect restored duckdb {}: {error}",
+                    restored_path.display()
+                )
             })?;
         drop(connection);
         if count == 0 {
@@ -300,11 +318,16 @@ impl BackupSource for FileBackupSource {
             .map_err(|error| format!("flush snapshot {}: {error}", dest.display()))?;
         drop(target);
 
-        entry_for(&dest, name, EntryKind::Json, self.sensitive, self.rebuildable)
-            .map(|entry| {
-                debug_assert_eq!(entry.bytes, copied);
-                entry
-            })
+        entry_for(
+            &dest,
+            name,
+            EntryKind::Json,
+            self.sensitive,
+            self.rebuildable,
+        )
+        .inspect(|entry| {
+            debug_assert_eq!(entry.bytes, copied);
+        })
     }
 
     fn skippable(&self) -> bool {
@@ -314,8 +337,7 @@ impl BackupSource for FileBackupSource {
 
 /// 分块读取 + SHA-256 + 体积累计（大文件不整份进内存）。
 pub(crate) fn read_digest(path: &Path) -> Result<(u64, String), String> {
-    let mut file =
-        File::open(path).map_err(|error| format!("open {}: {error}", path.display()))?;
+    let mut file = File::open(path).map_err(|error| format!("open {}: {error}", path.display()))?;
     let mut hasher = Sha256::new();
     let mut total = 0u64;
     let mut buffer = [0u8; 64 * 1024];

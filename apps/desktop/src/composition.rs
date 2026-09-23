@@ -311,30 +311,42 @@ impl StudyBoardStoreAdapter {
 
 impl StudyBoardStorePort for StudyBoardStoreAdapter {
     fn upsert_board(&self, board: &StudyBoard) -> Result<(), StudyBoardStoreError> {
-        self.store.upsert_board(board).map_err(|error| StudyBoardStoreError(error.to_string()))
+        self.store
+            .upsert_board(board)
+            .map_err(|error| StudyBoardStoreError(error.to_string()))
     }
 
     fn get_board(&self, id: &str) -> Result<Option<StudyBoard>, StudyBoardStoreError> {
-        self.store.get_board(id).map_err(|error| StudyBoardStoreError(error.to_string()))
+        self.store
+            .get_board(id)
+            .map_err(|error| StudyBoardStoreError(error.to_string()))
     }
 
     fn list_boards(&self, limit: usize) -> Result<Vec<StudyBoardSummary>, StudyBoardStoreError> {
-        self.store.list_boards(limit).map_err(|error| StudyBoardStoreError(error.to_string()))
+        self.store
+            .list_boards(limit)
+            .map_err(|error| StudyBoardStoreError(error.to_string()))
     }
 
     fn upsert_snapshot(&self, snapshot: &StudyBoardSnapshot) -> Result<(), StudyBoardStoreError> {
-        self.store.upsert_snapshot(snapshot).map_err(|error| StudyBoardStoreError(error.to_string()))
+        self.store
+            .upsert_snapshot(snapshot)
+            .map_err(|error| StudyBoardStoreError(error.to_string()))
     }
 
     fn get_snapshot(&self, id: &str) -> Result<Option<StudyBoardSnapshot>, StudyBoardStoreError> {
-        self.store.get_snapshot(id).map_err(|error| StudyBoardStoreError(error.to_string()))
+        self.store
+            .get_snapshot(id)
+            .map_err(|error| StudyBoardStoreError(error.to_string()))
     }
 
     fn latest_snapshot(
         &self,
         board_id: &str,
     ) -> Result<Option<StudyBoardSnapshot>, StudyBoardStoreError> {
-        self.store.latest_snapshot(board_id).map_err(|error| StudyBoardStoreError(error.to_string()))
+        self.store
+            .latest_snapshot(board_id)
+            .map_err(|error| StudyBoardStoreError(error.to_string()))
     }
 }
 
@@ -404,7 +416,11 @@ impl devtoolbox_application::personal_ai::ConversationStore for ConversationStor
         message: &ConversationMessage,
     ) -> Result<(), devtoolbox_application::personal_ai::ConversationStoreError> {
         self.store
-            .append_message(conversation_id, message, devtoolbox_infrastructure::now_unix())
+            .append_message(
+                conversation_id,
+                message,
+                devtoolbox_infrastructure::now_unix(),
+            )
             .map_err(conversation_error)
     }
 

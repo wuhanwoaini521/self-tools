@@ -19,8 +19,8 @@ pub mod metrics;
 pub mod registry;
 
 pub use action::{
-    ActionAuthorizationDecision, ActionOutcome, ActionRequest, ActionRisk,
-    ActionRiskPolicy, AuditEntry, AuditSource, Confirmation, ConfirmationState, DefaultActionRiskPolicy,
+    ActionAuthorizationDecision, ActionOutcome, ActionRequest, ActionRisk, ActionRiskPolicy,
+    AuditEntry, AuditSource, Confirmation, ConfirmationState, DefaultActionRiskPolicy,
     RegisteredAction, SessionTrust,
 };
 pub use health::{
@@ -29,9 +29,8 @@ pub use health::{
 pub use logs::{LogReadRequest, LogReadResult, LogWindow};
 pub use metrics::{CpuMetrics, MemoryMetrics, Platform, StorageMetrics, SystemMetrics, VolumeKind};
 pub use registry::{
-    is_http_url,
     ApplicationDescriptor, ApplicationStatus, HealthCheckKind, LogSource, ServiceDescriptor,
-    ServiceProviderType, ServiceStatus,
+    ServiceProviderType, ServiceStatus, is_http_url,
 };
 
 /// 服务 / 应用 / automation 的稳定 id 校验（V7 §35/§36/§155）。

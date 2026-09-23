@@ -279,8 +279,11 @@ mod tests {
     fn anonymous_remote_exposes_nothing() {
         let principal = McpPrincipal::anonymous_remote("curl");
         assert!(!principal.authenticated);
-        assert!(!principal.trust.can_expose_tools(), "§40：不可信远程 = 0 tools");
-        assert!(principal.has_scope(&McpScope::parse("selftools.read").expect("scope")) == false);
+        assert!(
+            !principal.trust.can_expose_tools(),
+            "§40：不可信远程 = 0 tools"
+        );
+        assert!(!principal.has_scope(&McpScope::parse("selftools.read").expect("scope")));
     }
 
     #[test]

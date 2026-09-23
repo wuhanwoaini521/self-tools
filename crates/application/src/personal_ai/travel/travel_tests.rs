@@ -277,12 +277,11 @@ fn travel_context_provider_general_when_no_entity() {
     let bundle = provider
         .build_context(&AiAppContext::default(), &ContextBudget::default())
         .unwrap();
-    assert_eq!(
+    assert!(
         bundle.summary["note"]
             .as_str()
             .unwrap()
-            .contains("无目的地"),
-        true
+            .contains("无目的地")
     );
 }
 
@@ -296,7 +295,12 @@ fn personal_agent_route_calls_travel_tool() {
     let mut modules = ModuleRegistry::new();
     let mut tools = ToolRegistry::new();
     register_travel(&mut modules, &mut tools, Arc::new(port)).unwrap();
-    let hub = Arc::new(PersonalHub { modules, tools, retrieval: None, orchestration: None });
+    let hub = Arc::new(PersonalHub {
+        modules,
+        tools,
+        retrieval: None,
+        orchestration: None,
+    });
 
     let chat = MiniChat {
         steps: Mutex::new(std::collections::VecDeque::new()),

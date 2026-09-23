@@ -36,6 +36,7 @@ impl std::error::Error for AuthProviderUnavailable {}
 pub struct DenyAllIdentityProvider;
 
 impl RemoteIdentityProvider for DenyAllIdentityProvider {
+    #[allow(clippy::type_complexity)]
     fn authenticate(&self, _credential: &McpCredential) -> Result<McpPrincipal, AuthFailure> {
         Err(AuthFailure::Unauthenticated)
     }
@@ -44,6 +45,7 @@ impl RemoteIdentityProvider for DenyAllIdentityProvider {
 /// 静态 token → principal 的 Fake provider（§99/§106：CI 与本地开发用）。
 ///
 /// token 表在构造时注入（不读配置、不落盘）；**永不记录 token**。
+#[allow(clippy::type_complexity)] // token 表形状固定；拆 type alias 只增噪音
 #[derive(Debug, Default)]
 pub struct StaticTokenIdentityProvider {
     /// token → (principal_id, client_id, scope 列表, issuer, expires_at)。
@@ -91,8 +93,8 @@ impl StaticTokenIdentityProvider {
             .lock()
             .iter()
             .find(|(known, ..)| known == token)
-            .map(|(_, principal_id, client_id, scopes, issuer, expires_at)| {
-                McpPrincipal {
+            .map(
+                |(_, principal_id, client_id, scopes, issuer, expires_at)| McpPrincipal {
                     principal_id: principal_id.clone(),
                     client_id: client_id.clone(),
                     transport: devtoolbox_core::mcp::McpTransport::Http,
@@ -104,8 +106,8 @@ impl StaticTokenIdentityProvider {
                         .collect(),
                     issuer: issuer.clone(),
                     expires_at: *expires_at,
-                }
-            })
+                },
+            )
     }
 }
 
@@ -170,7 +172,9 @@ mod tests {
         assert_eq!(principal.principal_id, "p-1");
         assert_eq!(principal.client_id, "pi");
         assert!(principal.authenticated);
-        assert!(principal.has_scope(&devtoolbox_core::mcp::McpScope::parse("server.read").unwrap()));
+        assert!(
+            principal.has_scope(&devtoolbox_core::mcp::McpScope::parse("server.read").unwrap())
+        );
     }
 
     #[test]

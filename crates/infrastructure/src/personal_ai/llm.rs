@@ -8,8 +8,8 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
 use devtoolbox_core::personal_ai::{
-    ChatMessage, ChatModelProvider, ChatRequest, ChatResponse, ChatRole, ChatToolCall, ChatToolSpec,
-    ChatUsage, ProviderError,
+    ChatMessage, ChatModelProvider, ChatRequest, ChatResponse, ChatRole, ChatToolCall,
+    ChatToolSpec, ChatUsage, ProviderError,
 };
 
 /// AI 模型配置（来自应用设置 `AiSettings`；key 可选，本地 Ollama 可留空）。
@@ -149,12 +149,10 @@ fn wire_content_parts(parts: &[devtoolbox_core::ContentPart]) -> Vec<serde_json:
             devtoolbox_core::ContentPart::Text { text } => {
                 Some(serde_json::json!({"type": "text", "text": text}))
             }
-            devtoolbox_core::ContentPart::Image { data, mime, .. } => {
-                Some(serde_json::json!({
-                    "type": "image_url",
-                    "image_url": {"url": format!("data:{mime};base64,{data}")},
-                }))
-            }
+            devtoolbox_core::ContentPart::Image { data, mime, .. } => Some(serde_json::json!({
+                "type": "image_url",
+                "image_url": {"url": format!("data:{mime};base64,{data}")},
+            })),
             devtoolbox_core::ContentPart::BoardSnapshot {
                 image_base64: Some(data),
                 ..
@@ -162,12 +160,10 @@ fn wire_content_parts(parts: &[devtoolbox_core::ContentPart]) -> Vec<serde_json:
                 "type": "image_url",
                 "image_url": {"url": format!("data:image/png;base64,{data}")},
             })),
-            devtoolbox_core::ContentPart::Audio { mime, data, .. } => {
-                Some(serde_json::json!({
-                    "type": "input_audio",
-                    "input_audio": {"data": data, "format": mime},
-                }))
-            }
+            devtoolbox_core::ContentPart::Audio { mime, data, .. } => Some(serde_json::json!({
+                "type": "input_audio",
+                "input_audio": {"data": data, "format": mime},
+            })),
             // 文档引用不是 wire 段：由检索链路负责，不作为消息内容。
             devtoolbox_core::ContentPart::DocumentRef { .. }
             | devtoolbox_core::ContentPart::BoardSnapshot { .. } => None,
@@ -237,10 +233,7 @@ pub fn encode_tool_name(internal: &str) -> String {
 /// 调用方持有的 `wire` 必须比结果活得更久（本 crate 内部调用点在 `chat()`，
 /// `wire` 来源于反序列化后的局部结构，满足该约束）。
 #[must_use]
-pub fn decode_tool_name<'a>(
-    wire: &'a str,
-    known: &'a [String],
-) -> std::borrow::Cow<'a, str> {
+pub fn decode_tool_name<'a>(wire: &'a str, known: &'a [String]) -> std::borrow::Cow<'a, str> {
     if !wire.contains('_') {
         return std::borrow::Cow::Borrowed(wire);
     }
@@ -300,17 +293,14 @@ fn to_openai_message(message: &ChatMessage) -> OpenAiMessage<'_> {
             message.content.as_deref().map(WireContent::Text)
         } else {
             let mut segments = wire_content_parts(&message.content_parts);
-            let has_text = segments.iter().any(|segment| {
-                segment.get("type").and_then(|kind| kind.as_str()) == Some("text")
-            });
+            let has_text = segments
+                .iter()
+                .any(|segment| segment.get("type").and_then(|kind| kind.as_str()) == Some("text"));
             if !has_text
                 && let Some(text) = message.content.as_deref()
                 && !text.is_empty()
             {
-                segments.insert(
-                    0,
-                    serde_json::json!({"type": "text", "text": text}),
-                );
+                segments.insert(0, serde_json::json!({"type": "text", "text": text}));
             }
             Some(WireContent::Parts(segments))
         },
@@ -637,7 +627,8 @@ mod tests {
             let wire = encode_tool_name(internal);
             assert!(!wire.contains('.'), "{internal} → {wire} 仍含点");
             assert!(
-                wire.chars().all(|ch| ch.is_ascii_alphanumeric() || ch == '_' || ch == '-'),
+                wire.chars()
+                    .all(|ch| ch.is_ascii_alphanumeric() || ch == '_' || ch == '-'),
                 "{wire} 含非法字符"
             );
             let known = vec![internal.to_string()];

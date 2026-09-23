@@ -8,7 +8,9 @@
 
 use std::process::Command;
 
-use devtoolbox_core::server::{HealthStatus, ServiceDescriptor, ServiceStatus, ServiceProviderType};
+use devtoolbox_core::server::{
+    HealthStatus, ServiceDescriptor, ServiceProviderType, ServiceStatus,
+};
 
 use crate::server::metrics::run_capture;
 
@@ -237,7 +239,9 @@ mod tests {
         // 同步路径只做 URL 校验；异步请求由集成层调用。
         assert!(!devtoolbox_core::server::is_http_url("file:///etc/passwd"));
         assert!(!devtoolbox_core::server::is_http_url("javascript:alert(1)"));
-        assert!(devtoolbox_core::server::is_http_url("http://127.0.0.1:8080/health"));
+        assert!(devtoolbox_core::server::is_http_url(
+            "http://127.0.0.1:8080/health"
+        ));
         let _ = probe;
     }
 }

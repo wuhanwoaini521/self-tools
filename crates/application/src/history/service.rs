@@ -162,6 +162,7 @@ fn critical_anchors(events: &[PeriodEventItem]) -> Vec<&PeriodEventItem> {
 /// 1) 只取 critical 锚点；2) 年份相距 ≤2 年的锚点合并为一章（取最早者）；
 /// 3) 每章从锚点年延伸到下一锚点年前一年（末章到时期结束）；
 /// 4) 首个锚点前的空档（如有真实事件）作为单独「开端章」。
+///
 /// 锚点不足（<2）时返回空 —— 前端据此隐藏阶段模块。
 fn derive_stages(
     events: &[PeriodEventItem],

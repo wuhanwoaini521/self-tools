@@ -482,15 +482,21 @@ mod tests {
     #[test]
     fn document_roots_fall_back_to_file_roots() {
         let mut settings = KnowledgeSettings::default();
-        settings
-            .file_roots
-            .push(crate::files::KnowledgeRoot::new("docs", "资料", "/data/docs"));
+        settings.file_roots.push(crate::files::KnowledgeRoot::new(
+            "docs",
+            "资料",
+            "/data/docs",
+        ));
         assert_eq!(settings.effective_document_roots().len(), 1);
         assert!(settings.is_configured());
 
-        settings.document_roots.push(crate::files::KnowledgeRoot::new(
-            "kn", "知识库", "/data/knowledge",
-        ));
+        settings
+            .document_roots
+            .push(crate::files::KnowledgeRoot::new(
+                "kn",
+                "知识库",
+                "/data/knowledge",
+            ));
         assert_eq!(settings.effective_document_roots()[0].id, "kn");
     }
 
@@ -507,7 +513,10 @@ mod tests {
         assert_eq!(active.effective_mode(), crate::agents::DecisionMode::Rule);
         // 配置 key 后才允许 shadow/active。
         active.jev_api_key = Some("k".into());
-        assert_eq!(active.effective_mode(), crate::agents::DecisionMode::JevActive);
+        assert_eq!(
+            active.effective_mode(),
+            crate::agents::DecisionMode::JevActive
+        );
         assert!(active.jev_configured());
         // 非法 mode → rule。
         let broken = DecisionSettings {

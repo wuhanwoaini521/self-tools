@@ -48,7 +48,10 @@ impl AgentRunState {
     pub fn is_terminal(self) -> bool {
         matches!(
             self,
-            AgentRunState::Completed | AgentRunState::Failed | AgentRunState::Cancelled | AgentRunState::TimedOut
+            AgentRunState::Completed
+                | AgentRunState::Failed
+                | AgentRunState::Cancelled
+                | AgentRunState::TimedOut
         )
     }
 }
@@ -102,7 +105,10 @@ impl TaskEnvelope {
         if self.max_steps == 0 || self.max_tokens == 0 || self.timeout_ms == 0 {
             return Err("invalid_budget");
         }
-        if !self.capabilities.is_subset_of(&self.capabilities.allowed_tools) {
+        if !self
+            .capabilities
+            .is_subset_of(&self.capabilities.allowed_tools)
+        {
             // 恒真；保留断言形状以便将来 parent 传入时校验。
             return Err("capability_not_subset");
         }

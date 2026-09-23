@@ -15,8 +15,8 @@ use devtoolbox_core::knowledge::{
 use devtoolbox_core::personal_ai::AppContext;
 use devtoolbox_core::{ToolRisk, UiBlockKind};
 
-use crate::knowledge::ports::KnowledgeSourceRetriever;
 use crate::knowledge::KnowledgeRetrievalService;
+use crate::knowledge::ports::KnowledgeSourceRetriever;
 use crate::personal_ai::context::ContextBudget;
 use crate::personal_ai::knowledge::{knowledge_tool_names, register_knowledge};
 use crate::personal_ai::registry::{ModuleRegistry, ToolRegistry};
@@ -75,7 +75,9 @@ impl KnowledgeSourceRetriever for FakeRetriever {
     }
 }
 
-fn hub(retrievers: Vec<Arc<dyn KnowledgeSourceRetriever>>) -> (Arc<KnowledgeRetrievalService>, ToolRegistry, ModuleRegistry) {
+fn hub(
+    retrievers: Vec<Arc<dyn KnowledgeSourceRetriever>>,
+) -> (Arc<KnowledgeRetrievalService>, ToolRegistry, ModuleRegistry) {
     let service = Arc::new(KnowledgeRetrievalService::new(
         retrievers,
         KnowledgeBudget::default(),
@@ -124,10 +126,18 @@ fn registers_descriptor_and_single_read_tool() {
 
 #[test]
 fn search_merges_sources_and_groups_ui_blocks() {
-    let memory = FakeRetriever::new(KnowledgeSourceKind::Memory)
-        .with("mem-1", "Docker 数据目录", "/Volumes/Data/docker", "memory://mem-1");
-    let document = FakeRetriever::new(KnowledgeSourceKind::Document)
-        .with("doc-1", "docker.md", "volume 挂载说明", "/data/docs/docker.md");
+    let memory = FakeRetriever::new(KnowledgeSourceKind::Memory).with(
+        "mem-1",
+        "Docker 数据目录",
+        "/Volumes/Data/docker",
+        "memory://mem-1",
+    );
+    let document = FakeRetriever::new(KnowledgeSourceKind::Document).with(
+        "doc-1",
+        "docker.md",
+        "volume 挂载说明",
+        "/data/docs/docker.md",
+    );
     let (_service, tools, _modules) = hub(vec![Arc::new(memory), Arc::new(document)]);
 
     let result = block_on(tools.execute(&devtoolbox_core::ToolCallRequest {
@@ -183,15 +193,23 @@ fn search_without_sources_limit_is_budget_capped() {
         })
         .expect("search");
     assert_eq!(outcome.results.len(), 2, "预算 max_results 必须硬截断");
-    assert!(outcome.diagnostics.errors.is_empty(), "无错误: {:?}", outcome.diagnostics.errors);
+    assert!(
+        outcome.diagnostics.errors.is_empty(),
+        "无错误: {:?}",
+        outcome.diagnostics.errors
+    );
 }
 
 #[test]
 fn search_sources_argument_filters_and_validates() {
-    let memory = FakeRetriever::new(KnowledgeSourceKind::Memory)
-        .with("mem-1", "a", "snippet", "memory://a");
-    let document = FakeRetriever::new(KnowledgeSourceKind::Document)
-        .with("doc-1", "b", "snippet", "/data/b.md");
+    let memory =
+        FakeRetriever::new(KnowledgeSourceKind::Memory).with("mem-1", "a", "snippet", "memory://a");
+    let document = FakeRetriever::new(KnowledgeSourceKind::Document).with(
+        "doc-1",
+        "b",
+        "snippet",
+        "/data/b.md",
+    );
     let (_service, tools, _modules) = hub(vec![Arc::new(memory), Arc::new(document)]);
 
     let memory_only = block_on(tools.execute(&devtoolbox_core::ToolCallRequest {
@@ -220,9 +238,9 @@ fn search_sources_argument_filters_and_validates() {
 
 #[test]
 fn search_no_hit_states_not_found_with_diagnostics() {
-    let (_service, tools, _modules) = hub(vec![Arc::new(
-        FakeRetriever::new(KnowledgeSourceKind::Memory),
-    )]);
+    let (_service, tools, _modules) = hub(vec![Arc::new(FakeRetriever::new(
+        KnowledgeSourceKind::Memory,
+    ))]);
     let result = block_on(tools.execute(&devtoolbox_core::ToolCallRequest {
         id: "c1".into(),
         name: "knowledge.search".into(),

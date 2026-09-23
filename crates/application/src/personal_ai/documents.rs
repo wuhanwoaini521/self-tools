@@ -25,7 +25,9 @@ use devtoolbox_core::{AgentError, ModuleDescriptor, ToolResult, ToolRisk, ToolSp
 use crate::documents::{DocumentHit, DocumentService};
 use crate::personal_ai::args::{optional_string, require_string, tool_error, usize_arg};
 use crate::personal_ai::context::{ContextBudget, ContextBundle, ModuleContextProvider};
-use crate::personal_ai::registry::{ModuleRegistration, ModuleRegistry, ToolExecutor, ToolRegistry};
+use crate::personal_ai::registry::{
+    ModuleRegistration, ModuleRegistry, ToolExecutor, ToolRegistry,
+};
 
 const TOOL_SEARCH: &str = "documents.search";
 const TOOL_GET: &str = "documents.get";
@@ -268,7 +270,10 @@ impl DocumentsTools {
             chunk_ids,
             total_chunks,
             truncated,
-        } = self.service.read(&document_id, &request).map_err(tool_error)?;
+        } = self
+            .service
+            .read(&document_id, &request)
+            .map_err(tool_error)?;
         let location = location.describe();
         let snippet: String = text.chars().take(200).collect();
         Ok(ToolResult::ok_with_metadata(
@@ -415,13 +420,12 @@ fn truncate_chars(text: &str, max_chars: usize) -> String {
     text.chars().take(max_chars).collect()
 }
 
-
 fn document_type_arg(arguments: &serde_json::Value) -> Result<Option<DocumentType>, AgentError> {
     match optional_string(arguments, "document_type") {
         None => Ok(None),
-        Some(raw) => DocumentType::parse(&raw)
-            .map(Some)
-            .ok_or_else(|| AgentError::tool_invalid_argument(format!("unknown document_type `{raw}`"))),
+        Some(raw) => DocumentType::parse(&raw).map(Some).ok_or_else(|| {
+            AgentError::tool_invalid_argument(format!("unknown document_type `{raw}`"))
+        }),
     }
 }
 
@@ -509,7 +513,8 @@ pub fn register_documents(
         descriptor: ModuleDescriptor {
             id: "documents".into(),
             display_name: "Documents".into(),
-            description: "已索引文档：检索 / 元数据 / 分块读取 / 引用（索引写入不是模型工具）".into(),
+            description: "已索引文档：检索 / 元数据 / 分块读取 / 引用（索引写入不是模型工具）"
+                .into(),
             capabilities: vec![
                 "search".into(),
                 "read".into(),

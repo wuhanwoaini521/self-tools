@@ -128,17 +128,28 @@ mod tests {
         let directory = tempfile::tempdir().unwrap();
         let log = directory.path().join("app.log");
         let big_line = "x".repeat(500);
-        let content: String = std::iter::repeat_n(big_line.as_str(), 10).collect::<Vec<_>>().join("\n");
+        let content: String = std::iter::repeat_n(big_line.as_str(), 10)
+            .collect::<Vec<_>>()
+            .join("\n");
         std::fs::write(&log, &content).unwrap();
         let service = service_with(log.to_string_lossy().as_ref());
 
-        let capped_lines = LocalLogTail.tail(&service, "stdout", 3, 64 * 1_024, 0).expect("lines");
+        let capped_lines = LocalLogTail
+            .tail(&service, "stdout", 3, 64 * 1_024, 0)
+            .expect("lines");
         assert_eq!(capped_lines.lines, 3);
         assert!(capped_lines.truncated);
 
         // 单行 500 字节、上限 600 → 只收 1 行（字节上限先生效）。
-        let capped_bytes = LocalLogTail.tail(&service, "stdout", 1_000, 600, 0).expect("bytes");
-        assert_eq!(capped_bytes.lines, 1, "字节上限: {}", capped_bytes.text.len());
+        let capped_bytes = LocalLogTail
+            .tail(&service, "stdout", 1_000, 600, 0)
+            .expect("bytes");
+        assert_eq!(
+            capped_bytes.lines,
+            1,
+            "字节上限: {}",
+            capped_bytes.text.len()
+        );
         assert!(capped_bytes.text.len() <= 501);
     }
 

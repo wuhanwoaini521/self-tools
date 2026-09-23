@@ -211,7 +211,6 @@ impl DocumentIndexSqliteStore {
         Ok(chunks)
     }
 
-
     /// 词法粗筛：标题命中（每文档一条）+ 正文 chunk 命中。
     pub fn search_candidates(
         &self,
@@ -309,9 +308,13 @@ impl DocumentIndexSqliteStore {
     pub fn recent(&self, limit: usize) -> Result<Vec<DocumentMeta>, DocumentIndexError> {
         let connection = self.connection.lock();
         let mut statement = connection
-            .prepare(&format!("{DOCUMENT_SELECT} ORDER BY indexed_at DESC, document_id ASC LIMIT ?1"))
+            .prepare(&format!(
+                "{DOCUMENT_SELECT} ORDER BY indexed_at DESC, document_id ASC LIMIT ?1"
+            ))
             .map_err(store_error)?;
-        let mut rows = statement.query(params![limit as i64]).map_err(store_error)?;
+        let mut rows = statement
+            .query(params![limit as i64])
+            .map_err(store_error)?;
         let mut metas = Vec::new();
         while let Some(row) = rows.next().map_err(store_error)? {
             metas.push(row_to_meta(row)?);
@@ -418,9 +421,11 @@ fn to_params(values: &[String]) -> Vec<&dyn rusqlite::ToSql> {
 
 fn write_version(connection: &Connection, version: u32) -> Result<(), InfrastructureError> {
     let stored: Option<String> = connection
-        .query_row("SELECT value FROM schema_meta WHERE key = 'version'", [], |row| {
-            row.get(0)
-        })
+        .query_row(
+            "SELECT value FROM schema_meta WHERE key = 'version'",
+            [],
+            |row| row.get(0),
+        )
         .ok();
     match stored {
         None => {

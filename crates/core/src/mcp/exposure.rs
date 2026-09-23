@@ -8,7 +8,6 @@
 
 use crate::personal_ai::ToolRisk;
 
-
 /// 暴露分组（§67）。默认 remote catalog = `BasicRead`（§68）。
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Hash)]
 pub enum ExposureGroup {
@@ -79,7 +78,10 @@ pub fn default_exposure(tool_name: &str) -> Option<ToolExposure> {
         "memory.search" | "memory.list" | "memory.get" => {
             (ExposureGroup::KnowledgeRead, SCOPE_MEMORY_READ, true)
         }
-        "documents.search" | "documents.get" | "documents.read" | "documents.get_context"
+        "documents.search"
+        | "documents.get"
+        | "documents.read"
+        | "documents.get_context"
         | "documents.list_recent" => (ExposureGroup::KnowledgeRead, SCOPE_DOCUMENTS_READ, true),
         "files.search" | "files.get_metadata" | "files.read_text" => {
             (ExposureGroup::KnowledgeRead, SCOPE_FILES_READ, true)
@@ -170,10 +172,7 @@ mod tests {
             "server.reboot",
             "documents.scan",
         ] {
-            assert!(
-                default_exposure(hidden).is_none(),
-                "不得暴露: {hidden}"
-            );
+            assert!(default_exposure(hidden).is_none(), "不得暴露: {hidden}");
         }
     }
 
@@ -200,7 +199,12 @@ mod tests {
 
     #[test]
     fn basic_server_reads_are_remote_visible() {
-        for tool in ["server.get_status", "server.get_storage", "services.list", "apps.list"] {
+        for tool in [
+            "server.get_status",
+            "server.get_storage",
+            "services.list",
+            "apps.list",
+        ] {
             let exposure = default_exposure(tool).expect("tool");
             assert_eq!(exposure.group, ExposureGroup::BasicRead);
             assert!(exposure.remote_visible, "{tool} 应远程可见");
@@ -219,7 +223,10 @@ mod tests {
             required_scope_for("files.search").expect("scope")
         );
         assert_eq!(scope_for_risk(ToolRisk::System, "server"), "server.action");
-        assert_eq!(scope_for_risk(ToolRisk::SafeWrite, "memory"), "memory.write");
+        assert_eq!(
+            scope_for_risk(ToolRisk::SafeWrite, "memory"),
+            "memory.write"
+        );
     }
 
     #[test]

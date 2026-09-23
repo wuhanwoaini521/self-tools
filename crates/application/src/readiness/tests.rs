@@ -262,8 +262,9 @@ fn ai_provider_probe_reports_configuration_boolean_only() {
         ReadinessStatus::Ready,
         "已配置",
     );
-    let probes: Vec<Arc<dyn ReadinessProbe>> =
-        vec![Arc::new(StaticProbe { check: check.clone() }) as Arc<dyn ReadinessProbe>];
+    let probes: Vec<Arc<dyn ReadinessProbe>> = vec![Arc::new(StaticProbe {
+        check: check.clone(),
+    }) as Arc<dyn ReadinessProbe>];
     let service = ReadinessService::new(probes);
 
     let report = service.report();
@@ -301,7 +302,9 @@ fn full_report_contains_all_required_check_ids() {
     let report = full_service().report();
     assert_eq!(report.checks.len(), ReadinessCheckId::ALL.len());
     for id in ReadinessCheckId::ALL {
-        let check = report.check(id).unwrap_or_else(|| panic!("缺少检查项 {id:?}"));
+        let check = report
+            .check(id)
+            .unwrap_or_else(|| panic!("缺少检查项 {id:?}"));
         assert_eq!(check.status, ReadinessStatus::Ready);
         assert!(!check.detail.is_empty());
         // detail 不含任何敏感形态（契约自证：本测试构造的 detail 是「已配置」）。

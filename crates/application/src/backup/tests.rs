@@ -23,7 +23,8 @@ use devtoolbox_core::backup::{BackupEntry, BackupManifest, sha256_hex};
 // ---------------------------------------------------------------------------
 
 fn temp_dir(label: &str) -> PathBuf {
-    let base = std::env::temp_dir().join(format!("devtoolbox-backup-{label}-{}", std::process::id()));
+    let base =
+        std::env::temp_dir().join(format!("devtoolbox-backup-{label}-{}", std::process::id()));
     let _ = fs::remove_dir_all(&base);
     fs::create_dir_all(&base).expect("create temp dir");
     base
@@ -95,8 +96,14 @@ fn backup_writes_manifest_and_snapshots_then_restore_replays_it() {
     assert!(report.integrity_ok);
 
     // 恢复出来的内容就是原始内容。
-    assert_eq!(read_file(&restored.join("settings.json")), r#"{"theme":"dark"}"#);
-    assert_eq!(read_file(&restored.join("workspace.json")), r#"{"root":"D:/notes"}"#);
+    assert_eq!(
+        read_file(&restored.join("settings.json")),
+        r#"{"theme":"dark"}"#
+    );
+    assert_eq!(
+        read_file(&restored.join("workspace.json")),
+        r#"{"root":"D:/notes"}"#
+    );
 
     let _ = fs::remove_dir_all(&work);
 }
@@ -143,7 +150,11 @@ fn restore_rejects_tampered_snapshot_without_writing_it() {
     let report = service.restore(&backup_dir, &restored).expect("restore");
     assert!(!report.is_ok());
     assert!(!report.failed.is_empty());
-    assert!(report.failed[0].contains("checksum mismatch"), "{:?}", report.failed);
+    assert!(
+        report.failed[0].contains("checksum mismatch"),
+        "{:?}",
+        report.failed
+    );
     assert!(report.restored.is_empty());
     assert!(!report.integrity_ok);
     // 关键：被篡改的内容没有进入恢复目录。
@@ -166,9 +177,15 @@ fn restore_rejects_truncated_snapshot_even_if_length_matches_by_accident() {
     // 改成一个同样 10 字节但内容不同的快照：靠摘要拦住（不是长度）。
     write_file(&backup_dir.join("settings.json"), "abcdefghij");
 
-    let report = service.restore(&backup_dir, &work.join("restored")).expect("restore");
+    let report = service
+        .restore(&backup_dir, &work.join("restored"))
+        .expect("restore");
     assert!(!report.is_ok());
-    assert!(report.failed[0].contains("checksum mismatch"), "{:?}", report.failed);
+    assert!(
+        report.failed[0].contains("checksum mismatch"),
+        "{:?}",
+        report.failed
+    );
 
     let _ = fs::remove_dir_all(&work);
 }
@@ -198,7 +215,10 @@ fn restore_refuses_parent_traversal_entry() {
         entries,
         ..BackupManifest::default()
     };
-    write_file(&backup_dir.join("manifest.json"), &manifest.to_json().expect("encode"));
+    write_file(
+        &backup_dir.join("manifest.json"),
+        &manifest.to_json().expect("encode"),
+    );
 
     // 清单条目指向的位置放一份「快照」，诱导逃逸。
     write_file(&backup_dir.join("../outside/evil.json"), "{}");
@@ -239,14 +259,21 @@ fn restore_refuses_absolute_path_entry() {
         )],
         ..BackupManifest::default()
     };
-    write_file(&backup_dir.join("manifest.json"), &manifest.to_json().expect("encode"));
+    write_file(
+        &backup_dir.join("manifest.json"),
+        &manifest.to_json().expect("encode"),
+    );
     // 绝对路径在备份目录里的「快照」位置：直接以同名文件放在 backup 根（不写盘即拒）。
     write_file(&backup_dir.join("victim.json"), "payload");
 
     let service = BackupService::new();
     let report = service.restore(&backup_dir, &restored).expect("restore");
     assert!(!report.is_ok());
-    assert!(report.failed[0].contains("unsafe entry path"), "{:?}", report.failed);
+    assert!(
+        report.failed[0].contains("unsafe entry path"),
+        "{:?}",
+        report.failed
+    );
     // 绝对路径受害者未被恢复服务写过。
     assert!(!victim.exists());
 
@@ -305,7 +332,10 @@ fn restore_overwrites_only_the_listed_path() {
 
     let report = service.restore(&backup_dir, &restored).expect("restore");
     assert!(report.is_ok(), "{:?}", report);
-    assert_eq!(read_file(&restored.join("settings.json")), r#"{"theme":"dark"}"#);
+    assert_eq!(
+        read_file(&restored.join("settings.json")),
+        r#"{"theme":"dark"}"#
+    );
     assert_eq!(read_file(&restored.join("keep.md")), "untouched");
 
     let _ = fs::remove_dir_all(&work);
@@ -335,7 +365,9 @@ fn single_source_failure_does_not_abort_the_whole_backup() {
     // 第二个来源正常。
     register_json(&mut service, "settings", &live, r#"{"theme":"dark"}"#);
 
-    let manifest = service.backup(&backup_dir, "0.1.0", "drill").expect("backup");
+    let manifest = service
+        .backup(&backup_dir, "0.1.0", "drill")
+        .expect("backup");
     assert_eq!(manifest.entries.len(), 1);
     assert!(manifest.note.contains("失败来源"));
     assert!(manifest.note.contains("missing"));
@@ -356,7 +388,11 @@ fn duplicate_source_id_is_rejected() {
     write_file(&base.join("settings.json"), "{}");
 
     service
-        .register(Arc::new(JsonSource::new("settings", base.join("settings.json"), false)))
+        .register(Arc::new(JsonSource::new(
+            "settings",
+            base.join("settings.json"),
+            false,
+        )))
         .expect("first");
     let error = service.register(Arc::new(JsonSource::new(
         "settings",
@@ -422,14 +458,20 @@ fn nested_entry_path_is_restored_inside_destination() {
         )],
         ..BackupManifest::default()
     };
-    write_file(&backup_dir.join("manifest.json"), &manifest.to_json().expect("encode"));
+    write_file(
+        &backup_dir.join("manifest.json"),
+        &manifest.to_json().expect("encode"),
+    );
     fs::create_dir_all(backup_dir.join("config")).expect("create nested");
     fs::write(backup_dir.join("config/app.json"), payload).expect("write snapshot");
 
     let service = BackupService::new();
     let report = service.restore(&backup_dir, &restored).expect("restore");
     assert!(report.is_ok(), "{:?}", report);
-    assert_eq!(read_file(&restored.join("config/app.json")), String::from_utf8_lossy(payload));
+    assert_eq!(
+        read_file(&restored.join("config/app.json")),
+        String::from_utf8_lossy(payload)
+    );
     // staging 临时文件已改名走，不残留。
     let leftovers: Vec<String> = fs::read_dir(restored.join("config"))
         .expect("read dir")
@@ -437,7 +479,10 @@ fn nested_entry_path_is_restored_inside_destination() {
         .map(|entry| entry.file_name().to_string_lossy().to_string())
         .filter(|name| name.starts_with('.'))
         .collect();
-    assert!(leftovers.is_empty(), "leftover staging files: {leftovers:?}");
+    assert!(
+        leftovers.is_empty(),
+        "leftover staging files: {leftovers:?}"
+    );
 
     let _ = fs::remove_dir_all(&work);
 }

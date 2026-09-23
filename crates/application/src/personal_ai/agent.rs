@@ -57,7 +57,6 @@ pub struct PersonalHub {
     pub retrieval: Option<Arc<dyn crate::personal_ai::retrieval::RetrievalAugmenter>>,
     /// 可选的多 Agent 编排（V9）：未装配 = 单 Agent 直接回答（§43）。
     pub orchestration: Option<Arc<crate::agents::orchestrator::OrchestrationService>>,
-
 }
 
 /// PersonalAgent：一个核心服务，服务所有模块（V4 Principle 2）。
@@ -125,11 +124,7 @@ impl PersonalAgent {
 
         // V11 §104：provider 不支持的多模态输入 → 受控拒绝，不假装分析。
         let parts = request.effective_parts();
-        if let Some(reason) = self
-            .provider
-            .capabilities()
-            .unsupported_reason(&parts)
-        {
+        if let Some(reason) = self.provider.capabilities().unsupported_reason(&parts) {
             self.emit(AgentProgress::failed(
                 "personal_ai_unsupported_input",
                 reason.clone(),
@@ -153,7 +148,9 @@ impl PersonalAgent {
         // 是否注入、检索哪里、注入多少由注册的 `RetrievalAugmenter` 决定；
         // 未注册 / 无命中 / 检索失败 → 什么都不做（Principle 7）。
         if let Some(augmenter) = self.hub.retrieval.as_deref()
-            && let Some(block) = augmenter.augment(&request.message, &request.app_context).await
+            && let Some(block) = augmenter
+                .augment(&request.message, &request.app_context)
+                .await
         {
             system.push_str("\n\n");
             system.push_str(&block);
@@ -196,10 +193,8 @@ impl PersonalAgent {
                     &request.message,
                     decision_telemetry.strategy,
                 );
-                let parent_tools: Vec<String> = enabled_tools
-                    .iter()
-                    .map(|spec| spec.name.clone())
-                    .collect();
+                let parent_tools: Vec<String> =
+                    enabled_tools.iter().map(|spec| spec.name.clone()).collect();
                 let budget = devtoolbox_core::agents::AgentBudget::default();
                 let mut outcome = orchestration
                     .execute(
@@ -241,7 +236,9 @@ impl PersonalAgent {
         let multimodal = request
             .parts
             .iter()
-            .filter(|part| part.requires_vision() || matches!(part, devtoolbox_core::ContentPart::Audio { .. }))
+            .filter(|part| {
+                part.requires_vision() || matches!(part, devtoolbox_core::ContentPart::Audio { .. })
+            })
             .cloned()
             .collect::<Vec<_>>();
         let chat_messages = assemble_messages_with_parts(
@@ -324,9 +321,10 @@ impl PersonalAgent {
     }
 }
 
-
 /// `OrchestrationTrace` → 可序列化视图（§72：无 secret / 无正文 / 无隐藏推理）。
-fn trace_view(trace: &crate::agents::orchestrator::OrchestrationTrace) -> devtoolbox_core::OrchestrationTraceView {
+fn trace_view(
+    trace: &crate::agents::orchestrator::OrchestrationTrace,
+) -> devtoolbox_core::OrchestrationTraceView {
     devtoolbox_core::OrchestrationTraceView {
         trace_id: trace.trace_id.clone(),
         decision: trace.decision.clone(),
@@ -345,7 +343,10 @@ fn trace_view(trace: &crate::agents::orchestrator::OrchestrationTrace) -> devtoo
                 error_code: run.error_code.clone(),
             })
             .collect(),
-        review: trace.review.as_ref().map(|finding| finding.verdict.as_str().to_string()),
+        review: trace
+            .review
+            .as_ref()
+            .map(|finding| finding.verdict.as_str().to_string()),
         merged: trace.merged,
         stopped_early: trace.stopped_early.map(str::to_string),
         decision_provider: trace
@@ -394,9 +395,9 @@ fn uid16() -> String {
 
 #[cfg(test)]
 mod tests {
-    use devtoolbox_core::{ChatRequest, ToolResult};
     use super::*;
     use crate::personal_ai::registry::ToolExecutor;
+    use devtoolbox_core::{ChatRequest, ToolResult};
     use devtoolbox_core::{
         ChatToolCall, ModuleDescriptor, ToolRisk, ToolSpec, personal_ai::AppContext,
     };

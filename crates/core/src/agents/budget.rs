@@ -146,23 +146,38 @@ mod tests {
         let budget = AgentBudget::default();
         for (used, reason) in [
             (
-                BudgetUsage { agents: 5, ..BudgetUsage::default() },
+                BudgetUsage {
+                    agents: 5,
+                    ..BudgetUsage::default()
+                },
                 "max_agents",
             ),
             (
-                BudgetUsage { steps: 17, ..BudgetUsage::default() },
+                BudgetUsage {
+                    steps: 17,
+                    ..BudgetUsage::default()
+                },
                 "max_steps",
             ),
             (
-                BudgetUsage { tool_calls: 25, ..BudgetUsage::default() },
+                BudgetUsage {
+                    tool_calls: 25,
+                    ..BudgetUsage::default()
+                },
                 "max_tool_calls",
             ),
             (
-                BudgetUsage { tokens: 60_001, ..BudgetUsage::default() },
+                BudgetUsage {
+                    tokens: 60_001,
+                    ..BudgetUsage::default()
+                },
                 "max_tokens",
             ),
             (
-                BudgetUsage { elapsed_ms: 120_001, ..BudgetUsage::default() },
+                BudgetUsage {
+                    elapsed_ms: 120_001,
+                    ..BudgetUsage::default()
+                },
                 "max_duration",
             ),
         ] {
@@ -181,7 +196,10 @@ mod tests {
             tokens: 60_000,
             elapsed_ms: 120_000,
         };
-        assert!(check_budget(&budget, &at_limit).is_within(), "恰好用满仍算在内");
+        assert!(
+            check_budget(&budget, &at_limit).is_within(),
+            "恰好用满仍算在内"
+        );
         assert!(!can_start_agent(&budget, &at_limit), "名额已满不得再启动");
     }
 
@@ -201,12 +219,18 @@ mod tests {
         assert_eq!(child.max_agents, 1);
 
         // 父已用尽 → 子预算归零（调用方拒绝启动）。
-        let exhausted = child_budget(&budget, &BudgetUsage {
-            steps: 16,
-            tokens: 60_000,
-            elapsed_ms: 120_000,
-            ..BudgetUsage::default()
-        }, 8, 20_000, 30_000);
+        let exhausted = child_budget(
+            &budget,
+            &BudgetUsage {
+                steps: 16,
+                tokens: 60_000,
+                elapsed_ms: 120_000,
+                ..BudgetUsage::default()
+            },
+            8,
+            20_000,
+            30_000,
+        );
         assert_eq!(exhausted.max_steps, 0);
         assert_eq!(exhausted.max_tokens, 0);
         assert_eq!(exhausted.max_duration_ms, 0, "V9-D4：父耗尽 → 子 0");
@@ -214,8 +238,18 @@ mod tests {
 
     #[test]
     fn usage_combine_sums_and_takes_max_elapsed() {
-        let left = BudgetUsage { agents: 1, steps: 2, elapsed_ms: 30, ..Default::default() };
-        let right = BudgetUsage { agents: 1, steps: 3, elapsed_ms: 50, ..Default::default() };
+        let left = BudgetUsage {
+            agents: 1,
+            steps: 2,
+            elapsed_ms: 30,
+            ..Default::default()
+        };
+        let right = BudgetUsage {
+            agents: 1,
+            steps: 3,
+            elapsed_ms: 50,
+            ..Default::default()
+        };
         let combined = left.combine(right);
         assert_eq!(combined.agents, 2);
         assert_eq!(combined.steps, 5);

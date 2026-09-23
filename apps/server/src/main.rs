@@ -140,9 +140,9 @@ async fn main() -> ExitCode {
         }
     };
 
-    let service = HistoryService::new(Box::new(history_query::HistoryQueryAdapter::new(
-        Arc::new(repository),
-    )));
+    let service = HistoryService::new(Box::new(history_query::HistoryQueryAdapter::new(Arc::new(
+        repository,
+    ))));
     let app = routes::router(Arc::new(service));
     info!(
         bind = %config.bind,

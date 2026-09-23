@@ -178,10 +178,7 @@ impl ToolCallResult {
     pub fn structured(payload: Value) -> Self {
         let text = serde_json::to_string_pretty(&payload).unwrap_or_else(|_| payload.to_string());
         Self {
-            content: vec![ContentBlock {
-                kind: "text",
-                text,
-            }],
+            content: vec![ContentBlock { kind: "text", text }],
             is_error: false,
             structured_content: Some(payload),
         }
@@ -281,7 +278,13 @@ mod tests {
     #[test]
     fn custom_auth_error_codes_are_stable() {
         // §41：四态 + provider 不可用；不与 JSON-RPC 标准码冲突。
-        for code in [UNAUTHENTICATED, INVALID_TOKEN, EXPIRED_TOKEN, INSUFFICIENT_SCOPE, PROVIDER_UNAVAILABLE] {
+        for code in [
+            UNAUTHENTICATED,
+            INVALID_TOKEN,
+            EXPIRED_TOKEN,
+            INSUFFICIENT_SCOPE,
+            PROVIDER_UNAVAILABLE,
+        ] {
             assert!((-32099..=-32000).contains(&code), "{code}");
         }
         assert_eq!(UNAUTHENTICATED, -32001);

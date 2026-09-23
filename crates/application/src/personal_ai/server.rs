@@ -26,7 +26,9 @@ use devtoolbox_core::{AgentError, ModuleDescriptor, ToolResult, ToolRisk, ToolSp
 
 use crate::personal_ai::args::{optional_string, require_string, tool_error, usize_arg};
 use crate::personal_ai::context::{ContextBudget, ContextBundle, ModuleContextProvider};
-use crate::personal_ai::registry::{ModuleRegistration, ModuleRegistry, ToolExecutor, ToolRegistry};
+use crate::personal_ai::registry::{
+    ModuleRegistration, ModuleRegistry, ToolExecutor, ToolRegistry,
+};
 use crate::server::action::{ActionPlan, SafeActionService};
 use crate::server::logs::LogRedactor;
 use crate::server::registry::{ApplicationRegistryService, ServiceRegistryService};
@@ -204,13 +206,17 @@ impl ServerTools {
     fn services_get(&self, arguments: &serde_json::Value) -> Result<ToolResult, AgentError> {
         let service_id = require_string(arguments, "service_id")?;
         let service = self.services.resolve(&service_id).map_err(tool_error)?;
-        Ok(ToolResult::ok(serde_json::to_value(&service).map_err(json_error)?))
+        Ok(ToolResult::ok(
+            serde_json::to_value(&service).map_err(json_error)?,
+        ))
     }
 
     fn services_status(&self, arguments: &serde_json::Value) -> Result<ToolResult, AgentError> {
         let service_id = require_string(arguments, "service_id")?;
         let status = self.services.status(&service_id).map_err(tool_error)?;
-        Ok(ToolResult::ok(serde_json::to_value(&status).map_err(json_error)?))
+        Ok(ToolResult::ok(
+            serde_json::to_value(&status).map_err(json_error)?,
+        ))
     }
 
     /// 有界 / 脱敏 / 不受信标记的日志读取（§37-§41）。
@@ -222,7 +228,10 @@ impl ServerTools {
             max_bytes: usize_arg(arguments, "max_bytes").unwrap_or(0),
             max_age_secs: usize_arg(arguments, "max_age_secs").unwrap_or(0) as u64,
         };
-        let service = self.services.resolve(&request.service_id).map_err(tool_error)?;
+        let service = self
+            .services
+            .resolve(&request.service_id)
+            .map_err(tool_error)?;
         let (lines, bytes, age) = devtoolbox_core::server::logs::clamp_limits(&request);
         let raw = self
             .log_reader
@@ -233,10 +242,12 @@ impl ServerTools {
                 bytes,
                 age,
             )
-            .map_err(|message| tool_error(crate::error::ApplicationError::Server {
-                reason: "log_read_failed".into(),
-                message,
-            }))?;
+            .map_err(|message| {
+                tool_error(crate::error::ApplicationError::Server {
+                    reason: "log_read_failed".into(),
+                    message,
+                })
+            })?;
         let redacted = LogRedactor::redact(raw);
         // §41/§4.3：日志正文用 `<untrusted_log>` 包裹后交给模型 —— 它是数据，
         // 其中的「忽略以上指令 / 重启服务」等文字不得被视为指令。
@@ -310,9 +321,12 @@ impl ServerTools {
                     serde_json::json!({"ui_hint": {"actions": [action]}}),
                 ))
             }
-            ActionPlan::Denied { reason, detail } => Err(tool_error(
-                crate::error::ApplicationError::Server { reason, message: detail },
-            )),
+            ActionPlan::Denied { reason, detail } => {
+                Err(tool_error(crate::error::ApplicationError::Server {
+                    reason,
+                    message: detail,
+                }))
+            }
             ActionPlan::Executed(outcome) => Ok(ToolResult::ok(serde_json::json!({
                 "confirmation_required": false,
                 "outcome": outcome.as_str(),
@@ -345,13 +359,17 @@ impl ServerTools {
     fn apps_get(&self, arguments: &serde_json::Value) -> Result<ToolResult, AgentError> {
         let app_id = require_string(arguments, "app_id")?;
         let app = self.apps.resolve(&app_id).map_err(tool_error)?;
-        Ok(ToolResult::ok(serde_json::to_value(&app).map_err(json_error)?))
+        Ok(ToolResult::ok(
+            serde_json::to_value(&app).map_err(json_error)?,
+        ))
     }
 
     fn apps_status(&self, arguments: &serde_json::Value) -> Result<ToolResult, AgentError> {
         let app_id = require_string(arguments, "app_id")?;
         let status = self.apps.status(&app_id).map_err(tool_error)?;
-        Ok(ToolResult::ok(serde_json::to_value(&status).map_err(json_error)?))
+        Ok(ToolResult::ok(
+            serde_json::to_value(&status).map_err(json_error)?,
+        ))
     }
 
     /// `apps.open(app_id)` → `OpenApp` Action（§46/§48：不接受 URL）。
@@ -629,6 +647,7 @@ impl ModuleContextProvider for ServerProviderOwned {
 /// 与 V5/V6 模块同构：`ModuleDescriptor + tools + ContextProvider + register_*`。
 /// 工具全部注册为 `Read` 风险——SYSTEM 语义在 `SafeActionService` 的确认票据里，
 /// 由桌面命令 `confirm_action` 强制（§53/§108：risk 是真执行门禁，不只是元数据）。
+#[allow(clippy::too_many_arguments)]
 pub fn register_server(
     modules: &mut ModuleRegistry,
     tools: &mut ToolRegistry,
@@ -666,12 +685,7 @@ pub fn register_server(
         context_provider: Some(Arc::new(ServerProviderOwned { tools: shared })),
     })?;
     let shared = Arc::new(ServerTools::new(
-        server,
-        services,
-        apps,
-        actions,
-        log_reader,
-        trust,
+        server, services, apps, actions, log_reader, trust,
     ));
     for name in TOOL_NAMES {
         tools.register(Arc::new(ToolImpl {

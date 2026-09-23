@@ -14,16 +14,14 @@ use devtoolbox_application::documents::{
     DocumentIndexPort, DocumentService, DocumentSourcePort, DocumentStoreError, ExtractedContent,
     ScannedDocument,
 };
-use devtoolbox_application::files::{
-    FileIndexError, FileIndexPort, FileService, FileSystemPort,
-};
-use devtoolbox_application::search::{
-    DocumentSearchPort, FileSearchPort, GlobalSearchService, MemorySearchPort,
-};
+use devtoolbox_application::files::{FileIndexError, FileIndexPort, FileService, FileSystemPort};
 use devtoolbox_application::knowledge::{
     DocumentRetriever, FileRetriever, KnowledgeMetrics, KnowledgeRetrievalService, MemoryRetriever,
 };
 use devtoolbox_application::memory::{MemoryService, MemoryStoreError, MemoryStorePort};
+use devtoolbox_application::search::{
+    DocumentSearchPort, FileSearchPort, GlobalSearchService, MemorySearchPort,
+};
 use devtoolbox_core::documents::{
     DocumentChunk, DocumentFingerprint, DocumentHit, DocumentIndexStats, DocumentMeta, DocumentType,
 };
@@ -46,7 +44,6 @@ pub type SettingsLoader = Arc<dyn Fn() -> Result<AppSettings, String> + Send + S
 pub type KnowledgeSettingsLoader = Arc<dyn Fn() -> KnowledgeSettings + Send + Sync>;
 
 /// 全局检索服务（V11-O：不依赖 LLM，本地索引）。
-
 /// 由设置读取器派生「只取知识设置」的读取器。
 #[must_use]
 pub fn knowledge_settings_loader(loader: &SettingsLoader) -> KnowledgeSettingsLoader {
@@ -134,7 +131,6 @@ impl DocumentIndexPort for DocumentIndexAdapter {
     fn chunks(&self, document_id: &str) -> Result<Vec<DocumentChunk>, DocumentStoreError> {
         self.store.chunks(document_id).map_err(err_text_documents)
     }
-
 
     fn search_candidates(
         &self,
@@ -346,7 +342,10 @@ impl KnowledgeRuntime {
         let search = Arc::new(GlobalSearchService::new(vec![
             Arc::new(MemorySearchPort::new(Arc::clone(&memory))),
             Arc::new(DocumentSearchPort::new(Arc::clone(&documents))),
-            Arc::new(FileSearchPort::new(Arc::clone(&files), Arc::clone(&settings))),
+            Arc::new(FileSearchPort::new(
+                Arc::clone(&files),
+                Arc::clone(&settings),
+            )),
         ]));
         Ok(Self {
             memory,
@@ -381,7 +380,10 @@ impl KnowledgeRuntime {
                 for report in &reports {
                     notes.push(format!(
                         "documents:{} scanned={} indexed={} unchanged={} failed={}",
-                        report.root_id, report.scanned, report.indexed, report.unchanged,
+                        report.root_id,
+                        report.scanned,
+                        report.indexed,
+                        report.unchanged,
                         report.failed
                     ));
                 }

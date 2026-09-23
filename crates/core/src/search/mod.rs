@@ -10,6 +10,6 @@
 pub mod model;
 
 pub use model::{
-    DEFAULT_LIMIT_PER_SOURCE, MAX_SNIPPET_CHARS, MAX_TOTAL_HITS, GlobalSearchHit,
-    GlobalSearchQuery, GlobalSearchResult, SearchSource, bound_snippet,
+    DEFAULT_LIMIT_PER_SOURCE, GlobalSearchHit, GlobalSearchQuery, GlobalSearchResult,
+    MAX_SNIPPET_CHARS, MAX_TOTAL_HITS, SearchSource, bound_snippet,
 };

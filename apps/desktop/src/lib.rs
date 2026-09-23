@@ -970,9 +970,7 @@ async fn personal_ai_chat(
         Arc::clone(&state.ai),
         Arc::clone(&state.ai_session),
     )
-    .with_progress_sink(Arc::new(TauriProgressSink {
-        app: app.clone(),
-    }));
+    .with_progress_sink(Arc::new(TauriProgressSink { app: app.clone() }));
     let started = std::time::Instant::now();
     let result = agent.run(request).await;
     match &result {
@@ -1023,11 +1021,7 @@ struct MemoryCategoryCountDto {
 }
 
 fn memory_stats(state: &State<'_, AppState>) -> Result<MemoryStatsDto, CommandError> {
-    let stats = state
-        .knowledge
-        .memory
-        .stats()
-        .map_err(CommandError::from)?;
+    let stats = state.knowledge.memory.stats().map_err(CommandError::from)?;
     let categories = state
         .knowledge
         .memory
@@ -1192,7 +1186,10 @@ fn conversation_update(
     archived: Option<bool>,
 ) -> Result<(), CommandError> {
     if let Some(title) = title {
-        state.conversation.rename(&id, &title).map_err(CommandError::from)?;
+        state
+            .conversation
+            .rename(&id, &title)
+            .map_err(CommandError::from)?;
     }
     if let Some(archived) = archived {
         state
@@ -1238,10 +1235,7 @@ fn conversation_append(
 #[tauri::command]
 /// 删除会话（连消息一起删）。
 fn conversation_delete(state: State<'_, AppState>, id: String) -> Result<(), CommandError> {
-    state
-        .conversation
-        .delete(&id)
-        .map_err(CommandError::from)?;
+    state.conversation.delete(&id).map_err(CommandError::from)?;
     Ok(())
 }
 
@@ -1269,29 +1263,30 @@ struct MemoryDraftRequest {
     confidence: Option<f32>,
 }
 
-fn memory_draft(request: MemoryDraftRequest) -> Result<devtoolbox_core::memory::MemoryDraft, CommandError> {
-    let category = parse_memory_category(Some(&request.category))?
-        .ok_or_else(|| CommandError {
-            code: "memory_error",
-            message: "记忆分类不能为空".to_string(),
-        })?;
+fn memory_draft(
+    request: MemoryDraftRequest,
+) -> Result<devtoolbox_core::memory::MemoryDraft, CommandError> {
+    let category = parse_memory_category(Some(&request.category))?.ok_or_else(|| CommandError {
+        code: "memory_error",
+        message: "记忆分类不能为空".to_string(),
+    })?;
     let source_type = match request.source_type.as_deref() {
         None => devtoolbox_core::memory::MemorySourceType::ExplicitUser,
-        Some(raw) => devtoolbox_core::memory::MemorySourceType::parse(raw).ok_or_else(|| {
-            CommandError {
+        Some(raw) => {
+            devtoolbox_core::memory::MemorySourceType::parse(raw).ok_or_else(|| CommandError {
                 code: "memory_error",
                 message: format!("未知来源类型：{raw}"),
-            }
-        })?,
+            })?
+        }
     };
     let sensitivity = match request.sensitivity.as_deref() {
         None => devtoolbox_core::memory::MemorySensitivity::Normal,
-        Some(raw) => devtoolbox_core::memory::MemorySensitivity::parse(raw).ok_or_else(|| {
-            CommandError {
+        Some(raw) => {
+            devtoolbox_core::memory::MemorySensitivity::parse(raw).ok_or_else(|| CommandError {
                 code: "memory_error",
                 message: format!("未知敏感度：{raw}"),
-            }
-        })?,
+            })?
+        }
     };
     Ok(devtoolbox_core::memory::MemoryDraft {
         category,
@@ -1363,7 +1358,10 @@ fn memory_confirm(
 }
 
 #[tauri::command]
-fn memory_reject(state: State<'_, AppState>, id: String) -> Result<serde_json::Value, CommandError> {
+fn memory_reject(
+    state: State<'_, AppState>,
+    id: String,
+) -> Result<serde_json::Value, CommandError> {
     let item = state
         .knowledge
         .memory
@@ -1373,7 +1371,10 @@ fn memory_reject(state: State<'_, AppState>, id: String) -> Result<serde_json::V
 }
 
 #[tauri::command]
-fn memory_archive(state: State<'_, AppState>, id: String) -> Result<serde_json::Value, CommandError> {
+fn memory_archive(
+    state: State<'_, AppState>,
+    id: String,
+) -> Result<serde_json::Value, CommandError> {
     let item = state
         .knowledge
         .memory
@@ -1500,11 +1501,10 @@ fn documents_scan(
                 .map_err(CommandError::from)?,
         );
     }
-    state.knowledge.metrics.record_index(
-        &reports,
-        &[],
-        started.elapsed().as_millis() as u64,
-    );
+    state
+        .knowledge
+        .metrics
+        .record_index(&reports, &[], started.elapsed().as_millis() as u64);
     Ok(reports)
 }
 
@@ -1530,10 +1530,10 @@ fn documents_search(
         .documents
         .search(&query, document_type, limit.unwrap_or(0))
         .map_err(CommandError::from)?;
-    state.knowledge.metrics.record_tool(
-        "documents.search",
-        started.elapsed().as_millis() as u64,
-    );
+    state
+        .knowledge
+        .metrics
+        .record_tool("documents.search", started.elapsed().as_millis() as u64);
     let results = state
         .knowledge
         .documents
@@ -1789,10 +1789,7 @@ fn knowledge_status(state: State<'_, AppState>) -> Result<KnowledgeStatusDto, Co
 
 #[tauri::command]
 fn server_status(state: State<'_, AppState>) -> Result<serde_json::Value, CommandError> {
-    let status = state
-        .server
-        .status()
-        .map_err(|message| server_command_error(message))?;
+    let status = state.server.status().map_err(server_command_error)?;
     serde_json::to_value(&status).map_err(|error| CommandError {
         code: "server_error",
         message: error.to_string(),
@@ -1800,7 +1797,9 @@ fn server_status(state: State<'_, AppState>) -> Result<serde_json::Value, Comman
 }
 
 #[tauri::command]
-fn server_services_list(state: State<'_, AppState>) -> Result<Vec<serde_json::Value>, CommandError> {
+fn server_services_list(
+    state: State<'_, AppState>,
+) -> Result<Vec<serde_json::Value>, CommandError> {
     let statuses = state.server.services.status_all();
     Ok(statuses
         .iter()
@@ -1896,10 +1895,13 @@ fn cancel_action(
     state: State<'_, AppState>,
     confirmation_id: String,
 ) -> Result<serde_json::Value, CommandError> {
-    let outcome = state.server.cancel(&confirmation_id).map_err(|message| CommandError {
-        code: "server_error",
-        message,
-    })?;
+    let outcome = state
+        .server
+        .cancel(&confirmation_id)
+        .map_err(|message| CommandError {
+            code: "server_error",
+            message,
+        })?;
     Ok(serde_json::json!({"outcome": outcome.as_str()}))
 }
 
@@ -2267,8 +2269,7 @@ pub fn run() {
                 .filter(|ai| ai.is_configured())
                 .map(|ai| personal_ai::build_provider(client.clone(), &ai));
             // V10：hub 装配读取一次当前 settings（决策模式 + Jev key + AI 配置）。
-            let hub_settings: AppSettings = (enrichment_settings)()
-                .unwrap_or_default();
+            let hub_settings: AppSettings = (enrichment_settings)().unwrap_or_default();
             let client_for_hub = client.clone();
             // V11-M Study Board：SQLite 存储（与 memory/documents/files 同一 data 目录）。
             let conversation_store = Arc::new(
@@ -2286,8 +2287,8 @@ pub fn run() {
                     composition::ConversationStoreAdapter::new(conversation_store),
                 )),
             );
-            let study_board_store: Arc<dyn devtoolbox_application::StudyBoardStorePort> = Arc::new(
-                composition::StudyBoardStoreAdapter::new(Arc::new(
+            let study_board_store: Arc<dyn devtoolbox_application::StudyBoardStorePort> =
+                Arc::new(composition::StudyBoardStoreAdapter::new(Arc::new(
                     devtoolbox_infrastructure::StudyBoardSqliteStore::open(
                         config_directory.join("study_boards.db"),
                     )
@@ -2296,8 +2297,7 @@ pub fn run() {
                         devtoolbox_infrastructure::StudyBoardSqliteStore::open_in_memory()
                             .expect("in-memory study board store")
                     }),
-                )),
-            );
+                )));
             app.manage(AppState {
                 rss_repository,
                 rss_fetcher: composition::FeedFetcherAdapter::new(client.clone()),

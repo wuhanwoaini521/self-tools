@@ -2,6 +2,12 @@
 //!
 //! application 只依赖端口；Search / LLM / 持久化实现由组合根（desktop）按设置装配；
 //! Canonical 读取复用 `HistoryQueryPort`（V3 只读）。
+#![allow(
+    clippy::field_reassign_with_default,
+    clippy::unnecessary_sort_by,
+    clippy::drop_non_drop,
+    clippy::uninlined_format_args
+)]
 
 use std::sync::Arc;
 
@@ -107,12 +113,13 @@ pub trait EnrichmentStore: Send + Sync {
 /// `EventResult` 的 revision 指纹：canonical 内容变化 → 指纹变化 → 富化转 STALE。
 #[must_use]
 pub fn event_revision_fingerprint(event: &EventResult) -> String {
-    let mut acc = Vec::new();
-    acc.push(event.id.clone());
-    acc.push(event.quality_status.clone().unwrap_or_default());
-    acc.push(event.source_reference.clone().unwrap_or_default());
-    acc.push(event.source_ids.clone().unwrap_or_default());
-    acc.push(event.summary_zh_cn.clone().unwrap_or_default());
+    let acc = vec![
+        event.id.clone(),
+        event.quality_status.clone().unwrap_or_default(),
+        event.source_reference.clone().unwrap_or_default(),
+        event.source_ids.clone().unwrap_or_default(),
+        event.summary_zh_cn.clone().unwrap_or_default(),
+    ];
     // 常规字符串哈希（不引入外部依赖）。
     use std::hash::{Hash, Hasher};
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
