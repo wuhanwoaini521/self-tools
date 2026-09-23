@@ -338,6 +338,106 @@ impl StudyBoardStorePort for StudyBoardStoreAdapter {
     }
 }
 
+// ---------- Conversation（SQLite 适配器 → application 端口，V11 §96） ----------
+
+use devtoolbox_core::personal_ai::conversation::{
+    Conversation, ConversationMessage, ConversationSummary,
+};
+
+/// 把 `devtoolbox_infrastructure::ConversationSqliteStore` 包装成 application 端口。
+/// 只做错误类型转换；时间戳由 store 的 `now` 参数决定（调用方给 `now_unix`）。
+pub struct ConversationStoreAdapter {
+    store: Arc<devtoolbox_infrastructure::ConversationSqliteStore>,
+}
+
+impl ConversationStoreAdapter {
+    #[must_use]
+    pub fn new(store: Arc<devtoolbox_infrastructure::ConversationSqliteStore>) -> Self {
+        Self { store }
+    }
+}
+
+fn conversation_error(
+    error: devtoolbox_infrastructure::InfrastructureError,
+) -> devtoolbox_application::personal_ai::ConversationStoreError {
+    devtoolbox_application::personal_ai::ConversationStoreError(error.to_string())
+}
+
+impl devtoolbox_application::personal_ai::ConversationStore for ConversationStoreAdapter {
+    fn list(
+        &self,
+        limit: usize,
+    ) -> Result<Vec<ConversationSummary>, devtoolbox_application::personal_ai::ConversationStoreError>
+    {
+        self.store.list(limit, false).map_err(conversation_error)
+    }
+
+    fn list_all(
+        &self,
+        limit: usize,
+    ) -> Result<Vec<ConversationSummary>, devtoolbox_application::personal_ai::ConversationStoreError>
+    {
+        self.store.list(limit, true).map_err(conversation_error)
+    }
+
+    fn load(
+        &self,
+        conversation_id: &str,
+    ) -> Result<Option<Conversation>, devtoolbox_application::personal_ai::ConversationStoreError>
+    {
+        self.store.load(conversation_id).map_err(conversation_error)
+    }
+
+    fn create(
+        &self,
+        title: &str,
+        module_origin: Option<&str>,
+    ) -> Result<Conversation, devtoolbox_application::personal_ai::ConversationStoreError> {
+        self.store
+            .create(title, module_origin, devtoolbox_infrastructure::now_unix())
+            .map_err(conversation_error)
+    }
+
+    fn append_message(
+        &self,
+        conversation_id: &str,
+        message: &ConversationMessage,
+    ) -> Result<(), devtoolbox_application::personal_ai::ConversationStoreError> {
+        self.store
+            .append_message(conversation_id, message, devtoolbox_infrastructure::now_unix())
+            .map_err(conversation_error)
+    }
+
+    fn rename(
+        &self,
+        conversation_id: &str,
+        title: &str,
+    ) -> Result<(), devtoolbox_application::personal_ai::ConversationStoreError> {
+        self.store
+            .rename(conversation_id, title)
+            .map_err(conversation_error)
+    }
+
+    fn set_archived(
+        &self,
+        conversation_id: &str,
+        archived: bool,
+    ) -> Result<(), devtoolbox_application::personal_ai::ConversationStoreError> {
+        self.store
+            .set_archived(conversation_id, archived)
+            .map_err(conversation_error)
+    }
+
+    fn delete(
+        &self,
+        conversation_id: &str,
+    ) -> Result<(), devtoolbox_application::personal_ai::ConversationStoreError> {
+        self.store
+            .delete(conversation_id)
+            .map_err(conversation_error)
+    }
+}
+
 // ---------- RSS（SQLite 仓储 + HTTP 抓取适配器，Gate 7.6） ----------
 
 use devtoolbox_application::rss::{

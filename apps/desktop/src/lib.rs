@@ -133,6 +133,8 @@ pub struct AppState {
     pub ai: Arc<PersonalHub>,
     /// Personal AI 会话存储（V4 §34，内存；P1 再持久化）。
     pub ai_session: Arc<InMemorySessionStore>,
+    /// V11-K 会话历史（持久化；与 Memory 分离）。
+    pub conversation: Arc<devtoolbox_application::personal_ai::ConversationService>,
     /// History Enrichment 运行器（V5 Gate 4；命令与 agent 工具共用）。
     pub history_enrichment: Arc<dyn EnrichmentRunnerPort>,
     /// Personal Knowledge 运行时（V6：memory / documents / files + 统一检索）。
@@ -1079,6 +1081,168 @@ fn memory_list(
         .list(&spec)
         .map_err(CommandError::from)?;
     Ok(items.iter().map(memory_item_json).collect())
+}
+
+#[tauri::command]
+/// V11-O 全局检索：跨 Memory / Documents / Files（+ 后续 Sources）一次搜完。
+/// **零 LLM 依赖**：即使 AI 未配置也能用（§121）。
+fn global_search(
+    state: State<'_, AppState>,
+    query: String,
+    limit: Option<usize>,
+) -> Result<devtoolbox_core::search::GlobalSearchResult, CommandError> {
+    let query = query.trim().to_string();
+    if query.is_empty() {
+        return Err(CommandError {
+            code: "global_search_empty_query",
+            message: "搜索关键词不能为空".to_string(),
+        });
+    }
+    let search = devtoolbox_core::search::GlobalSearchQuery {
+        query,
+        limit_per_source: limit.unwrap_or(5).clamp(1, 20),
+        sources: Vec::new(),
+    };
+    Ok(state.knowledge.search.search(&search))
+}
+
+#[tauri::command]
+/// V11-K 会话历史：列表（`include_archived` = 「显示已归档」开关）。
+fn conversation_list(
+    state: State<'_, AppState>,
+    limit: Option<usize>,
+    include_archived: Option<bool>,
+) -> Result<Vec<serde_json::Value>, CommandError> {
+    let limit = limit.unwrap_or(20).clamp(1, 100);
+    let items = if include_archived.unwrap_or(false) {
+        state.conversation.list_all(limit)
+    } else {
+        state.conversation.list(limit)
+    }
+    .map_err(CommandError::from)?;
+    Ok(items
+        .iter()
+        .map(|item| {
+            serde_json::json!({
+                "conversation_id": item.conversation_id,
+                "title": item.title,
+                "module_origin": item.module_origin,
+                "created_at": item.created_at,
+                "updated_at": item.updated_at,
+                "message_count": item.message_count,
+                "archived": item.archived,
+            })
+        })
+        .collect())
+}
+
+#[tauri::command]
+/// 读取一个会话（供「继续」恢复消息）。
+fn conversation_load(
+    state: State<'_, AppState>,
+    id: String,
+) -> Result<serde_json::Value, CommandError> {
+    let conversation = state
+        .conversation
+        .load(&id)
+        .map_err(CommandError::from)?
+        .ok_or_else(|| CommandError {
+            code: "conversation_not_found",
+            message: "会话不存在".to_string(),
+        })?;
+    Ok(serde_json::json!({
+        "conversation_id": conversation.conversation_id,
+        "title": conversation.title,
+        "module_origin": conversation.module_origin,
+        "created_at": conversation.created_at,
+        "updated_at": conversation.updated_at,
+        "archived": conversation.archived,
+        "messages": conversation.messages.iter().map(|message| serde_json::json!({
+            "role": message.role.as_str(),
+            "content": message.content,
+            "provider": message.provider,
+            "model": message.model,
+            "created_at": message.created_at,
+        })).collect::<Vec<_>>(),
+    }))
+}
+
+#[tauri::command]
+/// 新建会话（New Chat）。
+fn conversation_create(
+    state: State<'_, AppState>,
+    title: Option<String>,
+) -> Result<serde_json::Value, CommandError> {
+    let conversation = state
+        .conversation
+        .create(title.as_deref().unwrap_or(""), None)
+        .map_err(CommandError::from)?;
+    Ok(serde_json::json!({
+        "conversation_id": conversation.conversation_id,
+        "title": conversation.title,
+    }))
+}
+
+#[tauri::command]
+/// 重命名 / 归档 / 删除。
+fn conversation_update(
+    state: State<'_, AppState>,
+    id: String,
+    title: Option<String>,
+    archived: Option<bool>,
+) -> Result<(), CommandError> {
+    if let Some(title) = title {
+        state.conversation.rename(&id, &title).map_err(CommandError::from)?;
+    }
+    if let Some(archived) = archived {
+        state
+            .conversation
+            .set_archived(&id, archived)
+            .map_err(CommandError::from)?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+/// 追加一条消息（assistant 带 provider/model 来源元数据）。
+fn conversation_append(
+    state: State<'_, AppState>,
+    id: String,
+    role: String,
+    content: String,
+    provider: Option<String>,
+    model: Option<String>,
+) -> Result<(), CommandError> {
+    let role = match role.trim().to_ascii_lowercase().as_str() {
+        "user" => devtoolbox_core::personal_ai::conversation::ConversationRole::User,
+        "assistant" => devtoolbox_core::personal_ai::conversation::ConversationRole::Assistant,
+        "tool" => devtoolbox_core::personal_ai::conversation::ConversationRole::Tool,
+        other => {
+            return Err(CommandError {
+                code: "conversation_invalid_role",
+                message: format!("未知消息角色：{other}"),
+            });
+        }
+    };
+    let mut message =
+        devtoolbox_core::personal_ai::conversation::ConversationMessage::new(role, content);
+    message.provider = provider;
+    message.model = model;
+    state
+        .conversation
+        .append(&id, message)
+        .map_err(CommandError::from)?;
+    Ok(())
+}
+
+#[tauri::command]
+/// 删除会话（连消息一起删）。
+fn conversation_delete(state: State<'_, AppState>, id: String) -> Result<(), CommandError> {
+    state
+        .conversation
+        .delete(&id)
+        .map_err(CommandError::from)?;
+    Ok(())
 }
 
 #[tauri::command]
@@ -2107,6 +2271,21 @@ pub fn run() {
                 .unwrap_or_default();
             let client_for_hub = client.clone();
             // V11-M Study Board：SQLite 存储（与 memory/documents/files 同一 data 目录）。
+            let conversation_store = Arc::new(
+                devtoolbox_infrastructure::ConversationSqliteStore::open(
+                    config_directory.join("conversations.db"),
+                )
+                .unwrap_or_else(|error| {
+                    eprintln!("[conversation] store unavailable: {error}");
+                    devtoolbox_infrastructure::ConversationSqliteStore::open_in_memory()
+                        .expect("in-memory conversation store")
+                }),
+            );
+            let conversation_service = Arc::new(
+                devtoolbox_application::personal_ai::ConversationService::new(Arc::new(
+                    composition::ConversationStoreAdapter::new(conversation_store),
+                )),
+            );
             let study_board_store: Arc<dyn devtoolbox_application::StudyBoardStorePort> = Arc::new(
                 composition::StudyBoardStoreAdapter::new(Arc::new(
                     devtoolbox_infrastructure::StudyBoardSqliteStore::open(
@@ -2142,6 +2321,7 @@ pub fn run() {
                     client_for_hub,
                 ),
                 ai_session: Arc::new(InMemorySessionStore::new()),
+                conversation: conversation_service,
                 history_enrichment,
                 knowledge,
                 server: server_runtime,
@@ -2184,6 +2364,13 @@ pub fn run() {
             personal_ai_status,
             personal_ai_chat,
             memory_status,
+            global_search,
+            conversation_list,
+            conversation_load,
+            conversation_create,
+            conversation_update,
+            conversation_append,
+            conversation_delete,
             memory_list,
             memory_get,
             memory_save,

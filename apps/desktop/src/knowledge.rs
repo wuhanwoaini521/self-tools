@@ -17,6 +17,9 @@ use devtoolbox_application::documents::{
 use devtoolbox_application::files::{
     FileIndexError, FileIndexPort, FileService, FileSystemPort,
 };
+use devtoolbox_application::search::{
+    DocumentSearchPort, FileSearchPort, GlobalSearchService, MemorySearchPort,
+};
 use devtoolbox_application::knowledge::{
     DocumentRetriever, FileRetriever, KnowledgeMetrics, KnowledgeRetrievalService, MemoryRetriever,
 };
@@ -41,6 +44,8 @@ pub type SettingsLoader = Arc<dyn Fn() -> Result<AppSettings, String> + Send + S
 
 /// 知识层设置读取器（读失败 → 默认值 = 无允许根 = fail-closed）。
 pub type KnowledgeSettingsLoader = Arc<dyn Fn() -> KnowledgeSettings + Send + Sync>;
+
+/// 全局检索服务（V11-O：不依赖 LLM，本地索引）。
 
 /// 由设置读取器派生「只取知识设置」的读取器。
 #[must_use]
@@ -291,6 +296,8 @@ pub struct KnowledgeRuntime {
     pub retrieval: Arc<KnowledgeRetrievalService>,
     pub settings: KnowledgeSettingsLoader,
     pub metrics: Arc<KnowledgeMetrics>,
+    /// V11-O：全局检索（Memory / Documents / Files 三源；零 LLM 依赖）。
+    pub search: Arc<GlobalSearchService>,
 }
 
 impl KnowledgeRuntime {
@@ -335,6 +342,12 @@ impl KnowledgeRuntime {
             Arc::clone(&metrics),
         ));
 
+        // V11-O：三源全局检索（LLM-free）。
+        let search = Arc::new(GlobalSearchService::new(vec![
+            Arc::new(MemorySearchPort::new(Arc::clone(&memory))),
+            Arc::new(DocumentSearchPort::new(Arc::clone(&documents))),
+            Arc::new(FileSearchPort::new(Arc::clone(&files), Arc::clone(&settings))),
+        ]));
         Ok(Self {
             memory,
             documents,
@@ -342,6 +355,7 @@ impl KnowledgeRuntime {
             retrieval,
             settings,
             metrics,
+            search,
         })
     }
 

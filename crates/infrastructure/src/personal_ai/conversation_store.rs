@@ -428,6 +428,7 @@ fn sqlite(error: rusqlite::Error) -> InfrastructureError {
     InfrastructureError::Sqlite(error.to_string())
 }
 
+
 #[cfg(test)]
 mod tests {
     use super::*;

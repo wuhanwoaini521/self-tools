@@ -409,6 +409,12 @@ impl crate::personal_ai::conversation::ConversationStore for InMemoryConversatio
         items.truncate(if limit == 0 { items.len() } else { limit });
         Ok(items)
     }
+    fn list_all(
+        &self,
+        limit: usize,
+    ) -> Result<Vec<ConversationSummary>, ConversationStoreError> {
+        self.list(limit)
+    }
     fn load(&self, id: &str) -> Result<Option<Conversation>, ConversationStoreError> {
         Ok(self.inner.lock().expect("lock").get(id).cloned())
     }

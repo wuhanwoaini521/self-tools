@@ -41,6 +41,12 @@ pub trait ConversationStore: Send + Sync {
     /// 已归档会话默认**不在**结果内（可恢复语义：归档只是隐藏，不是删除）。
     fn list(&self, limit: usize) -> Result<Vec<ConversationSummary>, ConversationStoreError>;
 
+    /// 列表（含已归档；UI 的「显示已归档」开关用）。
+    fn list_all(
+        &self,
+        limit: usize,
+    ) -> Result<Vec<ConversationSummary>, ConversationStoreError>;
+
     /// 按 id 读取完整会话（含正文）。不存在返回 `None`；归档会话仍可读。
     fn load(&self, conversation_id: &str) -> Result<Option<Conversation>, ConversationStoreError>;
 
@@ -100,14 +106,41 @@ impl ConversationService {
         Self { store, list_limit }
     }
 
-    /// 列表（`limit = 0` → 默认上限；已归档默认隐藏）。
+    /// 列表（不含已归档；默认视图）。`limit = 0` → 默认上限。
     pub fn list(&self, limit: usize) -> Result<Vec<ConversationSummary>, ApplicationError> {
+        Ok(self.store.list(self.effective_limit(limit))?)
+    }
+
+    /// 列表（含已归档；「显示已归档」开关用）。`limit = 0` → 默认上限。
+    pub fn list_all(&self, limit: usize) -> Result<Vec<ConversationSummary>, ApplicationError> {
+        Ok(self.store.list_all(self.effective_limit(limit))?)
+    }
+
+    /// `limit = 0` 归一为默认上限（不做隐式通配）。
+    fn effective_limit(&self, limit: usize) -> usize {
+        if limit == 0 {
+            self.list_limit
+        } else {
+            limit
+        }
+    }
+
+    #[allow(dead_code)]
+    fn list_filtered(
+        &self,
+        limit: usize,
+        include_archived: bool,
+    ) -> Result<Vec<ConversationSummary>, ApplicationError> {
         let limit = if limit == 0 {
             self.list_limit
         } else {
             limit
         };
-        Ok(self.store.list(limit)?)
+        Ok(if include_archived {
+            self.store.list_all(limit)?
+        } else {
+            self.store.list(limit)?
+        })
     }
 
     /// 读取完整会话（含正文）。
@@ -262,6 +295,22 @@ mod tests {
                 .expect("conversations poisoned")
                 .values()
                 .filter(|conversation| !conversation.archived)
+                .map(Conversation::summary)
+                .collect();
+            out.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
+            out.truncate(limit);
+            Ok(out)
+        }
+
+        fn list_all(
+            &self,
+            limit: usize,
+        ) -> Result<Vec<ConversationSummary>, ConversationStoreError> {
+            let mut out: Vec<ConversationSummary> = self
+                .conversations
+                .lock()
+                .expect("conversations poisoned")
+                .values()
                 .map(Conversation::summary)
                 .collect();
             out.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));

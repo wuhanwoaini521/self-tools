@@ -11,6 +11,7 @@
  */
 import {
   ArrowClockwise,
+  ChatCircleDots,
   CaretRight,
   PaperPlaneTilt,
   ShieldWarning,
@@ -33,6 +34,7 @@ import {
 import type { ConfirmationDto } from "../server/serverTypes";
 import { aiClient } from "./aiClient";
 import { useAgentProgress } from "./aiClient";
+import { ConversationDrawer } from "./ConversationDrawer";
 import {
   agentRoleLabel,
   agentStateLabel,
@@ -66,6 +68,9 @@ export type AiPanelState = "unconfigured" | "ready" | "loading" | "error";
 export interface AIPanelProps {
   open: boolean;
   onClose: () => void;
+  /** 会话抽屉开关（V11-K：New / Recent / Resume / Rename / Archive / Delete）。 */
+  conversationOpen?: boolean;
+  onConversationOpenChange?: (open: boolean) => void;
   /**
    * 待发送的预填内容（V11：白板快照等外部入口）。
    * 设置后自动填入输入框并附带 parts；`nonce` 变化即视为一次新的投递。
@@ -174,6 +179,8 @@ const MAX_MESSAGES = 60;
 export function AIPanel({
   open,
   onClose,
+  conversationOpen = false,
+  onConversationOpenChange,
   pendingSend,
   context,
   contextLabel,
@@ -350,6 +357,31 @@ export function AIPanel({
     ],
   );
 
+  /** V11-K：抽屉里点「新对话」→ 本地清空（后端会话由抽屉自己建）。 */
+  const handleConversationCreated = useCallback((sessionId: string) => {
+    sessionRef.current = sessionId;
+    setMessages([]);
+    setBlocks([]);
+    setToolTrace([]);
+    setOrchestration(null);
+    setErrorText("");
+    onConversationOpenChange?.(false);
+  }, [onConversationOpenChange]);
+
+  /** V11-K：抽屉里点某会话 → 恢复消息与 session id。 */
+  const handleConversationResume = useCallback(
+    (sessionId: string, resumed: AgentMessage[]) => {
+      sessionRef.current = sessionId;
+      setMessages(resumed.slice(-MAX_MESSAGES));
+      setBlocks([]);
+      setToolTrace([]);
+      setOrchestration(null);
+      setErrorText("");
+      onConversationOpenChange?.(false);
+    },
+    [onConversationOpenChange],
+  );
+
   const clearConversation = useCallback(() => {
     sessionRef.current = generateSessionId();
     setMessages([]);
@@ -385,6 +417,14 @@ export function AIPanel({
         <div className="ai-panel-actions">
           <button
             className="ai-icon-button"
+            title="会话历史"
+            aria-pressed={conversationOpen}
+            onClick={() => onConversationOpenChange?.(!conversationOpen)}
+          >
+            <ChatCircleDots size={15} />
+          </button>
+          <button
+            className="ai-icon-button"
             title="新建对话"
             onClick={clearConversation}
             disabled={status === "loading"}
@@ -396,6 +436,16 @@ export function AIPanel({
           </button>
         </div>
       </header>
+
+      {conversationOpen ? (
+        <ConversationDrawer
+          open={conversationOpen}
+          onClose={() => onConversationOpenChange?.(false)}
+          onResume={handleConversationResume}
+          onCreated={handleConversationCreated}
+          activeId={sessionRef.current}
+        />
+      ) : null}
 
       <div className="ai-panel-context">
         <span className="ai-context-label">当前上下文</span>

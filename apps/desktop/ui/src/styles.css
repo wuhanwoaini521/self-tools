@@ -14060,3 +14060,155 @@ main.history-v2-period {
  white-space: pre-wrap;
  line-height: 1.5;
 }
+
+/* ---------------------------------------------------------------------------
+   V11-K 会话抽屉
+   --------------------------------------------------------------------------- */
+.ai-conversation-drawer {
+ display: flex;
+ flex-direction: column;
+ gap: 8px;
+ max-height: 45vh;
+ padding: 10px;
+ margin-bottom: 8px;
+ border: 1px solid var(--border, #1e2a2e);
+ border-radius: 10px;
+ background: var(--panel, #10171a);
+ overflow: hidden;
+}
+.ai-conversation-head {
+ display: flex;
+ align-items: center;
+ gap: 6px;
+}
+.ai-conversation-head strong {
+ font-size: 13px;
+ margin-right: auto;
+}
+.ai-conversation-head svg {
+ color: var(--accent, #1688ff);
+}
+.ai-conversation-icon,
+.ai-conversation-primary {
+ display: inline-flex;
+ align-items: center;
+ gap: 4px;
+ min-height: 30px;
+ padding: 0 8px;
+ border: 1px solid var(--border, #1e2a2e);
+ border-radius: 6px;
+ background: rgba(255, 255, 255, 0.03);
+ color: var(--text, #d6dde1);
+ font-size: 12px;
+ font-family: inherit;
+ cursor: pointer;
+}
+.ai-conversation-primary {
+ border-color: var(--accent, #1688ff);
+ color: var(--accent, #1688ff);
+}
+.ai-conversation-archived-toggle {
+ display: flex;
+ align-items: center;
+ gap: 6px;
+ font-size: 12px;
+ color: var(--muted, #8a979d);
+}
+.ai-conversation-list {
+ display: flex;
+ flex-direction: column;
+ gap: 2px;
+ margin: 0;
+ padding: 0;
+ list-style: none;
+ overflow-y: auto;
+ min-height: 0;
+}
+.ai-conversation-row {
+ display: flex;
+ align-items: center;
+ gap: 4px;
+ border-radius: 6px;
+}
+.ai-conversation-row:hover {
+ background: rgba(255, 255, 255, 0.04);
+}
+.ai-conversation-row.active {
+ background: color-mix(in srgb, var(--accent, #1688ff) 12%, transparent);
+}
+.ai-conversation-row.archived .ai-conversation-title {
+ text-decoration: line-through;
+ opacity: 0.6;
+}
+.ai-conversation-open {
+ flex: 1;
+ min-width: 0;
+ display: flex;
+ flex-direction: column;
+ gap: 2px;
+ padding: 6px 8px;
+ border: 0;
+ background: transparent;
+ color: var(--text, #d6dde1);
+ text-align: left;
+ cursor: pointer;
+ font-family: inherit;
+}
+.ai-conversation-title {
+ font-size: 13px;
+ overflow: hidden;
+ text-overflow: ellipsis;
+ white-space: nowrap;
+}
+.ai-conversation-meta {
+ font-size: 11px;
+ color: var(--muted, #8a979d);
+}
+.ai-conversation-actions {
+ display: flex;
+ gap: 2px;
+ flex: none;
+}
+.ai-conversation-actions button {
+ display: inline-flex;
+ align-items: center;
+ justify-content: center;
+ width: 28px;
+ height: 28px;
+ border: 0;
+ border-radius: 5px;
+ background: transparent;
+ color: var(--muted, #8a979d);
+ cursor: pointer;
+}
+.ai-conversation-actions button:hover {
+ background: rgba(255, 255, 255, 0.07);
+ color: var(--text, #d6dde1);
+}
+.ai-conversation-rename {
+ flex: 1;
+ min-width: 0;
+ min-height: 30px;
+ padding: 0 8px;
+ border: 1px solid var(--accent, #1688ff);
+ border-radius: 6px;
+ background: rgba(0, 0, 0, 0.25);
+ color: var(--text, #d6dde1);
+ font-size: 13px;
+ font-family: inherit;
+}
+.ai-conversation-empty,
+.ai-conversation-notice {
+ margin: 0;
+ font-size: 12px;
+ color: var(--muted, #8a979d);
+}
+.ai-conversation-notice {
+ color: #ffb020;
+}
+/* 手机：抽屉占到半屏以上（会话是主任务之一）。 */
+@media (max-width: 767px) {
+ .ai-conversation-drawer {
+  max-height: 60vh;
+ }
+}

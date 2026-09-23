@@ -238,6 +238,7 @@ export default function App() {
   const [notice, setNotice] = useState("");
   const [aiOpen, setAiOpen] = useState(false);
   /** AI 投递队列（V11：白板等外部入口把「问题 + 快照」一次送进面板）。 */
+  const [conversationOpen, setConversationOpen] = useState(false);
   const [aiDelivery, setAiDelivery] = useState<{
     nonce: number;
     text: string;
@@ -821,6 +822,8 @@ export default function App() {
       <AIPanel
         open={aiOpen}
         onClose={() => setAiOpen(false)}
+        conversationOpen={conversationOpen}
+        onConversationOpenChange={setConversationOpen}
         pendingSend={aiDelivery}
         context={aiContext}
         contextLabel={aiContextLabel}

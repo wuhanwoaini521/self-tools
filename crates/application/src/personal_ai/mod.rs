@@ -26,6 +26,7 @@ pub mod study_board;
 pub mod travel;
 
 pub use agent::{AgentConfig, PersonalAgent, PersonalHub};
+pub use conversation::{ConversationService, ConversationStore, ConversationStoreError};
 pub use context::{ContextBudget, ContextBundle, ModuleContextProvider, bundle_to_text};
 pub use documents::{
     DocumentsProviderOwned, DocumentsTools, documents_tool_names, register_documents,

@@ -9,6 +9,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { MagnifyingGlass } from "@phosphor-icons/react";
+import { invoke } from "@tauri-apps/api/core";
+import { errorMessage, isTauriRuntime } from "../../utils";
 
 export type SearchSourceName =
   | "history"
@@ -37,7 +39,7 @@ export interface GlobalSearchResultDto {
   total: number;
 }
 
-const SOURCE_LABELS: Record<SearchSourceName, string> = {
+const SOURCE_LABELS: Record<string, string> = {
   history: "History",
   travel: "Travel",
   geography: "Geography",
@@ -59,45 +61,36 @@ export function GlobalSearchPage({ active, onNavigate }: GlobalSearchPageProps) 
   const [query, setQuery] = useState("");
   const [result, setResult] = useState<GlobalSearchResultDto | null>(null);
   const [searching, setSearching] = useState(false);
+  const [notice, setNotice] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (active) inputRef.current?.focus();
   }, [active]);
 
-  const run = useCallback(
-    async (text: string) => {
-      const trimmed = text.trim();
-      if (!trimmed) {
-        setResult(null);
-        return;
-      }
-      setSearching(true);
-      try {
-        // 后端 GlobalSearchService 无 LLM 依赖；命令就绪前退化为本地空结果
-        // （明确展示「无本地索引」而不是假装有结果）。
-        setResult({
-          query: trimmed,
-          hits: [],
-          degraded_sources: [
-            "history",
-            "travel",
-            "geography",
-            "language",
-            "memory",
-            "documents",
-            "files",
-            "study_board",
-            "applications",
-          ],
-          total: 0,
-        });
-      } finally {
-        setSearching(false);
-      }
-    },
-    [],
-  );
+  const run = useCallback(async (text: string) => {
+    const trimmed = text.trim();
+    if (!trimmed) {
+      setResult(null);
+      setNotice("");
+      return;
+    }
+    setSearching(true);
+    setNotice("");
+    try {
+      // 真实后端命令（V11-O：零 LLM，AI 未配置也能搜）。
+      const response = await invoke<GlobalSearchResultDto>("global_search", {
+        query: trimmed,
+        limit: 5,
+      });
+      setResult(response);
+    } catch (error) {
+      setResult(null);
+      setNotice(`搜索失败：${errorMessage(error)}`);
+    } finally {
+      setSearching(false);
+    }
+  }, []);
 
   return (
     <div className="page-scroll search-page">

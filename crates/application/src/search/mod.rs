@@ -11,9 +11,11 @@
 
 pub mod ports;
 pub mod service;
+pub mod sources;
 
 pub use ports::GlobalSearchPort;
 pub use service::GlobalSearchService;
+pub use sources::{DocumentSearchPort, FileSearchPort, MemorySearchPort};
 
 #[cfg(test)]
 mod tests;

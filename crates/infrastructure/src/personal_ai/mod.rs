@@ -7,6 +7,8 @@
 pub mod conversation_store;
 pub mod llm;
 
+pub use conversation_store::ConversationSqliteStore;
+
 pub use llm::{
     AiModelConfig, OpenAiCompatibleChatModelProvider, decode_tool_name, encode_tool_name,
     parse_chat_response,
