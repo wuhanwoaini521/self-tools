@@ -71,15 +71,29 @@ fn unix_now() -> i64 {
 
 /// hostname：读环境变量或 `/etc/hostname`；失败 → 空串（上层据此降级）。
 fn hostname() -> String {
-    if let Ok(value) = std::env::var("HOSTNAME")
+    // 优先显式环境变量（部署方覆盖 / CI 稳定）。
+    for key in ["SELF_TOOLS_HOSTNAME", "HOSTNAME"] {
+        if let Ok(value) = std::env::var(key)
+            && !value.trim().is_empty()
+        {
+            return value.trim().to_string();
+        }
+    }
+    // Unix: /etc/hostname。
+    #[cfg(unix)]
+    if let Ok(value) = std::fs::read_to_string("/etc/hostname")
         && !value.trim().is_empty()
     {
         return value.trim().to_string();
     }
-    std::fs::read_to_string("/etc/hostname")
-        .ok()
-        .map(|value| value.trim().to_string())
-        .unwrap_or_default()
+    // Windows: COMPUTERNAME。
+    #[cfg(windows)]
+    if let Ok(value) = std::env::var("COMPUTERNAME")
+        && !value.trim().is_empty()
+    {
+        return value.trim().to_string();
+    }
+    String::new()
 }
 
 /// OS 版本：macOS 用固定 `sw_vers -productVersion`，Linux 读 os-release。
@@ -348,9 +362,15 @@ mod tests {
     #[test]
     fn platform_metrics_report_unknown_without_lying() {
         let metrics = PlatformSystemMetrics.sample();
-        assert!(metrics.is_unknown(), "未配置采样 → 全 Unknown");
-        assert_eq!(metrics.cpu.usage_ratio, None);
+        // 指标字段必须全部未知（不谎报）——hostname 是身份信息，平台相关
+        // （Unix 有 /etc/hostname，Windows 用 COMPUTERNAME），不参与本断言。
+        assert!(metrics.cpu.usage_ratio.is_none());
         assert_eq!(metrics.memory.total_bytes, 0);
+        assert!(metrics.storage.is_empty());
+        assert_eq!(metrics.uptime_secs, 0);
+        // 平台身份仍然如实上报（不含 secret）。
+        assert!(!metrics.platform.as_str().is_empty());
+        assert!(!metrics.architecture.is_empty());
     }
 
     #[test]

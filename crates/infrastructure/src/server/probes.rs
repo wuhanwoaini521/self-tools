@@ -210,10 +210,27 @@ mod tests {
 
     #[test]
     fn probe_maps_running_to_healthy_and_absent_to_unknown() {
-        // CI 没有 launchd：`launchctl print` 必然失败 → Unknown（不谎报健康）。
+        // 平台相关：本机有 launchd 时（macOS / Linux+systemd 替换）`launchctl print`
+        // 对不存在的服务返回错误 → 适配器报 Unhealthy（服务确实不存在）；
+        // 没有 launchd 时报 Unknown（无法探活）。两者都是「不谎报健康」。
         let status = LaunchdServiceProbe.probe(&service("com.example.definitely-not-loaded"));
-        assert_eq!(status.status, HealthStatus::Unknown);
+        assert!(
+            matches!(
+                status.status,
+                HealthStatus::Unknown | HealthStatus::Unhealthy
+            ),
+            "不得谎报 Healthy: {:?}",
+            status.status
+        );
+        // detail 必须非空且不含 secret / 原始命令行回声。
         assert!(!status.detail.is_empty());
+        // service_id 始终来自注册表 id，不被 provider_ref 影响。
+        assert_eq!(status.service_id, "self-tools");
+        // provider_ref（可能被调用方篡改）不得出现在 detail 里。
+        assert!(
+            !status.detail.contains("com.example.definitely-not-loaded")
+                || status.status == HealthStatus::Unknown
+        );
     }
 
     #[test]
