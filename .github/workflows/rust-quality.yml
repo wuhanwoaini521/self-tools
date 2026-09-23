@@ -17,12 +17,12 @@ jobs:
       matrix:
         os: [windows-latest, macos-latest, ubuntu-latest]
     steps:
-      # `history-data-pipeline` 是 git submodule：desktop 测试用其
-      # `dist/history.duckdb` 作为 DuckDB fixture。不拉 submodule 会让
-      # `personal_ai::tests::*` 以 NotFound panic。
+      # 注意：**不要**开 `submodules`。`history-data-pipeline` 是 submodule，
+      # 但 (a) 它的 `dist/history.duckdb` fixture 被其 .gitignore 排除，
+      # (b) 本地记录的 submodule commit 未必推送到远端 —— 开 recursive
+      # 会让 checkout 以 "not our ref" 直接失败。
+      # desktop 测试在 fixture 缺失时自行跳过（见 personal_ai.rs tests）。
       - uses: actions/checkout@v5
-        with:
-          submodules: recursive
       - uses: dtolnay/rust-toolchain@1.95.0
         with:
           components: clippy, rustfmt
