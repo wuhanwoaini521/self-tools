@@ -115,6 +115,7 @@ impl AgentExecutor {
             ChatMessage {
                 role: ChatRole::System,
                 content: Some(system),
+                content_parts: Vec::new(),
                 reasoning_content: None,
                 tool_calls: None,
                 tool_call_id: None,
@@ -122,6 +123,7 @@ impl AgentExecutor {
             ChatMessage {
                 role: ChatRole::User,
                 content: Some(task.objective.clone()),
+                content_parts: Vec::new(),
                 reasoning_content: None,
                 tool_calls: None,
                 tool_call_id: None,

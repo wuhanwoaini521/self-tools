@@ -66,6 +66,25 @@ export type AiPanelState = "unconfigured" | "ready" | "loading" | "error";
 export interface AIPanelProps {
   open: boolean;
   onClose: () => void;
+  /**
+   * 待发送的预填内容（V11：白板快照等外部入口）。
+   * 设置后自动填入输入框并附带 parts；`nonce` 变化即视为一次新的投递。
+   */
+  pendingSend?: {
+    nonce: number;
+    text: string;
+    /** 多模态片段（图片 base64 等）。 */
+    parts?: Array<
+      | { type: "text"; text: string }
+      | {
+          type: "image";
+          data: string;
+          mime: string;
+          source: string;
+          caption?: string;
+        }
+      >;
+  } | null;
   /** 当前页面上下文（null/空 = General）。 */
   context: AppContextPayload | null;
   /** 上下文 chip 文案，如 "History · 毛泽东"；null = General */
@@ -155,6 +174,7 @@ const MAX_MESSAGES = 60;
 export function AIPanel({
   open,
   onClose,
+  pendingSend,
   context,
   contextLabel,
   onClearContext,
@@ -242,6 +262,16 @@ export function AIPanel({
     };
   }, [open]);
 
+  // V11：外部入口预填（白板「问 AI」：快照 + 问题一起进来）。
+  const pendingNonce = pendingSend?.nonce ?? 0;
+  useEffect(() => {
+    if (!pendingSend || pendingNonce === 0) return;
+    setInput(pendingSend.text);
+    void send(pendingSend.text, pendingSend.parts);
+    // 只依赖 nonce：同一 nonce 不重发（父组件用计数器保证唯一）。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingNonce]);
+
   // V11：订阅后端进度事件（每次请求阶段推进都会收到）。
   useAgentProgress(
     (progress: AgentProgressEvent) => {
@@ -255,18 +285,22 @@ export function AIPanel({
     status === "loading",
   );
 
-  const send = useCallback(async () => {
-    const text = input.trim();
-    if (!text || status === "loading") return;
-    setInput("");
-    setErrorText("");
-    setStatus("loading");
-    setToolTrace([]);
-    setStageLog([]);
-    setFailureCode(null);
-    try {
-      const response = await aiClient.chat({
-        message: text,
+  const send = useCallback(
+    async (overrideText?: string, parts?: PendingPart[]) => {
+      const text = (overrideText ?? input).trim();
+      if (!text || status === "loading") return;
+      setInput("");
+      setErrorText("");
+      setStatus("loading");
+      setToolTrace([]);
+      setStageLog([]);
+      setFailureCode(null);
+      try {
+        const response = await aiClient.chat({
+          message: text,
+          ...(parts && parts.length > 0
+            ? { parts: parts.map(toWirePart) }
+            : {}),
         session_id: sessionRef.current,
         app_context: context ?? {},
         capabilities,
@@ -304,16 +338,17 @@ export function AIPanel({
       setErrorText(errorMessage(cause));
       setFailureCode((code) => code ?? null);
     }
-  }, [
-    input,
-    status,
-    context,
-    capabilities,
-    enqueueConfirm,
-    onOpenFile,
-    onOpenDocument,
-    stageLog,
-  ]);
+    },
+    [
+      input,
+      status,
+      context,
+      capabilities,
+      enqueueConfirm,
+      onOpenFile,
+      onOpenDocument,
+    ],
+  );
 
   const clearConversation = useCallback(() => {
     sessionRef.current = generateSessionId();
@@ -550,6 +585,20 @@ export function AIPanel({
       )}
     </aside>
   );
+}
+
+/** 预填片段的 wire 形态（与后端 ContentPart 契约一致）。 */
+type PendingPart = NonNullable<Extract<AIPanelProps["pendingSend"], object>["parts"]>[number];
+
+function toWirePart(part: PendingPart): Record<string, unknown> {
+  if (part.type === "text") return { type: "text", text: part.text };
+  return {
+    type: "image",
+    source: part.source,
+    data: part.data,
+    mime: part.mime,
+    caption: part.caption ?? null,
+  };
 }
 
 function MessageRow({ message }: { message: AgentMessage }) {

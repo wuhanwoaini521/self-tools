@@ -18,7 +18,7 @@ use devtoolbox_core::{
 
 use crate::personal_ai::context::ContextBudget;
 use crate::personal_ai::prompt::{
-    assemble_messages, assemble_system, parse_agent_envelope, ui_snapshot,
+    assemble_messages_with_parts, assemble_system, parse_agent_envelope, ui_snapshot,
 };
 use crate::personal_ai::registry::{ModuleRegistry, ToolRegistry};
 use crate::personal_ai::runtime::{ToolLoopConfig, run_tool_loop};
@@ -236,10 +236,21 @@ impl PersonalAgent {
             }
         }
 
-        // 会话历史 + 用户消息
+        // 会话历史 + 用户消息（V11：多模态片段随本轮一起进模型）
         let messages = self.session.load(&session_id);
-        let chat_messages =
-            assemble_messages(&messages, &request.message, &enabled_tools, &system);
+        let multimodal = request
+            .parts
+            .iter()
+            .filter(|part| part.requires_vision() || matches!(part, devtoolbox_core::ContentPart::Audio { .. }))
+            .cloned()
+            .collect::<Vec<_>>();
+        let chat_messages = assemble_messages_with_parts(
+            &messages,
+            &request.message,
+            &multimodal,
+            &enabled_tools,
+            &system,
+        );
 
         let started = Instant::now();
         self.emit(AgentProgress::new(AgentStage::Thinking));
@@ -276,6 +287,7 @@ impl PersonalAgent {
             session_messages.push(devtoolbox_core::ChatMessage {
                 role: ChatRole::Assistant,
                 content: Some(message.clone()),
+                content_parts: Vec::new(),
                 // 隐私：隐藏推理绝不写入会话历史（V11 §98）。
                 reasoning_content: None,
                 tool_calls: None,

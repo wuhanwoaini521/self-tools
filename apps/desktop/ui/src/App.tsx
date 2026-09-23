@@ -237,6 +237,41 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [notice, setNotice] = useState("");
   const [aiOpen, setAiOpen] = useState(false);
+  /** AI 投递队列（V11：白板等外部入口把「问题 + 快照」一次送进面板）。 */
+  const [aiDelivery, setAiDelivery] = useState<{
+    nonce: number;
+    text: string;
+    parts?: Array<
+      | { type: "text"; text: string }
+      | {
+          type: "image";
+          data: string;
+          mime: string;
+          source: string;
+          caption?: string;
+        }
+    >;
+  } | null>(null);
+
+  const deliverToAi = useCallback(
+    (
+      text: string,
+      parts?: Array<
+        | { type: "text"; text: string }
+        | {
+            type: "image";
+            data: string;
+            mime: string;
+            source: string;
+            caption?: string;
+          }
+      >,
+    ) => {
+      setAiOpen(true);
+      setAiDelivery({ nonce: Date.now(), text, parts });
+    },
+    [],
+  );
   /** AI 的 App Context（Frontend 负责“我在哪”；History 页报告当前实体）。 */
   const [aiContext, setAiContext] = useState<AppContextPayload | null>(null);
   const [rssRefreshing, setRssRefreshing] = useState(false);
@@ -618,16 +653,33 @@ export default function App() {
               active={page === "study-board"}
               onContextChange={setAiContext}
               onAskAi={(prompt, snapshot) => {
-                // V11 §110：snapshot 作为 BoardSnapshot ContentPart 进入 PersonalAgent。
-                // 当前 PersonalAgent 消息是 string 契约；快照经 AI 面板的粘贴通道发送，
-                // 这里先把问题和上下文写进 session（后端 multimodal 契约落地后替换）。
+                // V11 §110：板 → 快照 → BoardSnapshot/Image ContentPart → PersonalAgent。
                 setAiContext((current) => ({
                   ...(current ?? { module: "study-board", page: "board" }),
                   module: "study-board",
                   page: "board",
                   view_state: { snapshot_bytes: snapshot?.length ?? 0, prompt },
                 }));
-                setAiOpen(true);
+                const parts: Array<
+                  | { type: "text"; text: string }
+                  | {
+                      type: "image";
+                      data: string;
+                      mime: string;
+                      source: string;
+                      caption?: string;
+                    }
+                > = [{ type: "text", text: prompt }];
+                if (snapshot) {
+                  parts.push({
+                    type: "image",
+                    source: "base64",
+                    data: snapshot,
+                    mime: "image/png",
+                    caption: "学习板快照",
+                  });
+                }
+                deliverToAi(prompt, parts);
               }}
             />
           </section>
@@ -769,6 +821,7 @@ export default function App() {
       <AIPanel
         open={aiOpen}
         onClose={() => setAiOpen(false)}
+        pendingSend={aiDelivery}
         context={aiContext}
         contextLabel={aiContextLabel}
         onClearContext={() => setAiContext(null)}

@@ -1,7 +1,7 @@
 //! Prompt 组装（V4 §57）：core system + module/tool 描述 + current context + 会话。
 //! 不要 500 行巨大 Prompt；内容由代码拼接。同时提供最终 envelope 解析。
 
-use devtoolbox_core::{
+use devtoolbox_core::{ContentPart, 
     Action, AgentMessage, AppContext, ChatMessage, ChatRole, ModuleDescriptor, ToolSpec, UiBlock,
 };
 
@@ -101,10 +101,22 @@ pub fn assemble_messages(
     tools: &[ToolSpec],
     system: &str,
 ) -> Vec<ChatMessage> {
+    assemble_messages_with_parts(history, user_message, &[], tools, system)
+}
+
+/// 同 `assemble_messages`，但用户消息可带多模态片段（V11）。
+pub fn assemble_messages_with_parts(
+    history: &[ChatMessage],
+    user_message: &str,
+    parts: &[ContentPart],
+    tools: &[ToolSpec],
+    system: &str,
+) -> Vec<ChatMessage> {
     let mut messages: Vec<ChatMessage> = Vec::with_capacity(history.len() + 2);
     messages.push(ChatMessage {
         role: ChatRole::System,
         content: Some(system.to_string()),
+        content_parts: Vec::new(),
         reasoning_content: None,
         tool_calls: None,
         tool_call_id: None,
@@ -123,7 +135,17 @@ pub fn assemble_messages(
         .chars()
         .take(MAX_MESSAGE_CHARS)
         .collect::<String>();
-    messages.push(ChatMessage::user(trimmed));
+    if parts.is_empty() {
+        messages.push(ChatMessage::user(trimmed));
+    } else {
+        let mut all = Vec::with_capacity(parts.len() + 1);
+        all.push(ContentPart::Text { text: trimmed });
+        all.extend(parts.iter().cloned());
+        messages.push(ChatMessage::user_with_parts(
+            user_message,
+            all,
+        ));
+    }
     messages
 }
 

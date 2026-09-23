@@ -9,7 +9,7 @@
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
-use crate::personal_ai::ModelCapabilities;
+use crate::personal_ai::{ContentPart, ModelCapabilities};
 
 /// Provider 错误（transport 层）。kind 供上层归类到 `AgentError`。
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -98,6 +98,10 @@ pub struct ChatMessage {
     pub role: ChatRole,
     /// 文本内容；tool 结果消息也可放文本。
     pub content: Option<String>,
+    /// 多模态内容段（V11：图片进模型用）。与 `content` 二选一：
+    /// 有 content_parts 时 provider 用它构造 wire 上的数组形态 content。
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub content_parts: Vec<ContentPart>,
     /// 模型思考内容（thinking 模式的 `reasoning_content`）。
     ///
     /// **用途边界**：部分 OpenAI 兼容端点在 thinking 模式下要求把它原样回传，
@@ -120,6 +124,7 @@ impl ChatMessage {
         Self {
             role: ChatRole::System,
             content: Some(content.into()),
+            content_parts: Vec::new(),
             reasoning_content: None,
             tool_calls: None,
             tool_call_id: None,
@@ -130,6 +135,7 @@ impl ChatMessage {
         Self {
             role: ChatRole::User,
             content: Some(content.into()),
+            content_parts: Vec::new(),
             reasoning_content: None,
             tool_calls: None,
             tool_call_id: None,
@@ -140,6 +146,7 @@ impl ChatMessage {
         Self {
             role: ChatRole::Assistant,
             content: Some(content.into()),
+            content_parts: Vec::new(),
             reasoning_content: None,
             tool_calls: None,
             tool_call_id: None,
@@ -150,8 +157,21 @@ impl ChatMessage {
         Self {
             role: ChatRole::Assistant,
             content: None,
+            content_parts: Vec::new(),
             reasoning_content: None,
             tool_calls: Some(calls),
+            tool_call_id: None,
+        }
+    }
+    /// 用户消息 + 多模态片段（V11：白板快照 / 图片输入）。
+    #[must_use]
+    pub fn user_with_parts(text: impl Into<String>, parts: Vec<ContentPart>) -> Self {
+        Self {
+            role: ChatRole::User,
+            content: Some(text.into()),
+            content_parts: parts,
+            reasoning_content: None,
+            tool_calls: None,
             tool_call_id: None,
         }
     }
@@ -165,6 +185,7 @@ impl ChatMessage {
         Self {
             role: ChatRole::Assistant,
             content,
+            content_parts: Vec::new(),
             reasoning_content: reasoning,
             tool_calls: calls,
             tool_call_id: None,
@@ -175,6 +196,7 @@ impl ChatMessage {
         Self {
             role: ChatRole::Tool,
             content: Some(content.into()),
+            content_parts: Vec::new(),
             reasoning_content: None,
             tool_calls: None,
             tool_call_id: Some(tool_call_id.into()),

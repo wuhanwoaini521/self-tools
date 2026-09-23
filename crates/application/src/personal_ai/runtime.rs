@@ -144,6 +144,7 @@ pub async fn run_tool_loop(
                 chat_messages.push(ChatMessage {
                     role: ChatRole::Assistant,
                     content: None,
+                    content_parts: Vec::new(),
                     reasoning_content: reasoning.clone(),
                     tool_calls: Some(vec![ChatToolCall {
                         id: call.id.clone(),
@@ -157,6 +158,7 @@ pub async fn run_tool_loop(
                 chat_messages.push(ChatMessage {
                     role: ChatRole::Tool,
                     content: Some(result_json),
+                    content_parts: Vec::new(),
                     reasoning_content: None,
                     tool_calls: None,
                     tool_call_id: Some(call.id.clone()),
@@ -188,6 +190,7 @@ pub async fn run_tool_loop(
             chat_messages.push(ChatMessage {
                 role: ChatRole::Assistant,
                 content: None,
+                content_parts: Vec::new(),
                 reasoning_content: reasoning.clone(),
                 tool_calls: Some(vec![ChatToolCall {
                     id: call.id.clone(),
@@ -203,6 +206,7 @@ pub async fn run_tool_loop(
             chat_messages.push(ChatMessage {
                 role: ChatRole::Tool,
                 content: Some(result_json),
+                content_parts: Vec::new(),
                 reasoning_content: None,
                 tool_calls: None,
                 tool_call_id: Some(call.id.clone()),

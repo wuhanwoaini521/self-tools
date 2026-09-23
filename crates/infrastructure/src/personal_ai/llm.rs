@@ -133,11 +133,53 @@ struct OpenAiChatRequest<'a> {
     temperature: f32,
 }
 
+/// wire content：多模态时是数组（text + image_url）。
+#[derive(Debug, Serialize)]
+#[serde(untagged)]
+enum WireContent<'a> {
+    Text(&'a str),
+    Parts(Vec<serde_json::Value>),
+}
+
+/// 把内部片段转成 OpenAI wire content 段。
+fn wire_content_parts(parts: &[devtoolbox_core::ContentPart]) -> Vec<serde_json::Value> {
+    parts
+        .iter()
+        .filter_map(|part| match part {
+            devtoolbox_core::ContentPart::Text { text } => {
+                Some(serde_json::json!({"type": "text", "text": text}))
+            }
+            devtoolbox_core::ContentPart::Image { data, mime, .. } => {
+                Some(serde_json::json!({
+                    "type": "image_url",
+                    "image_url": {"url": format!("data:{mime};base64,{data}")},
+                }))
+            }
+            devtoolbox_core::ContentPart::BoardSnapshot {
+                image_base64: Some(data),
+                ..
+            } => Some(serde_json::json!({
+                "type": "image_url",
+                "image_url": {"url": format!("data:image/png;base64,{data}")},
+            })),
+            devtoolbox_core::ContentPart::Audio { mime, data, .. } => {
+                Some(serde_json::json!({
+                    "type": "input_audio",
+                    "input_audio": {"data": data, "format": mime},
+                }))
+            }
+            // 文档引用不是 wire 段：由检索链路负责，不作为消息内容。
+            devtoolbox_core::ContentPart::DocumentRef { .. }
+            | devtoolbox_core::ContentPart::BoardSnapshot { .. } => None,
+        })
+        .collect()
+}
+
 #[derive(Debug, Serialize)]
 struct OpenAiMessage<'a> {
     role: &'a str,
     #[serde(skip_serializing_if = "Option::is_none")]
-    content: Option<&'a str>,
+    content: Option<WireContent<'a>>,
     /// thinking 模式回传：与请求里的 assistant 消息一一对应。
     #[serde(skip_serializing_if = "Option::is_none")]
     reasoning_content: Option<&'a str>,
@@ -251,7 +293,27 @@ fn to_openai_message(message: &ChatMessage) -> OpenAiMessage<'_> {
     };
     OpenAiMessage {
         role,
-        content: message.content.as_deref(),
+        // 多模态：有 content_parts 时发数组形态（text + image_url）；
+        // 若 parts 里没有 Text 段，则把 content 的文本作为首段补上
+        //（模型需要先看到问题，再看图）。
+        content: if message.content_parts.is_empty() {
+            message.content.as_deref().map(WireContent::Text)
+        } else {
+            let mut segments = wire_content_parts(&message.content_parts);
+            let has_text = segments.iter().any(|segment| {
+                segment.get("type").and_then(|kind| kind.as_str()) == Some("text")
+            });
+            if !has_text
+                && let Some(text) = message.content.as_deref()
+                && !text.is_empty()
+            {
+                segments.insert(
+                    0,
+                    serde_json::json!({"type": "text", "text": text}),
+                );
+            }
+            Some(WireContent::Parts(segments))
+        },
         reasoning_content: message.reasoning_content.as_deref(),
         tool_calls: None,
         tool_call_id: message.tool_call_id.as_deref(),
@@ -487,6 +549,64 @@ mod tests {
         let json = serde_json::to_string(&message).unwrap();
         assert!(json.contains("reasoning_content"), "{json}");
         assert!(json.contains("先想一步"), "{json}");
+    }
+
+    #[test]
+    fn multimodal_message_serializes_as_array_content() {
+        // V11：图片必须走 wire 数组形态 content: [{text},{image_url}]。
+        use devtoolbox_core::ChatMessage;
+        use devtoolbox_core::ContentPart;
+        let message = ChatMessage::user_with_parts(
+            "这道题哪错了",
+            vec![
+                ContentPart::Text {
+                    text: "这道题哪错了".into(),
+                },
+                ContentPart::Image {
+                    source: "base64".into(),
+                    data: "iVBORw0KGgo=".into(),
+                    mime: "image/png".into(),
+                    caption: Some("学习板快照".into()),
+                },
+            ],
+        );
+        let wire = serde_json::to_value(to_openai_message(&message)).unwrap();
+        let content = wire["content"].as_array().expect("content must be array");
+        assert_eq!(content[0]["type"], "text");
+        assert_eq!(content[0]["text"], "这道题哪错了");
+        assert_eq!(content[1]["type"], "image_url");
+        assert_eq!(
+            content[1]["image_url"]["url"],
+            "data:image/png;base64,iVBORw0KGgo="
+        );
+    }
+
+    #[test]
+    fn text_only_message_stays_string_content() {
+        // 无片段时必须保持纯字符串 content（老端点兼容）。
+        use devtoolbox_core::ChatMessage;
+        let message = ChatMessage::user("你好");
+        let wire = serde_json::to_value(to_openai_message(&message)).unwrap();
+        assert_eq!(wire["content"], "你好");
+    }
+
+    #[test]
+    fn board_snapshot_becomes_image_url() {
+        use devtoolbox_core::ChatMessage;
+        use devtoolbox_core::ContentPart;
+        let message = ChatMessage::user_with_parts(
+            "看这块板",
+            vec![ContentPart::BoardSnapshot {
+                board_id: "b1".into(),
+                title: None,
+                image_base64: Some("AAAA".into()),
+                stroke_count: 3,
+            }],
+        );
+        let wire = serde_json::to_value(to_openai_message(&message)).unwrap();
+        let content = wire["content"].as_array().expect("array");
+        assert_eq!(content[1]["type"], "image_url");
+        assert_eq!(content[1]["image_url"]["url"], "data:image/png;base64,AAAA");
     }
 
     #[test]

@@ -1455,6 +1455,7 @@ mod gate9_tests {
             vec![ChatMessage {
                 role: ChatRole::User,
                 content: Some("go".into()),
+                content_parts: Vec::new(),
                 reasoning_content: None,
                 tool_calls: None,
                 tool_call_id: None,
@@ -1539,6 +1540,7 @@ mod gate9_tests {
             vec![ChatMessage {
                 role: ChatRole::User,
                 content: Some("go".into()),
+                content_parts: Vec::new(),
                 reasoning_content: None,
                 tool_calls: None,
                 tool_call_id: None,
@@ -1594,6 +1596,7 @@ mod gate9_tests {
             vec![ChatMessage {
                 role: ChatRole::User,
                 content: Some("go".into()),
+                content_parts: Vec::new(),
                 reasoning_content: None,
                 tool_calls: None,
                 tool_call_id: None,
