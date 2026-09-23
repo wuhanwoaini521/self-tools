@@ -8,8 +8,8 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
 use devtoolbox_core::personal_ai::{
-    ChatMessage, ChatModelProvider, ChatRequest, ChatResponse, ChatRole, ChatToolCall, ChatUsage,
-    ProviderError,
+    ChatMessage, ChatModelProvider, ChatRequest, ChatResponse, ChatRole, ChatToolCall, ChatToolSpec,
+    ChatUsage, ProviderError,
 };
 
 /// AI 模型配置（来自应用设置 `AiSettings`；key 可选，本地 Ollama 可留空）。
@@ -74,23 +74,21 @@ impl ChatModelProvider for OpenAiCompatibleChatModelProvider {
                 .max(1),
         );
 
-        let body = OpenAiChatRequest {
-            model,
-            messages: request.messages.iter().map(to_openai_message).collect(),
-            tools: request
-                .tools
-                .iter()
-                .map(|tool| OpenAiTool {
-                    kind: "function",
-                    function: OpenAiFunction {
-                        name: &tool.name,
-                        description: &tool.description,
-                        parameters: &tool.parameters,
-                    },
-                })
-                .collect(),
-            temperature: request.temperature.unwrap_or(0.2),
-        };
+        // 工具名 wire 编码 + arguments 字符串化（先落 Vec，避免借用临时值）。
+        let encoded_calls: Vec<Vec<EncodedToolCall>> = request
+            .messages
+            .iter()
+            .map(|message| match &message.tool_calls {
+                Some(calls) => encode_tool_calls(calls),
+                None => Vec::new(),
+            })
+            .collect();
+        let wire_tools: Vec<(String, &devtoolbox_core::personal_ai::ChatToolSpec)> = request
+            .tools
+            .iter()
+            .map(|tool| (encode_tool_name(&tool.name), tool))
+            .collect();
+        let body = build_request_body(&request, model, &encoded_calls, &wire_tools);
 
         let mut builder = self
             .client
@@ -118,7 +116,8 @@ impl ChatModelProvider for OpenAiCompatibleChatModelProvider {
             .bytes()
             .await
             .map_err(|error| ProviderError::transport(error.to_string()))?;
-        parse_chat_response(&body).map_err(ProviderError::invalid_response)
+        let known: Vec<String> = request.tools.iter().map(|tool| tool.name.clone()).collect();
+        parse_chat_response_with_tools(&body, &known).map_err(ProviderError::invalid_response)
     }
 }
 
@@ -175,6 +174,71 @@ struct OpenAiFunction<'a> {
     parameters: &'a serde_json::Value,
 }
 
+/// 工具名 wire 编码（§V11 兼容 OpenAI function name 规则 `^[a-zA-Z0-9_-]+$`）。
+///
+/// 内部契约是 `module.action`（registry 强制含 `.`），但 OpenAI 兼容 API 的
+/// `tools[].function.name` 不接受 `.` — 发请求时把 `.` 换成 `_`，收到响应时换回来。
+/// 这是一一映射（`.` ↔ `_`），不含歧义：内部名不允许 `_` 与 `.` 混用产生的冲突，
+/// 因为反向替换只对**已知注册工具名**生效（白名单映射，见 `Router`）。
+#[must_use]
+pub fn encode_tool_name(internal: &str) -> String {
+    internal.replace('.', "_")
+}
+
+/// wire 名 → 内部名（白名单：只解码注册表里存在的工具）。
+///
+/// `known` 为 registry 的内部名集合；找不到 = 原样返回 wire（让 provider 报
+/// unknown tool，由执行端受控处理）。返回值可能是 `wire` 的借用，因此
+/// 调用方持有的 `wire` 必须比结果活得更久（本 crate 内部调用点在 `chat()`，
+/// `wire` 来源于反序列化后的局部结构，满足该约束）。
+#[must_use]
+pub fn decode_tool_name<'a>(
+    wire: &'a str,
+    known: &'a [String],
+) -> std::borrow::Cow<'a, str> {
+    if !wire.contains('_') {
+        return std::borrow::Cow::Borrowed(wire);
+    }
+    for candidate in known {
+        if encode_tool_name(candidate) == wire {
+            return std::borrow::Cow::Owned(candidate.clone());
+        }
+    }
+    std::borrow::Cow::Borrowed(wire)
+}
+
+/// assistant 消息里工具调用名的 wire 编码（需与 `OpenAiMessage` 同生命周期）。
+#[derive(Debug, Serialize)]
+struct EncodedToolCall {
+    id: String,
+    #[serde(rename = "type")]
+    kind: &'static str,
+    function: EncodedFunctionCall,
+}
+
+#[derive(Debug, Serialize)]
+struct EncodedFunctionCall {
+    name: String,
+    /// OpenAI 要求 arguments 是 JSON 字符串。
+    arguments: String,
+}
+
+/// 把消息里的工具调用转成 wire 形态（名字 `.` → `_`，arguments 序列化为字符串）。
+fn encode_tool_calls(calls: &[ChatToolCall]) -> Vec<EncodedToolCall> {
+    calls
+        .iter()
+        .map(|call| EncodedToolCall {
+            id: call.id.clone(),
+            kind: "function",
+            function: EncodedFunctionCall {
+                name: encode_tool_name(&call.name),
+                arguments: serde_json::to_string(&call.arguments)
+                    .unwrap_or_else(|_| "{}".to_string()),
+            },
+        })
+        .collect()
+}
+
 fn to_openai_message(message: &ChatMessage) -> OpenAiMessage<'_> {
     let role = match message.role {
         ChatRole::System => "system",
@@ -185,21 +249,57 @@ fn to_openai_message(message: &ChatMessage) -> OpenAiMessage<'_> {
     OpenAiMessage {
         role,
         content: message.content.as_deref(),
-        tool_calls: message.tool_calls.as_ref().map(|calls| {
-            calls
-                .iter()
-                .map(|call| OpenAiToolCall {
-                    id: &call.id,
-                    kind: "function",
-                    function: OpenAiFunctionCall {
-                        name: &call.name,
-                        arguments: serde_json::to_string(&call.arguments)
-                            .unwrap_or_else(|_| "{}".to_string()),
-                    },
-                })
-                .collect()
-        }),
+        tool_calls: None,
         tool_call_id: message.tool_call_id.as_deref(),
+    }
+}
+
+/// 请求体构造（wire 形态：工具名 `.` → `_`，arguments 序列化为字符串）。
+///
+/// `wire_tools` 由调用方预先构建（编码后的名字需与 body 同生命周期）。
+fn build_request_body<'a>(
+    request: &'a ChatRequest,
+    model: &'a str,
+    encoded_calls: &'a [Vec<EncodedToolCall>],
+    wire_tools: &'a [(String, &'a ChatToolSpec)],
+) -> OpenAiChatRequest<'a> {
+    let messages: Vec<OpenAiMessage<'_>> = request
+        .messages
+        .iter()
+        .enumerate()
+        .map(|(index, message)| {
+            let mut encoded = to_openai_message(message);
+            encoded.tool_calls = encoded_calls.get(index).map(|calls| {
+                calls
+                    .iter()
+                    .map(|call| OpenAiToolCall {
+                        id: &call.id,
+                        kind: call.kind,
+                        function: OpenAiFunctionCall {
+                            name: &call.function.name,
+                            arguments: call.function.arguments.clone(),
+                        },
+                    })
+                    .collect()
+            });
+            encoded
+        })
+        .collect();
+    OpenAiChatRequest {
+        model,
+        messages,
+        tools: wire_tools
+            .iter()
+            .map(|(name, tool)| OpenAiTool {
+                kind: "function",
+                function: OpenAiFunction {
+                    name,
+                    description: &tool.description,
+                    parameters: &tool.parameters,
+                },
+            })
+            .collect(),
+        temperature: request.temperature.unwrap_or(0.2),
     }
 }
 
@@ -247,7 +347,13 @@ struct OpenAiUsage {
 ///
 /// 支持无 function calling 的老端点：`message.content` 为 null 且无 tool_calls
 /// 时仍正常返回（content=None，调用方按无工具轮处理）。
-pub fn parse_chat_response(body: &[u8]) -> Result<ChatResponse, String> {
+///
+/// `known_tools`：registry 的内部工具名（`module.action`）。模型回传的是 wire 名
+/// （`.` → `_`），这里白名单解码回内部名；未知名原样保留，由执行端受控拒绝。
+pub fn parse_chat_response_with_tools(
+    body: &[u8],
+    known_tools: &[String],
+) -> Result<ChatResponse, String> {
     let parsed: OpenAiChatResponse = serde_json::from_slice(body)
         .map_err(|error| format!("invalid model response json: {error}"))?;
     let choice = parsed
@@ -263,6 +369,7 @@ pub fn parse_chat_response(body: &[u8]) -> Result<ChatResponse, String> {
                 .into_iter()
                 .filter_map(|call| {
                     let name = call.function.name?;
+                    let name = decode_tool_name(&name, known_tools).into_owned();
                     let id = call.id.unwrap_or_else(gen_call_id);
                     let arguments = call
                         .function
@@ -291,6 +398,11 @@ pub fn parse_chat_response(body: &[u8]) -> Result<ChatResponse, String> {
         tool_calls,
         usage: usage.unwrap_or_default(),
     })
+}
+
+/// 无白名单的兼容入口（解码退化为「原样返回」，未知 wire 名保持 `_` 形态）。
+pub fn parse_chat_response(body: &[u8]) -> Result<ChatResponse, String> {
+    parse_chat_response_with_tools(body, &[])
 }
 
 fn gen_call_id() -> String {
@@ -337,6 +449,63 @@ mod tests {
         assert_eq!(response.tool_calls.len(), 1);
         assert_eq!(response.tool_calls[0].name, "history.search");
         assert_eq!(response.tool_calls[0].arguments["query"], "遵義");
+    }
+
+    #[test]
+    fn tool_names_round_trip_through_wire_encoding() {
+        // 内部契约 module.action；wire 上必须满足 OpenAI ^[a-zA-Z0-9_-]+$。
+        for internal in [
+            "history.search",
+            "study-board.list",
+            "study-board.save",
+            "server.get_status",
+            "services.get_logs",
+            "memory.save",
+        ] {
+            let wire = encode_tool_name(internal);
+            assert!(!wire.contains('.'), "{internal} → {wire} 仍含点");
+            assert!(
+                wire.chars().all(|ch| ch.is_ascii_alphanumeric() || ch == '_' || ch == '-'),
+                "{wire} 含非法字符"
+            );
+            let known = vec![internal.to_string()];
+            assert_eq!(decode_tool_name(&wire, &known), internal);
+        }
+    }
+
+    #[test]
+    fn decode_unknown_wire_name_is_left_untouched() {
+        let known = vec!["history.search".to_string()];
+        // 未知工具：保持 wire 形态（执行端会以 unknown tool 受控拒绝）。
+        assert_eq!(decode_tool_name("ghost_tool", &known), "ghost_tool");
+        // 无下划线直接返回。
+        assert_eq!(decode_tool_name("search", &known), "search");
+    }
+
+    #[test]
+    fn parse_decodes_wire_tool_names_against_registry() {
+        let body = json!({
+            "choices": [{"index": 0, "message": {
+                "role": "assistant",
+                "tool_calls": [
+                    {"id": "c1", "function": {"name": "study-board.list", "arguments": "{}"}},
+                    {"id": "c2", "function": {"name": "unknown_tool", "arguments": "{}"}}
+                ]
+            }}]
+        });
+        let known = vec![
+            "study-board.list".to_string(),
+            "study-board.save".to_string(),
+        ];
+        let response =
+            parse_chat_response_with_tools(serde_json::to_vec(&body).unwrap().as_slice(), &known)
+                .unwrap();
+        let names: Vec<&str> = response
+            .tool_calls
+            .iter()
+            .map(|call| call.name.as_str())
+            .collect();
+        assert_eq!(names, vec!["study-board.list", "unknown_tool"]);
     }
 
     #[test]

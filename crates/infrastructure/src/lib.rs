@@ -44,7 +44,10 @@ pub use history::{
 };
 pub use history_enrichment::EnrichmentSqliteStore;
 pub use language::{LanguageStore, SearchHit, sources};
-pub use personal_ai::{AiModelConfig, OpenAiCompatibleChatModelProvider, parse_chat_response};
+pub use personal_ai::{
+    AiModelConfig, OpenAiCompatibleChatModelProvider, decode_tool_name, encode_tool_name,
+    parse_chat_response,
+};
 pub use rss_store::{ArticleRow, FeedRepository, FeedRow, now_unix};
 pub use settings_store::SettingsStore;
 pub use study_board::{STUDY_BOARD_SCHEMA_VERSION, StudyBoardSqliteStore};

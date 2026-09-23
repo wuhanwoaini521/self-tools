@@ -7,4 +7,7 @@
 pub mod conversation_store;
 pub mod llm;
 
-pub use llm::{AiModelConfig, OpenAiCompatibleChatModelProvider, parse_chat_response};
+pub use llm::{
+    AiModelConfig, OpenAiCompatibleChatModelProvider, decode_tool_name, encode_tool_name,
+    parse_chat_response,
+};

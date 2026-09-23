@@ -380,6 +380,8 @@ button {
 }
 
 /* ===== Dashboard 外壳:顶栏 + 左侧导航 + 功能页面 ===== */
+/* 外壳两行：顶栏 + 主体。PWA 状态条是 grid 之外的 fixed 层（见下），
+   不参与行分配 —— 否则三条子元素挤两行会把顶栏拉高、主体被压。 */
 .app-shell {
  display: grid;
  height: 100vh;
@@ -13460,14 +13462,21 @@ main.history-v2-period {
  grid-template-columns: 198px minmax(0, 1fr);
 }
 
-/* PWA 状态条（§81/§82）：离线 / 更新 / 版本不兼容。 */
+/* PWA 状态条（§81/§82）：离线 / 更新 / 版本不兼容。
+   固定层叠在顶栏下方，不占 grid 行（否则外壳行分配错位）。 */
 .pwa-banners {
- position: sticky;
- top: 0;
- z-index: 50;
+ position: fixed;
+ top: 52px; /* 顶栏高度下沿 */
+ left: 0;
+ right: 0;
+ z-index: 60;
  display: flex;
  flex-direction: column;
  gap: 1px;
+ pointer-events: none;
+}
+.pwa-banners > * {
+ pointer-events: auto;
 }
 .pwa-banner {
  display: flex;
