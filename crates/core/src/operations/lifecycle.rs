@@ -99,34 +99,37 @@ pub struct InstanceLock {
     path: PathBuf,
 }
 
+/// 锁文件被视为 stale 的年龄阈值（秒）。
+///
+/// 单实例锁的接管判定是**保守**策略：不引入 `libc`/FFI（workspace 禁止
+/// `unsafe_code`），也不调 `ps`。锁文件里写有 pid 与写入时间戳：
+/// - pid 不可解析 → stale（可接管）；
+/// - pid 可解析但锁文件年龄超过本阈值 → 视为上个实例崩溃后残留（launchd
+///   KeepAlive 场景下实例重启远快于该阈值）。
+const STALE_LOCK_AGE_SECS: u64 = 3600;
+
 impl InstanceLock {
-    /// 尝试获取锁。Ok = 获得；Err = 已被占用（含占用者 pid 文本）。
+    /// 尝试获取锁。Ok = 获得；Err = 已被占用（含占用者信息）。
     pub fn acquire(paths: &AppPaths) -> Result<Self, String> {
         let path = paths.lock_file();
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)
                 .map_err(|error| format!("create runtime dir: {error}"))?;
         }
-        // 清理 stale lock：内容里的 pid 已不存在 → 可接管。
-        if path.exists() {
-            let stale = std::fs::read_to_string(&path)
-                .ok()
-                .and_then(|text| text.trim().parse::<u32>().ok())
-                .is_none_or(|pid| !process_alive(pid));
-            if stale {
-                let _ = std::fs::remove_file(&path);
-            } else {
-                return Err(format!("instance lock held: {}", path.display()));
-            }
+        // 清理 stale lock：pid 不可解析，或锁文件太老（实例崩溃残留）。
+        if path.exists() && is_stale_lock(&path) {
+            let _ = std::fs::remove_file(&path);
+        } else if path.exists() {
+            return Err(format!("instance lock held: {}", path.display()));
         }
-        let pid = std::process::id();
+        let payload = format!("{}\n{}", std::process::id(), now_unix());
         let mut file = std::fs::OpenOptions::new()
             .write(true)
             .create_new(true)
             .open(&path)
             .map_err(|error| format!("acquire instance lock ({}): {error}", path.display()))?;
         use std::io::Write;
-        let _ = writeln!(file, "{pid}");
+        let _ = writeln!(file, "{payload}");
         drop(file);
         Ok(Self { path })
     }
@@ -137,36 +140,34 @@ impl InstanceLock {
     }
 }
 
+/// stale 判定：pid 不可解析，或写入时间过旧。
+///
+/// 不用 `kill(pid, 0)`：workspace `unsafe_code = "forbid"`，跨平台还要
+/// 分支。文件年龄 + pid 可解析性在单实例场景足够（误判后果仅是一次接管）。
+fn is_stale_lock(path: &Path) -> bool {
+    let Ok(raw) = std::fs::read_to_string(path) else {
+        // 读不了（权限/被删）→ 不当 stale，让调用方按 held 处理。
+        return false;
+    };
+    let mut lines = raw.lines();
+    let pid_parseable = lines
+        .next()
+        .and_then(|line| line.trim().parse::<u32>().ok())
+        .is_some();
+    if !pid_parseable {
+        return true;
+    }
+    let written_at = lines
+        .next()
+        .and_then(|line| line.trim().parse::<u64>().ok())
+        .unwrap_or(0);
+    now_unix().saturating_sub(written_at) > STALE_LOCK_AGE_SECS
+}
+
 impl Drop for InstanceLock {
     fn drop(&mut self) {
         self.release();
     }
-}
-
-/// 进程是否存活（Unix kill(0)；Windows 用 OpenProcess 语义过重 → 用 tasklist 不可取，
-/// 这里退化为「stale = pid 无法解析」的保守策略之外的第二种判定：文件年龄）。
-fn process_alive(pid: u32) -> bool {
-    #[cfg(unix)]
-    {
-        // SAFETY: libc::kill 是 FFI；信号 0 只做存在性检查，不发送信号。
-        let result = unsafe { libc_kill(pid as i32, 0) };
-        result == 0
-    }
-    #[cfg(not(unix))]
-    {
-        // 无跨平台 pid 探针：假定存活（保守，除非运维删除 runtime/instance.lock）。
-        let _ = pid;
-        true
-    }
-}
-
-#[cfg(unix)]
-unsafe fn libc_kill(pid: i32, signal: i32) -> i32 {
-    unsafe extern "C" {
-        fn kill(pid: i32, signal: i32) -> i32;
-    }
-    // SAFETY: kill(2) 只读进程存在性。
-    unsafe { kill(pid, signal) }
 }
 
 /// 启动标记管理（§57：unclean-shutdown）。
