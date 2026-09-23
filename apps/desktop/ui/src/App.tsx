@@ -98,6 +98,22 @@ interface NavItem {
   disabled?: boolean;
 }
 
+/** 页面 id 集合（hash 路由与导航共用）。 */
+const PAGE_IDS: PageId[] = [
+  "home",
+  "markdown",
+  "rss",
+  "travel",
+  "geography",
+  "history",
+  "language",
+  "knowledge",
+  "study-board",
+  "server",
+  "system",
+  "search",
+];
+
 /** 导航注册表:新功能在这里加一行即可(Tools 为未来模块的占位) */
 const NAV_ITEMS: NavItem[] = [
   { id: "home", label: "Home", icon: House },
@@ -181,6 +197,40 @@ export default function App() {
   const layout = useLayout();
   useDeviceAttribute();
   const [page, setPage] = useState<PageId>("home");
+
+  // hash 路由（V11：`#study-board` 等直链必须能打开对应页面）。
+  //
+  // 顺序很重要：**先读后写**。若分开两个 effect，写 hash 的 effect 会在
+  // setPage 生效前用初始值 home 覆盖 URL，直链就永远丢了。
+  useEffect(() => {
+    const fromHash = (): PageId | null => {
+      const raw = window.location.hash.replace(/^#/, "").trim();
+      if (!raw) return null;
+      return (PAGE_IDS as string[]).includes(raw) ? (raw as PageId) : null;
+    };
+    const initial = fromHash();
+    if (initial) setPage(initial);
+    const onHashChange = () => {
+      const next = fromHash();
+      if (next) setPage(next);
+    };
+    window.addEventListener("hashchange", onHashChange);
+    return () => window.removeEventListener("hashchange", onHashChange);
+  }, []);
+
+  // 页面切换时回写 hash（刷新 / 分享链接保持当前页）。
+  // 跳过首次执行（首次交给上面的 effect 读，避免互相覆盖）。
+  const pageSyncedOnce = useRef(false);
+  useEffect(() => {
+    if (!pageSyncedOnce.current) {
+      pageSyncedOnce.current = true;
+      return;
+    }
+    const current = window.location.hash.replace(/^#/, "");
+    if (current !== page) {
+      window.history.replaceState(null, "", `#${page}`);
+    }
+  }, [page]);
   const [settings, setSettings] = useState<AppSettings>(defaultSettings);
   const [settingsLoaded, setSettingsLoaded] = useState(!isTauriRuntime());
   const [themeId, setThemeId] = useState("default");

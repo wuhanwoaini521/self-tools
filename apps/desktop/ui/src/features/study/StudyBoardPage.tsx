@@ -40,7 +40,8 @@ interface Stroke {
 }
 
 const STROKE_COLORS = ["#1688ff", "#f5f5f5", "#ffb020", "#22c55e"] as const;
-const CANVAS_BACKGROUND = "#0d1315";
+/** 纸感底色（深灰而非纯黑，配浅色网格）。 */
+const CANVAS_BACKGROUND = "#151b1f";
 
 function newBoardId(): string {
   return `board-${Date.now().toString(36)}-${Math.floor(Math.random() * 0xffffff).toString(36)}`;
@@ -65,8 +66,26 @@ export function StudyBoardPage({ active, onContextChange, onAskAi }: StudyBoardP
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
+    // 纸感底色（不是纯黑）：深灰纸 + 细网格 + 边距参考线。
+    const dpr = window.devicePixelRatio || 1;
+    const cssWidth = canvas.width / dpr;
+    const cssHeight = canvas.height / dpr;
     ctx.fillStyle = CANVAS_BACKGROUND;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillRect(0, 0, cssWidth, cssHeight);
+    // 网格（理科作图 / 笔记对齐都能用上）。
+    const grid = 24;
+    ctx.strokeStyle = "rgba(120, 150, 170, 0.14)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let x = grid; x < cssWidth; x += grid) {
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, cssHeight);
+    }
+    for (let y = grid; y < cssHeight; y += grid) {
+      ctx.moveTo(0, y);
+      ctx.lineTo(cssWidth, y);
+    }
+    ctx.stroke();
     for (const stroke of strokes) {
       if (stroke.points.length < 2) continue;
       ctx.strokeStyle = stroke.color;
@@ -87,30 +106,45 @@ export function StudyBoardPage({ active, onContextChange, onAskAi }: StudyBoardP
   }, [redraw, active]);
 
   // 画布尺寸跟随容器（DPR 适配，笔画不糊）。
+  // 页面前几次渲染时容器可能仍是 0（隐藏 pane 刚显示）→ 用 rAF 重试几次，
+  // 并兜底一个最小尺寸，避免 1×1 画布导致「画不了」。
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+    let attempts = 0;
+    let frame = 0;
     const resize = () => {
       const parent = canvas.parentElement;
-      if (!parent) return;
       const dpr = window.devicePixelRatio || 1;
-      const width = parent.clientWidth;
-      const height = parent.clientHeight;
+      const measured = parent ? parent.clientWidth : 0;
+      const measuredHeight = parent ? parent.clientHeight : 0;
+      // 兜底：容器还没布局出来时给一个可画的最小尺寸。
+      const width = measured > 0 ? measured : 640;
+      const height = measuredHeight > 0 ? measuredHeight : 480;
       canvas.width = Math.max(1, Math.floor(width * dpr));
       canvas.height = Math.max(1, Math.floor(height * dpr));
       canvas.style.width = `${width}px`;
       canvas.style.height = `${height}px`;
       const ctx = canvas.getContext("2d");
-      if (ctx) ctx.scale(dpr, dpr);
-      // 重设尺寸后坐标系复位 → 以 CSS px 重放已有笔画。
-      ctx?.setTransform(1, 0, 0, 1, 0, 0);
-      if (ctx) ctx.scale(dpr, dpr);
+      if (ctx) {
+        // 重设尺寸后坐标系复位 → 以 CSS px 重放已有笔画。
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.scale(dpr, dpr);
+      }
       redraw();
+      // 容器还没布局完（例如 pane 刚从 page-hidden 切出来）→ 下一帧再试。
+      if (measured <= 0 && attempts < 8) {
+        attempts += 1;
+        frame = requestAnimationFrame(resize);
+      }
     };
     resize();
     window.addEventListener("resize", resize);
-    return () => window.removeEventListener("resize", resize);
-  }, [redraw]);
+    return () => {
+      if (frame) cancelAnimationFrame(frame);
+      window.removeEventListener("resize", resize);
+    };
+  }, [redraw, active]);
 
   const pointerPosition = (event: React.PointerEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
