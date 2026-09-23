@@ -8,11 +8,17 @@
  * 注意：不要在这里引入 RPC 框架 / 事件总线 / 中间件 —— 保持薄接口。
  */
 import { invoke as tauriInvoke, type InvokeArgs } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 
 export interface CommandTransport {
   invoke<T>(command: string, args?: Record<string, unknown>): Promise<T>;
   /** 当前是否运行在 Tauri 桌面运行时（浏览器预览时返回 false）。 */
   isTauriRuntime(): boolean;
+  /**
+   * 订阅后端推送事件（V11：agent 进度）。返回取消订阅函数。
+   * 浏览器预览（非 Tauri）下退化为 no-op。
+   */
+  subscribe<T>(event: string, handler: (payload: T) => void): () => void;
 }
 
 function inTauriRuntime(): boolean {
@@ -26,4 +32,19 @@ export const tauriTransport: CommandTransport = {
     // `Record<string, unknown>` 与它结构兼容，仅在此处做一次显式断言。
     tauriInvoke(command, args as InvokeArgs | undefined),
   isTauriRuntime: inTauriRuntime,
+  subscribe: (event, handler) => {
+    if (!inTauriRuntime()) return () => {};
+    let unlisten: (() => void) | null = null;
+    let cancelled = false;
+    void listen(event, (received) => {
+      if (!cancelled) handler(received.payload as never);
+    }).then((dispose) => {
+      if (cancelled) dispose();
+      else unlisten = dispose;
+    });
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
+  },
 };

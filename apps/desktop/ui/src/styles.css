@@ -14004,3 +14004,59 @@ main.history-v2-period {
 .app-shell-tablet .app-nav-divider {
  margin: 4px 0;
 }
+
+/* ---------------------------------------------------------------------------
+   V11 验收反馈：执行阶段日志（过程可见）+ 诊断文本
+   --------------------------------------------------------------------------- */
+.ai-stage-log {
+ display: flex;
+ flex-direction: column;
+ gap: 2px;
+ margin: 8px 0 0;
+ padding: 8px 10px;
+ border: 1px solid var(--border, #1e2a2e);
+ border-radius: 8px;
+ background: rgba(255, 255, 255, 0.02);
+ list-style: none;
+ font-size: 12px;
+}
+.ai-stage-item {
+ display: flex;
+ align-items: baseline;
+ gap: 8px;
+ color: var(--muted, #8a979d);
+}
+.ai-stage-item::before {
+ content: "›";
+ color: var(--accent, #1688ff);
+ flex: none;
+}
+.ai-stage-item.failed::before {
+ content: "✕";
+ color: #f87171;
+}
+.ai-stage-item.done::before {
+ content: "✓";
+ color: #4ade80;
+}
+.ai-stage-item.failed {
+ color: #f87171;
+}
+.ai-stage-item.done {
+ color: #4ade80;
+}
+.ai-stage-name {
+ font-weight: 600;
+ white-space: nowrap;
+}
+.ai-stage-detail {
+ color: var(--muted, #8a979d);
+ overflow: hidden;
+ text-overflow: ellipsis;
+ white-space: nowrap;
+}
+/* 诊断错误块：保留换行（原始信息在第二行）。 */
+.ai-panel-error {
+ white-space: pre-wrap;
+ line-height: 1.5;
+}

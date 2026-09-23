@@ -32,6 +32,7 @@ import {
 } from "../knowledge/knowledgeTypes";
 import type { ConfirmationDto } from "../server/serverTypes";
 import { aiClient } from "./aiClient";
+import { useAgentProgress } from "./aiClient";
 import {
   agentRoleLabel,
   agentStateLabel,
@@ -46,6 +47,10 @@ import {
   type EntityListItem,
   type FileListItem,
   type MemoryListItem,
+  AGENT_STAGE_LABELS,
+  agentErrorDiagnosis,
+  type AgentProgressEvent,
+  type AgentStageName,
   type OrchestrationTrace,
   type UiBlock,
   documentCardData,
@@ -166,6 +171,9 @@ export function AIPanel({
   const [input, setInput] = useState("");
   const [toolTrace, setToolTrace] = useState<AgentResponse["tool_trace"]>([]);
   const [orchestration, setOrchestration] = useState<AgentResponse["orchestration"]>(null);
+  /** V11：后端推送的执行阶段（过程可见）。 */
+  const [stageLog, setStageLog] = useState<{ stage: AgentStageName; detail?: string | null }[]>([]);
+  const [failureCode, setFailureCode] = useState<string | null>(null);
   const [blocks, setBlocks] = useState<UiBlock[]>([]);
   const [pendingConfirms, setPendingConfirms] = useState<ConfirmMemoryTarget[]>(
     [],
@@ -234,6 +242,19 @@ export function AIPanel({
     };
   }, [open]);
 
+  // V11：订阅后端进度事件（每次请求阶段推进都会收到）。
+  useAgentProgress(
+    (progress: AgentProgressEvent) => {
+      if (progress.stage === "failed") {
+        setFailureCode(progress.error_code ?? null);
+        setStageLog((log) => [...log, { stage: "failed", detail: progress.detail }]);
+        return;
+      }
+      setStageLog((log) => [...log, { stage: progress.stage, detail: progress.detail }]);
+    },
+    status === "loading",
+  );
+
   const send = useCallback(async () => {
     const text = input.trim();
     if (!text || status === "loading") return;
@@ -241,6 +262,8 @@ export function AIPanel({
     setErrorText("");
     setStatus("loading");
     setToolTrace([]);
+    setStageLog([]);
+    setFailureCode(null);
     try {
       const response = await aiClient.chat({
         message: text,
@@ -274,10 +297,12 @@ export function AIPanel({
           }
         }
       }
+      setStageLog((log) => log.filter((entry) => entry.stage !== "done").concat([{ stage: "done" }]));
       setStatus("ready");
     } catch (cause) {
       setStatus("error");
       setErrorText(errorMessage(cause));
+      setFailureCode((code) => code ?? null);
     }
   }, [
     input,
@@ -287,6 +312,7 @@ export function AIPanel({
     enqueueConfirm,
     onOpenFile,
     onOpenDocument,
+    stageLog,
   ]);
 
   const clearConversation = useCallback(() => {
@@ -402,9 +428,23 @@ export function AIPanel({
             ) : null}
           </div>
           {status === "error" ? (
-            <div className="ai-panel-error">
-              {errorText || "发生错误，请重试。"}
+            <div className="ai-panel-error" role="alert">
+              {agentErrorDiagnosis(failureCode, errorText || "发生错误，请重试。")}
             </div>
+          ) : null}
+          {status === "loading" && stageLog.length > 0 ? (
+            <ol className="ai-stage-log" aria-live="polite" aria-label="执行进度">
+              {stageLog.map((entry, index) => (
+                <li key={`${entry.stage}-${index}`} className={"ai-stage-item " + entry.stage}>
+                  <span className="ai-stage-name">
+                    {AGENT_STAGE_LABELS[entry.stage] ?? entry.stage}
+                  </span>
+                  {entry.detail ? (
+                    <span className="ai-stage-detail">{entry.detail}</span>
+                  ) : null}
+                </li>
+              ))}
+            </ol>
           ) : null}
           {orchestration ? (
             <OrchestrationTraceView trace={orchestration} />

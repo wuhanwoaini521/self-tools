@@ -40,7 +40,7 @@ mod server_adapters;
 // lib 已不再直接使用 serde_json（History 用例迁入 application）；保留空导入以消除 unused warning。
 use serde::{Deserialize, Serialize};
 use serde_json as _;
-use tauri::{AppHandle, Manager, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 
 #[derive(Debug, Serialize)]
 struct CommandError {
@@ -936,7 +936,20 @@ fn personal_ai_status(
     })
 }
 
+/// 进度事件 → 前端（V11：让用户看见 Agent 在做什么，失败时知道卡在哪一步）。
+struct TauriProgressSink {
+    app: AppHandle,
+}
+
+impl devtoolbox_core::AgentProgressSink for TauriProgressSink {
+    fn emit(&self, progress: &devtoolbox_core::AgentProgress) {
+        // 忽略发送失败（前端可能已关闭面板）。
+        let _ = self.app.emit("agent-progress", progress);
+    }
+}
+
 #[tauri::command]
+/// AI 对话（带进度推送）。
 async fn personal_ai_chat(
     app: AppHandle,
     state: State<'_, AppState>,
@@ -954,10 +967,30 @@ async fn personal_ai_chat(
         provider,
         Arc::clone(&state.ai),
         Arc::clone(&state.ai_session),
-    );
-    agent
-        .run(request)
-        .await
+    )
+    .with_progress_sink(Arc::new(TauriProgressSink {
+        app: app.clone(),
+    }));
+    let started = std::time::Instant::now();
+    let result = agent.run(request).await;
+    match &result {
+        Ok(_) => {
+            let _ = app.emit(
+                "agent-progress",
+                devtoolbox_core::AgentProgress::with_detail(
+                    devtoolbox_core::AgentStage::Done,
+                    format!("{}ms", started.elapsed().as_millis()),
+                ),
+            );
+        }
+        Err(error) => {
+            let _ = app.emit(
+                "agent-progress",
+                devtoolbox_core::AgentProgress::failed(error.code(), error.message.clone()),
+            );
+        }
+    }
+    result
         .map_err(ApplicationError::PersonalAi)
         .map_err(CommandError::from)
 }

@@ -115,6 +115,68 @@ export function decisionConfidenceLabel(confidence: string): string {
   return DECISION_CONFIDENCE_LABELS[confidence] ?? confidence;
 }
 
+/** Agent 执行阶段（V11 过程可见性；label 由后端给，前端不翻译）。 */
+export type AgentStageName =
+  | "preparing"
+  | "deciding"
+  | "orchestrating"
+  | "thinking"
+  | "calling_tool"
+  | "composing"
+  | "done"
+  | "failed";
+
+export interface AgentProgressEvent {
+  stage: AgentStageName;
+  /** 阶段内细节（策略名 / 耗时 / 失败原因）。 */
+  detail?: string | null;
+  /** 失败时的稳定错误码（failed 阶段）。 */
+  error_code?: string | null;
+}
+
+export const AGENT_STAGE_LABELS: Record<AgentStageName, string> = {
+  preparing: "准备上下文",
+  deciding: "选择策略",
+  orchestrating: "多 Agent 执行",
+  thinking: "模型思考",
+  calling_tool: "调用工具",
+  composing: "生成回答",
+  done: "完成",
+  failed: "失败",
+};
+
+/** 阶段顺序（用于渲染进度条；failed/done 是终止态）。 */
+export const AGENT_STAGE_ORDER: AgentStageName[] = [
+  "preparing",
+  "deciding",
+  "thinking",
+  "calling_tool",
+  "composing",
+  "done",
+];
+
+/** 错误码 → 用户可读诊断（不知道也回落到原文，不隐藏信息）。 */
+export const AGENT_ERROR_DIAGNOSIS: Record<string, string> = {
+  personal_ai_model_unavailable:
+    "模型不可用：未配置 AI（设置 → AI 填 base_url 与 model），或网络不可达。",
+  personal_ai_provider_timeout: "模型响应超时：可提高 ai.timeout_secs 或换更快的模型。",
+  personal_ai_provider_error: "模型返回错误：见下方详情（多为接口/参数/权限问题）。",
+  personal_ai_tool_not_found: "工具不存在：模型尝试调用未注册的工具。",
+  personal_ai_tool_invalid_argument: "工具参数不合法：模型给出的参数未通过校验。",
+  personal_ai_tool_execution_failed: "工具执行失败：见下方工具轨迹。",
+  personal_ai_max_tool_rounds: "工具调用轮数超限：请把问题拆小，或检查是否陷入循环。",
+  personal_ai_session_error: "会话存储错误。",
+  personal_ai_unsupported_input:
+    "当前模型不支持这类输入（如图片）：切换到支持视觉的模型，或用文字描述。",
+};
+
+export function agentErrorDiagnosis(code: string | null | undefined, fallback: string): string {
+  if (code && AGENT_ERROR_DIAGNOSIS[code]) {
+    return `${AGENT_ERROR_DIAGNOSIS[code]}\n原始信息：${fallback}`;
+  }
+  return fallback;
+}
+
 /** Agent 角色中文标签（§76 UI）。 */
 export const AGENT_ROLE_LABELS: Record<string, string> = {
   research: "检索",

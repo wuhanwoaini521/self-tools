@@ -494,6 +494,109 @@ pub struct AgentMessage {
     pub content: String,
 }
 
+// ---------------------------------------------------------------------------
+// Agent 进度事件（V11 验收反馈：过程可见 + 失败可诊断）
+// ---------------------------------------------------------------------------
+
+/// Agent 单轮执行的阶段（顺序即流水线顺序）。
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AgentStage {
+    /// 组装上下文（模块 / 工具 / 检索增强）。
+    Preparing,
+    /// 决策：选直接回答还是编排（V10 DecisionEngine）。
+    Deciding,
+    /// 多 Agent 编排执行（worker 并行 / review / merge）。
+    Orchestrating,
+    /// 模型调用（chat completion）。
+    Thinking,
+    /// 工具执行。
+    CallingTool,
+    /// 合成最终回答。
+    Composing,
+    /// 完成。
+    Done,
+    /// 失败（携带可读原因）。
+    Failed,
+}
+
+impl AgentStage {
+    #[must_use]
+    pub fn as_str(self) -> &'static str {
+        match self {
+            AgentStage::Preparing => "preparing",
+            AgentStage::Deciding => "deciding",
+            AgentStage::Orchestrating => "orchestrating",
+            AgentStage::Thinking => "thinking",
+            AgentStage::CallingTool => "calling_tool",
+            AgentStage::Composing => "composing",
+            AgentStage::Done => "done",
+            AgentStage::Failed => "failed",
+        }
+    }
+
+    /// 中文标签（UI 直接用；后端不返回英文让前端翻译）。
+    #[must_use]
+    pub fn label(self) -> &'static str {
+        match self {
+            AgentStage::Preparing => "准备上下文",
+            AgentStage::Deciding => "选择策略",
+            AgentStage::Orchestrating => "多 Agent 执行",
+            AgentStage::Thinking => "模型思考",
+            AgentStage::CallingTool => "调用工具",
+            AgentStage::Composing => "生成回答",
+            AgentStage::Done => "完成",
+            AgentStage::Failed => "失败",
+        }
+    }
+}
+
+/// 进度事件（推给 UI；只含结构与计数，无正文 / secret / 隐藏推理）。
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct AgentProgress {
+    pub stage: AgentStage,
+    /// 阶段内计数（如第几个 worker / 第几次工具调用）。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub detail: Option<String>,
+    /// 稳定错误码（仅 Failed；与 `AgentErrorKind::code` 对齐）。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error_code: Option<String>,
+}
+
+impl AgentProgress {
+    #[must_use]
+    pub fn new(stage: AgentStage) -> Self {
+        Self {
+            stage,
+            detail: None,
+            error_code: None,
+        }
+    }
+
+    #[must_use]
+    pub fn with_detail(stage: AgentStage, detail: impl Into<String>) -> Self {
+        Self {
+            stage,
+            detail: Some(detail.into()),
+            error_code: None,
+        }
+    }
+
+    #[must_use]
+    pub fn failed(error_code: &'static str, detail: impl Into<String>) -> Self {
+        Self {
+            stage: AgentStage::Failed,
+            detail: Some(detail.into()),
+            error_code: Some(error_code.to_string()),
+        }
+    }
+}
+
+/// 进度接收端口（实现方推送给 UI；同时最多一个订阅者）。
+pub trait AgentProgressSink: Send + Sync {
+    fn emit(&self, progress: &AgentProgress);
+}
+
 /// 工具调用轨迹（V4 §12 的 tool_trace metadata）。
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct ToolTraceEntry {
@@ -758,6 +861,31 @@ mod tests {
         assert_eq!(back.actions[0].kind, ActionKind::Navigate);
         assert_eq!(back.tool_trace.len(), 1);
         assert_eq!(back.messages[0].content, "hi");
+    }
+
+    #[test]
+    fn agent_stage_labels_and_serialization() {
+        assert_eq!(AgentStage::Preparing.as_str(), "preparing");
+        assert_eq!(AgentStage::CallingTool.label(), "调用工具");
+        assert_eq!(AgentStage::Done.as_str(), "done");
+        assert_eq!(AgentStage::Failed.label(), "失败");
+    }
+
+    #[test]
+    fn progress_event_carries_structure_only() {
+        let thinking = AgentProgress::with_detail(AgentStage::Thinking, "round 1");
+        assert_eq!(thinking.stage, AgentStage::Thinking);
+        assert_eq!(thinking.detail.as_deref(), Some("round 1"));
+        assert!(thinking.error_code.is_none());
+
+        let progress = AgentProgress::failed("personal_ai_provider_error", "模型返回 400");
+        assert_eq!(progress.stage, AgentStage::Failed);
+        assert_eq!(progress.error_code.as_deref(), Some("personal_ai_provider_error"));
+        // 序列化形状：阶段 + detail + error_code；无其它字段。
+        let json = serde_json::to_value(&progress).unwrap();
+        assert_eq!(json["stage"], "failed");
+        assert_eq!(json["error_code"], "personal_ai_provider_error");
+        assert!(json.get("session_id").is_none());
     }
 
     #[test]

@@ -12,7 +12,8 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use devtoolbox_core::{
-    AgentError, AgentRequest, AgentResponse, ChatMessage, ChatModelProvider, ChatRole,
+    AgentError, AgentProgress, AgentProgressSink, AgentRequest, AgentResponse, AgentStage,
+    ChatMessage, ChatModelProvider, ChatRole,
 };
 
 use crate::personal_ai::context::ContextBudget;
@@ -65,6 +66,8 @@ pub struct PersonalAgent {
     hub: Arc<PersonalHub>,
     session: Arc<dyn SessionStore>,
     config: AgentConfig,
+    /// 进度订阅者（可选；用于 UI 过程可见性）。
+    progress: Option<Arc<dyn AgentProgressSink>>,
 }
 
 impl PersonalAgent {
@@ -80,6 +83,21 @@ impl PersonalAgent {
             hub,
             session,
             config,
+            progress: None,
+        }
+    }
+
+    /// 订阅进度事件（V11：UI 过程可见 + 失败可诊断）。
+    #[must_use]
+    pub fn with_progress_sink(mut self, sink: Arc<dyn AgentProgressSink>) -> Self {
+        self.progress = Some(sink);
+        self
+    }
+
+    /// 发一个进度事件（无订阅者 = 零开销）。
+    fn emit(&self, progress: AgentProgress) {
+        if let Some(sink) = self.progress.as_deref() {
+            sink.emit(&progress);
         }
     }
 
@@ -103,6 +121,8 @@ impl PersonalAgent {
             .clone()
             .unwrap_or_else(|| format!("once-{}", uid16()));
 
+        self.emit(AgentProgress::new(AgentStage::Preparing));
+
         // V11 §104：provider 不支持的多模态输入 → 受控拒绝，不假装分析。
         let parts = request.effective_parts();
         if let Some(reason) = self
@@ -110,6 +130,10 @@ impl PersonalAgent {
             .capabilities()
             .unsupported_reason(&parts)
         {
+            self.emit(AgentProgress::failed(
+                "personal_ai_unsupported_input",
+                reason.clone(),
+            ));
             return Err(AgentError::unsupported_input(reason));
         }
 
@@ -141,6 +165,7 @@ impl PersonalAgent {
         // 本 Agent 合成（§1 单用户入口）。
         let mut orchestration_trace: Option<devtoolbox_core::OrchestrationTraceView> = None;
         if let Some(orchestration) = self.hub.orchestration.as_deref() {
+            self.emit(AgentProgress::new(AgentStage::Deciding));
             let (delegating, decision_telemetry) = orchestration
                 .decide_v10(
                     &request.message,
@@ -156,6 +181,10 @@ impl PersonalAgent {
                 )
                 .await;
             if delegating {
+                self.emit(AgentProgress::with_detail(
+                    AgentStage::Orchestrating,
+                    decision_telemetry.strategy.as_str(),
+                ));
                 // V9-F1：session_id 前端可控 → 过 task id 校验，不合法则用 uid16。
                 let request_id = if devtoolbox_core::agents::is_valid_task_id(&session_id) {
                     session_id.clone()
@@ -213,6 +242,7 @@ impl PersonalAgent {
             assemble_messages(&messages, &request.message, &enabled_tools, &system);
 
         let started = Instant::now();
+        self.emit(AgentProgress::new(AgentStage::Thinking));
         // V9 Gate 3：工具循环抽取为共享 runtime（`personal_ai::runtime`），
         // PersonalAgent 与子 Agent 复用同一执行语义（§40）。
         let loop_outcome = run_tool_loop(
@@ -227,7 +257,10 @@ impl PersonalAgent {
                 max_tool_calls: 0,
             },
         )
-        .await?;
+        .await
+        .inspect_err(|error| {
+            self.emit(AgentProgress::failed(error.code(), error.message.clone()));
+        })?;
         let mut total_usage = loop_outcome.usage;
         let trace = loop_outcome.tool_trace;
         let rounds = loop_outcome.rounds;
@@ -253,6 +286,7 @@ impl PersonalAgent {
 
         total_usage.duration_ms = started.elapsed().as_millis() as u64;
         total_usage.tool_rounds = rounds;
+        self.emit(AgentProgress::new(AgentStage::Done));
         Ok(AgentResponse {
             session_id,
             message,

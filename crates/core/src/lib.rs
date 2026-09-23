@@ -28,11 +28,12 @@ pub mod travel;
 pub mod workspace;
 
 pub use personal_ai::{
-    Action, ActionKind, AgentError, AgentErrorKind, AgentMessage, AgentRequest, AgentResponse,
-    AgentUsage, AppContext, ChatMessage, ChatModelProvider, ChatRequest, ChatResponse, ChatRole,
-    ChatToolCall, ChatToolSpec, ChatUsage, EntityRef, ModuleDescriptor, ProviderError,
-    ProviderErrorKind, SelectionRef, ToolCallRequest, ToolResult, ToolRisk, ToolSpec,
-    OrchestrationRunView, OrchestrationTraceView, ToolTraceEntry, UiBlock, UiBlockKind,
+    Action, ActionKind, AgentError, AgentErrorKind, AgentMessage, AgentProgress, AgentProgressSink,
+    AgentRequest, AgentResponse, AgentStage, AgentUsage, AppContext, ChatMessage, ChatModelProvider,
+    ChatRequest, ChatResponse, ChatRole, ChatToolCall, ChatToolSpec, ChatUsage, ContentPart,
+    EntityRef, ModelCapabilities, ModuleDescriptor, OrchestrationRunView, OrchestrationTraceView,
+    ProviderError, ProviderErrorKind, SelectionRef, ToolCallRequest, ToolResult, ToolRisk,
+    ToolSpec, ToolTraceEntry, UiBlock, UiBlockKind,
 };
 
 pub use language::{
