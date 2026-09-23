@@ -234,9 +234,11 @@ mod tests {
             ..service("self-tools", "com.example.backend")
         };
         let status = adapter.probe(&tampered);
+        // 只断言被篡改的引用不会改变目标：service_id 来自注册表。
         assert_eq!(status.service_id, "self-tools");
-        // CI 无 launchd → Unknown（不谎报）。
-        assert_eq!(status.status, HealthStatus::Unknown);
+        // 平台差异：本机有 launchd（macOS runner）时可能真的探到服务状态，
+        // 没有时是 Unknown。两者都不算「谎报」；detail 不含调用方输入。
+        assert!(!status.detail.contains("com.evil.other"));
     }
 
     #[test]

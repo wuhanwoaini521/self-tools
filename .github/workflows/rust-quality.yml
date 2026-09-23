@@ -17,7 +17,12 @@ jobs:
       matrix:
         os: [windows-latest, macos-latest, ubuntu-latest]
     steps:
+      # `history-data-pipeline` 是 git submodule：desktop 测试用其
+      # `dist/history.duckdb` 作为 DuckDB fixture。不拉 submodule 会让
+      # `personal_ai::tests::*` 以 NotFound panic。
       - uses: actions/checkout@v5
+        with:
+          submodules: recursive
       - uses: dtolnay/rust-toolchain@1.95.0
         with:
           components: clippy, rustfmt
