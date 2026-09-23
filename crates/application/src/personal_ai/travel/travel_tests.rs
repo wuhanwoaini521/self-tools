@@ -305,6 +305,7 @@ fn personal_agent_route_calls_travel_tool() {
         let mut steps = chat.steps.lock().unwrap();
         steps.push_back(ChatResponse {
             content: None,
+            reasoning_content: None,
             tool_calls: vec![ChatToolCall {
                 id: "call_trip".into(),
                 name: "travel.get_trip_context".into(),
@@ -316,6 +317,7 @@ fn personal_agent_route_calls_travel_tool() {
             content: Some(
                 r#"{"message":"当前是大连 3 天行程。","actions":[],"ui_blocks":[]}"#.to_string(),
             ),
+            reasoning_content: None,
             tool_calls: vec![],
             usage: devtoolbox_core::ChatUsage::default(),
         });

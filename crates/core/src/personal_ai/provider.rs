@@ -98,6 +98,14 @@ pub struct ChatMessage {
     pub role: ChatRole,
     /// 文本内容；tool 结果消息也可放文本。
     pub content: Option<String>,
+    /// 模型思考内容（thinking 模式的 `reasoning_content`）。
+    ///
+    /// **用途边界**：部分 OpenAI 兼容端点在 thinking 模式下要求把它原样回传，
+    /// 否则下一轮报 `reasoning_content in the thinking mode must be passed back`。
+    /// 因此该字段只在**请求链路**（内存）中流转；持久化层（Conversation /
+    /// Session）一律不写入（hidden reasoning 不属于可展示内容）。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reasoning_content: Option<String>,
     /// assistant 消息可携带 0..n 个工具调用。
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tool_calls: Option<Vec<ChatToolCall>>,
@@ -112,6 +120,7 @@ impl ChatMessage {
         Self {
             role: ChatRole::System,
             content: Some(content.into()),
+            reasoning_content: None,
             tool_calls: None,
             tool_call_id: None,
         }
@@ -121,6 +130,7 @@ impl ChatMessage {
         Self {
             role: ChatRole::User,
             content: Some(content.into()),
+            reasoning_content: None,
             tool_calls: None,
             tool_call_id: None,
         }
@@ -130,6 +140,7 @@ impl ChatMessage {
         Self {
             role: ChatRole::Assistant,
             content: Some(content.into()),
+            reasoning_content: None,
             tool_calls: None,
             tool_call_id: None,
         }
@@ -139,7 +150,23 @@ impl ChatMessage {
         Self {
             role: ChatRole::Assistant,
             content: None,
+            reasoning_content: None,
             tool_calls: Some(calls),
+            tool_call_id: None,
+        }
+    }
+    /// assistant 消息 + 思考内容（thinking 模式回传用）。
+    #[must_use]
+    pub fn assistant_with_reasoning(
+        content: Option<String>,
+        reasoning: Option<String>,
+        calls: Option<Vec<ChatToolCall>>,
+    ) -> Self {
+        Self {
+            role: ChatRole::Assistant,
+            content,
+            reasoning_content: reasoning,
+            tool_calls: calls,
             tool_call_id: None,
         }
     }
@@ -148,6 +175,7 @@ impl ChatMessage {
         Self {
             role: ChatRole::Tool,
             content: Some(content.into()),
+            reasoning_content: None,
             tool_calls: None,
             tool_call_id: Some(tool_call_id.into()),
         }
@@ -199,6 +227,9 @@ impl ChatUsage {
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct ChatResponse {
     pub content: Option<String>,
+    /// thinking 模式的思考内容（下一轮需回传；持久化不写入）。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reasoning_content: Option<String>,
     #[serde(default)]
     pub tool_calls: Vec<ChatToolCall>,
     #[serde(default)]

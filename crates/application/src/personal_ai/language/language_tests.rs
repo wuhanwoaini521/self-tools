@@ -427,6 +427,7 @@ async fn personal_agent_route_language() {
     };
     chat.steps.lock().unwrap().push_back(ChatResponse {
         content: None,
+        reasoning_content: None,
         tool_calls: vec![ChatToolCall {
             id: "call_1".into(),
             name: "language.get_context".into(),
@@ -438,6 +439,7 @@ async fn personal_agent_route_language() {
         content: Some(
             r#"{"message":"食べる 是「吃」的意思。","actions":[],"ui_blocks":[]}"#.to_string(),
         ),
+        reasoning_content: None,
         tool_calls: vec![],
         usage: devtoolbox_core::ChatUsage::default(),
     });

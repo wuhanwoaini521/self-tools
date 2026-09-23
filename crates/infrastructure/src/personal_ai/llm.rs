@@ -138,6 +138,9 @@ struct OpenAiMessage<'a> {
     role: &'a str,
     #[serde(skip_serializing_if = "Option::is_none")]
     content: Option<&'a str>,
+    /// thinking 模式回传：与请求里的 assistant 消息一一对应。
+    #[serde(skip_serializing_if = "Option::is_none")]
+    reasoning_content: Option<&'a str>,
     #[serde(skip_serializing_if = "Option::is_none")]
     tool_calls: Option<Vec<OpenAiToolCall<'a>>>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -249,6 +252,7 @@ fn to_openai_message(message: &ChatMessage) -> OpenAiMessage<'_> {
     OpenAiMessage {
         role,
         content: message.content.as_deref(),
+        reasoning_content: message.reasoning_content.as_deref(),
         tool_calls: None,
         tool_call_id: message.tool_call_id.as_deref(),
     }
@@ -321,6 +325,9 @@ struct OpenAiChoice {
 #[derive(Debug, Deserialize)]
 struct OpenAiChoiceMessage {
     content: Option<String>,
+    /// thinking 模式的思考内容；部分端点要求下一轮原样回传。
+    #[serde(default)]
+    reasoning_content: Option<String>,
     tool_calls: Option<Vec<OpenAiResponseToolCall>>,
 }
 
@@ -395,6 +402,7 @@ pub fn parse_chat_response_with_tools(
     });
     Ok(ChatResponse {
         content: choice.message.content,
+        reasoning_content: choice.message.reasoning_content,
         tool_calls,
         usage: usage.unwrap_or_default(),
     })
@@ -449,6 +457,50 @@ mod tests {
         assert_eq!(response.tool_calls.len(), 1);
         assert_eq!(response.tool_calls[0].name, "history.search");
         assert_eq!(response.tool_calls[0].arguments["query"], "遵義");
+    }
+
+    #[test]
+    fn thinking_mode_reasoning_content_round_trips() {
+        // thinking 模式：端点要求下一轮原样回传 reasoning_content（V11 验收回归）。
+        let body = json!({
+            "choices": [{"index": 0, "message": {
+                "role": "assistant",
+                "content": "答案",
+                "reasoning_content": "先想一步",
+                "tool_calls": [{"id": "c1", "function": {"name": "history.search", "arguments": "{}"}}]
+            }, "finish_reason": "tool_calls"}]
+        });
+        let known = vec!["history.search".to_string()];
+        let response =
+            parse_chat_response_with_tools(serde_json::to_vec(&body).unwrap().as_slice(), &known)
+                .unwrap();
+        assert_eq!(response.reasoning_content.as_deref(), Some("先想一步"));
+        assert_eq!(response.tool_calls.len(), 1);
+
+        // 请求侧：ChatMessage 携带 reasoning 时必须出现在 wire 上。
+        use devtoolbox_core::ChatMessage;
+        let message = ChatMessage::assistant_with_reasoning(
+            Some("答案".into()),
+            Some("先想一步".into()),
+            None,
+        );
+        let json = serde_json::to_string(&message).unwrap();
+        assert!(json.contains("reasoning_content"), "{json}");
+        assert!(json.contains("先想一步"), "{json}");
+    }
+
+    #[test]
+    fn reasoning_is_omitted_when_absent() {
+        // 非 thinking 端点：不得出现空字段（保持与旧端点兼容）。
+        let body = json!({
+            "choices": [{"index": 0, "message": {"role": "assistant", "content": "hi"}}]
+        });
+        let response = parse_chat_response(serde_json::to_vec(&body).unwrap().as_slice()).unwrap();
+        assert!(response.reasoning_content.is_none());
+        use devtoolbox_core::ChatMessage;
+        let message = ChatMessage::user("hello");
+        let json = serde_json::to_string(&message).unwrap();
+        assert!(!json.contains("reasoning_content"), "{json}");
     }
 
     #[test]

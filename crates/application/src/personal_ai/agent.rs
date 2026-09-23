@@ -243,6 +243,8 @@ impl PersonalAgent {
             session_messages.push(devtoolbox_core::ChatMessage {
                 role: ChatRole::Assistant,
                 content: Some(message.clone()),
+                // 隐私：隐藏推理绝不写入会话历史（V11 §98）。
+                reasoning_content: None,
                 tool_calls: None,
                 tool_call_id: None,
             });
@@ -384,6 +386,7 @@ mod tests {
                 .steps
                 .push_back(Ok(devtoolbox_core::ChatResponse {
                     content: Some(text.to_string()),
+                    reasoning_content: None,
                     tool_calls: Vec::new(),
                     usage: devtoolbox_core::ChatUsage {
                         input_tokens: 1,
@@ -400,6 +403,7 @@ mod tests {
                 .steps
                 .push_back(Ok(devtoolbox_core::ChatResponse {
                     content: None,
+                    reasoning_content: None,
                     tool_calls: vec![ChatToolCall {
                         id: id.to_string(),
                         name: name.to_string(),
@@ -430,6 +434,7 @@ mod tests {
                 .unwrap_or_else(|| {
                     Ok(devtoolbox_core::ChatResponse {
                         content: Some("script exhausted".to_string()),
+                        reasoning_content: None,
                         tool_calls: Vec::new(),
                         usage: devtoolbox_core::ChatUsage::default(),
                     })

@@ -356,6 +356,7 @@ async fn personal_agent_routes_geography_tool() {
     };
     chat.steps.lock().unwrap().push_back(ChatResponse {
         content: None,
+        reasoning_content: None,
         tool_calls: vec![ChatToolCall {
             id: "call_1".into(),
             name: "geography.get_location".into(),
@@ -368,6 +369,7 @@ async fn personal_agent_routes_geography_tool() {
             r#"{"message":"珠穆朗玛峰是世界最高峰，海拔约 8848.86 米。","actions":[],"ui_blocks":[]}"#
                 .to_string(),
         ),
+        reasoning_content: None,
         tool_calls: vec![],
         usage: devtoolbox_core::ChatUsage::default(),
     });

@@ -57,6 +57,7 @@ impl ChatModelProvider for FakeProvider {
     async fn chat(&self, _request: ChatRequest) -> Result<ChatResponse, ProviderError> {
         Ok(ChatResponse {
             content: Some(r#"{"ok":true}"#.into()),
+            reasoning_content: None,
             tool_calls: Vec::new(),
             usage: ChatUsage::default(),
         })

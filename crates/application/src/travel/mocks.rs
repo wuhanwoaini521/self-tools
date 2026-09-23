@@ -171,6 +171,7 @@ impl ChatModelProvider for MockChatProvider {
             )),
             Some(raw) => Ok(ChatResponse {
                 content: Some(raw),
+                reasoning_content: None,
                 tool_calls: Vec::new(),
                 usage: devtoolbox_core::ChatUsage::default(),
             }),

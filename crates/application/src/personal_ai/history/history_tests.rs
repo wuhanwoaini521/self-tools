@@ -571,6 +571,7 @@ async fn personal_agent_can_call_ensure_enrichment() {
     };
     chat.steps.lock().unwrap().push_back(ChatResponse {
         content: None,
+        reasoning_content: None,
         tool_calls: vec![ChatToolCall {
             id: "call_1".into(),
             name: "history.ensure_enrichment".into(),
@@ -583,6 +584,7 @@ async fn personal_agent_can_call_ensure_enrichment() {
             r#"{"message":"已按需生成 遵义会议 的概述富化。","actions":[],"ui_blocks":[]}"#
                 .to_string(),
         ),
+        reasoning_content: None,
         tool_calls: vec![],
         usage: devtoolbox_core::ChatUsage::default(),
     });

@@ -115,12 +115,14 @@ impl AgentExecutor {
             ChatMessage {
                 role: ChatRole::System,
                 content: Some(system),
+                reasoning_content: None,
                 tool_calls: None,
                 tool_call_id: None,
             },
             ChatMessage {
                 role: ChatRole::User,
                 content: Some(task.objective.clone()),
+                reasoning_content: None,
                 tool_calls: None,
                 tool_call_id: None,
             },
@@ -399,6 +401,7 @@ mod tests {
         ) -> Result<devtoolbox_core::ChatResponse, devtoolbox_core::ProviderError> {
             Ok(devtoolbox_core::ChatResponse {
                 content: Some(self.payload.clone()),
+                reasoning_content: None,
                 tool_calls: Vec::new(),
                 usage: devtoolbox_core::ChatUsage {
                     input_tokens: 10,

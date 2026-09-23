@@ -764,6 +764,7 @@ mod tests {
         ) -> Result<devtoolbox_core::ChatResponse, devtoolbox_core::ProviderError> {
             Ok(devtoolbox_core::ChatResponse {
                 content: Some(self.payload.clone()),
+                reasoning_content: None,
                 tool_calls: Vec::new(),
                 usage: devtoolbox_core::ChatUsage::default(),
             })
@@ -1020,6 +1021,7 @@ mod gate6_tests {
             self.in_flight.fetch_sub(1, Ordering::SeqCst);
             Ok(devtoolbox_core::ChatResponse {
                 content: Some(r#"{"ok":true}"#.into()),
+                reasoning_content: None,
                 tool_calls: Vec::new(),
                 usage: devtoolbox_core::ChatUsage::default(),
             })
@@ -1041,6 +1043,7 @@ mod gate6_tests {
             tokio::time::sleep(std::time::Duration::from_millis(400)).await;
             Ok(devtoolbox_core::ChatResponse {
                 content: Some(r#"{"ok":true}"#.into()),
+                reasoning_content: None,
                 tool_calls: Vec::new(),
                 usage: devtoolbox_core::ChatUsage::default(),
             })
@@ -1202,6 +1205,7 @@ mod integration_tests {
                     r#"{"message":"已完成分析","findings":[],"action_proposals":[{"action_type":"services.restart","target_id":"self-tools","summary":"需要重启","rationale":"异常"}]}"#
                         .into(),
                 ),
+                reasoning_content: None,
                 tool_calls: Vec::new(),
                 usage: ChatUsage::default(),
             })
@@ -1352,6 +1356,7 @@ mod gate9_tests {
                 // 第一轮：请求一个不在授权列表里的工具。
                 Ok(ChatResponse {
                     content: None,
+                    reasoning_content: None,
                     tool_calls: vec![devtoolbox_core::ChatToolCall {
                         id: "c1".into(),
                         name: "memory.save".into(),
@@ -1362,6 +1367,7 @@ mod gate9_tests {
             } else {
                 Ok(ChatResponse {
                     content: Some(r#"{"message":"done"}"#.into()),
+                    reasoning_content: None,
                     tool_calls: Vec::new(),
                     usage: ChatUsage::default(),
                 })
@@ -1419,6 +1425,7 @@ mod gate9_tests {
             tokio::time::sleep(std::time::Duration::from_millis(500)).await;
             Ok(ChatResponse {
                 content: Some("{}".into()),
+                reasoning_content: None,
                 tool_calls: Vec::new(),
                 usage: ChatUsage::default(),
             })
@@ -1448,6 +1455,7 @@ mod gate9_tests {
             vec![ChatMessage {
                 role: ChatRole::User,
                 content: Some("go".into()),
+                reasoning_content: None,
                 tool_calls: None,
                 tool_call_id: None,
             }],
@@ -1486,6 +1494,7 @@ mod gate9_tests {
             async fn chat(&self, _r: ChatRequest) -> Result<ChatResponse, ProviderError> {
                 Ok(ChatResponse {
                     content: None,
+                    reasoning_content: None,
                     tool_calls: vec![ChatToolCall {
                         id: "c1".into(),
                         name: "services.get_logs".into(),
@@ -1505,6 +1514,7 @@ mod gate9_tests {
             async fn chat(&self, _r: ChatRequest) -> Result<ChatResponse, ProviderError> {
                 Ok(ChatResponse {
                     content: Some(r#"{"message":"done"}"#.into()),
+                    reasoning_content: None,
                     tool_calls: Vec::new(),
                     usage: ChatUsage::default(),
                 })
@@ -1529,6 +1539,7 @@ mod gate9_tests {
             vec![ChatMessage {
                 role: ChatRole::User,
                 content: Some("go".into()),
+                reasoning_content: None,
                 tool_calls: None,
                 tool_call_id: None,
             }],
@@ -1555,6 +1566,7 @@ mod gate9_tests {
             async fn chat(&self, _r: ChatRequest) -> Result<ChatResponse, ProviderError> {
                 Ok(ChatResponse {
                     content: None,
+                    reasoning_content: None,
                     tool_calls: vec![ChatToolCall {
                         id: "c".into(),
                         name: "services.get_logs".into(),
@@ -1582,6 +1594,7 @@ mod gate9_tests {
             vec![ChatMessage {
                 role: ChatRole::User,
                 content: Some("go".into()),
+                reasoning_content: None,
                 tool_calls: None,
                 tool_call_id: None,
             }],

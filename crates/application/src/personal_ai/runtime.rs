@@ -115,6 +115,10 @@ pub async fn run_tool_loop(
             duration_ms: response.usage.duration_ms,
             tool_rounds: 0,
         });
+        // thinking 模式：本轮 assistant 消息必须带回 reasoning_content，
+        // 否则下一轮请求被端点拒绝（The `reasoning_content` in the thinking
+        // mode must be passed back to the API）。
+        let reasoning = response.reasoning_content.clone();
 
         if response.tool_calls.is_empty() {
             return Ok(ToolLoopOutcome {
@@ -140,6 +144,7 @@ pub async fn run_tool_loop(
                 chat_messages.push(ChatMessage {
                     role: ChatRole::Assistant,
                     content: None,
+                    reasoning_content: reasoning.clone(),
                     tool_calls: Some(vec![ChatToolCall {
                         id: call.id.clone(),
                         name: call.name.clone(),
@@ -152,6 +157,7 @@ pub async fn run_tool_loop(
                 chat_messages.push(ChatMessage {
                     role: ChatRole::Tool,
                     content: Some(result_json),
+                    reasoning_content: None,
                     tool_calls: None,
                     tool_call_id: Some(call.id.clone()),
                 });
@@ -182,6 +188,7 @@ pub async fn run_tool_loop(
             chat_messages.push(ChatMessage {
                 role: ChatRole::Assistant,
                 content: None,
+                reasoning_content: reasoning.clone(),
                 tool_calls: Some(vec![ChatToolCall {
                     id: call.id.clone(),
                     name: call.name.clone(),
@@ -196,6 +203,7 @@ pub async fn run_tool_loop(
             chat_messages.push(ChatMessage {
                 role: ChatRole::Tool,
                 content: Some(result_json),
+                reasoning_content: None,
                 tool_calls: None,
                 tool_call_id: Some(call.id.clone()),
             });

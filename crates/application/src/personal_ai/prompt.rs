@@ -105,6 +105,7 @@ pub fn assemble_messages(
     messages.push(ChatMessage {
         role: ChatRole::System,
         content: Some(system.to_string()),
+        reasoning_content: None,
         tool_calls: None,
         tool_call_id: None,
     });

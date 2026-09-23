@@ -51,6 +51,7 @@ impl ScriptedProvider {
             .expect("lock")
             .push_back(Ok(ChatResponse {
                 content: Some(text.into()),
+                reasoning_content: None,
                 tool_calls: Vec::new(),
                 usage: ChatUsage::default(),
             }));
