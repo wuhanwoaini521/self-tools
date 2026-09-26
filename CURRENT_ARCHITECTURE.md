@@ -1,6 +1,7 @@
-# CURRENT_ARCHITECTURE — Self Tools 现状基线（Gate 0–9，2026-09-15）
+# CURRENT_ARCHITECTURE — Self Tools 现状基线（Gate 0–9，2026-09-15；V12 News 2026-09-24）
 
 > 基线日期：2026-09-13（Overnight Architecture Consolidation 收尾 + Gate 5.5 实施）+ 2026-09-14（Gate 6 实施）
+> + **2026-09-24（V12：新增 News 模块 + ADR-010 RSS/News bounded context 拆分）**，见文末 §14。
 > 方法：所有结论来自真实调用链、文件行号与本次实际执行的验证命令，非文件名推断。
 > 上一次架构审计（History V2 Cutover 之前）已归档为历史档案：
 > [`docs/migration/09-history-v2-cutover-audit-2026-09-10.md`](docs/migration/09-history-v2-cutover-audit-2026-09-10.md)。
@@ -10,6 +11,14 @@
 ---
 
 ## 0. 一句话结论
+
+**V12 / ADR-010（2026-09-24）**：新增 **News 模块**（新闻发现 / 聚合 / 阅读），
+并把此前错误的 `Feed { kind: Rss | News }` 建模拆成**两个 bounded context** ——
+RSS（个人订阅阅读器，`config/dashboard.db`）与 News（`config/news.db`）
+**共享抓取基础设施，不共享领域语义**：两边各有自己的 domain contract /
+repository port / service / AI 工具命名空间（`rss.*` 6 + `news.*` 6），
+不存在 RSS↔News 转换按钮与 kind 字段。老库里被明确标记 `kind='news'`
+的行一次性搬进 `news.db` 后 `DROP COLUMN`；RSS 用户数据逐字保留。详见 §14。
 
 History V2 Cutover 已经**真实完成**：V1 legacy 在代码中已全部消失，History 只剩
 `dist/history.duckdb` 一个只读事实源，缺失时明确报错。
@@ -280,7 +289,8 @@ Tauri command
 
 | 数据 | 文件 | 打开位置 | 职责 |
 | --- | --- | --- | --- |
-| RSS | `config/dashboard.db` | infra FeedRepository | 用户数据（读写） |
+| RSS 订阅与条目 | `config/dashboard.db` | infra FeedRepository | 用户数据（读写） |
+| **News 源与文章**（V12） | `config/news.db` | infra NewsRepository | 系统 seed + 抓取落地（读写） |
 | Travel 缓存 | `config/travel.db` | TravelStore | 用户数据（读写） |
 | Language | `config/language.db` | LanguageStore | 用户数据 + 导入（读写） |
 | Geography | `config/geography.db` | GeographyStore（经 adapter 注入） | 用户数据（读写） |
@@ -458,7 +468,85 @@ rg -n '^import .*@tauri-apps/api/core' apps/desktop/ui/src    # 应只有 transp
 rg -n 'isTauriRuntime' apps/desktop/ui/src | wc -l            # 59 处 / 15 消费者文件（浏览器预览守卫）
 grep -rn "devtoolbox_infrastructure::" crates/application/src --include='*.rs'   # 应只有 deferred(language/rss/travel)
 grep -rn "HistoryQueryPort\|GeographyQueryPort\|DocumentStorePort\|SettingsStorePort" --include='*.rs' crates apps | grep -v target/
-grep -rn -E 'convert_task_lines|geography_compare|geography_map|language_manifests|crates/core/src/history' apps crates | grep -v target/   # 应 0 输出
+rg -n -E 'convert_task_lines|geography_compare|geography_map|language_manifests|crates/core/src/history' apps crates | grep -v target/   # 应 0 输出
+grep -rn "use crate::rss" crates/application/src/news --include='*.rs'   # 应 0 输出（ADR-010：News 不依赖 RSS；注释自述「不依赖 crate::rss」不计）
+grep -rn "FeedKind\|set_rss_feed_kind\|list_feeds_by_kind" --include='*.rs' apps crates 2>/dev/null | grep -v target/   # 应 0 输出（已拆净）
+grep -rn 'invoke("set_rss_feed_kind"\|invoke("list_feeds_by_kind"' --include='*.ts' --include='*.tsx' apps 2>/dev/null   # 应 0 输出（UI 无转换调用）
 cargo check --workspace --all-targets && cargo test --workspace
 npm --prefix apps/desktop/ui run build
 ```
+
+---
+
+## 14. V12 · News 模块 + RSS/News bounded context（2026-09-24 实施）
+
+**状态：✅ PASS**（决策全量见
+[`docs/architecture/ADR-010-rss-news-bounded-contexts.md`](docs/architecture/ADR-010-rss-news-bounded-contexts.md)）
+
+### 14.1 分层（共享基础设施，不共享领域语义）
+
+```text
+   RSS Domain ──────────────┐
+   core/rss   FeedRow/ArticleRow        ├── Shared Feed Infrastructure
+   application/rss  RssRepositoryPort   │   core/feed  FetchedFeed/FetchedEntry
+   application/rss::service             │   application/feed  FeedFetcherPort + fetch_many
+   personal_ai/rss.rs  rss.*(6 工具)    │   infrastructure/feed_fetcher  reqwest + feed-rs
+   ui/features/rss  RssPage             │
+   config/dashboard.db                  │
+   News Domain ──────────────┘
+   core/news   NewsSource/NewsArticle/NewsCategory/NewsSourceType
+   application/news  NewsRepositoryPort
+   application/news::service  NewsService + NewsIngestService<F>
+   personal_ai/news.rs  news.*(6 工具)
+   ui/features/news  NewsPage
+   config/news.db（seed recommended_sources()）
+```
+
+**双向禁止**：RSS 无「改为新闻」、News 无「改为 RSS」；同一 URL 允许同时存在于
+`feeds` 与 `news_sources`（两个 context，底层 URL 相同）。
+
+### 14.2 AI 工具面（两套命名空间，装配测试断言不交叉）
+
+| RSS（`rss.*`，6） | News（`news.*`，6） |
+| --- | --- |
+| `list_subscriptions` `list_entries` `search` `get_entry` | `latest` `search` `by_category` `by_source` `get_article` |
+| `mark_read`(SafeWrite) `refresh`(SafeWrite) | `refresh`(SafeWrite) |
+
+风险分级由语义决定：本地库读 = `Read`；写本地状态/联网落库 = `SafeWrite`。
+
+### 14.3 MCP 暴露（ADR-007 白名单：未列出 = 不暴露）
+
+只读 9 项进表（News 5 + RSS 4，均 `ModuleRead` + `selftools.read`）；
+`news.refresh` / `rss.refresh`（联网）与 `rss.mark_read`（本地状态写）
+**不暴露** —— MCP 入口不装配 ingest，工具本身也会如实降级。
+
+### 14.4 一次性迁移（`infrastructure/news_migration.rs`）
+
+desktop setup 与 MCP `build_stores` 在**打开两侧库之前**调用：
+`feeds` 存在 `kind` 列 → 把 `kind='news'` 的行（明确标记，非 URL 猜测）搬入
+`news.db` → 成功后 `ALTER TABLE feeds DROP COLUMN kind`；
+`schema_meta.rss_news_migrated` 幂等；**搬运失败绝不 DROP**。
+
+### 14.5 端口与命令
+
+- News 端口：`application/news/ports.rs` —— `NewsRepositoryPort`（18 方法）/
+  `NewsPort`（同步读写）/ `NewsIngestPort`（async，refresh + add_source）；
+- desktop 命令：`news_sources` / `news_recommended` / `news_refresh_now` /
+  `news_add_source` / `news_remove_source` / `news_set_category` /
+  `news_headlines` / `news_search` / `news_starred` / `news_toggle_star` /
+  `news_mark_read`；RSS 侧 `add_rss_feed` 去掉 `kind` 形参，**删除**
+  `set_rss_feed_kind` 命令；
+- 组合根：desktop `build_hub(news, news_ingest, rss_port, rss_ingest)` 同时注册
+  两个模块；MCP `build_stores` 注册两模块（均 `ingest = None`）。
+
+### 14.6 验证（2026-09-24 实测）
+
+| 检查 | 结果 |
+| --- | --- |
+| `cargo test --workspace` | ✅ 16 个 target / 0 FAILED（含新冒烟 `news_smoke` 3 条：端到端 + 双库隔离） |
+| `cargo clippy --workspace --all-targets --all-features -- -D warnings` | ✅ 0 错误 |
+| `cargo fmt --all --check` | ✅ 干净 |
+| `npm --prefix apps/desktop/ui run build`（tsc + vite） | ✅ PASS |
+| `tsc --noEmit` | ✅ 0 错误 |
+| `grep -rn "use crate::rss" crates/application/src/news` | ✅ 0 输出 |
+| `grep -rn "FeedKind\|set_rss_feed_kind\|list_feeds_by_kind" --include='*.rs' apps crates` | ✅ 0 输出 |

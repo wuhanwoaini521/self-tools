@@ -12,6 +12,10 @@ pub mod history;
 pub mod history_enrichment;
 pub mod language;
 pub mod memory;
+pub mod news_migration;
+#[cfg(test)]
+mod news_smoke;
+pub mod news_store;
 pub mod personal_ai;
 pub mod rss_store;
 pub mod server;
@@ -43,6 +47,8 @@ pub use history::{
 pub use history_enrichment::EnrichmentSqliteStore;
 pub use language::{LanguageStore, SearchHit, sources};
 pub use memory::{MEMORY_SCHEMA_VERSION, MemorySqliteStore};
+pub use news_migration::{NewsMigrationReport, migrate_news_from_rss};
+pub use news_store::{NEWS_SCHEMA_VERSION, NewsRepository};
 pub use personal_ai::{
     AiModelConfig, ConversationSqliteStore, OpenAiCompatibleChatModelProvider, decode_tool_name,
     encode_tool_name, parse_chat_response,

@@ -77,6 +77,16 @@ impl From<ApplicationError> for CommandError {
                 RssErrorKind::Parse => "rss_parse_failed",
                 RssErrorKind::Repository => "infrastructure_error",
             },
+            ApplicationError::News { kind, .. } => match kind {
+                devtoolbox_application::news::NewsErrorKind::SourceNotFound => {
+                    "news_source_not_found"
+                }
+                devtoolbox_application::news::NewsErrorKind::ArticleNotFound => {
+                    "news_article_not_found"
+                }
+                devtoolbox_application::news::NewsErrorKind::Fetch => "news_fetch_failed",
+                devtoolbox_application::news::NewsErrorKind::Store => "news_store_failed",
+            },
             ApplicationError::Memory { .. } => "memory_error",
             ApplicationError::Documents { .. } => "documents_error",
             ApplicationError::Files { .. } => "files_error",
@@ -141,6 +151,10 @@ pub struct AppState {
     pub knowledge: Arc<knowledge::KnowledgeRuntime>,
     /// Home Server 运行时（V7：指标 / 注册表 / 安全动作 + 审计）。
     pub server: Arc<server::ServerRuntime>,
+    /// V12 News 模块（ADR-010：独立 bounded context，`config/news.db`）。
+    pub news: Arc<dyn devtoolbox_application::news::NewsPort>,
+    /// News 联网摄取（`news_refresh_now` / `news_add_source` / AI `news.refresh`）。
+    pub news_ingest: Arc<dyn devtoolbox_application::news::NewsIngestPort>,
 }
 
 /// 轮询快照（Serialize 给前端；命令契约形状保持不变）。
@@ -283,6 +297,239 @@ fn put_settings(app: AppHandle, settings: AppSettings) -> Result<(), CommandErro
     let store = settings_store(&app)?;
     save_settings(&composition::SettingsStoreAdapter::new(store), &settings)
         .map_err(CommandError::from)
+}
+
+// ---------- News 模块（V12 / ADR-010：独立 bounded context） ----------
+//
+// 读写 + 联网摄取全部走 `NewsPort` / `NewsIngestPort`（`config/news.db`）。
+// **与 RSS 命令无关**：News 的增删源不写 `feeds` 表，RSS 的增删订阅不写
+// `news_sources`。共享的只有底层抓取骨架。
+
+/// 新闻源清单 + 健康态（含 seed 源；前端据此渲染栏目与 onboarding）。
+#[tauri::command]
+fn news_sources(state: State<'_, AppState>) -> Result<serde_json::Value, CommandError> {
+    let view = state
+        .news
+        .sources()
+        .map_err(|error| CommandError::from(ApplicationError::from(error)))?;
+    let sources: Vec<serde_json::Value> = view.sources.iter().map(news_source_json).collect();
+    Ok(serde_json::json!({
+        "sources": sources,
+        "health": match view.health {
+            devtoolbox_application::news::NewsSourceHealth::Degraded => "degraded",
+            devtoolbox_application::news::NewsSourceHealth::Healthy => "healthy",
+        },
+    }))
+}
+
+/// 推荐源目录（**候选，不是订阅**）。URL 唯一来源在后端
+/// `core::news::recommended_sources()`；前端不硬编码任何 Feed 地址。
+#[tauri::command]
+fn news_recommended(state: State<'_, AppState>) -> Result<Vec<serde_json::Value>, CommandError> {
+    let existing: Vec<String> = state
+        .news
+        .sources()
+        .map_err(|error| CommandError::from(ApplicationError::from(error)))?
+        .sources
+        .into_iter()
+        .map(|source| source.url)
+        .collect();
+    Ok(devtoolbox_application::news::recommended_sources()
+        .into_iter()
+        .filter(|candidate| !existing.contains(&candidate.url))
+        .map(|candidate| {
+            serde_json::json!({
+                "name": candidate.name,
+                "url": candidate.url,
+                "site_url": candidate.site_url,
+                "category": candidate.category.id(),
+                "category_label": candidate.category.label(),
+                "note": candidate.note,
+            })
+        })
+        .collect())
+}
+
+/// 立即刷新全部新闻源（News 页刷新按钮 / AI `news.refresh` 同一实现）。
+///
+/// 并发抓取走共享 `crate::feed::fetch_many`，落库写 `news.db`，
+/// 单源失败只记 `last_error`。
+#[tauri::command]
+async fn news_refresh_now(state: State<'_, AppState>) -> Result<serde_json::Value, CommandError> {
+    let report = state
+        .news_ingest
+        .refresh()
+        .await
+        .map_err(|error| CommandError::from(ApplicationError::from(error)))?;
+    Ok(serde_json::json!({
+        "new_articles": report.new_articles,
+        "failures": report
+            .failures
+            .iter()
+            .map(|failure| serde_json::json!({
+                "source": failure.source,
+                "message": failure.message,
+            }))
+            .collect::<Vec<_>>(),
+    }))
+}
+
+/// 添加新闻源（**写 `news_sources`，不写 RSS 的 `feeds`**）。
+#[tauri::command]
+async fn news_add_source(
+    state: State<'_, AppState>,
+    url: String,
+    category: Option<String>,
+) -> Result<serde_json::Value, CommandError> {
+    let category = parse_news_category(category.as_deref())?;
+    let source = state
+        .news_ingest
+        .add_source(&url, category)
+        .await
+        .map_err(|error| CommandError::from(ApplicationError::from(error)))?;
+    Ok(news_source_json(&source))
+}
+
+/// 删除新闻源（文章级联删除；不碰 RSS 订阅）。
+#[tauri::command]
+fn news_remove_source(state: State<'_, AppState>, source_id: i64) -> Result<(), CommandError> {
+    state
+        .news
+        .remove_source(source_id)
+        .map_err(|error| CommandError::from(ApplicationError::from(error)))
+}
+
+/// 改新闻源分类（News 的分类，与 RSS 无关）。
+#[tauri::command]
+fn news_set_category(
+    state: State<'_, AppState>,
+    source_id: i64,
+    category: String,
+) -> Result<(), CommandError> {
+    let category = parse_news_category(Some(&category))?;
+    state
+        .news
+        .set_category(source_id, category)
+        .map_err(|error| CommandError::from(ApplicationError::from(error)))
+}
+
+/// 新闻流（`scope` = all | starred | by_category | by_source；可带 `source_id`）。
+#[tauri::command]
+fn news_headlines(
+    state: State<'_, AppState>,
+    scope: Option<String>,
+    source_id: Option<i64>,
+    category: Option<String>,
+    limit: Option<i64>,
+) -> Result<Vec<serde_json::Value>, CommandError> {
+    let limit = limit.unwrap_or(30).clamp(1, 200);
+    let scope = scope.as_deref().unwrap_or("all");
+    let news = state.news.as_ref();
+    let articles = match scope {
+        "starred" => news.starred(limit),
+        "by_source" => news.by_source(
+            source_id.ok_or_else(|| CommandError {
+                code: "news_missing_source_id",
+                message: "scope=by_source 需要 source_id".into(),
+            })?,
+            limit,
+        ),
+        "by_category" => news.by_category(parse_news_category(category.as_deref())?, limit),
+        _ => news.latest(limit),
+    }
+    .map_err(|error| CommandError::from(ApplicationError::from(error)))?;
+    Ok(articles.iter().map(news_article_json).collect())
+}
+
+/// 关键词检索（标题 / 署名 / 摘要；读本地 news.db）。
+#[tauri::command]
+fn news_search(
+    state: State<'_, AppState>,
+    query: String,
+    limit: Option<i64>,
+) -> Result<Vec<serde_json::Value>, CommandError> {
+    let limit = limit.unwrap_or(50).clamp(1, 200);
+    let articles = state
+        .news
+        .search(&query, limit)
+        .map_err(|error| CommandError::from(ApplicationError::from(error)))?;
+    Ok(articles.iter().map(news_article_json).collect())
+}
+
+/// 稍后读列表。
+#[tauri::command]
+fn news_starred(
+    state: State<'_, AppState>,
+    limit: Option<i64>,
+) -> Result<Vec<serde_json::Value>, CommandError> {
+    let limit = limit.unwrap_or(50).clamp(1, 200);
+    let articles = state
+        .news
+        .starred(limit)
+        .map_err(|error| CommandError::from(ApplicationError::from(error)))?;
+    Ok(articles.iter().map(news_article_json).collect())
+}
+
+/// 收藏 / 取消收藏（幂等开关）。
+#[tauri::command]
+fn news_toggle_star(state: State<'_, AppState>, story_id: i64) -> Result<bool, CommandError> {
+    state
+        .news
+        .toggle_star(story_id)
+        .map_err(|error| CommandError::from(ApplicationError::from(error)))
+}
+
+/// 标已读（幂等）。
+#[tauri::command]
+fn news_mark_read(state: State<'_, AppState>, story_id: i64) -> Result<(), CommandError> {
+    state
+        .news
+        .mark_read(story_id)
+        .map_err(|error| CommandError::from(ApplicationError::from(error)))
+}
+
+/// `news.category` 字符串 → 领域枚举（未知值受控失败，不静默回退）。
+fn parse_news_category(
+    raw: Option<&str>,
+) -> Result<devtoolbox_application::news::NewsCategory, CommandError> {
+    let raw = raw.unwrap_or("general");
+    devtoolbox_application::news::NewsCategory::from_id(raw).ok_or_else(|| CommandError {
+        code: "news_invalid_category",
+        message: format!("unknown news category: {raw}"),
+    })
+}
+
+/// 新闻源 JSON（前端与 AI 工具同形状）。
+fn news_source_json(source: &devtoolbox_application::news::NewsSource) -> serde_json::Value {
+    serde_json::json!({
+        "id": source.id,
+        "name": source.name,
+        "url": source.url,
+        "source_type": source.source_type.id(),
+        "category": source.category.id(),
+        "category_label": source.category.label(),
+        "site_url": source.site_url,
+        "last_updated": source.last_updated,
+        "last_error": source.last_error,
+        "unread_count": source.unread_count,
+    })
+}
+
+/// 新闻文章 JSON（前端与 AI 工具同形状）。
+fn news_article_json(article: &devtoolbox_application::news::NewsArticle) -> serde_json::Value {
+    serde_json::json!({
+        "id": article.id,
+        "source_id": article.source_id,
+        "source": article.source_name,
+        "title": article.title,
+        "url": article.url,
+        "author": article.author,
+        "image_url": article.image_url,
+        "published_at": article.published_at,
+        "summary": article.summary,
+        "is_read": article.is_read,
+        "starred": article.starred,
+    })
 }
 
 // ---------- RSS 模块 ----------
@@ -2169,6 +2416,19 @@ pub fn run() {
         .setup(|app| {
             let config_directory = project_config_directory(app.handle())
                 .map_err(|error| std::io::Error::other(error.message))?;
+            // ADR-010：一次性把老库 feeds.kind='news' 搬进 news.db 并 DROP 列。
+            // **必须在 FeedRepository::open 之前**（rss_store 不再认识 kind）。
+            let rss_migration_report = devtoolbox_infrastructure::migrate_news_from_rss(
+                &config_directory.join("dashboard.db"),
+                &config_directory.join("news.db"),
+            )
+            .map_err(|error| std::io::Error::other(error.to_string()))?;
+            if rss_migration_report.sources > 0 {
+                eprintln!(
+                    "[news] migrated {} sources / {} articles from legacy feeds.kind",
+                    rss_migration_report.sources, rss_migration_report.articles
+                );
+            }
             let store = FeedRepository::open(config_directory.join("dashboard.db"))
                 .expect("open rss database");
             let travel_store = TravelStore::open(config_directory.join("travel.db"))
@@ -2298,6 +2558,35 @@ pub fn run() {
                             .expect("in-memory study board store")
                     }),
                 )));
+            // V12 News（ADR-010：独立 bounded context）：
+            // - NewsRepository → `config/news.db`（系统 seed + 抓取落地）；
+            // - NewsService / NewsIngestService 分别供读写命令与联网命令；
+            // - RSS 的 RssService / RssIngestService 只服务 `rss.*` AI 工具
+            //   （RSS 页的既有命令继续走 `rss::workflows`，契约不变）。
+            let news_store = Arc::new(Mutex::new(
+                devtoolbox_infrastructure::NewsRepository::open(config_directory.join("news.db"))
+                    .expect("open news database"),
+            ));
+            let news_service = Arc::new(devtoolbox_application::news::NewsService::new(Arc::new(
+                composition::NewsRepositoryAdapter::new(Arc::clone(&news_store)),
+            )));
+            let news: Arc<dyn devtoolbox_application::news::NewsPort> =
+                Arc::clone(&news_service) as Arc<dyn devtoolbox_application::news::NewsPort>;
+            let news_ingest: Arc<dyn devtoolbox_application::news::NewsIngestPort> =
+                Arc::new(devtoolbox_application::news::NewsIngestService::new(
+                    Arc::clone(&news_service),
+                    composition::FeedFetcherAdapter::new(client.clone()),
+                ));
+            let rss_service = Arc::new(devtoolbox_application::rss::RssService::new(Arc::clone(
+                &rss_repository,
+            )));
+            let rss_port: Arc<dyn devtoolbox_application::rss::RssPort> =
+                Arc::clone(&rss_service) as Arc<dyn devtoolbox_application::rss::RssPort>;
+            let rss_ingest: Arc<dyn devtoolbox_application::rss::RssIngestPort> =
+                Arc::new(devtoolbox_application::rss::RssIngestService::new(
+                    Arc::clone(&rss_service),
+                    composition::FeedFetcherAdapter::new(client.clone()),
+                ));
             app.manage(AppState {
                 rss_repository,
                 rss_fetcher: composition::FeedFetcherAdapter::new(client.clone()),
@@ -2317,6 +2606,10 @@ pub fn run() {
                     &knowledge,
                     &server_runtime,
                     study_board_store,
+                    Arc::clone(&news),
+                    Some(Arc::clone(&news_ingest)),
+                    rss_port,
+                    Some(rss_ingest),
                     &hub_settings,
                     client_for_hub,
                 ),
@@ -2325,6 +2618,8 @@ pub fn run() {
                 history_enrichment,
                 knowledge,
                 server: server_runtime,
+                news,
+                news_ingest,
             });
             Ok(())
         })
@@ -2343,6 +2638,17 @@ pub fn run() {
             latest_rss_articles,
             mark_rss_article_read,
             delete_rss_feed,
+            news_sources,
+            news_recommended,
+            news_refresh_now,
+            news_add_source,
+            news_remove_source,
+            news_set_category,
+            news_headlines,
+            news_search,
+            news_starred,
+            news_toggle_star,
+            news_mark_read,
             travel_research_start,
             travel_research_progress,
             travel_recent_guides,

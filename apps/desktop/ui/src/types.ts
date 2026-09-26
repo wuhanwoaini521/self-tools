@@ -149,7 +149,8 @@ export interface WorkspaceFile {
   relative_path: string;
 }
 
-/** Rust FeedDto(应用层 RSS DTO,snake_case 与设置保持一致) */
+/** Rust FeedDto(应用层 RSS DTO,snake_case 与设置保持一致)
+ *  ADR-010：RSS 订阅**没有 kind** —— 新闻源不是 RSS 订阅的分类。 */
 export interface FeedDto {
   id: number;
   title: string;
@@ -174,6 +175,59 @@ export interface ArticleDto {
 export interface RefreshReport {
   new_articles: number;
   failures: { feed_title: string; message: string }[];
+}
+
+// ---------- News（V12 / ADR-010：独立 bounded context） ----------
+
+/** 新闻源摄取方式（技术属性，不是产品分类）。 */
+export type NewsSourceType = "rss" | "atom" | "json_feed" | "api";
+
+/** 新闻分类（News 页栏目）。 */
+export type NewsCategoryId = "general" | "tech" | "finance" | "world" | "china";
+
+/** 新闻源（news.db：系统 seed + 用户添加；**不是 RSS 订阅**）。 */
+export interface NewsSource {
+  id: number;
+  name: string;
+  url: string;
+  source_type: NewsSourceType;
+  category: NewsCategoryId;
+  category_label: string;
+  site_url: string | null;
+  last_updated: number | null;
+  last_error: string | null;
+  unread_count: number;
+}
+
+/** 新闻文章（news.db）。 */
+export interface NewsArticle {
+  id: number;
+  source_id: number;
+  source: string;
+  title: string;
+  url: string;
+  author: string | null;
+  image_url: string | null;
+  published_at: number | null;
+  summary: string | null;
+  is_read: boolean;
+  starred: boolean;
+}
+
+/** 推荐源候选（后端 `core::news::recommended_sources()` 的镜像）。 */
+export interface RecommendedSource {
+  name: string;
+  url: string;
+  site_url: string | null;
+  category: NewsCategoryId;
+  category_label: string;
+  note: string;
+}
+
+/** `news_sources` 返回的聚合。 */
+export interface NewsOverview {
+  sources: NewsSource[];
+  health: "healthy" | "degraded";
 }
 
 // ---------- Travel ----------

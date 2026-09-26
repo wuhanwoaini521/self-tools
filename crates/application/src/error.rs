@@ -73,6 +73,21 @@ pub enum ApplicationError {
     /// 家庭服务器失败（V7）。`reason` 为稳定拒绝码，消息面向用户且不含内容。
     #[error("server error ({reason}): {message}")]
     Server { reason: String, message: String },
+    /// News 失败（V12）。`kind` 为稳定分类，消息面向用户且不含正文。
+    #[error("news error: {message}")]
+    News {
+        kind: crate::news::NewsErrorKind,
+        message: String,
+    },
+}
+
+impl From<crate::news::NewsError> for ApplicationError {
+    fn from(error: crate::news::NewsError) -> Self {
+        Self::News {
+            kind: error.kind(),
+            message: error.to_string(),
+        }
+    }
 }
 
 /// RSS 失败分类（与端口 `FeedFetchErrorKind` 对齐，存储错误归为 `Repository`）。

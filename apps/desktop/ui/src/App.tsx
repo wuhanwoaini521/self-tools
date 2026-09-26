@@ -7,6 +7,7 @@ import {
   House,
   MagnifyingGlass,
   MapTrifold,
+  Newspaper,
   Notebook,
   Rss,
   Scroll,
@@ -25,6 +26,7 @@ import {
 } from "./features/markdown/MarkdownPage";
 import { RssPage, type RssIntent } from "./features/rss/RssPage";
 import { rssClient } from "./features/rss/rssClient";
+import { NewsPage } from "./features/news/NewsPage";
 import { languageClient } from "./features/language/languageClient";
 import { settingsClient } from "./settingsClient";
 import { HistoryPage } from "./features/history/HistoryPage";
@@ -80,6 +82,7 @@ type PageId =
   | "home"
   | "markdown"
   | "rss"
+  | "news"
   | "travel"
   | "geography"
   | "history"
@@ -103,6 +106,7 @@ const PAGE_IDS: PageId[] = [
   "home",
   "markdown",
   "rss",
+  "news",
   "travel",
   "geography",
   "history",
@@ -119,6 +123,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: "home", label: "Home", icon: House },
   { id: "markdown", label: "Markdown", icon: Notebook },
   { id: "rss", label: "RSS", icon: Rss },
+  { id: "news", label: "News", icon: Newspaper },
   { id: "travel", label: "Travel", icon: Compass },
   { id: "geography", label: "Geography", icon: MapTrifold },
   { id: "history", label: "History", icon: Scroll },
@@ -257,6 +262,7 @@ export default function App() {
   const deliverToAi = useCallback(
     (
       text: string,
+      context?: AppContextPayload | null,
       parts?: Array<
         | { type: "text"; text: string }
         | {
@@ -269,6 +275,8 @@ export default function App() {
       >,
     ) => {
       setAiOpen(true);
+      // 上下文先行：面板打开时 PersonalAgent 已带着「我在读哪条新闻」。
+      if (context) setAiContext(context);
       setAiDelivery({ nonce: Date.now(), text, parts });
     },
     [],
@@ -278,6 +286,8 @@ export default function App() {
   const [rssRefreshing, setRssRefreshing] = useState(false);
   const [rssVersion, setRssVersion] = useState(0);
   const [unreadTotal, setUnreadTotal] = useState(0);
+  /** News 未读（ADR-010：与 RSS 徽标分开计数，两个 context 不串台）。 */
+  const [newsUnreadTotal, setNewsUnreadTotal] = useState(0);
   const [latestArticles, setLatestArticles] = useState<ArticleDto[]>([]);
   const [geographyHome, setGeographyHome] = useState<GeographyHome | null>(
     null,
@@ -577,6 +587,9 @@ export default function App() {
                 {item.id === "rss" && unreadTotal > 0 ? (
                   <b>{unreadTotal > 99 ? "99+" : unreadTotal}</b>
                 ) : null}
+                {item.id === "news" && newsUnreadTotal > 0 ? (
+                  <b>{newsUnreadTotal > 99 ? "99+" : newsUnreadTotal}</b>
+                ) : null}
               </button>
             ),
           )}
@@ -680,7 +693,7 @@ export default function App() {
                     caption: "学习板快照",
                   });
                 }
-                deliverToAi(prompt, parts);
+                deliverToAi(prompt, null, parts);
               }}
             />
           </section>
@@ -711,6 +724,17 @@ export default function App() {
               onFeedsChanged={handleFeedsChanged}
               setNotice={setNotice}
               intent={rssIntent}
+            />
+          </section>
+          <section
+            className={"page-pane news-pane" + (page === "news" ? "" : " page-hidden")}
+          >
+            <NewsPage
+              active={page === "news"}
+              onContextChange={setAiContext}
+              onAskAi={(prompt, context) => deliverToAi(prompt, context)}
+              onUnreadChanged={setNewsUnreadTotal}
+              setNotice={setNotice}
             />
           </section>
           <section

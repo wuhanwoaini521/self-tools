@@ -99,6 +99,15 @@ pub fn default_exposure(tool_name: &str) -> Option<ToolExposure> {
         "language.search" | "language.today" | "language.review" | "language.explain" => {
             (ExposureGroup::ModuleRead, SCOPE_READ, true)
         }
+        // RSS（ADR-010：个人订阅阅读器）—— 只读四件套暴露；
+        // `rss.mark_read`（本地状态写）与 `rss.refresh`（联网）**不暴露**（fail-closed）。
+        "rss.list_subscriptions" | "rss.list_entries" | "rss.search" | "rss.get_entry" => {
+            (ExposureGroup::ModuleRead, SCOPE_READ, true)
+        }
+        // News（ADR-010：新闻发现与阅读）—— 只读五件套暴露；
+        // `news.refresh`（联网 + 写 news.db）**不暴露**。
+        "news.latest" | "news.search" | "news.by_category" | "news.by_source"
+        | "news.get_article" => (ExposureGroup::ModuleRead, SCOPE_READ, true),
 
         // --- 安全写入 ---
         "memory.save" => (ExposureGroup::SafeWrite, SCOPE_MEMORY_WRITE, true),
@@ -195,6 +204,49 @@ mod tests {
         );
         // §70：memory 工具必须 memory.read，不是宽 selftools.read 之外的东西。
         assert!(is_remote_visible("memory.search"));
+    }
+
+    #[test]
+    fn news_read_tools_are_exposed_but_writes_are_not() {
+        // ADR-010：News 只读五件套暴露（ModuleRead + selftools.read）。
+        for tool in [
+            "news.latest",
+            "news.search",
+            "news.by_category",
+            "news.by_source",
+            "news.get_article",
+        ] {
+            let exposure = default_exposure(tool).unwrap_or_else(|| panic!("{tool} 应暴露"));
+            assert_eq!(exposure.group, ExposureGroup::ModuleRead);
+            assert_eq!(exposure.required_scope, "selftools.read");
+            assert!(exposure.remote_visible);
+        }
+        // 联网刷新不暴露（外部 agent 不触发抓取；fail-closed）。
+        assert!(
+            default_exposure("news.refresh").is_none(),
+            "news.refresh 不得暴露"
+        );
+        assert!(!is_remote_visible("news.refresh"));
+    }
+
+    #[test]
+    fn rss_read_tools_are_exposed_but_writes_are_not() {
+        // ADR-010：RSS 只读四件套暴露；本地状态写与联网刷新 fail-closed。
+        for tool in [
+            "rss.list_subscriptions",
+            "rss.list_entries",
+            "rss.search",
+            "rss.get_entry",
+        ] {
+            let exposure = default_exposure(tool).unwrap_or_else(|| panic!("{tool} 应暴露"));
+            assert_eq!(exposure.group, ExposureGroup::ModuleRead);
+            assert_eq!(exposure.required_scope, "selftools.read");
+            assert!(exposure.remote_visible);
+        }
+        for hidden in ["rss.mark_read", "rss.refresh"] {
+            assert!(default_exposure(hidden).is_none(), "不得暴露: {hidden}");
+            assert!(!is_remote_visible(hidden));
+        }
     }
 
     #[test]

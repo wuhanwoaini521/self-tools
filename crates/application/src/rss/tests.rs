@@ -6,14 +6,16 @@
 use std::collections::HashMap;
 use std::sync::Mutex;
 
-use devtoolbox_core::rss::{ArticleRow, FeedRow, FetchedEntry, FetchedFeed};
+use devtoolbox_core::feed::{FetchedEntry, FetchedFeed};
+use devtoolbox_core::rss::{ArticleRow, FeedRow};
 
-use super::ports::{FeedFetchError, FeedFetchErrorKind, FeedFetcherPort, RssRepositoryPort};
+use super::ports::RssRepositoryPort;
 use super::{
     commit_new_feed, commit_refresh, delete_feed, feed_snapshots, list_articles, list_feeds,
     validate_feed_url,
 };
 use crate::ApplicationError;
+use crate::feed::{FeedFetchError, FeedFetchErrorKind, FeedFetcherPort};
 
 // ---------- Fakes ----------
 
@@ -102,9 +104,12 @@ impl RssRepositoryPort for FakeRepository {
                 guid: entry.guid.clone(),
                 url: entry.url.clone(),
                 title: entry.title.clone(),
+                author: entry.author.clone(),
+                image_url: entry.image_url.clone(),
                 published_at: entry.published_at,
                 summary: entry.summary.clone(),
                 is_read: false,
+                starred: false,
             });
             inserted += 1;
         }
@@ -161,6 +166,15 @@ impl RssRepositoryPort for FakeRepository {
             .collect())
     }
 
+    fn entry_by_id(&self, entry_id: i64) -> Result<Option<ArticleRow>, String> {
+        let state = self.0.lock().expect("fake repository poisoned");
+        Ok(state
+            .articles
+            .iter()
+            .find(|article| article.id == entry_id)
+            .cloned())
+    }
+
     fn mark_article_read(&self, article_id: i64) -> Result<(), String> {
         let mut state = self.0.lock().expect("fake repository poisoned");
         if let Some(article) = state
@@ -178,6 +192,63 @@ impl RssRepositoryPort for FakeRepository {
         state.feeds.retain(|feed| feed.id != feed_id);
         state.articles.retain(|article| article.feed_id != feed_id);
         Ok(())
+    }
+
+    fn query_articles(
+        &self,
+        keyword: Option<&str>,
+        feed_id: Option<i64>,
+        limit: i64,
+    ) -> Result<Vec<ArticleRow>, String> {
+        let state = self.0.lock().expect("fake repository poisoned");
+        let needle = keyword.map(|value| value.trim().to_lowercase());
+        Ok(state
+            .articles
+            .iter()
+            .rev()
+            .filter(|article| feed_id.is_none_or(|id| article.feed_id == id))
+            .filter(|article| {
+                let Some(needle) = needle.as_ref() else {
+                    return true;
+                };
+                if needle.is_empty() {
+                    return true;
+                }
+                let haystack = format!(
+                    "{} {} {}",
+                    article.title,
+                    article.author.as_deref().unwrap_or_default(),
+                    article.summary.as_deref().unwrap_or_default()
+                )
+                .to_lowercase();
+                haystack.contains(needle)
+            })
+            .take(limit as usize)
+            .cloned()
+            .collect())
+    }
+
+    fn starred_articles(&self, limit: i64) -> Result<Vec<ArticleRow>, String> {
+        let state = self.0.lock().expect("fake repository poisoned");
+        Ok(state
+            .articles
+            .iter()
+            .rev()
+            .filter(|article| article.starred)
+            .take(limit as usize)
+            .cloned()
+            .collect())
+    }
+
+    fn toggle_article_star(&self, article_id: i64) -> Result<bool, String> {
+        let mut state = self.0.lock().expect("fake repository poisoned");
+        let article = state
+            .articles
+            .iter_mut()
+            .find(|article| article.id == article_id)
+            .ok_or_else(|| format!("article {article_id} not found"))?;
+        article.starred = !article.starred;
+        Ok(article.starred)
     }
 }
 
@@ -219,6 +290,8 @@ fn fetched(title: &str, guids: &[&str]) -> FetchedFeed {
                 guid: format!("id:{guid}"),
                 url: format!("https://example.com/{guid}"),
                 title: format!("Post {guid}"),
+                author: Some("Reporter".to_string()),
+                image_url: Some("https://example.com/cover.png".to_string()),
                 published_at: Some(1_700_000_000),
                 summary: Some("summary".to_string()),
             })

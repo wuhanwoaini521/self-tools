@@ -11,6 +11,7 @@
 //! 安全之前，宁可是「能力少」而不是「能力错」（§152）。
 
 use std::sync::Arc;
+use std::sync::Mutex;
 
 use devtoolbox_application::mcp::adapter::McpToolAdapter;
 use devtoolbox_application::mcp::auth::{DenyAllIdentityProvider, RemoteIdentityProvider};
@@ -24,7 +25,6 @@ use devtoolbox_application::server::ports::ServiceProbePort;
 use devtoolbox_application::server::registry::ServiceRegistryService;
 use devtoolbox_core::mcp::McpAuditEntry;
 use devtoolbox_core::server::{HealthStatus, ServiceDescriptor, ServiceStatus};
-use std::sync::Mutex;
 
 /// 内存审计（进程内；重启即丢——不引外部日志栈，V8 §111）。
 #[derive(Default)]
@@ -144,6 +144,13 @@ fn build_inner(
     };
     let dir = validate_stores_dir(&dir, options.allow_existing)?;
     std::fs::create_dir_all(&dir).map_err(|error| format!("create stores dir: {error}"))?;
+    // ADR-010：一次性把老库 feeds.kind='news' 搬进 news.db 并 DROP 列
+    // （必须在开 dashboard.db / news.db 之前）。
+    devtoolbox_infrastructure::migrate_news_from_rss(
+        &dir.join("dashboard.db"),
+        &dir.join("news.db"),
+    )
+    .map_err(|error| format!("news migration: {error}"))?;
     build_stores(&dir, extra_tools)
 }
 
@@ -160,7 +167,14 @@ fn validate_stores_dir(
     // 判定：目标目录**已经含有业务库** → 视为桌面在用目录并拒绝（§G1）。
     // 显式豁免仅给测试 / 一次性迁移：`SELF_TOOLS_MCP_ALLOW_EXISTING=1`。
     if !options_allow_existing {
-        for db in ["memory.db", "documents.db", "files.db", "server_actions.db"] {
+        for db in [
+            "memory.db",
+            "documents.db",
+            "files.db",
+            "server_actions.db",
+            "dashboard.db",
+            "news.db",
+        ] {
             if canonical.join(db).is_file() {
                 return Err(format!(
                     "--stores 目录 {} 已包含业务库 {db}（疑似桌面在用目录）：MCP 与桌面共开同一 SQLite 会 SQLITE_BUSY，请改用独立目录（或用 SELF_TOOLS_MCP_ALLOW_EXISTING=1 显式豁免）",
@@ -296,6 +310,41 @@ fn build_stores(
         empty_actions(),
         Arc::new(LogTailProbe),
         devtoolbox_core::server::SessionTrust::LocalDesktop,
+    )
+    .map_err(|error| error.to_string())?;
+
+    // V12 News（ADR-010：独立 bounded context → 独立 `news.db`）。
+    // MCP 是**只读入口**：不装配 ingest（外部 agent 不触发联网抓取），
+    // 因此 `news.refresh` 会如实降级；只有读工具进 MCP 暴露表。
+    let news_repository: Arc<dyn devtoolbox_application::news::NewsRepositoryPort> =
+        Arc::new(McpNewsRepositoryAdapter::new(Arc::new(Mutex::new(
+            devtoolbox_infrastructure::NewsRepository::open(dir.join("news.db"))
+                .map_err(|error| error.to_string())?,
+        ))));
+    devtoolbox_application::personal_ai::register_news(
+        &mut modules,
+        &mut registry,
+        Arc::new(devtoolbox_application::news::NewsService::new(
+            news_repository,
+        )),
+        None,
+    )
+    .map_err(|error| error.to_string())?;
+
+    // V12 RSS（ADR-010：个人订阅阅读器 → `dashboard.db`）。
+    // 同样只读：`rss.refresh` 降级、`rss.mark_read` 不进暴露表。
+    let rss_repository: Arc<dyn devtoolbox_application::rss::RssRepositoryPort> =
+        Arc::new(McpRssRepositoryAdapter::new(Arc::new(Mutex::new(
+            devtoolbox_infrastructure::FeedRepository::open(dir.join("dashboard.db"))
+                .map_err(|error| error.to_string())?,
+        ))));
+    devtoolbox_application::personal_ai::register_rss(
+        &mut modules,
+        &mut registry,
+        devtoolbox_application::personal_ai::RssTools::new(Arc::new(
+            devtoolbox_application::rss::RssService::new(rss_repository),
+        )),
+        None,
     )
     .map_err(|error| error.to_string())?;
 
@@ -551,6 +600,260 @@ impl devtoolbox_application::documents::DocumentIndexPort for DocumentIndexAdapt
     }
 }
 
+/// News 持久化存储 → `NewsRepositoryPort`（ADR-010：独立于 RSS；`news.db`）。
+pub struct McpNewsRepositoryAdapter {
+    store: Arc<Mutex<devtoolbox_infrastructure::NewsRepository>>,
+}
+
+impl McpNewsRepositoryAdapter {
+    #[must_use]
+    pub fn new(store: Arc<Mutex<devtoolbox_infrastructure::NewsRepository>>) -> Self {
+        Self { store }
+    }
+
+    fn lock(&self) -> std::sync::MutexGuard<'_, devtoolbox_infrastructure::NewsRepository> {
+        self.store.lock().unwrap_or_else(|error| error.into_inner())
+    }
+}
+
+impl devtoolbox_application::news::NewsRepositoryPort for McpNewsRepositoryAdapter {
+    fn list_sources(&self) -> Result<Vec<devtoolbox_core::news::NewsSource>, String> {
+        self.lock()
+            .list_sources()
+            .map_err(|error| error.to_string())
+    }
+    fn source_by_id(
+        &self,
+        source_id: i64,
+    ) -> Result<Option<devtoolbox_core::news::NewsSource>, String> {
+        self.lock()
+            .source_by_id(source_id)
+            .map_err(|error| error.to_string())
+    }
+    fn find_source_id_by_url(&self, url: &str) -> Result<Option<i64>, String> {
+        self.lock()
+            .find_source_id_by_url(url)
+            .map_err(|error| error.to_string())
+    }
+    fn insert_source(
+        &self,
+        name: &str,
+        url: &str,
+        category: devtoolbox_core::news::NewsCategory,
+        site_url: Option<&str>,
+    ) -> Result<i64, String> {
+        self.lock()
+            .insert_source(name, url, category, site_url)
+            .map_err(|error| error.to_string())
+    }
+    fn set_source_category(
+        &self,
+        source_id: i64,
+        category: devtoolbox_core::news::NewsCategory,
+    ) -> Result<(), String> {
+        self.lock()
+            .set_source_category(source_id, category)
+            .map_err(|error| error.to_string())
+    }
+    fn set_source_health(&self, source_id: i64, error: Option<&str>) -> Result<(), String> {
+        self.lock()
+            .set_source_health(source_id, error)
+            .map_err(|error| error.to_string())
+    }
+    fn delete_source(&self, source_id: i64) -> Result<(), String> {
+        self.lock()
+            .delete_source(source_id)
+            .map_err(|error| error.to_string())
+    }
+    fn has_failed_source(&self) -> Result<bool, String> {
+        self.lock()
+            .has_failed_source()
+            .map_err(|error| error.to_string())
+    }
+    fn insert_articles(
+        &self,
+        source_id: i64,
+        entries: &[devtoolbox_core::feed::FetchedEntry],
+    ) -> Result<usize, String> {
+        self.lock()
+            .insert_articles(source_id, entries)
+            .map_err(|error| error.to_string())
+    }
+    fn latest(&self, limit: i64) -> Result<Vec<devtoolbox_core::news::NewsArticle>, String> {
+        self.lock().latest(limit).map_err(|error| error.to_string())
+    }
+    fn latest_by_category(
+        &self,
+        category: devtoolbox_core::news::NewsCategory,
+        limit: i64,
+    ) -> Result<Vec<devtoolbox_core::news::NewsArticle>, String> {
+        self.lock()
+            .latest_by_category(category, limit)
+            .map_err(|error| error.to_string())
+    }
+    fn latest_by_source(
+        &self,
+        source_id: i64,
+        limit: i64,
+    ) -> Result<Vec<devtoolbox_core::news::NewsArticle>, String> {
+        self.lock()
+            .latest_by_source(source_id, limit)
+            .map_err(|error| error.to_string())
+    }
+    fn article_by_id(
+        &self,
+        article_id: i64,
+    ) -> Result<Option<devtoolbox_core::news::NewsArticle>, String> {
+        self.lock()
+            .article_by_id(article_id)
+            .map_err(|error| error.to_string())
+    }
+    fn query_articles(
+        &self,
+        keyword: Option<&str>,
+        source_id: Option<i64>,
+        limit: i64,
+    ) -> Result<Vec<devtoolbox_core::news::NewsArticle>, String> {
+        self.lock()
+            .query_articles(keyword, source_id, limit)
+            .map_err(|error| error.to_string())
+    }
+    fn starred_articles(
+        &self,
+        limit: i64,
+    ) -> Result<Vec<devtoolbox_core::news::NewsArticle>, String> {
+        self.lock()
+            .starred_articles(limit)
+            .map_err(|error| error.to_string())
+    }
+    fn toggle_star(&self, article_id: i64) -> Result<bool, String> {
+        self.lock()
+            .toggle_star(article_id)
+            .map_err(|error| error.to_string())
+    }
+    fn mark_read(&self, article_id: i64) -> Result<(), String> {
+        self.lock()
+            .mark_read(article_id)
+            .map_err(|error| error.to_string())
+    }
+    fn unread_total(&self) -> Result<i64, String> {
+        self.lock()
+            .unread_total()
+            .map_err(|error| error.to_string())
+    }
+}
+
+/// RSS 摄取存储 → `RssRepositoryPort`（ADR-010：服务 `rss.*`；与 desktop 同形态）。
+pub struct McpRssRepositoryAdapter {
+    store: Arc<Mutex<devtoolbox_infrastructure::FeedRepository>>,
+}
+
+impl McpRssRepositoryAdapter {
+    #[must_use]
+    pub fn new(store: Arc<Mutex<devtoolbox_infrastructure::FeedRepository>>) -> Self {
+        Self { store }
+    }
+
+    fn lock(&self) -> std::sync::MutexGuard<'_, devtoolbox_infrastructure::FeedRepository> {
+        self.store.lock().unwrap_or_else(|error| error.into_inner())
+    }
+}
+
+impl devtoolbox_application::rss::RssRepositoryPort for McpRssRepositoryAdapter {
+    fn list_feeds(&self) -> Result<Vec<devtoolbox_core::rss::FeedRow>, String> {
+        self.lock().list_feeds().map_err(|error| error.to_string())
+    }
+    fn find_feed_id_by_url(&self, url: &str) -> Result<Option<i64>, String> {
+        self.lock()
+            .find_feed_id_by_url(url)
+            .map_err(|error| error.to_string())
+    }
+    fn insert_feed(&self, title: &str, url: &str, site_url: Option<&str>) -> Result<i64, String> {
+        self.lock()
+            .insert_feed(title, url, site_url)
+            .map_err(|error| error.to_string())
+    }
+    fn insert_articles(
+        &self,
+        feed_id: i64,
+        entries: &[devtoolbox_core::feed::FetchedEntry],
+    ) -> Result<usize, String> {
+        self.lock()
+            .insert_articles(feed_id, entries)
+            .map_err(|error| error.to_string())
+    }
+    fn set_feed_success(&self, feed_id: i64) -> Result<(), String> {
+        self.lock()
+            .set_feed_success(feed_id)
+            .map_err(|error| error.to_string())
+    }
+    fn set_feed_error(&self, feed_id: i64, message: &str) -> Result<(), String> {
+        self.lock()
+            .set_feed_error(feed_id, message)
+            .map_err(|error| error.to_string())
+    }
+    fn feed_title(&self, feed_id: i64) -> Result<Option<String>, String> {
+        self.lock()
+            .feed_title(feed_id)
+            .map_err(|error| error.to_string())
+    }
+    fn list_articles(
+        &self,
+        feed_id: i64,
+        limit: i64,
+    ) -> Result<Vec<devtoolbox_core::rss::ArticleRow>, String> {
+        self.lock()
+            .list_articles(feed_id, limit)
+            .map_err(|error| error.to_string())
+    }
+    fn latest_articles(&self, limit: i64) -> Result<Vec<devtoolbox_core::rss::ArticleRow>, String> {
+        self.lock()
+            .latest_articles(limit)
+            .map_err(|error| error.to_string())
+    }
+    fn entry_by_id(
+        &self,
+        entry_id: i64,
+    ) -> Result<Option<devtoolbox_core::rss::ArticleRow>, String> {
+        self.lock()
+            .entry_by_id(entry_id)
+            .map_err(|error| error.to_string())
+    }
+    fn mark_article_read(&self, article_id: i64) -> Result<(), String> {
+        self.lock()
+            .mark_article_read(article_id)
+            .map_err(|error| error.to_string())
+    }
+    fn delete_feed(&self, feed_id: i64) -> Result<(), String> {
+        self.lock()
+            .delete_feed(feed_id)
+            .map_err(|error| error.to_string())
+    }
+    fn query_articles(
+        &self,
+        keyword: Option<&str>,
+        feed_id: Option<i64>,
+        limit: i64,
+    ) -> Result<Vec<devtoolbox_core::rss::ArticleRow>, String> {
+        self.lock()
+            .query_articles(keyword, feed_id, limit)
+            .map_err(|error| error.to_string())
+    }
+    fn starred_articles(
+        &self,
+        limit: i64,
+    ) -> Result<Vec<devtoolbox_core::rss::ArticleRow>, String> {
+        self.lock()
+            .starred_articles(limit)
+            .map_err(|error| error.to_string())
+    }
+    fn toggle_article_star(&self, article_id: i64) -> Result<bool, String> {
+        self.lock()
+            .toggle_article_star(article_id)
+            .map_err(|error| error.to_string())
+    }
+}
+
 /// `FileIndexSqliteStore` → `FileIndexPort`。
 pub struct FileIndexAdapter {
     store: devtoolbox_infrastructure::FileIndexSqliteStore,
@@ -763,7 +1066,6 @@ impl devtoolbox_application::server::ports::ApplicationProbePort for Application
 pub struct SqliteAuditBridge {
     store: Arc<devtoolbox_infrastructure::ServerActionAuditSqlite>,
 }
-
 impl SqliteAuditBridge {
     #[must_use]
     pub fn new(store: Arc<devtoolbox_infrastructure::ServerActionAuditSqlite>) -> Self {

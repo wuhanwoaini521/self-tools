@@ -11,9 +11,11 @@ import type { ArticleDto, FeedDto, RefreshReport } from "../../types";
 export interface RssClient {
   listFeeds(): Promise<FeedDto[]>;
   listArticles(feedId: number, limit: number): Promise<ArticleDto[]>;
+  /** 添加 RSS 订阅（ADR-010：**只写 RSS 的 feeds**，无 kind 概念）。 */
   addFeed(url: string): Promise<FeedDto>;
   deleteFeed(feedId: number): Promise<void>;
   markArticleRead(articleId: number): Promise<void>;
+  /** 抓文章页 HTML（共享基础设施，News 页也用它）。 */
   fetchArticle(url: string): Promise<string>;
   refreshFeeds(): Promise<RefreshReport>;
   latestArticles(limit: number): Promise<ArticleDto[]>;

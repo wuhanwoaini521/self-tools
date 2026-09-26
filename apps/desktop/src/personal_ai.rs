@@ -72,6 +72,10 @@ pub fn build_hub(
     knowledge: &crate::knowledge::KnowledgeRuntime,
     server: &crate::server::ServerRuntime,
     study_board_store: Arc<dyn devtoolbox_application::StudyBoardStorePort>,
+    news: Arc<dyn devtoolbox_application::news::NewsPort>,
+    news_ingest: Option<Arc<dyn devtoolbox_application::news::NewsIngestPort>>,
+    rss_port: Arc<dyn devtoolbox_application::rss::RssPort>,
+    rss_ingest: Option<Arc<dyn devtoolbox_application::rss::RssIngestPort>>,
     settings: &devtoolbox_core::settings::AppSettings,
     client: reqwest::Client,
 ) -> Arc<PersonalHub> {
@@ -142,6 +146,23 @@ pub fn build_hub(
         study_board_store,
     )
     .expect("register study-board module");
+    // V12 News（ADR-010：独立 bounded context）+ RSS（个人订阅阅读器）。
+    // 两个模块各自注册 descriptor/tools/ContextProvider；共享的只有底层抓取骨架。
+    // 未装配 ingest 的入口（纯读 MCP）让 refresh 工具如实降级，不伪造成功。
+    devtoolbox_application::personal_ai::register_news(
+        &mut hub.modules,
+        &mut hub.tools,
+        Arc::clone(&news),
+        news_ingest,
+    )
+    .expect("register news module");
+    devtoolbox_application::personal_ai::register_rss(
+        &mut hub.modules,
+        &mut hub.tools,
+        devtoolbox_application::personal_ai::RssTools::new(rss_port),
+        rss_ingest,
+    )
+    .expect("register rss module");
     // V10：决策引擎 + 有界多 Agent 编排（rule / jev-shadow / jev-active）。
     // 决策层只选策略；执行/授权/预算仍由 OrchestrationService + ToolRegistry 强制。
     // `settings` 来自调用方（同 enrichment 模式：每次装配读取一次最新 settings.json）。
@@ -280,6 +301,34 @@ mod tests {
         let hub_client = devtoolbox_infrastructure::feed_client().expect("http client");
         let study_board_store = devtoolbox_infrastructure::StudyBoardSqliteStore::open_in_memory()
             .expect("study board store");
+        let news_service = Arc::new(devtoolbox_application::news::NewsService::new(Arc::new(
+            crate::composition::NewsRepositoryAdapter::new(Arc::new(Mutex::new(
+                devtoolbox_infrastructure::NewsRepository::open(directory.path().join("news.db"))
+                    .expect("news repository"),
+            ))),
+        )));
+        let news: Arc<dyn devtoolbox_application::news::NewsPort> =
+            Arc::clone(&news_service) as Arc<dyn devtoolbox_application::news::NewsPort>;
+        let news_ingest: Arc<dyn devtoolbox_application::news::NewsIngestPort> =
+            Arc::new(devtoolbox_application::news::NewsIngestService::new(
+                Arc::clone(&news_service),
+                crate::composition::FeedFetcherAdapter::new(hub_client.clone()),
+            ));
+        let rss_service = Arc::new(devtoolbox_application::rss::RssService::new(Arc::new(
+            crate::composition::RssRepositoryAdapter::new(Arc::new(Mutex::new(
+                devtoolbox_infrastructure::FeedRepository::open(
+                    directory.path().join("dashboard.db"),
+                )
+                .expect("rss repository"),
+            ))),
+        )));
+        let rss_port: Arc<dyn devtoolbox_application::rss::RssPort> =
+            Arc::clone(&rss_service) as Arc<dyn devtoolbox_application::rss::RssPort>;
+        let rss_ingest: Arc<dyn devtoolbox_application::rss::RssIngestPort> =
+            Arc::new(devtoolbox_application::rss::RssIngestService::new(
+                Arc::clone(&rss_service),
+                crate::composition::FeedFetcherAdapter::new(hub_client.clone()),
+            ));
         Some(build_hub(
             history_repo,
             None,
@@ -292,6 +341,10 @@ mod tests {
             Arc::new(crate::composition::StudyBoardStoreAdapter::new(Arc::new(
                 study_board_store,
             ))),
+            news,
+            Some(news_ingest),
+            rss_port,
+            Some(rss_ingest),
             &hub_settings,
             hub_client,
         ))
@@ -317,6 +370,8 @@ mod tests {
             "knowledge",
             "server",
             "study-board",
+            "rss",
+            "news",
         ] {
             assert!(
                 modules.iter().any(|id| id == expected),
@@ -372,6 +427,76 @@ mod tests {
         for spec in hub.tools.specs() {
             if spec.module == "server" {
                 assert_eq!(spec.risk, devtoolbox_core::ToolRisk::Read, "{}", spec.name);
+            }
+        }
+    }
+
+    #[test]
+    fn news_module_tools_are_reachable_from_the_agent() {
+        let Some(hub) = build_test_hub() else { return };
+        let names: Vec<String> = hub
+            .tools
+            .specs()
+            .into_iter()
+            .map(|spec| spec.name)
+            .collect();
+        for tool in [
+            "news.latest",
+            "news.search",
+            "news.by_category",
+            "news.by_source",
+            "news.get_article",
+            "news.refresh",
+        ] {
+            assert!(
+                names.iter().any(|name| name == tool),
+                "工具 {tool} 必须可触达"
+            );
+        }
+        // 写工具只允许 SafeWrite（registry 门禁强制；SYSTEM 语义不在工具上）。
+        for spec in hub.tools.specs() {
+            if spec.module == "news" {
+                assert!(
+                    matches!(
+                        spec.risk,
+                        devtoolbox_core::ToolRisk::Read | devtoolbox_core::ToolRisk::SafeWrite
+                    ),
+                    "{} risk 越权: {:?}",
+                    spec.name,
+                    spec.risk
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn rss_module_tools_are_reachable_from_the_agent() {
+        let Some(hub) = build_test_hub() else { return };
+        let names: Vec<String> = hub
+            .tools
+            .specs()
+            .into_iter()
+            .map(|spec| spec.name)
+            .collect();
+        for tool in [
+            "rss.list_subscriptions",
+            "rss.list_entries",
+            "rss.search",
+            "rss.get_entry",
+            "rss.mark_read",
+            "rss.refresh",
+        ] {
+            assert!(
+                names.iter().any(|name| name == tool),
+                "工具 {tool} 必须可触达"
+            );
+        }
+        // ADR-010：RSS 与 News 是两个模块，工具命名空间不得交叉。
+        for spec in hub.tools.specs() {
+            match spec.module.as_str() {
+                "rss" => assert!(spec.name.starts_with("rss."), "{}", spec.name),
+                "news" => assert!(spec.name.starts_with("news."), "{}", spec.name),
+                _ => {}
             }
         }
     }

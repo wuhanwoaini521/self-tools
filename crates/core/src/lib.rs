@@ -6,6 +6,7 @@
 pub mod agents;
 pub mod backup;
 pub mod documents;
+pub mod feed;
 pub mod files;
 pub mod geography;
 pub mod history_enrichment;
@@ -14,6 +15,7 @@ pub mod knowledge;
 pub mod language;
 pub mod mcp;
 pub mod memory;
+pub mod news;
 pub mod operations;
 pub mod parser;
 pub mod personal_ai;

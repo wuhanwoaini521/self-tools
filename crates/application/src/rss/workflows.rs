@@ -11,13 +11,14 @@
 //! - 刷新逐 Feed 并发执行，单个 Feed 失败只记录到该 Feed 的 `last_error`；
 //! - 去重由存储层 `(feed_id, guid)` 唯一约束保证，guid 三级回退由抓取层归一化。
 
-use futures_util::future::join_all;
 use serde::{Deserialize, Serialize};
 
-use devtoolbox_core::rss::{ArticleRow, FeedRow, FetchedFeed};
+use devtoolbox_core::feed::FetchedFeed;
+use devtoolbox_core::rss::{ArticleRow, FeedRow};
 
-use super::ports::{FeedFetchError, FeedFetcherPort, RssRepositoryPort};
+use super::ports::RssRepositoryPort;
 use crate::error::{ApplicationError, RssErrorKind};
+use crate::feed::{FeedFetchError, FeedFetchErrorKind, FeedFetcherPort};
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct FeedDto {
@@ -102,8 +103,8 @@ fn repository_error(message: String) -> ApplicationError {
 fn fetcher_error(error: FeedFetchError) -> ApplicationError {
     rss_error(
         match error.kind {
-            super::ports::FeedFetchErrorKind::Fetch => RssErrorKind::Fetch,
-            super::ports::FeedFetchErrorKind::Parse => RssErrorKind::Parse,
+            FeedFetchErrorKind::Fetch => RssErrorKind::Fetch,
+            FeedFetchErrorKind::Parse => RssErrorKind::Parse,
         },
         error.message,
     )
@@ -161,15 +162,20 @@ pub fn commit_new_feed(
 }
 
 /// 抓取阶段：刷新所有订阅。并发抓取，逐 Feed 返回结果，单个失败不影响其他。
+///
+/// 并发骨架走共享 `crate::feed::fetch_many`（ADR-010：抓取是基础设施，
+/// 两个域共用；落库仍在本模块）。
 pub async fn fetch_all_feeds<F: FeedFetcherPort + ?Sized>(
     snapshots: &[FeedSnapshot],
     fetcher: &F,
 ) -> Vec<(FeedSnapshot, Result<FetchedFeed, FeedFetchError>)> {
-    let fetches = snapshots.iter().map(|feed| async move {
-        let result = fetcher.fetch_feed(&feed.url).await;
-        (feed.clone(), result)
-    });
-    join_all(fetches).await
+    let urls: Vec<String> = snapshots.iter().map(|feed| feed.url.clone()).collect();
+    let results = crate::feed::fetch_many(&urls, fetcher).await;
+    snapshots
+        .iter()
+        .cloned()
+        .zip(results.into_iter().map(|(_, result)| result))
+        .collect()
 }
 
 /// 落库阶段：写入刷新结果并汇总报告。

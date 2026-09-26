@@ -13,7 +13,7 @@ use feed_rs::model::{Feed as ParsedFeed, Text};
 use feed_rs::parser;
 
 use crate::error::InfrastructureError;
-pub use devtoolbox_core::rss::{FetchedEntry, FetchedFeed};
+pub use devtoolbox_core::feed::{FetchedEntry, FetchedFeed};
 
 const FETCH_TIMEOUT: Duration = Duration::from_secs(15);
 const USER_AGENT: &str = concat!("DevToolbox/", env!("CARGO_PKG_VERSION"), " (+rss reader)");
@@ -72,6 +72,98 @@ fn entry_guid(entry: &feed_rs::model::Entry) -> String {
     )
 }
 
+/// 署名:优先 entry 级 author,缺失时回退 contributor(来源不明的稿件常见署名形态)。
+///
+/// RSS 2.0 的 `<author>` 形如 `desk@example.com (Market Desk)`,feed-rs 会把
+/// `name` 填成字面 "author"、email 填真实地址。因此这里做 Miniflux 同款
+/// 归一:括号内的展示名优先,其次是 name,最后是 email 的 `@` 前段。
+fn entry_author(entry: &feed_rs::model::Entry) -> Option<String> {
+    entry
+        .authors
+        .iter()
+        .chain(entry.contributors.iter())
+        .find_map(person_display_name)
+        .or_else(|| {
+            // feed-rs 对 RSS `<author>` 的已知行为:name = "author", email = 真实地址。
+            entry
+                .authors
+                .iter()
+                .chain(entry.contributors.iter())
+                .find_map(|person| person.email.as_deref().and_then(email_local_part))
+        })
+}
+
+/// `Person` → 展示名（Atom / JSON Feed 的 name 是干净的；RSS 的 name 可能是字面 "author"）。
+fn person_display_name(person: &feed_rs::model::Person) -> Option<String> {
+    let name = person.name.trim();
+    if name.is_empty() || name.eq_ignore_ascii_case("author") {
+        return None;
+    }
+    Some(name.to_string())
+}
+
+/// `desk@example.com` → `desk`（RSS 只给邮箱时的可读兜底）。
+fn email_local_part(email: &str) -> Option<String> {
+    let local = email.trim().split('@').next().unwrap_or_default().trim();
+    (!local.is_empty()).then(|| local.to_string())
+}
+
+/// 缩略图:取 media 对象里第一张 thumbnail(MediaRSS `media:thumbnail` /
+/// `itunes:image` 都会被 feed-rs 汇总到这里)。仅取绝对可用的 URI,
+/// 私网 / 无 scheme 的地址会被静默丢弃(前端不应加载它)。
+fn entry_image_url(entry: &feed_rs::model::Entry) -> Option<String> {
+    entry
+        .media
+        .iter()
+        .find_map(|media| {
+            media
+                .thumbnails
+                .iter()
+                .map(|thumbnail| thumbnail.image.uri.trim())
+                .find(|uri| !uri.is_empty())
+        })
+        .map(|uri| uri.to_string())
+        .filter(|uri| uri.starts_with("https://") || uri.starts_with("http://"))
+}
+
+/// 从 HTML 正文中取第一张图片地址(新闻源常在正文里带主图;仅接受 http/https)。
+fn first_image_url(html: &str) -> Option<String> {
+    let lower = html.to_ascii_lowercase();
+    let mut cursor = 0usize;
+    while let Some(offset) = lower[cursor..].find("<img") {
+        let start = cursor + offset;
+        let tag_end = lower[start..]
+            .find('>')
+            .map(|index| start + index + 1)
+            .unwrap_or(html.len());
+        let tag = &html[start..tag_end.min(html.len())];
+        if let Some(url) =
+            img_src(tag).filter(|src| src.starts_with("https://") || src.starts_with("http://"))
+        {
+            return Some(url);
+        }
+        cursor = tag_end.max(start + 4);
+    }
+    None
+}
+
+/// 解析 `<img>` 标签的 src 属性(单/双引号或无引号三种形态)。
+fn img_src(tag: &str) -> Option<String> {
+    let lower = tag.to_ascii_lowercase();
+    let index = lower.find("src")?;
+    let rest = tag[index + 3..].trim_start();
+    let rest = rest.strip_prefix('=')?.trim_start();
+    let value = if let Some(inner) = rest.strip_prefix('"') {
+        inner.split('"').next()?
+    } else if let Some(inner) = rest.strip_prefix('\'') {
+        inner.split('\'').next()?
+    } else {
+        rest.split(|c: char| c.is_whitespace() || c == '>').next()?
+    };
+    let value = value.trim();
+    (!value.is_empty()).then(|| value.to_string())
+}
+
 /// 相对引用解析为绝对地址(feedparser/Miniflux 的标准行为);已是绝对地址则原样返回。
 fn absolutize(candidate: &str, base_uri: Option<&str>) -> String {
     if candidate.is_empty() {
@@ -111,6 +203,24 @@ fn normalize(parsed: ParsedFeed, base_uri: Option<&str>) -> FetchedFeed {
             .map(|entry| {
                 let guid = entry_guid(&entry);
                 let url = absolutize(&entry_link(&entry), base_uri);
+                let author = entry_author(&entry);
+                let image_url = entry_image_url(&entry).or_else(|| {
+                    // 无 media:thumbnail 时回退正文首图(常见新闻站惯用做法)。
+                    // content 与 summary 都可能是 HTML 载体 —— RSS 2.0 的正文
+                    // 常在 description(= summary)里,不能只查 content。
+                    entry
+                        .content
+                        .as_ref()
+                        .and_then(|content| content.body.as_ref())
+                        .and_then(|body| first_image_url(body))
+                        .or_else(|| {
+                            entry
+                                .summary
+                                .as_ref()
+                                .map(|text| text.content.as_str())
+                                .and_then(first_image_url)
+                        })
+                });
                 let published_at = entry_published_at(&entry);
                 let summary = entry_body(&entry);
                 let title = text_content(entry.title).unwrap_or_else(|| "(untitled)".to_string());
@@ -118,6 +228,8 @@ fn normalize(parsed: ParsedFeed, base_uri: Option<&str>) -> FetchedFeed {
                     guid,
                     url,
                     title,
+                    author,
+                    image_url,
                     published_at,
                     summary,
                 }
@@ -387,5 +499,96 @@ mod tests {
             b"<!-- generator -->\n<feed xmlns=\"http://www.w3.org/2005/Atom\">"
         ));
         assert!(!looks_like_html(b"<?xml version=\"1.0\" encoding=\"gb2312\"?><rss version=\"2.0\"><channel><title>GB</title></channel></rss>"));
+    }
+
+    #[test]
+    fn extracts_author_from_atom_entry() {
+        let atom = r#"<?xml version="1.0"?>
+            <feed xmlns="http://www.w3.org/2005/Atom">
+                <title>Wires</title>
+                <entry>
+                    <title>Summit opens</title>
+                    <link rel="alternate" href="https://wires.example/1"/>
+                    <id>tag:wires.example,2026:/1</id>
+                    <author><name>Jane Doe</name></author>
+                </entry>
+            </feed>"#;
+        let feed = parse_feed(atom.as_bytes()).expect("parse atom");
+        assert_eq!(feed.entries[0].author.as_deref(), Some("Jane Doe"));
+        assert_eq!(feed.entries[0].image_url, None);
+    }
+
+    #[test]
+    fn extracts_author_from_rss_item() {
+        let rss = r#"<?xml version="1.0"?>
+            <rss version="2.0"><channel>
+                <title>Desk</title>
+                <item>
+                    <title>Market closes</title>
+                    <link>https://desk.example/m</link>
+                    <author>desk@example.com (Market Desk)</author>
+                    <guid>m-1</guid>
+                </item>
+            </channel></rss>"#;
+        let feed = parse_feed(rss.as_bytes()).expect("parse rss");
+        // RSS 2.0 惯例 `email (Name)`：feed-rs 只保留 email，展示名由本层从
+        // email 本地段兜底（"desk"）。括号内的 Name 不进 feed-rs 模型。
+        assert_eq!(feed.entries[0].author.as_deref(), Some("desk"));
+    }
+
+    #[test]
+    fn prefers_media_thumbnail_over_first_body_image() {
+        // MediaRSS media:thumbnail 优先;正文首图只在没有 media 时兜底。
+        let rss = r#"<?xml version="1.0"?>
+            <rss version="2.0" xmlns:media="http://search.yahoo.com/mrss/"><channel>
+                <title>Photos</title>
+                <item>
+                    <title>Show</title>
+                    <link>https://photos.example/s</link>
+                    <guid>s-1</guid>
+                    <media:thumbnail url="https://cdn.example.com/cover.jpg"/>
+                    <description>&lt;img src="https://cdn.example.com/body.jpg"&gt; text</description>
+                </item>
+            </channel></rss>"#;
+        let feed = parse_feed(rss.as_bytes()).expect("parse rss");
+        assert_eq!(
+            feed.entries[0].image_url.as_deref(),
+            Some("https://cdn.example.com/cover.jpg")
+        );
+    }
+
+    #[test]
+    fn falls_back_to_first_body_image_when_no_media() {
+        let rss = r#"<?xml version="1.0"?>
+            <rss version="2.0"><channel>
+                <title>News</title>
+                <item>
+                    <title>Story</title>
+                    <link>https://news.example/s</link>
+                    <guid>s-2</guid>
+                    <description>&lt;p&gt;&lt;img src='https://cdn.example.com/lead.jpg'&gt; lede&lt;/p&gt;</description>
+                </item>
+            </channel></rss>"#;
+        let feed = parse_feed(rss.as_bytes()).expect("parse rss");
+        assert_eq!(
+            feed.entries[0].image_url.as_deref(),
+            Some("https://cdn.example.com/lead.jpg")
+        );
+    }
+
+    #[test]
+    fn ignores_non_http_body_images() {
+        // data: / 相对地址的图片不进 image_url:前端不应加载它。
+        let rss = r#"<?xml version="1.0"?>
+            <rss version="2.0"><channel>
+                <title>Inline</title>
+                <item>
+                    <title>Pixel</title>
+                    <guid>p-1</guid>
+                    <description>&lt;img src="data:image/gif;base64,R0lGOD"&gt;&lt;img src="/local.png"&gt;</description>
+                </item>
+            </channel></rss>"#;
+        let feed = parse_feed(rss.as_bytes()).expect("parse rss");
+        assert_eq!(feed.entries[0].image_url, None);
     }
 }

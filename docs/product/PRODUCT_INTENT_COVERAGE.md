@@ -36,6 +36,8 @@
 | 29 | Backup | **IMPLEMENTED** | `backup/` + manifest + sha256 + drill |
 | 30 | Restore | **IMPLEMENTED** | `BackupService::restore`（隔离目标 + 校验 + 路径封闭） |
 | 31 | Production Deployment | **IMPLEMENTED** | `PRODUCTION_V11.md` + `DEPLOY_MACOS12.md` + launchd + 启动校验；真实证书/域名 = **BLOCKED_EXTERNAL（部署输入）** |
+| 32 | RSS 个人订阅阅读器（ADR-010） | **IMPLEMENTED** | `core/rss.rs` + `application/rss/{ports,service,workflows}.rs` + `personal_ai/rss.rs`（6 工具）+ `features/rss/{RssPage,rssClient}.ts` + `config/dashboard.db`；`rss_*` 命令（add/delete/refresh/mark_read/fetch_article） |
+| 33 | News 新闻发现与阅读（ADR-010） | **IMPLEMENTED** | `core/news.rs`（NewsSource/NewsArticle/NewsCategory/seed 目录）+ `application/news/{ports,service}.rs` + `news_store.rs` + `news_migration.rs` + `personal_ai/news.rs`（6 工具）+ `features/news/{NewsPage,newsClient,newsContent}.ts` + `config/news.db`；`news_*` 11 命令 |
 
 ## 关键缺口（诚实记录）
 
@@ -45,3 +47,5 @@
 | GlobalSearch 各模块端口注册 | 搜索当前只返回空 + degraded（如实） | 组合根按模块注册 `GlobalSearchPort` |
 | Readiness 探测器的真实实现（DB/ToolRegistry/备份目标） | 现在由前端本地推导兜底 | 组合根注入真实 probe |
 | 真实 vision / ASR Provider | 多模态只能用文字 | 部署方选模型；抽象层已就绪 |
+| GlobalSearch 未接入 RSS/News | 全局搜索搜不到新闻与订阅条目 | 按 `GlobalSearchPort` 模式注册两个源（见 §14 后续） |
+| 推荐源目录是常量表 | 换目录需改代码，非配置文件 | P0 不做配置化，等用户自定义需求（ADR-010 已记录代价） |
