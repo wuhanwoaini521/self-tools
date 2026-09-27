@@ -699,7 +699,7 @@ export default function App() {
           </section>
           <section
             className={
-              "page-pane" + (page === "rss" ? "" : " page-hidden")
+              "page-pane" + (page === "markdown" ? "" : " page-hidden")
             }
           >
             <MarkdownPage
