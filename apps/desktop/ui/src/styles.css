@@ -116,8 +116,14 @@
  --shadow-toast: 0 12px 32px rgb(0 0 0 / 35%);
 
  --scrollbar-width: 8px;
- --radius-control: 4px;
+ --radius-control: 2px;
  --radius-overlay: 7px;
+
+ /* Pixel-Lift：统一悬浮层（硬边像素风） */
+ --lift: 2px;
+ --pixel-ms: 120ms;
+ --pixel-ease: steps(4, end);
+ --pixel-depth-1: #05090a;
 
  color: var(--text);
  background: var(--bg);
@@ -235,8 +241,14 @@
  --shadow-toast: 0 12px 32px rgb(64 55 38 / 18%);
 
  --scrollbar-width: 6px;
- --radius-control: 8px;
+ --radius-control: 4px;
  --radius-overlay: 10px;
+
+ /* Pixel-Lift：统一悬浮层（硬边像素风） */
+ --lift: 2px;
+ --pixel-ms: 120ms;
+ --pixel-ease: steps(4, end);
+ --pixel-depth-1: #d5cec0;
 }
 
 /* Warm Editorial Dark:暖黑夜间版,同一 Editorial 语言的深色表达。 */
@@ -349,8 +361,14 @@
  --shadow-toast: 0 12px 32px rgb(0 0 0 / 40%);
 
  --scrollbar-width: 6px;
- --radius-control: 8px;
+ --radius-control: 4px;
  --radius-overlay: 10px;
+
+ /* Pixel-Lift：统一悬浮层（硬边像素风） */
+ --lift: 2px;
+ --pixel-ms: 120ms;
+ --pixel-ease: steps(4, end);
+ --pixel-depth-1: #141310;
 }
 
 * {
@@ -397,7 +415,8 @@ button {
  border-bottom: 1px solid var(--line);
  background: var(--surface-bar);
 }
-.app-bar-gear {
+.app-bar-gear,
+.app-bar-ai {
  display: grid;
  place-items: center;
  width: 34px;
@@ -14043,7 +14062,7 @@ main.history-v2-period {
  padding: 0 12px;
  text-align: left;
  border: 1px solid transparent;
- border-radius: 8px;
+ border-radius: var(--radius-control);
  background: rgba(255, 255, 255, 0.04);
  color: var(--muted, #8a979d);
  font-size: 14px;
@@ -14061,7 +14080,7 @@ main.history-v2-period {
  min-height: 40px;
  padding: 0 14px;
  border: 0;
- border-radius: 8px;
+ border-radius: var(--radius-control);
  background: var(--accent, #1688ff);
  color: #fff;
  font-size: 14px;
@@ -14691,5 +14710,117 @@ main.history-v2-period {
 @media (max-width: 767px) {
  .ai-conversation-drawer {
   max-height: 60vh;
+ }
+}
+
+/* ==========================================================================
+   Pixel-Lift — 统一悬浮层（2026-09-27 设计：小像素化 + 鼠标悬浮反馈）
+   分层：T1 控件抬升 / T2 卡片 / T3 列表行（零位移，防长列表抖动）/ T4 导航。
+   仅在 hover 设备且用户未要求减弱动效时生效；token 见三个主题块。
+   ========================================================================== */
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+ /* — 动效注册：交互元素统一 Pixel-Lift 节奏（位移/阴影走阶梯缓动，颜色走 ease）— */
+ button,
+ .rss-article-item,
+ .news-story-item,
+ .tree-folder,
+ .tree-doc,
+ .ai-conversation-row,
+ .home-hub-group,
+ [class*="-card"] {
+  transition:
+   transform var(--pixel-ms) var(--pixel-ease),
+   box-shadow var(--pixel-ms) var(--pixel-ease),
+   background-color var(--pixel-ms) ease,
+   border-color var(--pixel-ms) ease,
+   color var(--pixel-ms) ease;
+ }
+
+ /* T1 控件：抬升 2px + 双层硬阴影（0 blur，第二层为 accent 拖影）；按下回弹触底。
+    focus-visible 只抬升不动焦点环（焦点环样式归各组件所有）。 */
+ button:hover {
+  transform: translateY(calc(-1 * var(--lift)));
+  box-shadow:
+   2px 2px 0 var(--pixel-depth-1),
+   4px 4px 0 color-mix(in srgb, var(--accent) 32%, transparent);
+ }
+ button:focus-visible {
+  transform: translateY(calc(-1 * var(--lift)));
+ }
+ button:active {
+  transform: translateY(0);
+  box-shadow: 0 0 0 var(--pixel-depth-1);
+ }
+
+ /* T2 卡片：抬升 4px + 硬阴影；容器卡片（内含行按钮）用 :has 守卫，
+    行被 hover 时不抬升，避免嵌套双重位移。 */
+ .home-card:not(:has(button:hover)):hover,
+ .home-hub-group:not(:has(button:hover)):hover,
+ .geo-entity-card:hover,
+ .history-person-card:hover,
+ .history-study-highlight-card:hover,
+ .ai-entity-card-main:hover,
+ .geo-discovery-card:not(:has(button:hover)):hover,
+ .travel-weather-card:hover,
+ .travel-map-card:hover {
+  transform: translateY(calc(-1 * var(--lift) * 2));
+  box-shadow:
+   3px 3px 0 var(--pixel-depth-1),
+   6px 6px 0 color-mix(in srgb, var(--accent) 32%, transparent);
+ }
+
+ /* 卡片像素点阵：4px 网格、1px 点，仅悬浮时浮现（低透明度，只做隐约质感）。 */
+ .home-card:not(:has(button:hover)):hover,
+ .home-hub-group:not(:has(button:hover)):hover,
+ .geo-entity-card:hover,
+ .ai-entity-card-main:hover {
+  background-image: radial-gradient(
+   color-mix(in srgb, var(--line-hover) 30%, transparent) 1px,
+   transparent 1px
+  );
+  background-size: 4px 4px;
+ }
+
+ /* T3 列表行：豁免 T1 抬升与外阴影，改为左侧 3px accent 像素光标（steps 展开）。
+    这些行多为整宽 li/button，位移会造成整列抖动、外阴影会被相邻行遮挡。 */
+ .rss-article-item:hover,
+ .news-story-item:hover,
+ .home-card li button:hover,
+ .tree-folder:hover,
+ .tree-doc:hover,
+ .ai-conversation-row:hover,
+ .news-source-row > button:first-child:hover,
+ .news-recommend-list li button:hover,
+ .news-onboarding li button:hover,
+ .travel-history-list button:hover,
+ .travel-step > button:hover,
+ .travel-source > button:hover,
+ .command-palette button:hover,
+ .search-results li button:hover,
+ .home-hub-group li button:hover,
+ .history-explore-col li button:hover,
+ .history-hero-persons-list button:hover,
+ .history-story-list button:hover,
+ .lang-hit:hover,
+ .lang-related li button:hover,
+ .geo-search-results > div > button:hover,
+ .history-v2-place-row:hover,
+ .history-v2-entity-list button:hover,
+ .history-v2-text-list button:hover {
+  transform: none;
+  box-shadow: inset 3px 0 0 var(--accent);
+ }
+
+ /* T4 导航：与 T3 同型——像素光标条，不位移。 */
+ .app-nav-item:hover,
+ .app-bottom-nav button:hover {
+  transform: none;
+  box-shadow: inset 3px 0 0 var(--accent);
+ }
+
+ /* 行内微型控件（如悬浮才出现的删除叉）：完全豁免，保持原地。 */
+ .rss-feed-delete:hover {
+  transform: none;
+  box-shadow: none;
  }
 }
