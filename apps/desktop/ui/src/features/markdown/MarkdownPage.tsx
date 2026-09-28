@@ -16,6 +16,7 @@ import type { AppSettings, DocumentDto, WorkspaceFile } from "../../types";
 import { errorMessage, fileName } from "../../utils";
 import { workspaceClient } from "../../workspaceClient";
 import { markdownClient } from "./markdownClient";
+import { matchesMarkdownShortcut, shortcutLabel } from "./shortcuts";
 
 /** ============================================================
  * Markdown Feature：编辑、工作区文件树、任务大纲、快捷键。
@@ -127,6 +128,7 @@ export function MarkdownPage({ settings, onSettingsChange, setNotice, active, in
   const [zenMode, setZenMode] = useState(false);
   const [sidebarVisible, setSidebarVisible] = useState(true);
   const [tasksVisible, setTasksVisible] = useState(true);
+  const zenChordDeadline = useRef(0);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const workspaceInitRef = useRef(false);
   // 三栏宽度：侧栏 / 任务大纲可在拖拽句柄上调整(会话内记忆)。
@@ -191,12 +193,37 @@ export function MarkdownPage({ settings, onSettingsChange, setNotice, active, in
     return () => cancelAnimationFrame(frame);
   }, [active]);
 
+  // E2E-only cursor positioning keeps keyboard assertions deterministic while
+  // still sending the tested key through CodeMirror's real key handler.
+  useEffect(() => {
+    if (import.meta.env.VITE_TAURI_E2E !== "1") return;
+    window.__DEVTOOLBOX_E2E_SET_EDITOR_LINE__ = (text: string) => {
+      const editor = editorRef.current?.view;
+      if (!editor) return false;
+      for (let number = 1; number <= editor.state.doc.lines; number += 1) {
+        const line = editor.state.doc.line(number);
+        if (!line.text.includes(text)) continue;
+        editor.dispatch({ selection: { anchor: line.from }, scrollIntoView: true });
+        editor.focus();
+        return true;
+      }
+      return false;
+    };
+    return () => { delete window.__DEVTOOLBOX_E2E_SET_EDITOR_LINE__; };
+  }, []);
+
   const persist = useCallback(async (target = path, content = text) => {
     if (!target) {
       const selected = await save({ defaultPath: "untitled.md", filters: [{ name: "Markdown", extensions: ["md", "markdown"] }] });
       if (!selected) return;
       setPath(selected);
       await persist(selected, content);
+      return;
+    }
+    if (import.meta.env.VITE_TAURI_E2E === "1" && target === window.__DEVTOOLBOX_E2E_OPEN_DOCUMENT__?.path) {
+      window.__DEVTOOLBOX_E2E_SAVED_DOCUMENT__ = { path: target, content };
+      setDirty(false);
+      setNotice("Saved " + target.split(/[\\/]/).pop());
       return;
     }
     try {
@@ -215,7 +242,20 @@ export function MarkdownPage({ settings, onSettingsChange, setNotice, active, in
     } catch (error) { setNotice(errorMessage(error)); }
   }, [dirty, setNotice]);
 
-  const chooseDocument = async () => { const selected = await open({ multiple: false, directory: false, filters: [{ name: "Markdown", extensions: ["md", "markdown", "txt"] }] }); if (typeof selected === "string") await loadPath(selected); };
+  const chooseDocument = async () => {
+    const testDocument = import.meta.env.VITE_TAURI_E2E === "1"
+      ? window.__DEVTOOLBOX_E2E_OPEN_DOCUMENT__
+      : undefined;
+    if (testDocument !== undefined) {
+      if (!testDocument) return;
+      setPath(testDocument.path);
+      setText(testDocument.content);
+      setDirty(false);
+      return;
+    }
+    const selected = await open({ multiple: false, directory: false, filters: [{ name: "Markdown", extensions: ["md", "markdown", "txt"] }] });
+    if (typeof selected === "string") await loadPath(selected);
+  };
   const chooseWorkspace = async () => { const selected = await open({ multiple: false, directory: true }); if (typeof selected !== "string") return; await refreshWorkspace(selected); setWorkspace(selected); const next = { ...settings, workspace_path: selected }; onSettingsChange(next); setNotice("已切换工作区"); };
   const newDocument = () => { setPath(null); setText(""); setDirty(false); };
   /** 关闭当前标签：回到未命名空文档，未保存的修改先确认。 */
@@ -242,7 +282,12 @@ export function MarkdownPage({ settings, onSettingsChange, setNotice, active, in
     const source = editor.state.doc.toString(); const lines = source.split("\n"); const line = lines[lineNumber];
     if (line === undefined) return;
     try {
-      const result = await markdownClient.cycleTaskLines([line], 1);
+      const e2eDocument = import.meta.env.VITE_TAURI_E2E === "1"
+        ? window.__DEVTOOLBOX_E2E_OPEN_DOCUMENT__
+        : undefined;
+      const result = e2eDocument && path === e2eDocument.path
+        ? [line.replace(/\[([ ~x])\]/, (_match, state: string) => `[${state === " " ? "~" : state === "~" ? "x" : " "}]`)]
+        : await markdownClient.cycleTaskLines([line], 1);
       const from = lines.slice(0, lineNumber).reduce((offset, current) => offset + current.length + 1, 0);
       editor.dispatch({ changes: { from, to: from + line.length, insert: result[0] }, selection: { anchor: from }, userEvent: "input.task-cycle" }); editor.focus();
     } catch (error) { setNotice(errorMessage(error)); }
@@ -251,15 +296,47 @@ export function MarkdownPage({ settings, onSettingsChange, setNotice, active, in
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
       if (!active) return;
-      const modifier = event.ctrlKey || event.metaKey;
-      if (modifier && event.key.toLowerCase() === "s") { event.preventDefault(); void persist(); }
-      if (modifier && event.key.toLowerCase() === "f") { event.preventDefault(); setPaletteOpen(true); }
-      if (modifier && event.key.toLowerCase() === "b") { event.preventDefault(); setSidebarVisible((value) => !value); }
-      if (modifier && event.key === "\\") { event.preventDefault(); setTasksVisible((value) => !value); }
-      if (event.key === "F11") { event.preventDefault(); setFocusMode((value) => !value); }
-      if (event.key === "Escape") setZenMode(false);
+      if (zenChordDeadline.current > 0) {
+        // WebDriver's NULL key releases held modifiers between key chords;
+        // it is not a user keystroke and must not cancel the pending chord.
+        if (event.key.charCodeAt(0) === 0xe000) return;
+        const isZenChordFinish =
+          Date.now() <= zenChordDeadline.current &&
+          event.key.toLowerCase() === "z" &&
+          !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey;
+        zenChordDeadline.current = 0;
+        if (isZenChordFinish) {
+          event.preventDefault();
+          setZenMode((value) => !value);
+          return;
+        }
+      }
+      if (matchesMarkdownShortcut("toggleZenMode", event)) {
+        event.preventDefault();
+        zenChordDeadline.current = Date.now() + 1_200;
+        return;
+      }
+      if (matchesMarkdownShortcut("save", event)) { event.preventDefault(); void persist(); }
+      else if (matchesMarkdownShortcut("commandPalette", event)) { event.preventDefault(); setPaletteOpen(true); }
+      else if (matchesMarkdownShortcut("toggleSidebar", event)) { event.preventDefault(); setSidebarVisible((value) => !value); }
+      else if (matchesMarkdownShortcut("toggleTaskOutline", event)) { event.preventDefault(); setTasksVisible((value) => !value); }
+      else if (matchesMarkdownShortcut("toggleFocusMode", event)) { event.preventDefault(); setFocusMode((value) => !value); }
+      else if (matchesMarkdownShortcut("cycleTask", event)) {
+        event.preventDefault();
+        const editor = editorRef.current?.view;
+        const line = editor?.state.doc.lineAt(editor.state.selection.main.from).number;
+        if (line) void cycleTask(line - 1);
+      }
+      else if (event.key === "Escape") {
+        zenChordDeadline.current = 0;
+        setZenMode(false);
+        setPaletteOpen(false);
+      }
     };
-    window.addEventListener("keydown", handler); return () => window.removeEventListener("keydown", handler);
+    // Global editor shortcuts must work even when CodeMirror or a toolbar
+    // control stops the bubbling phase.
+    window.addEventListener("keydown", handler, true);
+    return () => window.removeEventListener("keydown", handler, true);
   }, [persist, active]);
 
   /** 外壳意图:Home 页打开笔记 / 新建笔记 */
@@ -305,20 +382,20 @@ export function MarkdownPage({ settings, onSettingsChange, setNotice, active, in
         <button onClick={newDocument}><Plus size={18} />New</button><button onClick={() => void chooseDocument()}><FolderOpen size={18} />Open</button><button onClick={() => void chooseWorkspace()} title="打开文件夹（选择工作区）"><FolderOpen size={18} />Folder</button><button onClick={() => void persist()}><FloppyDisk size={17} />Save</button><button onClick={() => setPaletteOpen(true)}><MagnifyingGlass size={18} />Find</button>
         <button onClick={() => setFilter((value) => value === "all" ? "todo" : "all")}><CheckCircle size={18} />Tasks: {filter === "all" ? "All" : "Todo"}<CaretDown size={15} /></button><button onClick={() => void persist()}><CloudArrowUp size={18} />Sync</button><i className="sync-dot" />
       </div>
-      <div className="view-actions"><button className={focusMode ? "active" : ""} onClick={() => setFocusMode((value) => !value)}><Target size={18} />Focus Mode <kbd>F11</kbd></button><button className={zenMode ? "active" : ""} onClick={() => setZenMode((value) => !value)}><Code size={18} />Zen Mode <kbd>⌘ K Z</kbd></button><button className={tasksVisible ? "active" : ""} onClick={() => setTasksVisible((value) => !value)}><SplitHorizontal size={18} />Split</button></div>
+      <div className="view-actions"><button className={focusMode ? "active" : ""} onClick={() => setFocusMode((value) => !value)}><Target size={18} />Focus Mode <kbd>{shortcutLabel("toggleFocusMode")}</kbd></button><button className={zenMode ? "active" : ""} onClick={() => setZenMode((value) => !value)}><Code size={18} />Zen Mode <kbd>{shortcutLabel("toggleZenMode")}</kbd></button><button className={tasksVisible ? "active" : ""} onClick={() => setTasksVisible((value) => !value)}><SplitHorizontal size={18} />Split</button></div>
     </header>
     <section className="focus-workbench" style={workbenchStyle}>
       {sidebarVisible ? <WorkspaceTree files={workspaceFiles} path={path} workspaceName={workspace ? fileName(workspace) : "打开文件夹…"} expanded={expandedFolders} onToggleFolder={toggleFolder} onOpen={(filePath) => void loadPath(filePath)} onChooseWorkspace={() => void chooseWorkspace()} headings={headings} onJump={jumpToLine} /> : null}
       {!zenMode && sidebarVisible ? <div className={"wb-resizer" + (resizingBar === "sidebar" ? " active" : "")} style={{ left: sidebarWidth - 3 }} title="拖动调整宽度，双击还原" onMouseDown={startResize("sidebar")} onDoubleClick={() => setSidebarWidth(312)} /> : null}
       <section className="editor-workbench">
-        <div className="editor-tabs"><button className="editor-tab active"><Code size={17} weight="bold" />{documentTitle}<span title="关闭文档"><X size={15} onClick={(event) => { event.stopPropagation(); closeDocument(); }} /></span></button><button className="new-tab" onClick={newDocument}><Plus size={17} /></button></div>
+        <div className="editor-tabs"><button className="editor-tab active"><Code size={17} weight="bold" />{documentTitle}<span title="关闭文档"><X size={15} onClick={(event) => { event.stopPropagation(); closeDocument(); }} /></span></button><button className="new-tab" aria-label="新建标签" title="新建标签" onClick={newDocument}><Plus size={17} /></button></div>
         <header className="editor-meta"><div><span>{workspace ? fileName(workspace) : "docs"}</span><CaretRight size={14} /><Code size={15} weight="bold" /><strong>{documentTitle}</strong></div><div><span>{text.trim().split(/\s+/).filter(Boolean).length.toLocaleString()} words</span><i /><span>{dirty ? "Unsaved" : "Live"} <b /></span><button title="More editor actions"><DotsThree size={20} /></button></div></header>
-        <CodeMirror ref={editorRef} className="focus-editor" height="100%" extensions={[markdown(), ...devtoolboxMarkdown()]} value={text} onChange={setContent} onKeyDown={(event: ReactKeyboardEvent<HTMLDivElement>) => { if ((event.ctrlKey || event.metaKey) && event.key === "Enter") { event.preventDefault(); const line = editorRef.current?.view?.state.doc.lineAt(editorRef.current.view.state.selection.main.from).number; if (line) void cycleTask(line - 1); } }} basicSetup={{ lineNumbers: true, foldGutter: false, highlightActiveLine: false, highlightActiveLineGutter: false }} indentWithTab aria-label="Focus Mode Markdown editor" />
+        <CodeMirror ref={editorRef} className="focus-editor" height="100%" extensions={[markdown(), ...devtoolboxMarkdown()]} value={text} onChange={setContent} basicSetup={{ lineNumbers: true, foldGutter: false, highlightActiveLine: false, highlightActiveLineGutter: false }} indentWithTab aria-label="Focus Mode Markdown editor" />
         <footer className="editor-status"><div><SidebarSimple size={18} />Toggle Sidebar</div><div><span>Ln 1, Col 1</span><span>Spaces: 2</span><span>UTF-8</span><span>LF</span><span>Markdown</span><span><Check size={16} />{tasks.length} tasks</span></div></footer>
       </section>
       {!zenMode && tasksVisible ? <div className={"wb-resizer" + (resizingBar === "outline" ? " active" : "")} style={{ right: outlineWidth - 3 }} title="拖动调整宽度，双击还原" onMouseDown={startResize("outline")} onDoubleClick={() => setOutlineWidth(373)} /> : null}
       {tasksVisible ? <TaskOutline fileName={documentTitle} tasks={tasks} filter={filter} setFilter={setFilter} onCycle={(line) => void cycleTask(line)} /> : null}
     </section>
-    {paletteOpen ? <div className="palette-backdrop" onMouseDown={() => setPaletteOpen(false)}><section className="command-palette" onMouseDown={(event) => event.stopPropagation()}><header><MagnifyingGlass size={20} /><input autoFocus placeholder="Find a command…" value={paletteQuery} onChange={(event) => setPaletteQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Escape") setPaletteOpen(false); }} /></header>{["New document", "Open document", "Save document", "Open folder", "Toggle focus mode", "Toggle task outline"].filter((item) => item.toLowerCase().includes(paletteQuery.toLowerCase())).map((item) => <button key={item} onClick={() => { setPaletteOpen(false); if (item === "New document") newDocument(); else if (item === "Open document") void chooseDocument(); else if (item === "Open folder") void chooseWorkspace(); else if (item === "Save document") void persist(); }}>{item}</button>)}</section></div> : null}
+    {paletteOpen ? <div className="palette-backdrop" onMouseDown={() => setPaletteOpen(false)}><section className="command-palette" role="dialog" aria-modal="true" aria-label="Command palette" onMouseDown={(event) => event.stopPropagation()}><header><MagnifyingGlass size={20} /><input autoFocus placeholder="Find a command…" aria-label="Filter commands" value={paletteQuery} onChange={(event) => setPaletteQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Escape") setPaletteOpen(false); }} /></header>{["New document", "Open document", "Save document", "Open folder", "Toggle focus mode", "Toggle task outline"].filter((item) => item.toLowerCase().includes(paletteQuery.toLowerCase())).map((item) => <button key={item} onClick={() => { setPaletteOpen(false); if (item === "New document") newDocument(); else if (item === "Open document") void chooseDocument(); else if (item === "Open folder") void chooseWorkspace(); else if (item === "Save document") void persist(); else if (item === "Toggle focus mode") setFocusMode((value) => !value); else if (item === "Toggle task outline") setTasksVisible((value) => !value); }}>{item}</button>)}</section></div> : null}
   </main>;
 }

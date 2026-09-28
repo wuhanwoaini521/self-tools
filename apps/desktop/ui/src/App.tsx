@@ -743,7 +743,7 @@ export default function App() {
             <TravelPage
               active={page === "travel"}
               setNotice={setNotice}
-              onContextChange={(ctx) => setAiContext(ctx)}
+              onContextChange={setAiContext}
             />
           </section>
           <section
@@ -755,7 +755,7 @@ export default function App() {
             <GeographyPage
               active={page === "geography"}
               setNotice={setNotice}
-              onContextChange={(ctx) => setAiContext(ctx)}
+              onContextChange={setAiContext}
               amapApiKey={settings.geography.amap_api_key}
               amapSecurityJsCode={settings.geography.amap_security_js_code}
               intent={geographyIntent}
@@ -771,7 +771,7 @@ export default function App() {
               active={page === "history"}
               setNotice={setNotice}
               intent={historyIntent}
-              onContextChange={(ctx) => setAiContext(ctx)}
+              onContextChange={setAiContext}
               onNavigateToGeography={(request) =>
                 openGeography(request.entityId)
               }
@@ -787,7 +787,7 @@ export default function App() {
               active={page === "language"}
               setNotice={setNotice}
               intent={languageIntent}
-              onContextChange={(ctx) => setAiContext(ctx)}
+              onContextChange={setAiContext}
             />
           </section>
           <section
@@ -801,7 +801,7 @@ export default function App() {
               setNotice={setNotice}
               onOpenSettings={() => setSettingsOpen(true)}
               intent={knowledgeIntent}
-              onContextChange={(ctx) => setAiContext(ctx)}
+              onContextChange={setAiContext}
             />
           </section>
           <section
