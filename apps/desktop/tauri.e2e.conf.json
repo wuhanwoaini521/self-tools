@@ -4,14 +4,14 @@
   "version": "0.1.0",
   "identifier": "com.ox-tools.devtoolbox",
   "build": {
-    "beforeDevCommand": "npm --prefix ui run dev",
-    "beforeBuildCommand": "npm --prefix ui run build",
-    "devUrl": "http://127.0.0.1:1420",
+    "beforeBuildCommand": "node scripts/build-ui-e2e.mjs",
+    "devUrl": "http://127.0.0.1:1421",
     "frontendDist": "ui/dist"
   },
   "app": {
+    "withGlobalTauri": true,
     "security": {
-      "capabilities": ["default"],
+      "capabilities": ["default", "webdriver"],
       "csp": "default-src 'self'; script-src 'self' 'unsafe-inline' https://webapi.amap.com; connect-src 'self' https://*.amap.com https://*.is.autonavi.com; img-src 'self' asset: http: https: data: blob:; style-src 'self' 'unsafe-inline' https://webapi.amap.com; font-src 'self' data: https:; worker-src 'self' blob:;"
     },
     "windows": [

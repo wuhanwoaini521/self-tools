@@ -181,6 +181,18 @@ fn project_root_from(start: PathBuf) -> Option<PathBuf> {
 }
 
 fn project_config_directory(app: &AppHandle) -> Result<PathBuf, CommandError> {
+    // Isolate native E2E runs from the developer's ignored project config/ databases.
+    // This override is compiled only into the explicit E2E feature build.
+    #[cfg(feature = "e2e")]
+    if let Some(test_directory) = std::env::var_os("DEVTOOLBOX_E2E_DATA_DIR") {
+        let directory = PathBuf::from(test_directory);
+        std::fs::create_dir_all(&directory).map_err(|error| CommandError {
+            code: "project_config_dir",
+            message: error.to_string(),
+        })?;
+        return Ok(directory);
+    }
+
     let current_dir = std::env::current_dir().map_err(|error| CommandError {
         code: "project_config_dir",
         message: error.to_string(),
@@ -2410,9 +2422,14 @@ fn history_enrichment_review(
 /// 应用入口。前端需要的权限被限制在文件选择器、command API 与打开原文链接；
 /// 不暴露任意 shell 执行能力。
 pub fn run() {
-    tauri::Builder::default()
+    let builder = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_opener::init());
+    #[cfg(feature = "e2e")]
+    let builder = builder
+        .plugin(tauri_plugin_wdio::init())
+        .plugin(tauri_plugin_wdio_webdriver::init());
+    builder
         .setup(|app| {
             let config_directory = project_config_directory(app.handle())
                 .map_err(|error| std::io::Error::other(error.message))?;
@@ -2727,7 +2744,16 @@ pub fn run() {
             language_install_starter,
             language_speaking_feedback
         ])
-        .run(tauri::generate_context!())
+        .run({
+            #[cfg(feature = "e2e")]
+            {
+                tauri::generate_context!("tauri.e2e.conf.json")
+            }
+            #[cfg(not(feature = "e2e"))]
+            {
+                tauri::generate_context!()
+            }
+        })
         .expect("Tauri application event loop failed");
 }
 

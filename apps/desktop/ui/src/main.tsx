@@ -6,6 +6,15 @@ import { registerPwa } from "./pwa";
 import "./theme/themes";
 import "./styles.css";
 
+// WebDriver hooks exist only in the dedicated E2E bundle. The production UI
+// neither imports the test bridge nor exposes its Tauri plugin surface.
+if (import.meta.env.VITE_TAURI_E2E === "1") {
+  window.__DEVTOOLBOX_E2E__ = true;
+  document.documentElement.dataset.e2e = "true";
+  // The Tauri service correlates native and WebDriver windows by title.
+  document.title = "DevToolbox";
+}
+
 interface StartupErrorBoundaryState {
   error: Error | null;
   componentStack: string;

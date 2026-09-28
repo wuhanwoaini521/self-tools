@@ -36,6 +36,23 @@ interface ServerPageProps {
   setNotice: (message: string) => void;
 }
 
+interface E2EServerFixture {
+  status: ServerStatusDto;
+  services: ServiceListItemDto[];
+  apps: AppListItemDto[];
+  audit: AuditEntryDto[];
+  mcp: McpStatusDto;
+  confirmation: ConfirmationDto;
+  cancelCalls: number;
+  confirmCalls: number;
+}
+
+function e2eServerFixture(): E2EServerFixture | undefined {
+  return import.meta.env.VITE_TAURI_E2E === "1"
+    ? window.__DEVTOOLBOX_E2E_SERVER_FIXTURE__ as E2EServerFixture | undefined
+    : undefined;
+}
+
 const EMPTY_STATUS: ServerStatusDto | null = null;
 
 export function ServerPage({ active, setNotice }: ServerPageProps) {
@@ -54,6 +71,15 @@ export function ServerPage({ active, setNotice }: ServerPageProps) {
     if (!isTauriRuntime()) return;
     setLoading(true);
     try {
+      const fixture = e2eServerFixture();
+      if (fixture) {
+        setStatus(fixture.status);
+        setServices(fixture.services);
+        setApps(fixture.apps);
+        setAudit(fixture.audit);
+        setMcp(fixture.mcp);
+        return;
+      }
       const [nextStatus, nextServices, nextApps, nextAudit, nextMcp] =
         await Promise.all([
           serverClient.status(),
@@ -81,6 +107,11 @@ export function ServerPage({ active, setNotice }: ServerPageProps) {
   const requestRestart = async (serviceId: string) => {
     setPendingService(serviceId);
     try {
+      const fixture = e2eServerFixture();
+      if (fixture) {
+        setConfirmation({ ...fixture.confirmation, target_id: serviceId });
+        return;
+      }
       const ticket = await serverClient.requestRestart(serviceId);
       setConfirmation(ticket);
     } catch (error) {
@@ -93,6 +124,12 @@ export function ServerPage({ active, setNotice }: ServerPageProps) {
   const confirmRestart = async () => {
     if (!confirmation) return;
     try {
+      const fixture = e2eServerFixture();
+      if (fixture) {
+        fixture.confirmCalls += 1;
+        setConfirmation(null);
+        return;
+      }
       const result = await serverClient.confirmAction(
         confirmation.confirmation_id,
         confirmation.target_id,
@@ -112,6 +149,13 @@ export function ServerPage({ active, setNotice }: ServerPageProps) {
   const cancelRestart = async () => {
     if (!confirmation) return;
     try {
+      const fixture = e2eServerFixture();
+      if (fixture) {
+        fixture.cancelCalls += 1;
+        setNotice("已取消");
+        setConfirmation(null);
+        return;
+      }
       await serverClient.cancelAction(confirmation.confirmation_id);
       setNotice("已取消");
     } catch (error) {

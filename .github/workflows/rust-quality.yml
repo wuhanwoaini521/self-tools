@@ -9,6 +9,33 @@ permissions:
   contents: read
 
 jobs:
+  desktop-e2e:
+    name: Tauri desktop E2E (Windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@1.95.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            apps/desktop/package-lock.json
+            apps/desktop/ui/package-lock.json
+      - name: Install test dependencies
+        run: |
+          npm ci --prefix apps/desktop
+          npm ci --prefix apps/desktop/ui
+      - name: Run native Tauri regression suite
+        run: npm --prefix apps/desktop run test:e2e
+      - name: Upload desktop failure artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-e2e-artifacts
+          path: output/desktop-e2e/
+          if-no-files-found: ignore
+
   quality:
     name: fmt, check, clippy, test (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
@@ -36,4 +63,3 @@ jobs:
       - run: cargo check
       - run: cargo clippy --all-targets --all-features -- -D warnings
       - run: cargo test
-

@@ -11,6 +11,10 @@ use serde_json as _;
 use tauri as _;
 use tauri_plugin_dialog as _;
 use tauri_plugin_opener as _;
+#[cfg(feature = "e2e")]
+use tauri_plugin_wdio as _;
+#[cfg(feature = "e2e")]
+use tauri_plugin_wdio_webdriver as _;
 
 fn main() {
     devtoolbox_desktop::run();

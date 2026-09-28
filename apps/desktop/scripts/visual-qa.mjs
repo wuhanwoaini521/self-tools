@@ -1,150 +1,173 @@
-/**
- * Visual QA：5 个视口 × 关键界面截图（V11 §136-§141）。
- *
- * 用法（backend + UI dev server 都在跑时）：
- *   node scripts/visual-qa.mjs                 # 全部视口 + 全部界面
- *   node scripts/visual-qa.mjs --viewport=mobile
- *   node scripts/visual-qa.mjs --route=home
- *
- * 输出：docs/qa/v11/{desktop,tablet-landscape,tablet-portrait,mobile}/*.png
- * 说明：本脚本只做「真实渲染 + 截图 + 基本溢出断言」，不替代人工视觉审查；
- *       人工审查结论写入 docs/qa/v11/VISUAL_REVIEW.md。
- */
-
+import assert from "node:assert/strict";
+import { existsSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { spawn, spawnSync } from "node:child_process";
+import { dirname, join, resolve } from "node:path";
+import { delimiter } from "node:path";
 import { fileURLToPath } from "node:url";
+import { chromium } from "playwright";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = join(__dirname, "..", "..", "..");
-
-/** §137：五个必需视口。 */
-const VIEWPORTS = [
+const here = dirname(fileURLToPath(import.meta.url));
+const repoRoot = resolve(here, "../../..");
+const uiDir = join(repoRoot, "apps", "desktop", "ui");
+const viteCli = join(uiDir, "node_modules", "vite", "bin", "vite.js");
+const nodeExecutable = [
+  process.execPath,
+  ...String(process.env.PATH ?? "").split(delimiter).map((directory) => join(directory, process.platform === "win32" ? "node.exe" : "node")),
+].find((candidate) => existsSync(candidate));
+if (!nodeExecutable) throw new Error("Could not find a runnable Node.js executable for Vite");
+const viewports = [
   { name: "desktop", width: 1440, height: 900 },
   { name: "tablet-landscape", width: 1024, height: 768 },
   { name: "tablet-portrait", width: 768, height: 1024 },
   { name: "mobile", width: 390, height: 844 },
   { name: "small-mobile", width: 360, height: 800 },
 ];
-
-/** §138：必需界面（route hash）。 */
-const ROUTES = [
-  { key: "home", path: "/", label: "Personal Hub Home" },
-  { key: "history", path: "/#history", label: "History" },
-  { key: "travel", path: "/#travel", label: "Travel" },
-  { key: "geography", path: "/#geography", label: "Geography" },
-  { key: "language", path: "/#language", label: "Language" },
-  { key: "study-board", path: "/#study-board", label: "Study Board" },
-  { key: "knowledge", path: "/#knowledge", label: "Knowledge" },
-  { key: "memory", path: "/#knowledge", label: "Memory/Documents/Files" },
-  { key: "documents", path: "/#knowledge", label: "Documents" },
-  { key: "files", path: "/#knowledge", label: "Files" },
-  { key: "server", path: "/#server", label: "Server Dashboard" },
-  { key: "system", path: "/#system", label: "System Readiness" },
-  { key: "search", path: "/#search", label: "Global Search" },
-  { key: "settings", path: "/#home", label: "Settings" },
-  { key: "ai-panel", path: "/#home", label: "AI Panel" },
-  { key: "safe-action", path: "/#server", label: "SafeAction Confirmation" },
+const pages = [
+  ["home", "Home"], ["markdown", "Markdown"], ["rss", "RSS"], ["news", "News"],
+  ["travel", "Travel"], ["geography", "Geography"], ["history", "History"],
+  ["language", "Language"], ["knowledge", "Knowledge"], ["study-board", "Study"],
+  ["server", "Server"], ["system", "System"], ["search", "Search"],
 ];
+let baseUrl = process.env.QA_BASE_URL ?? "";
+const outDir = process.env.QA_OUT_DIR ?? join(repoRoot, "output", "visual-qa");
+const report = [];
+let viteProcess;
+let browser;
 
-const BASE_URL = process.env.QA_BASE_URL ?? "http://127.0.0.1:1420";
-// 目标目录：仓库根 docs/qa/v11（__dirname = apps/desktop/scripts → 上溯三级）。
-const OUT_DIR =
-  process.env.QA_OUT_DIR ?? join(__dirname, "..", "..", "..", "docs", "qa", "v11");
+async function startViteIfNeeded() {
+  if (process.env.QA_BASE_URL) return;
+  viteProcess = spawn(nodeExecutable, [viteCli, "--host", "127.0.0.1", "--port", "0"], {
+    cwd: uiDir,
+    stdio: ["ignore", "pipe", "pipe"],
+    windowsHide: true,
+  });
+  let spawnError;
+  viteProcess.on("error", (error) => { spawnError = error; });
+  viteProcess.stdout.on("data", (chunk) => {
+    const text = chunk.toString();
+    process.stdout.write(text);
+    const localUrl = text.match(/Local:\s+(https?:\/\/\S+)/)?.[1];
+    if (localUrl) baseUrl = localUrl.replace(/\/$/, "");
+  });
+  viteProcess.stderr.on("data", (chunk) => process.stderr.write(chunk));
 
-function parseArgs(argv) {
-  const options = { viewport: null, route: null };
-  for (const arg of argv) {
-    const [key, value] = arg.replace(/^--/, "").split("=");
-    if (key === "viewport") options.viewport = value;
-    if (key === "route") options.route = value;
+  const deadline = Date.now() + 30_000;
+  while (!baseUrl && Date.now() < deadline) {
+    if (spawnError) throw spawnError;
+    if (viteProcess.exitCode !== null) throw new Error(`Vite exited with ${viteProcess.exitCode}`);
+    await new Promise((resolvePromise) => setTimeout(resolvePromise, 250));
   }
-  return options;
+  if (!baseUrl) throw new Error("Vite did not report its local URL within 30 seconds");
 }
 
-async function main() {
-  const options = parseArgs(process.argv.slice(2));
-  const { chromium } = await import("playwright");
+async function inspectPage(page, viewport, route, label) {
+  await page.goto(`${baseUrl}/#${route}`, { waitUntil: "domcontentloaded" });
+  const pane = page.locator(".page-pane:not(.page-hidden)");
+  await pane.waitFor({ state: "visible", timeout: 10_000 });
+  const metrics = await page.evaluate(() => {
+    const root = document.documentElement;
+    const pane = document.querySelector(".page-pane:not(.page-hidden)");
+    const paneButtons = [...(pane?.querySelectorAll("button:disabled") ?? [])].length;
+    const unnamedButtons = [...(pane?.querySelectorAll("button") ?? [])]
+      .filter((button) => !button.disabled && !button.innerText.trim() &&
+        !button.getAttribute("aria-label") && !button.title)
+      .map((button) => button.outerHTML.slice(0, 180));
+    return {
+      horizontalOverflow: root.scrollWidth - root.clientWidth,
+      activePaneText: pane?.innerText.slice(0, 120) ?? "",
+      visibleButtons: [...(pane?.querySelectorAll("button") ?? [])]
+        .filter((button) => button.getClientRects().length > 0).length,
+      disabledButtons: paneButtons,
+      unnamedButtons,
+      device: root.dataset.device ?? "unknown",
+    };
+  });
 
-  const browser = await chromium.launch();
-  const report = [];
+  assert.equal(metrics.horizontalOverflow, 0, `${viewport.name}/${route}: horizontal overflow`);
+  assert.notEqual(metrics.activePaneText, "", `${viewport.name}/${route}: empty page pane`);
+  assert.deepEqual(metrics.unnamedButtons, [], `${viewport.name}/${route}: unnamed enabled buttons`);
+  if (viewport.width < 768) {
+    const navTargets = await page.locator(".app-bottom-nav button").evaluateAll((buttons) =>
+      buttons.map((button) => {
+        const { width, height } = button.getBoundingClientRect();
+        return { width, height, text: button.innerText };
+      }),
+    );
+    assert.ok(navTargets.length > 0, `${viewport.name}/${route}: missing bottom navigation`);
+    assert.ok(navTargets.every((target) => target.width >= 44 && target.height >= 44),
+      `${viewport.name}/${route}: bottom navigation target smaller than 44px`);
+  }
 
-  for (const viewport of VIEWPORTS) {
-    if (options.viewport && viewport.name !== options.viewport) continue;
+  const screenshot = join(outDir, viewport.name, `${route}.png`);
+  await mkdir(dirname(screenshot), { recursive: true });
+  await page.screenshot({ path: screenshot, fullPage: false });
+  report.push({ viewport: viewport.name, route, label, screenshot, ...metrics });
+}
+
+try {
+  await mkdir(outDir, { recursive: true });
+  await startViteIfNeeded();
+  browser = await chromium.launch({ headless: true });
+
+  for (const viewport of viewports) {
     const context = await browser.newContext({
       viewport: { width: viewport.width, height: viewport.height },
       deviceScaleFactor: 1,
-      hasTouch: viewport.name.includes("mobile") || viewport.name.includes("tablet"),
-      isMobile: viewport.name.includes("mobile"),
+      hasTouch: viewport.width < 1180,
+      isMobile: viewport.width < 768,
+      serviceWorkers: "block",
     });
     const page = await context.newPage();
-
-    for (const route of ROUTES) {
-      if (options.route && route.key !== options.route) continue;
-      const url = `${BASE_URL}${route.path}`;
-      try {
-        await page.goto(url, { waitUntil: "load", timeout: 30_000 });
-        await page.waitForTimeout(900);
-
-        // §141：基本溢出 / 布局塌陷检测（JS 断言，不替代人工）。
-        const metrics = await page.evaluate(() => {
-          const doc = document.documentElement;
-          const horizontalOverflow = doc.scrollWidth - doc.clientWidth;
-          // 底部导航在 mobile 必须可见且不被遮挡。
-          const bottomNav = document.querySelector(".app-bottom-nav");
-          const navBox = bottomNav?.getBoundingClientRect();
-          const safeBottom = Number.parseFloat(
-            getComputedStyle(doc).getPropertyValue("--safe-area-bottom"),
-          ) || 0;
-          return {
-            horizontalOverflow,
-            hasBottomNav: Boolean(bottomNav),
-            navBottomGap: navBox ? window.innerHeight - navBox.bottom : null,
-            safeBottom,
-            device: doc.dataset.device ?? "unknown",
-          };
-        });
-
-        const shotDir = join(OUT_DIR, viewport.name);
-        await mkdir(shotDir, { recursive: true });
-        const file = join(shotDir, `${route.key}.png`);
-        await page.screenshot({ path: file, fullPage: false });
-
-        report.push({
-          viewport: viewport.name,
-          route: route.key,
-          label: route.label,
-          file: file.replace(REPO_ROOT, "."),
-          ...metrics,
-        });
-        console.log(
-          `[qa] ${viewport.name}/${route.key} overflow=${metrics.horizontalOverflow}px device=${metrics.device}`,
-        );
-      } catch (error) {
-        report.push({
-          viewport: viewport.name,
-          route: route.key,
-          label: route.label,
-          error: String(error),
-        });
-        console.error(`[qa] ${viewport.name}/${route.key} FAILED: ${error}`);
+    const errors = [];
+    await page.route("**/api/health", (route) => route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ status: "ok", version: "0.1.0" }),
+    }));
+    page.on("pageerror", (error) => errors.push(`${page.url()}: ${error.message}`));
+    page.on("console", (message) => {
+      if (message.type() === "error") errors.push(`${page.url()}: ${message.text()}`);
+    });
+    page.on("response", (response) => {
+      if (response.status() >= 400) {
+        errors.push(`${page.url()}: ${response.status()} ${response.url()}`);
       }
-    }
+    });
+
+    for (const [route, label] of pages) await inspectPage(page, viewport, route, label);
+
+    await page.goto(`${baseUrl}/#home`, { waitUntil: "domcontentloaded" });
+    await page.locator("button[title='Settings']").click();
+    await page.locator(".settings-dialog").waitFor({ state: "visible" });
+    const settingsShot = join(outDir, viewport.name, "settings.png");
+    await page.screenshot({ path: settingsShot, fullPage: false });
+    report.push({ viewport: viewport.name, route: "settings", label: "Settings dialog", screenshot: settingsShot });
+    await page.locator("button[title='关闭设置']").click();
+
+    await page.locator("button[title='Ask AI']").click();
+    await page.locator(".ai-panel").waitFor({ state: "visible" });
+    const aiShot = join(outDir, viewport.name, "ai-panel.png");
+    await page.screenshot({ path: aiShot, fullPage: false });
+    report.push({ viewport: viewport.name, route: "ai-panel", label: "AI panel", screenshot: aiShot });
+    await page.locator(".ai-panel button[title='关闭']").click();
+    assert.deepEqual(errors, [], `${viewport.name}: browser errors`);
     await context.close();
   }
 
-  await browser.close();
-  // 报告目录必须存在（viewpoint 循环里已建，这里兜底）。
-  await mkdir(OUT_DIR, { recursive: true });
-  await writeFile(
-    join(OUT_DIR, "qa-report.json"),
-    `${JSON.stringify({ generated_at: new Date().toISOString(), report }, null, 2)}\n`,
-    "utf8",
-  );
-  console.log(`[qa] done → ${OUT_DIR}`);
+  await writeFile(join(outDir, "qa-report.json"), `${JSON.stringify({ generated_at: new Date().toISOString(), report }, null, 2)}\n`, "utf8");
+  console.log(`[visual-qa] PASS: ${report.length} rendered states across ${viewports.length} viewports → ${outDir}`);
+} catch (error) {
+  await writeFile(join(outDir, "qa-report.json"), `${JSON.stringify({ generated_at: new Date().toISOString(), error: String(error), report }, null, 2)}\n`, "utf8");
+  console.error(`[visual-qa] FAILED: ${error}`);
+  process.exitCode = 1;
+} finally {
+  await browser?.close();
+  if (viteProcess && viteProcess.exitCode === null) {
+    if (process.platform === "win32" && viteProcess.pid) {
+      spawnSync("taskkill", ["/PID", String(viteProcess.pid), "/T", "/F"], { stdio: "ignore" });
+    } else {
+      viteProcess.kill();
+    }
+  }
 }
-
-main().catch((error) => {
-  console.error(error);
-  process.exit(1);
-});
