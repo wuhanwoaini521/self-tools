@@ -1,174 +1,143 @@
 # DevToolbox
 
-一个面向个人的跨平台知识工作台：从 RSS 文章出发，继续探索地点、历史与语言，把“读过”变成“理解过”。
-
-DevToolbox 基于 Rust、Tauri 2 和 React 19 构建，优先使用本地数据与本地存储，适合长期积累笔记、订阅和学习记录。
+DevToolbox 是一款以本地数据为基础的个人知识工作台。它把 AI 对话、文件与文档、订阅阅读、历史与地理探索、语言学习和学习白板放在同一个桌面与移动端界面中，帮助个人资料持续积累并可再次检索。
 
 ![DevToolbox 首页](docs/screenshots/home-dashboard.png)
 
-> 上图为本地前端预览中的 Home 页面，由 Playwright CLI 截取。
+## 功能
 
-## 为什么是 DevToolbox
+| 模块 | 能做什么 |
+| --- | --- |
+| **Home 与 AI** | 从首页发起提问；AI 可结合当前页面上下文调用已注册的知识工具。对话可持久化。 |
+| **Knowledge** | 管理个人记忆、文档和授权目录内的文件，并检索相关内容。记忆写入需要用户确认。 |
+| **News 与 RSS** | 浏览新闻和订阅源，查看条目、搜索内容并刷新订阅。 |
+| **History** | 浏览中国历史时期、事件、人物与作品；可使用补充资料功能。历史主库由独立数据管线生成，应用只读消费。 |
+| **Geography 与 Travel** | 探索地理实体、地形和地图，研究目的地并查看行程预览。地图、搜索、天气、POI 与 AI 能力视配置而定。 |
+| **Language** | 学习英语、日语、普通话和粤语，使用词汇库、听说练习与间隔复习。可选数据包和数据来源见[语言数据说明](docs/language/DATA_SOURCES.md)。 |
+| **Study Board** | 创建学习白板，绘制、撤销/重做并保存快照。 |
+| **Search、Server 与 Settings** | 全局搜索、查看家庭服务器状态与日志、配置应用和服务。涉及系统修改的操作需要确认。 |
 
-它不是把多个工具简单堆在一起，而是把一次阅读串成一条可继续的路径：
+桌面应用基于 Tauri 2；前端也包含 PWA 资源和适配手机、平板的界面。AI 模型、语音识别、外部搜索、地图及远程身份服务需要自行配置；不配置时相应功能会受限，其他本地功能仍可使用。远程 MCP 默认关闭。
 
-```text
-RSS 文章
-  → Home：看到文章、地点、历史和今日学习线索
-  → Geography / History：沿着事实和关系继续探索
-  → Language：从文章上下文中积累词汇并复习
-  → Markdown：写下自己的理解，沉淀为可检索的笔记
-```
+![地理探索](docs/screenshots/geography-explorer.png)
 
-## 功能概览
+## 开始使用
 
-| 模块 | 用途 | 当前能力 |
-| --- | --- | --- |
-| **Home** | 内容入口 | 聚合最新文章、地理推荐、历史推荐、语言学习和最近笔记 |
-| **Markdown** | 写作与任务 | 工作区文件树、CodeMirror 编辑器、任务大纲、多状态 Checkbox、专注模式 |
-| **RSS** | 订阅阅读 | 添加/删除 Feed、未读计数、后台刷新、SQLite 持久化、全文抓取 |
-| **Travel** | 旅行研究 | 规划搜索任务、抓取网页、提取事实、排序来源、生成结构化攻略并缓存 |
-| **Geography** | 地理探索 | 离线实体、关系画布、Daily Discovery、搜索、比较、收藏和来源追溯 |
-| **History** | 中国历史 | 滚轮式时间轴、人物/事件/地点检索、详情卡片、关系与收藏 |
-| **Language** | 多语言学习 | English / Japanese / Mandarin / Cantonese 的词典、例句、收藏、听力、口语和间隔复习 |
+### 环境
 
-![Geography Explorer](docs/screenshots/geography-explorer.png)
+- Rust stable，最低版本 1.95（见 `rust-toolchain.toml`）
+- Node.js 20 或更高版本及 npm
+- 桌面构建所需的 Tauri 平台依赖；Windows 使用 MSVC 工具链
+- GNU Make（可选，用于简化命令）
 
-Geography 默认使用本地种子数据和离线示意图；配置高德 JS API 后可切换到动态地图。Travel 的搜索、LLM、天气和 POI 数据源也都是可选配置，未配置时仍可使用基础流程。
-
-## 快速开始
-
-### 环境要求
-
-- Rust 1.95+（版本由 `rust-toolchain.toml` 固定）
-- Node.js 20+
-- npm
-- GNU Make（可选；Windows 可用 `scoop install make` 或 `choco install make`）
-
-### 启动开发环境
+### 启动桌面应用
 
 ```bash
-git clone git@github.com:wuhanwoaini521/self-tools.git
+git clone https://github.com/wuhanwoaini521/self-tools.git
 cd self-tools
 
-# 首次安装前端依赖
-make install
+# 安装前端依赖
+npm --prefix apps/desktop/ui install
 
 # 启动 Tauri 桌面应用
+npm --prefix apps/desktop/ui exec -- tauri dev
+```
+
+安装 GNU Make 后也可以运行：
+
+```bash
+make install
 make dev
 ```
 
-如果只想快速查看前端界面，可运行：
+仅启动 Vite 前端预览（不启动 Rust/Tauri 后端）：
 
 ```bash
-make dev-web
-```
-
-浏览器预览适合检查 UI 和交互外壳；需要访问本地文件、SQLite、离线数据和 Tauri 命令的完整功能时，请使用 `make dev` 启动桌面应用。
-
-### 常用命令
-
-```bash
-make build      # 类型检查并构建前端
-make test       # 运行 Rust workspace 测试
-make package    # 构建 Tauri 安装包
-```
-
-不使用 Make 时，对应的前端命令是：
-
-```bash
-npm --prefix apps/desktop/ui install
 npm --prefix apps/desktop/ui run dev
-npm --prefix apps/desktop/ui run build
-npm --prefix apps/desktop/ui exec -- tauri dev
-npm --prefix apps/desktop/ui exec -- tauri build
+# 或 make dev-web
 ```
 
-## 第一次使用
+浏览器预览用于查看界面；依赖桌面桥接、本地文件或 SQLite 的功能需要在 Tauri 应用中体验。
 
-1. 启动桌面应用，打开 **Settings → Language Data**。
-2. 点击 **安装 Starter Pack**，即可安装内置的真实数据子集并离线体验语言学习。
-3. 在 **Markdown** 中选择一个工作区，或从 Home 的 **写笔记** 开始记录。
-4. 在 **RSS** 中添加一个 Feed；刷新后，Home 会出现最新文章入口。
-5. 在 **Travel** 和 **Geography** 的设置中按需填写 API Key。所有外部服务均为可选项。
+### 构建与检查
 
-语言数据的来源、版本、许可和完整数据导入方式见 [`docs/language/DATA_SOURCES.md`](docs/language/DATA_SOURCES.md)。
+```bash
+# 前端类型检查与生产构建
+npm --prefix apps/desktop/ui run build
 
-## Markdown 工作流
+# 构建桌面安装包
+npm --prefix apps/desktop/ui exec -- tauri build
 
-编辑器保持普通 Markdown 兼容，同时支持三态任务：
+# Rust workspace
+cargo check --workspace
+cargo test --workspace
+```
 
-| 状态 | 写法 | 含义 |
-| --- | --- | --- |
-| Pending | `- [ ] 整理资料` | 尚未开始 |
-| In Progress | `- [~] 整理资料` | 正在处理 |
-| Done | `- [x] 整理资料` | 已完成 |
+使用 Make 时，对应命令为 `make build`、`make package` 和 `make test`。
 
-点击任务标记或使用快捷键即可切换状态。解析规则由 [`tests/fixtures/task_rules.json`](tests/fixtures/task_rules.json) 固化，核心状态注册表位于 [`crates/core/src/task_state.rs`](crates/core/src/task_state.rs)。
+### 自动化回归测试
 
-### 快捷键
+首次运行先安装桌面端和 UI 依赖：
 
-| 操作 | Windows / Linux | macOS |
-| --- | --- | --- |
-| 打开命令面板 | `Ctrl+F` | `Cmd+F` |
-| 切换 Focus Mode | `F11` | `F11` |
-| 切换侧栏 | `Ctrl+B` | `Cmd+B` |
-| 切换任务大纲 | `Ctrl+\\` | `Cmd+\\` |
-| 切换当前任务状态 | `Ctrl+Enter` | `Cmd+Enter` |
+```bash
+npm --prefix apps/desktop ci
+npm --prefix apps/desktop/ui ci
+```
 
-## 截图与界面
+按测试层运行：
 
-Markdown 的 Focus Mode、Zen Mode 和命令面板：
+```bash
+# Rust workspace 业务测试
+cargo test --workspace
 
-<table>
-  <tr>
-    <td><img src="docs/screenshots/focus-mode.png" alt="Focus Mode" /></td>
-    <td><img src="docs/screenshots/zen-mode.png" alt="Zen Mode" /></td>
-    <td><img src="docs/screenshots/command-palette.png" alt="命令面板" /></td>
-  </tr>
-</table>
+# 前端单元测试（快捷键注册表、PWA 等）
+npm --prefix apps/desktop/ui test
 
-## 项目结构
+# Windows 桌面端 E2E：构建带测试驱动的 Tauri 应用并启动真实窗口
+npm --prefix apps/desktop run test:e2e
+
+# 五种视口的 UI、可访问名称、溢出和浏览器异常回归
+npm --prefix apps/desktop run test:visual
+
+# 依次运行上述全部测试
+npm --prefix apps/desktop run test:all
+```
+
+桌面 E2E 目前以 Windows 为原生门禁，需要已安装 Rust Windows target、WebView2 和 Edge WebDriver 环境。测试配置把应用数据指向临时目录，使用固定 Markdown fixture 和 Tauri IPC mock，不读取仓库 `config/` 中的个人数据或密钥。测试截图、WDIO 日志及视觉 JSON 报告写入仓库根目录 `output/`（该目录不纳入版本控制）；测试驱动仅由 `e2e` Cargo feature 编入测试构建。
+
+## 数据与配置
+
+- 桌面端本地设置和业务数据库位于仓库的 `config/`，该目录已加入 Git 忽略规则。不要把密钥或个人数据库提交到版本库。
+- AI、Jev、地图、搜索、天气、POI 和身份服务均需在设置中按需配置。密钥保存在本地设置中；界面状态只显示是否已配置等必要信息。
+- History 数据由 [`history-data-pipeline/`](history-data-pipeline/README.md) 维护。桌面应用读取生成的 `history-data-pipeline/dist/history.duckdb`；该产物缺失时历史功能会报告数据不可用，不会静默切换到旧数据。
+- 原始语料和生成数据按各自模块的数据说明管理，不应将本地下载内容或个人资料提交到 Git。
+
+更多部署、备份恢复和排障说明见 [`docs/operations/`](docs/operations/)；模块设计和数据来源见 [`docs/`](docs/) 下对应目录。
+
+## 仓库结构
 
 ```text
-.
-├── Cargo.toml                 # Rust workspace
-├── rust-toolchain.toml        # 固定 Rust 工具链
-├── apps/desktop/
-│   ├── src/                   # Tauri 命令层与应用状态
-│   └── ui/src/                # React 外壳与 features
-├── crates/
-│   ├── core/                  # 领域模型与纯业务规则
-│   ├── application/           # 用例编排与服务
-│   └── infrastructure/       # 文件、SQLite、网络和数据导入
-├── tests/fixtures/            # 共享测试样例与 Starter Pack 数据
-└── docs/                      # 架构、迁移、数据源和截图
+apps/
+  desktop/       Tauri 桌面壳与 React 前端
+  mcp/           MCP 传输适配器（STDIO / Streamable HTTP）
+  server/        只读 History HTTP 服务试点
+crates/
+  core/          领域模型与业务规则
+  application/   用例、服务与模块编排
+  infrastructure/文件、SQLite、网络与数据存储适配
+history-data-pipeline/  中国历史数据维护与构建管线
+docs/            架构、运维、数据来源、验收记录与截图
+tests/           共享测试夹具
 ```
 
-模块边界遵循：`UI ≠ 领域规则 ≠ 文件/数据库读写 ≠ 网络抓取`。前端按 `ui/src/features/<module>` 划分，公共主题、设置和工具放在共享层。
+依赖方向为 `core ← application ← infrastructure`；桌面、MCP 和 HTTP 服务负责接入具体运行环境。MCP 是工具协议适配层，具体能力由应用服务注册。HTTP History 服务当前是只读试点，默认监听 `127.0.0.1:8080`；MCP 默认使用本地 STDIO，HTTP 模式默认绑定 `127.0.0.1:8787`，远程绑定需要显式启用并配置身份提供者。
 
-## 数据与可追溯性
+## 文档与截图
 
-- 桌面应用的运行时数据统一保存在项目根目录的 `config/`：包括 `settings.json`、RSS 的 `dashboard.db`、Travel 的 `travel.db`、Geography 的 `geography.db` 和 Language 的 `language.db`；该目录已加入 `.gitignore`，不会提交到 Git。
-- History（V2）是事件驱动的只读知识库：数据源唯一为 `history-data-pipeline/dist/history.duckdb`（Backbone 构建产物，只读），搜索/时间轴/人物/作品详情全部来自它；`dist/` 缺失时应用明确报错而非悄悄回退旧库。产品完整度报告与补全队列见 `history-data-pipeline/reports/`（`PRODUCT_COVERAGE.md` / `ENRICHMENT_QUEUE.json`），由 `history-data backbone coverage` 重新生成。
-- 如果旧版本曾把数据写入系统 AppData，应用首次启动时会把缺失的文件复制到项目 `config/`，不会覆盖已经存在的项目数据，也不会删除旧文件。
-- Language 的词典和例句来自可追溯的开放数据集：Open English WordNet、CMUdict、JMdict、KANJIDIC2、CC-CEDICT、words.hk、CC-Canto 和 Tatoeba。
-- Geography 当前使用小型内置种子数据；正式边界和大规模几何数据会在许可核验后再导入。
-- Travel 生成攻略时保留来源列表；没有 LLM 或 API Key 时降级为来源与基础信息模式，不凭空补全内容。
-- 原始下载数据放在 `data/raw/`，生成数据放在 `data/generated/`，两者均不会进入 Git。
+- [运维部署](docs/operations/PRODUCTION_V11.md) · [备份与恢复](docs/operations/BACKUP_RESTORE.md) · [排障](docs/operations/TROUBLESHOOTING.md)
+- [安全模型](docs/operations/SECURITY_MODEL.md) · [语言数据来源](docs/language/DATA_SOURCES.md) · [地理数据来源](docs/geography/GEOGRAPHY_DATA_SOURCES.md)
+- Markdown 编辑器界面：
 
-## 质量检查
-
-提交前可在仓库根目录运行：
-
-```bash
-cargo fmt --check
-cargo check --workspace
-cargo clippy --workspace --all-targets --all-features -- -D warnings
-cargo test --workspace
-npm --prefix apps/desktop/ui run build
-```
-
-## 迁移说明
-
-项目早期版本基于 PySide6，当前实现已迁移到 Rust + Tauri。迁移决策、模块盘点和技术债务记录保留在 [`docs/migration/`](docs/migration/) 中，作为历史档案。
+  | 专注模式 | Zen 模式 | 命令面板 |
+  | --- | --- | --- |
+  | ![专注模式](docs/screenshots/focus-mode.png) | ![Zen 模式](docs/screenshots/zen-mode.png) | ![命令面板](docs/screenshots/command-palette.png) |
