@@ -226,9 +226,9 @@ export function RssPage({ active, version, refreshing, onRefresh, onFeedsChanged
             : null}
           {fetchedHtml
             ? <div className="rss-reading-content rss-fetched" onClick={handleContentClick(selectedArticle)} dangerouslySetInnerHTML={{ __html: prepareRssContent(fetchedHtml, selectedArticle.url) }} />
-            : selectedArticle.summary
+            : selectedArticle.summary?.trim()
               ? <div className="rss-reading-content" onClick={handleContentClick(selectedArticle)} dangerouslySetInnerHTML={{ __html: prepareRssContent(selectedArticle.summary, selectedArticle.url) }} />
-              : <p className="rss-empty">该文章没有摘要内容,可打开原文阅读。</p>}
+              : <p className="rss-reading-empty">该文章没有摘要内容,可打开原文阅读。</p>}
         </article>}
     </section>
   </div>;

@@ -957,19 +957,24 @@ button {
  -webkit-line-clamp: 2;
 }
 .rss-reader {
- min-width: 0;
- min-height: 0;
- overflow: auto;
- background: var(--surface-sunken);
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  padding: 26px 32px 60px;
+  background: var(--surface-sunken);
+  container-type: inline-size;
 }
+/* 阅读卡：与 .news-reading 完全同构——整篇（标题+元信息+操作+正文）同处一个框。
+   卡片自身的 padding/border/底纹/投影统一由下方共用块提供，此处只管行宽与基准字号。 */
 .rss-reading {
- display: grid;
- gap: 12px;
- align-content: start;
- padding: 26px 30px;
+  min-width: 0;
+  max-width: calc(36em + 50px);
+  margin: 0 auto;
+  font-size: 16px;
 }
 .rss-reading h2 {
- margin: 0;
+  margin: 0 0 8px;
+  overflow-wrap: anywhere;
  color: var(--text);
  font-size: 20px;
  font-weight: 800;
@@ -977,14 +982,17 @@ button {
  line-height: 1.35;
 }
 .rss-reading-meta {
- margin: 0;
+  margin: 0 0 16px;
  color: var(--muted);
  font-size: 12px;
 }
 .rss-reading-actions {
  display: flex;
- align-items: center;
- gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  /* 与 .news-reading-actions 对齐：操作栏是工具不是内容，正文起手处要留白。 */
+  margin-bottom: 26px;
 }
 .rss-reading-actions button {
  display: inline-flex;
@@ -1007,43 +1015,21 @@ button {
 .rss-read-tag {
  display: inline-flex;
  align-items: center;
- gap: 5px;
+  gap: 5px;
  color: var(--success);
  font-size: 12px;
 }
 .rss-fetch-note {
- margin: -6px 0 0;
- padding: 5px 9px;
- border: 1px solid var(--line);
- border-radius: var(--radius-control);
+  margin: 0 0 10px;
+  padding: 5px 9px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
  background: var(--accent-soft);
  color: var(--accent-selected-text);
  font-size: 11px;
 }
-/* 阅读正文卡片:给正文一个独立背景,与两侧面板形成层级;所有主题的 token 均已覆盖。 */
-.rss-reading-content {
- padding: 20px 24px;
- border: 1px solid var(--line);
- border-radius: var(--radius-overlay);
- background: var(--panel);
- color: var(--text);
- font-size: 14px;
- line-height: 1.7;
-}
 .rss-reading-content img {
  max-width: 100%;
-}
-.rss-reading-content a {
- color: var(--accent-hover);
- cursor: pointer;
- text-decoration: underline;
- text-underline-offset: 2px;
-}
-.rss-reading-content h1,
-.rss-reading-content h2,
-.rss-reading-content h3 {
- color: var(--text);
- line-height: 1.4;
 }
 /* 抓取正文里的「回复楼层」(V2EX 等论坛页结构化重组后的 at-reply 区块) */
 .rss-reading-content .at-topic-title {
@@ -1258,6 +1244,10 @@ button {
  color: inherit;
  text-align: left;
 }
+/* 无封面：收掉 72px 缩略图列，正文吃满宽度；末列 auto 让收藏书签留在同一行右侧。 */
+.news-story-item.no-media {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
 .news-story-item:hover {
  border-color: var(--line);
  background: var(--panel-hover);
@@ -1316,17 +1306,29 @@ button {
  background: var(--accent);
 }
 /* 阅读器 */
+/* 底衬用 sunken：卡片要「浮」起来，后面必须比卡片更暗，否则没有景深。 */
 .news-reader {
- min-height: 0;
- overflow: auto;
- padding: 26px 32px 60px;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  padding: 26px 32px 60px;
+  background: var(--surface-sunken);
+  container-type: inline-size;
 }
+/* 阅读卡：与 .rss-reading 完全同构——整篇（标题+元信息+操作+正文）同处一个框。
+   卡片自身的 padding/border/底纹/投影统一由下方共用块提供，此处只管行宽与基准字号。
+   max-width 用 calc 补回卡片自己的 24px*2 内边距 + 1px*2 边框，
+   36em 才是真正的「文字列」宽度，正文落在 36 字/行。 */
 .news-reading {
- max-width: 720px;
- margin: 0 auto;
+  min-width: 0;
+  max-width: calc(36em + 50px);
+  margin: 0 auto;
+  /* em 需要一个确定基准，否则会按继承的根字号（13px）解析，行宽算错。 */
+  font-size: 16px;
 }
 .news-reading h2 {
  margin: 0 0 8px;
+ overflow-wrap: anywhere;
  color: var(--text);
  font-size: 25px;
  font-weight: 750;
@@ -1334,14 +1336,14 @@ button {
  letter-spacing: -0.3px;
 }
 .news-reading-meta {
- margin: 0 0 16px;
+  margin: 0 0 16px;
  color: var(--muted);
  font-size: 12.5px;
 }
 .news-hero {
  width: 100%;
  max-height: 320px;
- margin-bottom: 18px;
+  margin-bottom: 18px;
  border-radius: var(--radius-overlay);
  background: var(--surface-control);
  object-fit: cover;
@@ -1350,8 +1352,8 @@ button {
  display: flex;
  flex-wrap: wrap;
  align-items: center;
- gap: 8px;
- margin-bottom: 18px;
+  /* 操作栏是工具不是内容：与正文拉开距离，正文起手处不留杂讯。 */
+  margin-bottom: 26px;
 }
 .news-reading-actions button {
  display: inline-flex;
@@ -1359,7 +1361,8 @@ button {
  gap: 6px;
  min-height: 30px;
  padding: 0 12px;
- border: 1px solid var(--line);
+  /* 常态边框降到 --line-soft：工具条不与正文抢视线，hover 时才升到 --line 体系。 */
+  border: 1px solid var(--line-soft);
  border-radius: var(--radius-control);
  background: var(--surface-control);
  color: var(--text-control);
@@ -1387,25 +1390,96 @@ button {
  font-size: 12px;
 }
 .news-fetch-note {
- margin: 0 0 10px;
- color: var(--faint);
- font-size: 11.5px;
-}
-.news-reading-content {
- color: var(--text-soft);
- font-size: 15px;
- line-height: 1.78;
-}
-.news-reading-content p {
- margin: 0 0 14px;
+  margin: 0 0 10px;
+  color: var(--faint);
+  font-size: 11.5px;
 }
 .news-reading-content img {
- max-width: 100%;
- border-radius: var(--radius-control);
+  max-width: 100%;
+  border-radius: var(--radius-control);
 }
-.news-reading-content a {
- color: var(--accent-hover);
- cursor: pointer;
+
+/* ===== 阅读卡：点阵底纹 + 悬浮（News / RSS 共用一套）=====
+   整篇一个框，标题区与正文同处其中。
+   点阵沿用 Pixel-Lift 的像素语汇（4px/1px 硬点），但阅读面是常驻大面积，
+   比卡片 hover 纹更疏（8px 网格）、更淡（22%）：只做质感，不与正文争视线。
+   投影同样是硬边像素风（零模糊），与全站 lift 层同一种语言。 */
+.news-reading,
+.rss-reading {
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-overlay);
+  background-color: var(--panel);
+  background-image: radial-gradient(
+    color-mix(in srgb, var(--line-hover) 22%, transparent) 1px,
+    transparent 1px
+  );
+  background-size: 8px 8px;
+  background-repeat: repeat;
+  box-shadow:
+    4px 4px 0 color-mix(in srgb, var(--pixel-depth-1) 45%, transparent),
+    8px 8px 0 color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+/* ===== 阅读排版（News / RSS 共用一套）=====
+   行宽：中文舒适区 30–38 字/行。用 em 表达，em 相对本块的 16px 基准。
+   段距：1em，跟随正文字号缩放，避免改字号后段距与字号脱节。 */
+.news-reading-content,
+.rss-reading-content {
+  min-width: 0;
+  color: var(--text-medium);
+  font-size: 16px;
+  line-height: 1.85;
+}
+.news-reading-content p,
+.rss-reading-content p {
+  margin: 0 0 1em;
+}
+.news-reading-content p:last-child,
+.rss-reading-content p:last-child {
+  margin-bottom: 0;
+}
+.news-reading-content h1,
+.news-reading-content h2,
+.news-reading-content h3,
+.rss-reading-content h1,
+.rss-reading-content h2,
+.rss-reading-content h3 {
+  color: var(--text);
+  line-height: 1.4;
+}
+.news-reading-content ul,
+.news-reading-content ol,
+.rss-reading-content ul,
+.rss-reading-content ol {
+  margin: 0 0 1em;
+  padding-left: 1.4em;
+}
+.news-reading-content a,
+.rss-reading-content a {
+  color: var(--accent-hover);
+  cursor: pointer;
+  /* 阅读区里正文色本身就偏灰，链接只靠颜色区分不够；加下划线不依赖色觉。 */
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.news-reading-empty,
+.rss-reading-empty {
+  margin: 0;
+  padding: 12px 14px;
+  border-left: 2px solid var(--line-strong);
+  border-radius: var(--radius-control);
+  background: var(--surface-sunken);
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.7;
+}
+/* 阅读栏经常比窗口本身窄（RSS 还有左侧两栏），按容器宽度收紧留白并允许操作换行。 */
+@container (max-width: 480px) {
+  .rss-reading,
+  .news-reading {
+    padding: 18px;
+  }
 }
 /* 订阅源栏 */
 .news-sources {

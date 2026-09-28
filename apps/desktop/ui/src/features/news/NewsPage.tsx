@@ -475,42 +475,48 @@ export function NewsPage({
             </p>
           ) : (
             <ul className="news-story-list">
-              {stories.map((story) => (
-                <li key={story.id}>
-                  <button
-                    className={
-                      "news-story-item" +
-                      (story.is_read ? " read" : "") +
-                      (selected?.id === story.id ? " selected" : "")
-                    }
-                    onClick={() => void openStory(story)}
-                  >
-                    {!story.is_read && <i className="news-unread-dot" />}
-                    {story.image_url && !brokenImages.has(story.id) ? (
-                      <img
-                        src={story.image_url}
-                        alt=""
-                        loading="lazy"
-                        onError={() =>
-                          setBrokenImages((current) => new Set(current).add(story.id))
-                        }
-                      />
-                    ) : null}
-                    <span className="news-story-main">
-                      <span className="news-story-title">{story.title}</span>
-                      <small className="news-story-meta">
-                        {story.source}
-                        {story.author ? ` · ${story.author}` : ""}
-                        {story.published_at ? ` · ${formatRelativeTime(story.published_at)}` : ""}
-                      </small>
-                      {story.summary ? (
-                        <p className="news-story-snippet">{stripRssHtml(story.summary, story.url)}</p>
+              {stories.map((story) => {
+                // 无封面（或封面已加载失败）时列表项不渲染 <img>，列模板必须同步收掉缩略图列，
+                // 否则 grid auto-placement 会把正文挤进那 72px 里。
+                const cover = story.image_url && !brokenImages.has(story.id) ? story.image_url : null;
+                return (
+                  <li key={story.id}>
+                    <button
+                      className={
+                        "news-story-item" +
+                        (cover ? "" : " no-media") +
+                        (story.is_read ? " read" : "") +
+                        (selected?.id === story.id ? " selected" : "")
+                      }
+                      onClick={() => void openStory(story)}
+                    >
+                      {!story.is_read && <i className="news-unread-dot" />}
+                      {cover ? (
+                        <img
+                          src={cover}
+                          alt=""
+                          loading="lazy"
+                          onError={() =>
+                            setBrokenImages((current) => new Set(current).add(story.id))
+                          }
+                        />
                       ) : null}
-                    </span>
-                    {story.starred && <BookmarkSimple size={14} weight="fill" />}
-                  </button>
-                </li>
-              ))}
+                      <span className="news-story-main">
+                        <span className="news-story-title">{story.title}</span>
+                        <small className="news-story-meta">
+                          {story.source}
+                          {story.author ? ` · ${story.author}` : ""}
+                          {story.published_at ? ` · ${formatRelativeTime(story.published_at)}` : ""}
+                        </small>
+                        {story.summary ? (
+                          <p className="news-story-snippet">{stripRssHtml(story.summary, story.url)}</p>
+                        ) : null}
+                      </span>
+                      {story.starred && <BookmarkSimple size={14} weight="fill" />}
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </section>
@@ -566,30 +572,31 @@ export function NewsPage({
                 </span>
               </div>
               {fetchedHtml ? <p className="news-fetch-note">已加载网页全文</p> : null}
-              <div
-                className="news-reading-content"
-                onClick={(event) => {
-                  const anchor = (event.target as HTMLElement).closest("a");
-                  const href = anchor?.getAttribute("href");
-                  if (href) {
-                    event.preventDefault();
-                    try {
-                      openInBrowser(new URL(href, selected.url || undefined).toString());
-                    } catch {
-                      openInBrowser(href);
+              {!fetchedHtml && !selected.summary?.trim() ? (
+                <p className="news-reading-empty">该新闻没有摘要，可打开原文阅读。</p>
+              ) : (
+                <div
+                  className="news-reading-content"
+                  onClick={(event) => {
+                    const anchor = (event.target as HTMLElement).closest("a");
+                    const href = anchor?.getAttribute("href");
+                    if (href) {
+                      event.preventDefault();
+                      try {
+                        openInBrowser(new URL(href, selected.url || undefined).toString());
+                      } catch {
+                        openInBrowser(href);
+                      }
                     }
-                  }
-                }}
-                dangerouslySetInnerHTML={{
-                  __html: prepareRssContent(
-                    fetchedHtml ?? selected.summary ?? "",
-                    selected.url || undefined,
-                  ),
-                }}
-              />
-              {!fetchedHtml && !selected.summary ? (
-                <p className="news-empty">该新闻没有摘要，可打开原文阅读。</p>
-              ) : null}
+                  }}
+                  dangerouslySetInnerHTML={{
+                    __html: prepareRssContent(
+                      fetchedHtml ?? selected.summary ?? "",
+                      selected.url || undefined,
+                    ),
+                  }}
+                />
+              )}
             </article>
           )}
         </section>
