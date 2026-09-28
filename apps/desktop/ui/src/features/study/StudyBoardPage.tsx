@@ -37,11 +37,52 @@ interface Stroke {
   color: string;
   width: number;
   points: number[];
+  /** 擦除操作在重绘时使用 destination-out，只影响笔迹图层。 */
+  eraser?: boolean;
 }
 
 const STROKE_COLORS = ["#1688ff", "#f5f5f5", "#ffb020", "#22c55e"] as const;
 /** 纸感底色（深灰而非纯黑，配浅色网格）。 */
 const CANVAS_BACKGROUND = "#151b1f";
+const CANVAS_GRID = "rgba(120, 150, 170, 0.14)";
+
+function drawBoardBackground(ctx: CanvasRenderingContext2D, width: number, height: number) {
+  ctx.fillStyle = CANVAS_BACKGROUND;
+  ctx.fillRect(0, 0, width, height);
+  const grid = 24;
+  ctx.strokeStyle = CANVAS_GRID;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (let x = grid; x < width; x += grid) {
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, height);
+  }
+  for (let y = grid; y < height; y += grid) {
+    ctx.moveTo(0, y);
+    ctx.lineTo(width, y);
+  }
+  ctx.stroke();
+}
+
+function drawStrokes(ctx: CanvasRenderingContext2D, strokes: Stroke[]) {
+  for (const stroke of strokes) {
+    if (stroke.points.length < 2) continue;
+    // 이전 버전은 지우개를 불투명 배경색으로 저장했으므로 읽을 때 복원한다.
+    const isEraser = stroke.eraser ?? (stroke.color === CANVAS_BACKGROUND && stroke.width === 24);
+    ctx.globalCompositeOperation = isEraser ? "destination-out" : "source-over";
+    ctx.strokeStyle = stroke.color;
+    ctx.lineWidth = stroke.width;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.beginPath();
+    ctx.moveTo(stroke.points[0], stroke.points[1]);
+    for (let index = 2; index < stroke.points.length; index += 2) {
+      ctx.lineTo(stroke.points[index], stroke.points[index + 1]);
+    }
+    ctx.stroke();
+  }
+  ctx.globalCompositeOperation = "source-over";
+}
 
 function newBoardId(): string {
   return `board-${Date.now().toString(36)}-${Math.floor(Math.random() * 0xffffff).toString(36)}`;
@@ -66,39 +107,12 @@ export function StudyBoardPage({ active, onContextChange, onAskAi }: StudyBoardP
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-    // 纸感底色（不是纯黑）：深灰纸 + 细网格 + 边距参考线。
+    // 网格由 CSS 背景绘制，笔迹层保持透明，擦除时不会破坏纸面和网格。
     const dpr = window.devicePixelRatio || 1;
     const cssWidth = canvas.width / dpr;
     const cssHeight = canvas.height / dpr;
-    ctx.fillStyle = CANVAS_BACKGROUND;
-    ctx.fillRect(0, 0, cssWidth, cssHeight);
-    // 网格（理科作图 / 笔记对齐都能用上）。
-    const grid = 24;
-    ctx.strokeStyle = "rgba(120, 150, 170, 0.14)";
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    for (let x = grid; x < cssWidth; x += grid) {
-      ctx.moveTo(x, 0);
-      ctx.lineTo(x, cssHeight);
-    }
-    for (let y = grid; y < cssHeight; y += grid) {
-      ctx.moveTo(0, y);
-      ctx.lineTo(cssWidth, y);
-    }
-    ctx.stroke();
-    for (const stroke of strokes) {
-      if (stroke.points.length < 2) continue;
-      ctx.strokeStyle = stroke.color;
-      ctx.lineWidth = stroke.width;
-      ctx.lineCap = "round";
-      ctx.lineJoin = "round";
-      ctx.beginPath();
-      ctx.moveTo(stroke.points[0], stroke.points[1]);
-      for (let index = 2; index < stroke.points.length; index += 2) {
-        ctx.lineTo(stroke.points[index], stroke.points[index + 1]);
-      }
-      ctx.stroke();
-    }
+    ctx.clearRect(0, 0, cssWidth, cssHeight);
+    drawStrokes(ctx, strokes);
   }, [strokes]);
 
   useEffect(() => {
@@ -164,6 +178,7 @@ export function StudyBoardPage({ active, onContextChange, onAskAi }: StudyBoardP
         color: tool === "eraser" ? CANVAS_BACKGROUND : color,
         width: tool === "eraser" ? 24 : 3,
         points: [position[0], position[1]],
+        eraser: tool === "eraser",
       },
     ]);
     setRedoStack([]);
@@ -234,11 +249,20 @@ export function StudyBoardPage({ active, onContextChange, onAskAi }: StudyBoardP
     const canvas = canvasRef.current;
     if (!canvas) return null;
     try {
-      return canvas.toDataURL("image/png").split(",")[1] ?? null;
+      const dpr = window.devicePixelRatio || 1;
+      const output = document.createElement("canvas");
+      output.width = canvas.width;
+      output.height = canvas.height;
+      const ctx = output.getContext("2d");
+      if (!ctx) return null;
+      ctx.scale(dpr, dpr);
+      drawBoardBackground(ctx, canvas.width / dpr, canvas.height / dpr);
+      drawStrokes(ctx, strokes);
+      return output.toDataURL("image/png").split(",")[1] ?? null;
     } catch {
       return null;
     }
-  }, []);
+  }, [strokes]);
 
   const askAi = useCallback(() => {
     const image = snapshot();

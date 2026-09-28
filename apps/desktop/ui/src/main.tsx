@@ -42,8 +42,8 @@ class StartupErrorBoundary extends Component<
           style={{
             minHeight: "100vh",
             padding: "48px",
-            color: "#d6dde1",
-            background: "#0d1315",
+            color: "#1e1e1b",
+            background: "#f7f5ef",
             fontFamily: '"Segoe UI", sans-serif',
           }}
         >
@@ -53,7 +53,7 @@ class StartupErrorBoundary extends Component<
             {this.state.error.stack ?? this.state.error.message}
           </pre>
           {this.state.componentStack ? (
-            <pre style={{ whiteSpace: "pre-wrap", color: "#aeb8be" }}>
+            <pre style={{ whiteSpace: "pre-wrap", color: "#57534a" }}>
               {this.state.componentStack}
             </pre>
           ) : null}

@@ -52,7 +52,12 @@ import { SystemReadinessPage } from "./features/system/SystemReadinessPage";
 import { GlobalSearchPage } from "./features/system/GlobalSearchPage";
 import { TravelPage } from "./features/travel/TravelPage";
 import { GeographyPage } from "./features/geography/GeographyPage";
-import { applyTheme, getTheme, storeThemeId } from "./theme/ThemeManager";
+import {
+  applyTheme,
+  getTheme,
+  initialThemeId,
+  storeThemeId,
+} from "./theme/ThemeManager";
 import "./theme/themes";
 import {
   useDeviceAttribute,
@@ -140,7 +145,7 @@ const defaultSettings: AppSettings = {
   schema_version: 1,
   recent_files: [],
   workspace_path: null,
-  theme_mode: "dark",
+  theme_mode: "light",
   ui_theme: "default",
   rss_refresh_minutes: 30,
   editor_font_size: 14,
@@ -238,7 +243,9 @@ export default function App() {
   }, [page]);
   const [settings, setSettings] = useState<AppSettings>(defaultSettings);
   const [settingsLoaded, setSettingsLoaded] = useState(!isTauriRuntime());
-  const [themeId, setThemeId] = useState("default");
+  const [themeId, setThemeId] = useState(initialThemeId);
+  const themeIdRef = useRef(themeId);
+  const themeChangedByUserRef = useRef(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [notice, setNotice] = useState("");
   const [aiOpen, setAiOpen] = useState(false);
@@ -339,9 +346,17 @@ export default function App() {
     if (!isTauriRuntime()) return;
     void settingsClient
       .get()
-      .then((loaded) => {
-        setSettings(loaded);
-        setThemeId(getTheme(loaded.ui_theme).id);
+      .then(async (loaded) => {
+        const resolvedThemeId = themeChangedByUserRef.current
+          ? themeIdRef.current
+          : getTheme(loaded.ui_theme).id;
+        const resolvedSettings = { ...loaded, ui_theme: resolvedThemeId };
+        setSettings(resolvedSettings);
+        themeIdRef.current = resolvedThemeId;
+        setThemeId(resolvedThemeId);
+        if (themeChangedByUserRef.current) {
+          await settingsClient.put(resolvedSettings);
+        }
         setSettingsLoaded(true);
       })
       .catch((error) => {
@@ -428,11 +443,16 @@ export default function App() {
   const changeTheme = useCallback(
     (nextId: string) => {
       const normalized = getTheme(nextId).id;
+      themeChangedByUserRef.current = true;
+      themeIdRef.current = normalized;
+      applyTheme(normalized);
       setThemeId(normalized);
       storeThemeId(normalized);
-      void updateSettings({ ...settings, ui_theme: normalized });
+      if (settingsLoaded) {
+        void updateSettings({ ...settings, ui_theme: normalized });
+      }
     },
-    [settings, updateSettings],
+    [settings, settingsLoaded, updateSettings],
   );
 
   const changeRefreshMinutes = useCallback(

@@ -33,7 +33,7 @@ export function allThemes(): ThemeDefinition[] {
   return [...registry.values()];
 }
 
-/** 未知 id(旧配置、手改配置)安全回退到 Default,保证应用始终有可用主题 */
+/** 未知 id(旧配置、手改配置)安全回退到默认浅色主题,保证应用始终有可用主题 */
 export function getTheme(id: string | null | undefined): ThemeDefinition {
   if (id && registry.has(id)) return registry.get(id)!;
   return registry.get(DEFAULT_THEME_ID)!;
@@ -71,7 +71,7 @@ export function readStoredThemeId(): string | null {
   }
 }
 
-/** 启动时同步调用的初始主题:优先 localStorage 快照,否则 Default(与 Rust 侧默认一致) */
+/** 启动时同步调用的初始主题:优先 localStorage 快照,否则浅色 Pixel Light 默认值 */
 export function initialThemeId(): string {
   return getTheme(readStoredThemeId()).id;
 }

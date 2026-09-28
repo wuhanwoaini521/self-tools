@@ -123,7 +123,7 @@ impl Default for AppSettings {
             schema_version: 1,
             recent_files: Vec::new(),
             workspace_path: None,
-            theme_mode: ThemeMode::System,
+            theme_mode: ThemeMode::Light,
             ui_theme: "default".to_string(),
             rss_refresh_minutes: 30,
             editor_font_size: 13,

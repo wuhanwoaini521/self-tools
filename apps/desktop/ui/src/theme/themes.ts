@@ -1,28 +1,27 @@
 import { EditorView } from "@codemirror/view";
-import { oneDark } from "@codemirror/theme-one-dark";
 import { DEFAULT_THEME_ID, registerTheme, type ThemeDefinition } from "./ThemeManager";
 
 /**
  * 内置主题注册表。
  *
- * Default:项目现有深色 UI,视觉零改动——CodeMirror 沿用 oneDark,
- * 配色全部来自 styles.css 中 [data-theme="default"] 作用域(即原 :root 值)。
+ * Pixel Light:默认浅色工作区,以暖白纸面和硬边阴影表现轻量像素风格。
  *
  * Warm Editorial / Warm Editorial Dark:暖纸编辑部风格,
  * 配色通过同名 data-theme 作用域下的 Design Tokens 覆盖,不散落硬编码。
  */
 
-/** Warm 系编辑器:颜色由 styles.css 的 Token 统一驱动(与 Default 同机制),扩展只需声明明暗 */
+/** 编辑器主题由 CSS token 统一驱动,扩展只需声明明暗 */
+const pixelLightEditor = EditorView.theme({}, { dark: false });
 const warmEditorialLightEditor = EditorView.theme({}, { dark: false });
 const warmEditorialDarkEditor = EditorView.theme({}, { dark: true });
 
 const defaultTheme: ThemeDefinition = {
   id: DEFAULT_THEME_ID,
-  name: "Default",
-  description: "项目默认的深色 Command Center 风格。",
-  appearance: "dark",
-  dataTheme: "default",
-  editorTheme: oneDark,
+  name: "Pixel Light",
+  description: "浅色工作区搭配硬边阴影、阶梯动效与细小像素点阵。",
+  appearance: "light",
+  dataTheme: "pixel-light",
+  editorTheme: pixelLightEditor,
 };
 
 const warmEditorial: ThemeDefinition = {

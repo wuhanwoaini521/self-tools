@@ -1,7 +1,7 @@
 /* ==========================================================================
  * Design Tokens
  *
- * Default 主题 = 项目现有深色 UI,token 值与历史版本逐像素一致。
+ * Default 主题 = 浅色 Pixel Light；暖色主题复用纸面 token，再覆盖像素控件细节。
  * 其余主题仅覆盖 token,组件规则不出现主题分支;新增主题 = 新增一个作用域块。
  * 作用域:<html data-theme="..."> 由 ThemeManager.applyTheme() 写入。
  * ========================================================================== */
@@ -130,8 +130,8 @@
  font-family: "Manrope", "Segoe UI", sans-serif;
 }
 
-/* Warm Editorial:暖纸编辑部 / 数字杂志 / RSS Reader 气质。
- * 暖白纸面 + 黑灰 Typography + 暖棕 Accent + 细边框 + 小圆角 + 弱 Card 化。 */
+/* 浅色系共用暖白纸面与可读性 token；Pixel Light 再收紧圆角并加强硬边反馈。 */
+:root[data-theme="pixel-light"],
 :root[data-theme="warm-editorial"] {
  --bg: #f7f5ef;
  --panel: #faf8f3;
@@ -249,6 +249,14 @@
  --pixel-ms: 120ms;
  --pixel-ease: steps(4, end);
  --pixel-depth-1: #d5cec0;
+}
+
+:root[data-theme="pixel-light"] {
+ --radius-control: 0px;
+ --radius-overlay: 22px;
+ --pixel-depth-1: #c9c1b2;
+ --pixel-pattern-a: color-mix(in srgb, var(--accent) 10%, transparent);
+ --pixel-pattern-b: color-mix(in srgb, var(--line-strong) 30%, transparent);
 }
 
 /* Warm Editorial Dark:暖黑夜间版,同一 Editorial 语言的深色表达。 */
@@ -406,6 +414,11 @@ button {
  grid-template-rows: 52px minmax(0, 1fr);
  overflow: hidden;
  background: var(--bg);
+ background-image:
+  radial-gradient(var(--pixel-pattern-a, transparent) 1px, transparent 1.2px),
+  radial-gradient(var(--pixel-pattern-b, transparent) 1px, transparent 1.2px);
+ background-position: 0 0, 4px 4px;
+ background-size: 8px 8px;
 }
 .app-bar {
  display: flex;
@@ -508,6 +521,15 @@ button {
  min-width: 0;
  min-height: 0;
  overflow: hidden;
+ background-color: var(--bg);
+ background-image:
+  radial-gradient(var(--pixel-pattern-a, transparent) 1px, transparent 1.2px),
+  radial-gradient(var(--pixel-pattern-b, transparent) 1px, transparent 1.2px);
+ background-position: 0 0, 4px 4px;
+ background-size: 8px 8px;
+}
+:root[data-theme="pixel-light"] .app-content > .page-pane > [class$="-page"] {
+ background-color: transparent;
 }
 .page-pane {
  height: 100%;
@@ -972,6 +994,7 @@ button {
   margin: 0 auto;
   font-size: 16px;
 }
+
 .rss-reading h2 {
   margin: 0 0 8px;
   overflow-wrap: anywhere;
@@ -3604,6 +3627,8 @@ kbd {
  --history-accent-line: rgb(201 160 106 / 38%);
  --history-accent-faint: rgb(201 160 106 / 9%);
 }
+:root[data-theme="pixel-light"] .history-page,
+:root[data-theme="pixel-light"] .history-empty,
 :root[data-theme="warm-editorial"] .history-page,
 :root[data-theme="warm-editorial"] .history-empty {
  --history-accent: #a96500;
@@ -10886,13 +10911,6 @@ main.history-v2-period {
 
 /* ===== Home / Story to Study ===== */
 .home-story-page {
- --accent: #22b9b2;
- --accent-hover: #42d0c7;
- --accent-soft: #073d42;
- --accent-border-active: #148f8b;
- --accent-selected: #0b555b;
- --accent-selected-text: #e5fffb;
- --accent-solid: #149f9b;
  gap: 20px;
  padding: 30px 34px 24px;
  background: var(--bg);
@@ -11124,9 +11142,12 @@ main.history-v2-period {
  border-radius: var(--radius-control);
  background: var(--accent-selected);
  color: var(--accent-selected-text);
+ font-size: 13px;
+ font-weight: 700;
 }
 .home-article-footer .home-note-action:hover {
- background: var(--accent-solid);
+ background: var(--accent-hover);
+ border-color: var(--accent-hover);
  color: var(--text-on-accent);
 }
 .home-language-panel {
@@ -11213,7 +11234,8 @@ main.history-v2-period {
  font-weight: 700;
 }
 .home-language-practice:hover {
- background: var(--accent-solid);
+ background: var(--accent-hover);
+ border-color: var(--accent-hover);
  color: var(--text-on-accent);
 }
 .home-language-more {
@@ -13027,7 +13049,7 @@ main.history-v2-period {
  justify-content: space-between;
  gap: 8px;
  padding: 6px 8px;
- border: 1px solid var(--border, #2a2f3a);
+ border: 1px solid var(--line);
  border-radius: 8px;
  background: var(--surface-2, rgba(255, 255, 255, 0.03));
 }
@@ -13101,7 +13123,7 @@ main.history-v2-period {
  align-items: center;
  gap: 6px;
  padding: 6px 12px;
- border: 1px solid var(--border, #2a2f3a);
+ border: 1px solid var(--line);
  border-radius: 999px;
  background: transparent;
  color: var(--muted);
@@ -13136,7 +13158,7 @@ main.history-v2-period {
 }
 .knowledge-stat {
  padding: 2px 8px;
- border: 1px solid var(--border, #2a2f3a);
+ border: 1px solid var(--line);
  border-radius: 6px;
 }
 .knowledge-toolbar {
@@ -13149,7 +13171,7 @@ main.history-v2-period {
  flex: 1 1 220px;
  min-width: 0;
  padding: 7px 10px;
- border: 1px solid var(--border, #2a2f3a);
+ border: 1px solid var(--line);
  border-radius: 8px;
  background: var(--surface-2, rgba(255, 255, 255, 0.03));
  color: var(--text);
@@ -13162,7 +13184,7 @@ main.history-v2-period {
 }
 .knowledge-filters select {
  padding: 6px 8px;
- border: 1px solid var(--border, #2a2f3a);
+ border: 1px solid var(--line);
  border-radius: 8px;
  background: var(--surface-2, rgba(255, 255, 255, 0.03));
  color: var(--text);
@@ -13171,7 +13193,7 @@ main.history-v2-period {
 .knowledge-primary,
 .knowledge-refresh {
  padding: 7px 12px;
- border: 1px solid var(--border, #2a2f3a);
+ border: 1px solid var(--line);
  border-radius: 8px;
  background: transparent;
  color: var(--text);
@@ -13233,7 +13255,7 @@ main.history-v2-period {
  font-size: 11px;
  padding: 1px 7px;
  border-radius: 999px;
- border: 1px solid var(--border, #2a2f3a);
+ border: 1px solid var(--line);
  color: var(--muted);
 }
 .memory-badge.status {
@@ -13265,7 +13287,7 @@ main.history-v2-period {
 .memory-action {
  padding: 5px 10px;
  font-size: 12px;
- border: 1px solid var(--border, #2a2f3a);
+ border: 1px solid var(--line);
  border-radius: 7px;
  background: transparent;
  color: var(--text);
@@ -13284,7 +13306,7 @@ main.history-v2-period {
 .memory-edit textarea {
  min-height: 90px;
  padding: 8px 10px;
- border: 1px solid var(--border, #2a2f3a);
+ border: 1px solid var(--line);
  border-radius: 8px;
  background: var(--surface-2, rgba(255, 255, 255, 0.03));
  color: var(--text);
@@ -13326,7 +13348,7 @@ main.history-v2-period {
  padding: 5px 12px;
  font-size: 12px;
  border-radius: 7px;
- border: 1px solid var(--border, #2a2f3a);
+ border: 1px solid var(--line);
  background: transparent;
  color: var(--text);
  cursor: pointer;
@@ -13375,7 +13397,7 @@ main.history-v2-period {
  display: flex;
  flex-direction: column;
  gap: 6px;
- border: 1px solid var(--border, #2a2f3a);
+ border: 1px solid var(--line);
  border-radius: 10px;
  padding: 12px;
 }
@@ -13433,7 +13455,7 @@ main.history-v2-period {
  gap: 6px;
 }
 .file-read {
- border: 1px solid var(--border, #2a2f3a);
+ border: 1px solid var(--line);
  border-radius: 10px;
  padding: 12px;
  font-size: 13px;
@@ -13485,7 +13507,7 @@ main.history-v2-period {
  align-items: center;
  gap: 6px;
  padding: 7px 12px;
- border: 1px solid var(--border, #2a2f3a);
+ border: 1px solid var(--line);
  border-radius: 8px;
  background: transparent;
  color: var(--text);
@@ -13500,7 +13522,7 @@ main.history-v2-period {
  font-size: 11px;
  padding: 1px 8px;
  border-radius: 999px;
- border: 1px solid var(--border, #2a2f3a);
+ border: 1px solid var(--line);
  color: var(--muted);
 }
 .server-badge.health.healthy {
@@ -13550,7 +13572,7 @@ main.history-v2-period {
  flex-direction: column;
  gap: 4px;
  padding: 12px 14px;
- border: 1px solid var(--border, #2a2f3a);
+ border: 1px solid var(--line);
  border-radius: 10px;
  background: var(--surface-2, rgba(255, 255, 255, 0.03));
 }
@@ -13604,7 +13626,7 @@ main.history-v2-period {
  justify-content: space-between;
  gap: 10px;
  padding: 9px 12px;
- border: 1px solid var(--border, #2a2f3a);
+ border: 1px solid var(--line);
  border-radius: 10px;
  background: var(--surface-2, rgba(255, 255, 255, 0.03));
 }
@@ -13637,7 +13659,7 @@ main.history-v2-period {
  gap: 5px;
  padding: 5px 10px;
  font-size: 12px;
- border: 1px solid var(--border, #2a2f3a);
+ border: 1px solid var(--line);
  border-radius: 7px;
  background: transparent;
  color: var(--text);
@@ -13656,7 +13678,7 @@ main.history-v2-period {
  padding: 12px;
  max-height: 320px;
  overflow: auto;
- border: 1px solid var(--border, #2a2f3a);
+ border: 1px solid var(--line);
  border-radius: 10px;
  background: rgba(0, 0, 0, 0.25);
  font-size: 12px;
@@ -13678,7 +13700,7 @@ main.history-v2-period {
  gap: 10px;
  align-items: center;
  padding: 6px 10px;
- border: 1px solid var(--border, #2a2f3a);
+ border: 1px solid var(--line);
  border-radius: 8px;
  font-size: 12px;
 }
@@ -13747,7 +13769,7 @@ main.history-v2-period {
 .server-confirm-actions button {
  padding: 8px 16px;
  font-size: 13px;
- border: 1px solid var(--border, #2a2f3a);
+ border: 1px solid var(--line);
  border-radius: 8px;
  background: transparent;
  color: var(--text);
@@ -13824,7 +13846,7 @@ main.history-v2-period {
  flex: 1;
  padding: 8px 14px;
  font-size: 13px;
- border: 1px solid var(--border, #2a2f3a);
+ border: 1px solid var(--line);
  border-radius: 8px;
  background: transparent;
  color: var(--text);
@@ -13846,7 +13868,7 @@ main.history-v2-period {
  flex-direction: column;
  gap: 4px;
  padding: 12px 14px;
- border: 1px solid var(--border, #2a2f3a);
+ border: 1px solid var(--line);
  border-radius: 10px;
  background: var(--surface-2, rgba(255, 255, 255, 0.03));
 }
@@ -13873,7 +13895,7 @@ main.history-v2-period {
 .server-audit-filter button {
  padding: 3px 10px;
  font-size: 11px;
- border: 1px solid var(--border, #2a2f3a);
+ border: 1px solid var(--line);
  border-radius: 999px;
  background: transparent;
  color: var(--muted);
@@ -13887,7 +13909,7 @@ main.history-v2-period {
 /* V9 编排追踪（AI Panel 折叠区；只展示结构与计数） */
 .ai-orchestration {
  margin: 6px 0;
- border: 1px solid var(--border, #2a2f3a);
+ border: 1px solid var(--line);
  border-radius: 8px;
  background: var(--surface-2, rgba(255, 255, 255, 0.03));
  overflow: hidden;
@@ -13983,7 +14005,7 @@ main.history-v2-period {
  padding: 4px 4px calc(4px + var(--safe-area-bottom, 0px));
  background: color-mix(in srgb, var(--panel, #10171a) 92%, transparent);
  backdrop-filter: blur(12px);
- border-top: 1px solid var(--border, #1e2a2e);
+ border-top: 1px solid var(--line);
 }
 .app-bottom-nav-item {
  display: flex;
@@ -14122,7 +14144,7 @@ main.history-v2-period {
  align-items: center;
  gap: 8px;
  padding: 8px 10px;
- border: 1px solid var(--border, #1e2a2e);
+ border: 1px solid var(--line);
  border-radius: 12px;
  background: color-mix(in srgb, var(--accent, #1688ff) 6%, var(--panel, #10171a));
 }
@@ -14144,7 +14166,7 @@ main.history-v2-period {
  cursor: text;
 }
 .home-hub-ask-input:hover {
- border-color: var(--border, #1e2a2e);
+ border-color: var(--line);
  color: var(--text, #d6dde1);
 }
 .home-hub-ask-go {
@@ -14168,7 +14190,7 @@ main.history-v2-period {
 }
 .home-hub-group {
  padding: 10px 12px;
- border: 1px solid var(--border, #1e2a2e);
+ border: 1px solid var(--line);
  border-radius: 10px;
  background: var(--panel, #10171a);
 }
@@ -14206,6 +14228,7 @@ main.history-v2-period {
 }
 .home-hub-group li button:hover {
  background: rgba(255, 255, 255, 0.05);
+ border-radius: 0 var(--radius-control) var(--radius-control) 0;
 }
 .home-hub-group li button svg {
  flex: none;
@@ -14239,7 +14262,7 @@ main.history-v2-period {
  flex: 1;
  min-height: 36px;
  padding: 4px 10px;
- border: 1px solid var(--border, #1e2a2e);
+ border: 1px solid var(--line);
  border-radius: 8px;
  background: var(--panel, #10171a);
  color: var(--text, #d6dde1);
@@ -14257,7 +14280,7 @@ main.history-v2-period {
  align-items: center;
  gap: 8px;
  padding: 6px 8px;
- border: 1px solid var(--border, #1e2a2e);
+ border: 1px solid var(--line);
  border-radius: 10px;
  background: var(--panel, #10171a);
 }
@@ -14277,7 +14300,7 @@ main.history-v2-period {
  min-width: 44px; /* §90 */
  min-height: 44px;
  padding: 0 10px;
- border: 1px solid var(--border, #1e2a2e);
+ border: 1px solid var(--line);
  border-radius: 8px;
  background: rgba(255, 255, 255, 0.03);
  color: var(--text, #d6dde1);
@@ -14314,10 +14337,14 @@ main.history-v2-period {
  position: relative;
  flex: 1;
  min-height: 320px;
- border: 1px solid var(--border, #1e2a2e);
+ border: 1px solid var(--line);
  border-radius: 10px;
  overflow: hidden;
  background: #151b1f;
+ background-image:
+  linear-gradient(to right, rgba(120, 150, 170, 0.14) 1px, transparent 1px),
+  linear-gradient(to bottom, rgba(120, 150, 170, 0.14) 1px, transparent 1px);
+ background-size: 24px 24px;
 }
 .study-canvas {
  display: block;
@@ -14335,7 +14362,7 @@ main.history-v2-period {
 .study-recent button {
  min-height: 32px;
  padding: 4px 10px;
- border: 1px solid var(--border, #1e2a2e);
+ border: 1px solid var(--line);
  border-radius: 6px;
  background: transparent;
  color: var(--muted, #8a979d);
@@ -14393,7 +14420,7 @@ main.history-v2-period {
  gap: 6px;
  min-height: 36px;
  padding: 0 14px;
- border: 1px solid var(--border, #1e2a2e);
+ border: 1px solid var(--line);
  border-radius: 8px;
  background: var(--panel, #10171a);
  color: var(--text, #d6dde1);
@@ -14419,7 +14446,7 @@ main.history-v2-period {
  align-items: center;
  gap: 10px;
  padding: 8px 12px;
- border: 1px solid var(--border, #1e2a2e);
+ border: 1px solid var(--line);
  border-radius: 8px;
  background: var(--panel, #10171a);
  font-size: 13px;
@@ -14484,7 +14511,7 @@ main.history-v2-period {
  align-items: center;
  gap: 8px;
  padding: 8px 12px;
- border: 1px solid var(--border, #1e2a2e);
+ border: 1px solid var(--line);
  border-radius: 12px;
  background: var(--panel, #10171a);
 }
@@ -14526,7 +14553,7 @@ main.history-v2-period {
  gap: 2px 12px;
  width: 100%;
  padding: 10px 12px;
- border: 1px solid var(--border, #1e2a2e);
+ border: 1px solid var(--line);
  border-radius: 8px;
  background: var(--panel, #10171a);
  text-align: left;
@@ -14552,7 +14579,7 @@ main.history-v2-period {
 .search-empty {
  margin: 12px 0 0;
  padding: 16px;
- border: 1px dashed var(--border, #1e2a2e);
+ border: 1px dashed var(--line);
  border-radius: 8px;
  font-size: 13px;
  color: var(--muted, #8a979d);
@@ -14588,7 +14615,7 @@ main.history-v2-period {
  gap: 2px;
  margin: 8px 0 0;
  padding: 8px 10px;
- border: 1px solid var(--border, #1e2a2e);
+ border: 1px solid var(--line);
  border-radius: 8px;
  background: rgba(255, 255, 255, 0.02);
  list-style: none;
@@ -14645,7 +14672,7 @@ main.history-v2-period {
  max-height: 45vh;
  padding: 10px;
  margin-bottom: 8px;
- border: 1px solid var(--border, #1e2a2e);
+ border: 1px solid var(--line);
  border-radius: 10px;
  background: var(--panel, #10171a);
  overflow: hidden;
@@ -14669,7 +14696,7 @@ main.history-v2-period {
  gap: 4px;
  min-height: 30px;
  padding: 0 8px;
- border: 1px solid var(--border, #1e2a2e);
+ border: 1px solid var(--line);
  border-radius: 6px;
  background: rgba(255, 255, 255, 0.03);
  color: var(--text, #d6dde1);
@@ -14893,8 +14920,86 @@ main.history-v2-period {
  }
 
  /* 行内微型控件（如悬浮才出现的删除叉）：完全豁免，保持原地。 */
- .rss-feed-delete:hover {
+.rss-feed-delete:hover {
   transform: none;
   box-shadow: none;
  }
+}
+
+/* Pixel Light · 新闻列表用方角状态反馈，避免左侧悬停光标沿大圆角变成弧线。 */
+:root[data-theme="pixel-light"] .news-story-item,
+:root[data-theme="pixel-light"] .news-story-item:hover {
+ border-radius: 0;
+ box-shadow: none;
+}
+
+/* Pixel Light · 灵动岛布局：把顶栏、导航和各功能工作区拆成悬浮岛屿。 */
+:root[data-theme="pixel-light"] .app-shell {
+ grid-template-rows: 66px minmax(0, 1fr);
+}
+:root[data-theme="pixel-light"] .app-bar {
+ margin: 8px 14px 0;
+ padding: 0 20px;
+ border: 1px solid var(--line);
+ border-radius: 999px;
+ box-shadow: 0 4px 0 var(--pixel-depth-1);
+}
+:root[data-theme="pixel-light"] .app-body {
+ gap: 12px;
+ padding: 12px 14px 14px;
+}
+:root[data-theme="pixel-light"] .app-nav {
+ border: 1px solid var(--line);
+ border-radius: 24px;
+ box-shadow: 3px 3px 0 var(--pixel-depth-1);
+}
+:root[data-theme="pixel-light"] .app-content {
+ border: 1px solid var(--line);
+ border-radius: 24px;
+ box-shadow: 3px 3px 0 var(--pixel-depth-1);
+}
+:root[data-theme="pixel-light"] .app-shell button,
+:root[data-theme="pixel-light"] .app-shell input,
+:root[data-theme="pixel-light"] .app-shell select {
+ border-radius: 999px;
+}
+:root[data-theme="pixel-light"] .app-shell textarea {
+ border-radius: 18px;
+}
+:root[data-theme="pixel-light"] .app-content [class*="-card"],
+:root[data-theme="pixel-light"] .app-content [class*="-panel"] {
+ border-radius: var(--radius-overlay);
+}
+:root[data-theme="pixel-light"] .app-bottom-nav {
+ left: 12px;
+ right: 12px;
+ bottom: calc(8px + var(--safe-area-bottom, 0px));
+ border: 1px solid var(--line);
+ border-radius: 999px;
+ box-shadow: 0 4px 0 var(--pixel-depth-1);
+}
+:root[data-theme="pixel-light"] .pwa-banners {
+ top: 66px;
+ left: 14px;
+ right: 14px;
+}
+@media (max-width: 767px) {
+ :root[data-theme="pixel-light"] .app-bar {
+  margin: 8px 8px 0;
+ }
+ :root[data-theme="pixel-light"] .app-body {
+  gap: 8px;
+  padding: 8px;
+ }
+ :root[data-theme="pixel-light"] .app-content {
+  border-radius: 20px;
+ }
+ :root[data-theme="pixel-light"] .app-bottom-nav {
+  left: 8px;
+  right: 8px;
+ }
+}
+:root[data-theme="pixel-light"] .app-shell :focus-visible {
+ outline: 2px solid var(--accent-hover);
+ outline-offset: 2px;
 }
