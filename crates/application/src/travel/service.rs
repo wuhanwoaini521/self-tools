@@ -969,6 +969,7 @@ pub(crate) async fn travel_complete(
     let response = llm
         .chat(ChatRequest {
             messages: vec![ChatMessage::system(system), ChatMessage::user(user)],
+            session_id: None,
             tools: Vec::new(),
             temperature: Some(0.2),
             max_tokens: None,

@@ -78,6 +78,7 @@ pub async fn run_tool_loop(
     registry: &ToolRegistry,
     messages: Vec<ChatMessage>,
     tools: &[devtoolbox_core::ToolSpec],
+    session_id: Option<&str>,
     config: ToolLoopConfig,
 ) -> Result<ToolLoopOutcome, AgentError> {
     let mut chat_messages = messages;
@@ -102,6 +103,7 @@ pub async fn run_tool_loop(
         let response = provider
             .chat(ChatRequest {
                 messages: chat_messages.clone(),
+                session_id: session_id.map(str::to_string),
                 tools: tool_specs,
                 temperature: Some(config.temperature),
                 max_tokens: config.max_tokens,

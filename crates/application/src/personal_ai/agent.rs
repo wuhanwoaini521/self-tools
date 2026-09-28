@@ -258,6 +258,7 @@ impl PersonalAgent {
             &self.hub.tools,
             chat_messages,
             &enabled_tools,
+            Some(&session_id),
             ToolLoopConfig {
                 max_rounds: self.config.max_tool_rounds,
                 temperature: 0.2,

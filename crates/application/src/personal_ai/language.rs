@@ -228,6 +228,7 @@ impl LanguageTools {
             );
             let request = ChatRequest {
                 messages: vec![ChatMessage::system(system), ChatMessage::user(user)],
+                session_id: None,
                 tools: Vec::new(),
                 temperature: Some(0.2),
                 max_tokens: None,

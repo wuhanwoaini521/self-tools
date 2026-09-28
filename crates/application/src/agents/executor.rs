@@ -154,6 +154,7 @@ impl AgentExecutor {
                 &self.deps.registry,
                 messages,
                 &tools,
+                Some(&task.task_id),
                 loop_config,
             ),
         )

@@ -149,6 +149,7 @@ impl EnrichmentLlmPort for EnrichmentLlmAdapter {
         let response = provider
             .chat(ChatRequest {
                 messages: vec![ChatMessage::system(system), ChatMessage::user(user)],
+                session_id: None,
                 tools: Vec::new(),
                 temperature: Some(0.2),
                 max_tokens: None,

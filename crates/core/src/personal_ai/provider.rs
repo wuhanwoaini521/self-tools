@@ -218,6 +218,9 @@ pub struct ChatToolSpec {
 #[serde(default)]
 pub struct ChatRequest {
     pub messages: Vec<ChatMessage>,
+    /// 提供商路由使用的稳定会话标识（不写入 OpenAI 请求体）。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub tools: Vec<ChatToolSpec>,
     pub temperature: Option<f32>,

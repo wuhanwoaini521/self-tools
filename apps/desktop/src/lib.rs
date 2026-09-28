@@ -731,6 +731,7 @@ async fn test_travel_llm(
                 devtoolbox_core::ChatMessage::system("You are a connectivity test."),
                 devtoolbox_core::ChatMessage::user("Reply with OK."),
             ],
+            session_id: None,
             tools: Vec::new(),
             temperature: Some(0.2),
             max_tokens: None,

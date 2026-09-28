@@ -1577,6 +1577,7 @@ mod gate9_tests {
                 tool_call_id: None,
             }],
             &allowed,
+            None,
             ToolLoopConfig::default(),
         )
         .await
@@ -1662,6 +1663,7 @@ mod gate9_tests {
                 tool_call_id: None,
             }],
             &allowed,
+            None,
             config,
         )
         .await;
@@ -1718,6 +1720,7 @@ mod gate9_tests {
                 tool_call_id: None,
             }],
             &allowed,
+            None,
             config,
         )
         .await;

@@ -6,6 +6,7 @@
 
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use devtoolbox_core::personal_ai::{
     ChatMessage, ChatModelProvider, ChatRequest, ChatResponse, ChatRole, ChatToolCall,
@@ -33,17 +34,33 @@ impl AiModelConfig {
 }
 
 const DEFAULT_TIMEOUT_SECS: u64 = 120;
+static PROVIDER_SESSION_COUNTER: AtomicU64 = AtomicU64::new(1);
+
+fn new_provider_session_id() -> String {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_nanos())
+        .unwrap_or_default();
+    let counter = PROVIDER_SESSION_COUNTER.fetch_add(1, Ordering::Relaxed);
+    format!("devtoolbox-{}-{nanos:x}-{counter:x}", std::process::id())
+}
 
 /// OpenAI-Compatible `/chat/completions` 实现（含 function calling）。
 pub struct OpenAiCompatibleChatModelProvider {
     client: reqwest::Client,
     config: AiModelConfig,
+    fallback_session_id: String,
 }
 
 impl OpenAiCompatibleChatModelProvider {
     #[must_use]
     pub fn new(client: reqwest::Client, config: AiModelConfig) -> Self {
-        Self { client, config }
+        Self {
+            client,
+            config,
+            fallback_session_id: new_provider_session_id(),
+        }
     }
 }
 
@@ -96,6 +113,18 @@ impl ChatModelProvider for OpenAiCompatibleChatModelProvider {
             .timeout(timeout)
             .header(reqwest::header::ACCEPT, "application/json")
             .header(reqwest::header::ACCEPT_ENCODING, "identity")
+            .header(
+                reqwest::header::USER_AGENT,
+                concat!("DevToolbox/", env!("CARGO_PKG_VERSION")),
+            )
+            .header(
+                "x-opencode-session",
+                request
+                    .session_id
+                    .as_deref()
+                    .filter(|session_id| !session_id.trim().is_empty())
+                    .unwrap_or(&self.fallback_session_id),
+            )
             .json(&body);
         if let Some(key) = self.config.api_key.as_deref().filter(|k| !k.is_empty()) {
             builder = builder.bearer_auth(key);
