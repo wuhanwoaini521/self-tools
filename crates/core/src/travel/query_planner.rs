@@ -5,6 +5,37 @@
 
 use serde::{Deserialize, Serialize};
 
+/// 统一用户输入的常见城市写法，供搜索、天气、POI 和攻略缓存共用。
+/// 例如“辽宁省大连市”“辽宁大连”“大连市”都会归一为“大连”。
+#[must_use]
+pub fn normalize_city_query(input: &str) -> String {
+    const REGION_PREFIXES: &[&str] = &[
+        "内蒙古自治区", "广西壮族自治区", "新疆维吾尔自治区", "宁夏回族自治区", "西藏自治区",
+        "香港特别行政区", "澳门特别行政区", "黑龙江省", "内蒙古", "广西", "新疆", "宁夏", "西藏",
+        "黑龙江", "吉林省", "辽宁省", "河北省", "山西省", "江苏省", "浙江省", "安徽省",
+        "福建省", "江西省", "山东省", "河南省", "湖北省", "湖南省", "广东省", "海南省",
+        "四川省", "贵州省", "云南省", "陕西省", "甘肃省", "青海省", "台湾省", "吉林", "辽宁",
+        "河北", "山西", "江苏", "浙江", "安徽", "福建", "江西", "山东", "河南", "湖北", "湖南",
+        "广东", "海南", "四川", "贵州", "云南", "陕西", "甘肃", "青海", "台湾",
+    ];
+    let compact = input
+        .trim()
+        .chars()
+        .filter(|character| !character.is_whitespace())
+        .collect::<String>();
+    let compact = compact.strip_prefix("中国").unwrap_or(&compact);
+    let city = ["市", "地区", "自治州", "盟"]
+        .iter()
+        .find_map(|suffix| compact.strip_suffix(suffix))
+        .unwrap_or(compact);
+    let city = REGION_PREFIXES
+        .iter()
+        .find_map(|prefix| city.strip_prefix(prefix))
+        .filter(|remainder| !remainder.is_empty())
+        .unwrap_or(city);
+    city.to_string()
+}
+
 /// 搜索任务类别（同时也是进度事件的消息分组）。
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]

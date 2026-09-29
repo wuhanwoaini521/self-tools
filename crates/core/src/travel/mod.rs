@@ -38,7 +38,7 @@ pub use provider::{
 pub use quality::{QualityReport, apply_quality_gate, normalize_entity_name};
 pub use query_planner::{
     QueryCategory, QueryTask, SearchIntentCategory, TravelDateRange, TravelQueryInput,
-    TravelQueryPlanner,
+    TravelQueryPlanner, normalize_city_query,
 };
 pub use ranking::{
     SourceRankingContext, classify_source, freshness_score, host_of, rate_source, rate_source_for,

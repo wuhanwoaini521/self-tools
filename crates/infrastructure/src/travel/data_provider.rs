@@ -12,6 +12,7 @@ use async_trait::async_trait;
 use devtoolbox_core::travel::{
     AMAP_SOURCE_URL, FactCategory, MapCoordinates, ProviderError, QWEATHER_SOURCE_URL,
     TravelDataProvider, TravelDataRequest, TravelFact, TravelRoute, TravelRouteRequest,
+    normalize_city_query,
 };
 
 const DATA_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
@@ -111,12 +112,15 @@ impl TravelDataProvider for AmapPoiProvider {
         }
         let mut facts = Vec::new();
         let mut failures: Vec<String> = Vec::new();
+        let city = normalize_city_query(&request.city);
         for (keywords, category) in AMAP_QUERIES {
+            // 景点需要作为用户可挑选的城市目录，保留更多候选；餐饮和住宿仍控制请求量。
+            let offset = if *category == FactCategory::Attraction { 20 } else { 8 };
             let url = format!(
-                "https://restapi.amap.com/v3/place/text?key={key}&keywords={keywords}&city={city}&offset=8&page=1&extensions=base",
+                "https://restapi.amap.com/v3/place/text?key={key}&keywords={keywords}&city={city}&citylimit=true&offset={offset}&page=1&extensions=base",
                 key = percent_encode(&self.key),
                 keywords = percent_encode(keywords),
-                city = percent_encode(&request.city),
+                city = percent_encode(&city),
             );
             let body = match get_json(&self.client, &url, "amap").await {
                 Ok(body) => body,

@@ -78,6 +78,10 @@ use crate::{ApplicationError, travel::TravelResearchRequest};
 fn request(city: &str) -> TravelResearchRequest {
     TravelResearchRequest {
         city: city.to_string(),
+        natural_language: None,
+        today: None,
+        arrival: None,
+        departure: None,
         days: 3,
         month: None,
         date_range: None,
@@ -89,6 +93,10 @@ fn request(city: &str) -> TravelResearchRequest {
 fn fushun_request() -> TravelResearchRequest {
     TravelResearchRequest {
         city: "抚顺".to_string(),
+        natural_language: None,
+        today: None,
+        arrival: None,
+        departure: None,
         days: 2,
         month: Some(9),
         date_range: Some(TravelDateRange {
