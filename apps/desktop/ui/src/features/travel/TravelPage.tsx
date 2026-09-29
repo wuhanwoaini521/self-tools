@@ -39,6 +39,8 @@ export const TRAVEL_PREFERENCES = [
 interface TravelPageProps {
   active: boolean;
   setNotice: (message: string) => void;
+  amapApiKey?: string | null;
+  amapSecurityJsCode?: string | null;
 }
 
 type ResearchState = "idle" | "running" | "done" | "error";
@@ -55,6 +57,8 @@ export function TravelPage({
   active,
   setNotice,
   onContextChange,
+  amapApiKey,
+  amapSecurityJsCode,
 }: TravelPageProps & {
   onContextChange?: (ctx: AppContextPayload | null) => void;
 }) {
@@ -156,6 +160,12 @@ export function TravelPage({
     try {
       const request = {
         city: cityName,
+        natural_language: cityName,
+        today: (() => {
+          const now = new Date();
+          const pad = (value: number) => String(value).padStart(2, "0");
+          return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+        })(),
         days: requestedDays,
         month: dateRange ? Number(dateRange.start.slice(5, 7)) : null,
         date_range: dateRange,
@@ -236,7 +246,7 @@ export function TravelPage({
       </header>
 
       <section className="travel-search">
-        <label htmlFor="travel-city">去哪里？</label>
+        <label htmlFor="travel-city">目的地或行程描述</label>
         <div className="travel-search-row">
           <input
             id="travel-city"
@@ -245,7 +255,7 @@ export function TravelPage({
             onKeyDown={(event) => {
               if (event.key === "Enter") void startResearch(false);
             }}
-            placeholder="城市，如：杭州"
+            placeholder="例如：大连 10.1-10.2 两日游，想吃当地特色、看博物馆；1号10点到大连北站，2号19点离开"
             disabled={state === "running"}
           />
           <button
@@ -370,14 +380,13 @@ export function TravelPage({
               已命中本地缓存（24 小时内生成），点击「重新研究」可获取最新信息。
             </p>
           ) : null}
-          <TravelGuide guide={guide} fromCache={fromCache} />
+          <TravelGuide key={`${guide.city.name}:${guide.meta.days}:${guide.meta.updated_at}:${guide.meta.date_range?.start ?? ""}:${guide.meta.date_range?.end ?? ""}`} guide={guide} fromCache={fromCache} amapApiKey={amapApiKey} amapSecurityJsCode={amapSecurityJsCode} />
         </>
       ) : null}
       {state === "idle" ? (
         <p className="travel-hint">
           <Sparkle size={14} />
-          输入城市后，系统会规划搜索任务 → 搜索 → 抓取网页 → 提取并验证事实 →
-          生成攻略。
+          可以只输入城市，也可以描述日期、偏好和到离站时间；系统会先解析行程需求，再搜索并整理攻略。
         </p>
       ) : null}
     </div>

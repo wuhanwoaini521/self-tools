@@ -764,6 +764,8 @@ export default function App() {
               active={page === "travel"}
               setNotice={setNotice}
               onContextChange={setAiContext}
+              amapApiKey={settings.geography.amap_api_key}
+              amapSecurityJsCode={settings.geography.amap_security_js_code}
             />
           </section>
           <section

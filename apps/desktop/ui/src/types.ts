@@ -266,6 +266,10 @@ export interface TravelDateRange {
 
 export interface TravelResearchRequest {
   city: string;
+  natural_language?: string | null;
+  today?: string | null;
+  arrival?: string | null;
+  departure?: string | null;
   days: number;
   month: number | null;
   date_range: TravelDateRange | null;

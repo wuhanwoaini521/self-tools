@@ -11902,6 +11902,104 @@ main.history-v2-period {
  color: var(--accent-hover);
  font-size: 11px;
 }
+.travel-card-actions {
+ display: flex;
+ flex-wrap: wrap;
+ align-items: center;
+ gap: 8px;
+ margin-top: 3px;
+ color: var(--muted);
+ font-size: 11px;
+}
+.travel-card-actions label {
+ display: inline-flex;
+ align-items: center;
+ gap: 5px;
+}
+.travel-card-actions select,
+.travel-discovery-search input {
+ min-height: 32px;
+ padding: 5px 9px;
+ border: 1px solid var(--line-soft);
+ border-radius: 8px;
+ background: var(--surface-panel);
+ color: var(--text-bright);
+ font: inherit;
+}
+.travel-card-actions button,
+.travel-discovery-item button {
+ min-height: 32px;
+ padding: 6px 10px;
+ border: 0;
+ border-radius: 8px;
+ background: var(--accent-soft);
+ color: var(--accent-hover);
+ font: inherit;
+ font-size: 11px;
+ font-weight: 700;
+ cursor: pointer;
+}
+.travel-card-actions .travel-remove-pick {
+ background: transparent;
+ color: var(--muted);
+}
+.travel-discovery-intro,
+.travel-no-picks,
+.travel-discovery-empty {
+ margin: 0 0 12px;
+ color: var(--muted);
+ font-size: 12px;
+ line-height: 1.6;
+}
+.travel-discovery-search {
+ display: grid;
+ gap: 6px;
+ margin-bottom: 12px;
+ color: var(--muted);
+ font-size: 11px;
+}
+.travel-discovery-search input {
+ width: min(100%, 420px);
+}
+.travel-discovery-list {
+ display: grid;
+ gap: 1px;
+ overflow: hidden;
+ border-radius: 12px;
+ background: var(--line-soft);
+}
+.travel-discovery-item {
+ display: flex;
+ align-items: center;
+ justify-content: space-between;
+ gap: 14px;
+ padding: 13px 14px;
+ background: var(--panel);
+}
+.travel-discovery-item h3 {
+ margin: 0 0 4px;
+ color: var(--text-bright);
+ font-size: 13px;
+}
+.travel-discovery-item small {
+ display: inline-flex;
+ align-items: center;
+ gap: 4px;
+ color: var(--muted);
+ font-size: 10px;
+}
+.travel-discovery-item p {
+ margin: 5px 0 0;
+ color: var(--text-soft);
+ font-size: 11px;
+ line-height: 1.5;
+}
+.travel-discovery-item button {
+ flex: 0 0 auto;
+}
+.travel-discovery-empty {
+ margin: 8px 0;
+}
 .travel-card-facts {
  padding-top: 5px;
  border-top: 1px solid var(--line-soft);
@@ -11951,6 +12049,59 @@ main.history-v2-period {
 .travel-map-tabs button.active {
  background: var(--accent);
  color: white;
+}
+.travel-map-canvas-wrap {
+ position: relative;
+ height: 260px;
+ background: var(--surface-panel);
+}
+.travel-map-canvas {
+ width: 100%;
+ height: 100%;
+}
+.travel-map-unconfigured {
+ display: grid;
+ height: 100%;
+ align-content: center;
+ justify-items: center;
+ gap: 8px;
+ color: var(--accent-hover);
+ background: radial-gradient(circle at 50% 30%, var(--accent-soft), transparent 60%);
+ text-align: center;
+}
+.travel-map-unconfigured span {
+ color: var(--text-soft);
+ font-size: 13px;
+ font-weight: 700;
+}
+.travel-map-unconfigured small {
+ color: var(--faint);
+ font-size: 11px;
+}
+.travel-map-status {
+ position: absolute;
+ right: 10px;
+ bottom: 10px;
+ left: 10px;
+ padding: 8px 10px;
+ border-radius: 8px;
+ background: rgb(255 255 255 / 92%);
+ color: var(--danger, #a84435);
+ font-size: 11px;
+ box-shadow: 0 2px 8px rgb(0 0 0 / 12%);
+}
+.travel-amap-marker {
+ display: grid;
+ width: 24px;
+ height: 24px;
+ place-items: center;
+ border: 2px solid white;
+ border-radius: 50%;
+ background: var(--accent);
+ color: white;
+ font-size: 11px;
+ font-weight: 700;
+ box-shadow: 0 2px 7px rgb(0 0 0 / 30%);
 }
 .travel-map-placeholder {
  position: relative;
