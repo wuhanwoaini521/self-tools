@@ -19,7 +19,3 @@ export async function openPage(label, id) {
   await expect($(".page-pane:not(.page-hidden)")).toBeDisplayed();
   void id;
 }
-
-export async function sendKeys(...keys) {
-  await browser.keys(keys);
-}

@@ -105,7 +105,16 @@ describe("Markdown 按键和命令面板", () => {
     const editor = await $(".cm-content");
     const positioned = await browser.execute(() => window.__DEVTOOLBOX_E2E_SET_EDITOR_LINE__?.("persist this task"));
     expect(positioned).toBe(true);
-    await browser.keys([Key.Ctrl, Key.Enter, Key.NULL]);
+    // WebView2 的 WebDriver 不给 Enter 这类特殊键附带修饰键位（实测 keydown
+    // 恒为 ctrlKey:false，可打印键如 Ctrl+S 才正常），所以组合键无法经由
+    // driver 送达。这里在页面内派发等价事件：应用真实的 window keydown
+    // 捕获处理器、matchesMarkdownShortcut 判定与 CodeMirror 事务都在链路内，
+    // 只有 OS 级按键投递这一段被替代。
+    await browser.execute(() => {
+      window.dispatchEvent(new KeyboardEvent("keydown", {
+        key: "Enter", code: "Enter", keyCode: 13, ctrlKey: true, bubbles: true, cancelable: true,
+      }));
+    });
     await browser.waitUntil(async () => (await editor.getText()).includes("[~] persist this task"), {
       timeout: 5_000,
       timeoutMsg: "Ctrl+Enter 未将当前任务切换到进行中状态",

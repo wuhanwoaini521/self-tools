@@ -273,6 +273,34 @@ fn semantic_history_path(_app: &AppHandle) -> Result<PathBuf, CommandError> {
     })
 }
 
+/// 装配历史语义仓库。
+///
+/// 正常构建在产物缺失时必须 fail-fast —— 那是开发环境配置错误。但 E2E 构建
+/// 在 CI 上必然拿不到该产物（submodule 的 `dist/` 不入 Git），崩溃会让整个
+/// 桌面回归套件无法运行；因此只在 `e2e` feature 下退化为"连得上但查询失败"，
+/// 由 History 页面向用户显示缺失错误。
+fn history_repository(app: &AppHandle) -> Result<HistoryDuckDbRepository, CommandError> {
+    match semantic_history_path(app) {
+        Ok(path) => HistoryDuckDbRepository::open(path).map_err(|error| CommandError {
+            code: "history_data_unreadable",
+            message: error.to_string(),
+        }),
+        #[cfg(feature = "e2e")]
+        Err(error) => {
+            eprintln!("[e2e] [{}] {}", error.code, error.message);
+            let expected = std::env::current_dir()
+                .map_err(|cause| CommandError {
+                    code: "history_data_missing",
+                    message: cause.to_string(),
+                })?
+                .join("history-data-pipeline/dist/history.duckdb");
+            Ok(HistoryDuckDbRepository::attach_without_probe(expected))
+        }
+        #[cfg(not(feature = "e2e"))]
+        Err(error) => Err(error),
+    }
+}
+
 // ---------- 文档 / Markdown 模块 ----------
 
 mod composition;
@@ -2452,11 +2480,8 @@ pub fn run() {
             let travel_store = TravelStore::open(config_directory.join("travel.db"))
                 .expect("open travel database");
             let travel_store_shared = Arc::new(Mutex::new(travel_store));
-            let history_duckdb = HistoryDuckDbRepository::open(
-                semantic_history_path(app.handle())
-                    .map_err(|error| std::io::Error::other(error.message))?,
-            )
-            .expect("open history semantic database");
+            let history_duckdb = history_repository(app.handle())
+                .map_err(|error| std::io::Error::other(error.message))?;
             let language_store = LanguageStore::open(config_directory.join("language.db"))
                 .expect("open language database");
             let geography_store = GeographyStore::open(config_directory.join("geography.db"))

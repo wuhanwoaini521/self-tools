@@ -43,6 +43,19 @@ impl HistoryDuckDbRepository {
         Ok(repository)
     }
 
+    /// 构造一个**不做存在性与表结构探测**的仓库：交给它一个尚不存在的
+    /// 路径也能成功，之后每次查询都会以 DuckDB 的 IO 错误失败。
+    ///
+    /// 存在的唯一理由是 `history-data-pipeline/dist/` 是 pipeline 的
+    /// gitignored 构建产物，CI 不 checkout submodule，因此它必然缺席。调用方
+    /// 借此让模块自己向用户显示"产物缺失"，而不是让进程在启动期崩溃。
+    /// 正常路径必须用 [`HistoryDuckDbRepository::open`]。
+    pub fn attach_without_probe(path: impl AsRef<Path>) -> Self {
+        Self {
+            path: path.as_ref().to_path_buf(),
+        }
+    }
+
     fn with_connection<T>(
         &self,
         operation: impl FnOnce(&Connection) -> Result<T, InfrastructureError>,
