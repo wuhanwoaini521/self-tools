@@ -245,22 +245,21 @@ impl TravelResearchService {
                 } else {
                     effective_request.city = fallback_city_from_brief(raw_brief);
                 }
-                if effective_request.date_range.is_none() {
-                    if let (Some(start), Some(end)) = (parsed.start_date, parsed.end_date) {
-                        let range = TravelDateRange { start, end };
-                        if valid_range_days(&range).is_some_and(|days| days <= 7) {
-                            effective_request.days =
-                                valid_range_days(&range).unwrap_or(effective_request.days);
-                            effective_request.month =
-                                range.start.get(5..7).and_then(|value| value.parse().ok());
-                            effective_request.date_range = Some(range);
-                        }
+                if effective_request.date_range.is_none()
+                    && let (Some(start), Some(end)) = (parsed.start_date, parsed.end_date)
+                {
+                    let range = TravelDateRange { start, end };
+                    if let Some(days) = valid_range_days(&range).filter(|days| *days <= 7) {
+                        effective_request.days = days;
+                        effective_request.month =
+                            range.start.get(5..7).and_then(|value| value.parse().ok());
+                        effective_request.date_range = Some(range);
                     }
                 }
-                if effective_request.date_range.is_none() {
-                    if let Some(days) = parsed.days.filter(|days| (1..=7).contains(days)) {
-                        effective_request.days = days;
-                    }
+                if effective_request.date_range.is_none()
+                    && let Some(days) = parsed.days.filter(|days| (1..=7).contains(days))
+                {
+                    effective_request.days = days;
                 }
                 for preference in parsed.preferences {
                     let preference = preference.trim();

@@ -115,7 +115,11 @@ impl TravelDataProvider for AmapPoiProvider {
         let city = normalize_city_query(&request.city);
         for (keywords, category) in AMAP_QUERIES {
             // 景点需要作为用户可挑选的城市目录，保留更多候选；餐饮和住宿仍控制请求量。
-            let offset = if *category == FactCategory::Attraction { 20 } else { 8 };
+            let offset = if *category == FactCategory::Attraction {
+                20
+            } else {
+                8
+            };
             let url = format!(
                 "https://restapi.amap.com/v3/place/text?key={key}&keywords={keywords}&city={city}&citylimit=true&offset={offset}&page=1&extensions=base",
                 key = percent_encode(&self.key),
