@@ -167,39 +167,39 @@ impl LearningService {
 
         // 1. 推荐常驻高质量跨模块主题 (确定性 fallback)
         recs.push(ExploreRecommendation {
-            id: "rec_meiji".to_string(),
-            title: "明治维新与日本近代化之路".to_string(),
-            summary: "探索1868年明治维新背后的政治变革、关键历史人物（坂本龙马、西乡隆盛）与地理区位演变。".to_string(),
+            id: "rec_chuhan".to_string(),
+            title: "楚汉争霸与汉王朝的建立".to_string(),
+            summary: "探索鸿门宴、垓下之围、关键历史人物（刘邦、项羽、韩信）与政权更迭。".to_string(),
             module: "history".to_string(),
             entity_type: "story".to_string(),
-            entity_id: "meiji_restoration".to_string(),
+            entity_id: "story-chu-han".to_string(),
             reason: "历史精选 · 跨越政治与地理的时代转折".to_string(),
-            connected_entity_title: Some("日本历史 · 幕末与维新".to_string()),
-            tags: vec!["历史故事".to_string(), "日本".to_string(), "近代史".to_string()],
+            connected_entity_title: Some("秦汉帝国 · 楚汉争霸".to_string()),
+            tags: vec!["历史故事".to_string(), "汉朝".to_string(), "刘邦".to_string()],
         });
 
         recs.push(ExploreRecommendation {
-            id: "rec_tarim".to_string(),
-            title: "塔里木盆地与天山地理".to_string(),
-            summary: "中国最大内陆盆地，北倚天山南临昆仑，丝绸之路南北两道的地理大通道。".to_string(),
+            id: "rec_sichuan".to_string(),
+            title: "四川盆地与成都平原地理".to_string(),
+            summary: "中国著名内陆红盆地，西连成都平原，四塞之国与天府之国的地理大通道。".to_string(),
             module: "geography".to_string(),
             entity_type: "place".to_string(),
-            entity_id: "tarim_basin".to_string(),
-            reason: "地理百科 · 自然地貌与丝路交通枢纽".to_string(),
+            entity_id: "sichuan-basin".to_string(),
+            reason: "地理百科 · 自然地貌与天府之国".to_string(),
             connected_entity_title: Some("中国地形与盆地".to_string()),
-            tags: vec!["地理".to_string(), "地貌".to_string(), "丝绸之路".to_string()],
+            tags: vec!["地理".to_string(), "地貌".to_string(), "四川盆地".to_string()],
         });
 
         recs.push(ExploreRecommendation {
-            id: "rec_tang".to_string(),
-            title: "盛唐长安与丝绸之路交通".to_string(),
-            summary: "盛唐时期的都城格局、万国来朝的文化交融与西域往来贸易路线。".to_string(),
+            id: "rec_anlu".to_string(),
+            title: "安史之乱与大唐盛衰转折".to_string(),
+            summary: "盛唐都城长安与洛阳沦陷、郭子仪收复两京、藩镇割据与盛唐转折。".to_string(),
             module: "history".to_string(),
-            entity_type: "event".to_string(),
-            entity_id: "tang_dynasty_changan".to_string(),
-            reason: "知识图谱关联 · 从地理盆地延伸至历史交通".to_string(),
-            connected_entity_title: Some("大唐盛世".to_string()),
-            tags: vec!["历史".to_string(), "文化".to_string(), "长安".to_string()],
+            entity_type: "story".to_string(),
+            entity_id: "story-an-lushan-rebellion".to_string(),
+            reason: "知识图谱关联 · 从长安地理延伸至历史变局".to_string(),
+            connected_entity_title: Some("大唐盛世与安史之乱".to_string()),
+            tags: vec!["历史".to_string(), "唐朝".to_string(), "长安".to_string()],
         });
 
         recs.push(ExploreRecommendation {

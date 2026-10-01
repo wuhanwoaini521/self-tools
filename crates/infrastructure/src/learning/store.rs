@@ -824,7 +824,12 @@ impl LearningStore {
             let last_studied_at: i64 = row.get(4).map_err(sqlite_err)?;
             let mastery: f64 = row.get(5).map_err(sqlite_err)?;
 
-            let action_target = format!("#{module}?id={entity_id}");
+            let action_target = match (module.as_str(), entity_type.as_str()) {
+                ("history", "story") => format!("#history?story={entity_id}"),
+                ("history", "person") => format!("#history?person={entity_id}"),
+                ("history", "event") => format!("#history?event={entity_id}"),
+                _ => format!("#{module}?id={entity_id}"),
+            };
             let subtitle = match module.as_str() {
                 "history" => Some("历史故事 · 继续阅读".to_string()),
                 "geography" => Some("地理百科 · 探索地貌".to_string()),
