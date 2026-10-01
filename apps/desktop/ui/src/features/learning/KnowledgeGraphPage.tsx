@@ -22,6 +22,7 @@ import type {
 } from "../../types";
 
 interface KnowledgeGraphPageProps {
+  active?: boolean;
   onNavigate?: (route: string) => void;
   onAskAi?: (prompt: string) => void;
   initialRootId?: string;
@@ -35,7 +36,10 @@ const TYPE_COLORS: Record<string, string> = {
   concept: "#06b6d4",
   article: "#3b82f6",
   language: "#6366f1",
+  language_item: "#6366f1",
+  word: "#6366f1",
   topic: "#f97316",
+  destination: "#14b8a6",
 };
 
 interface SimulationNode extends GraphNode {
@@ -47,6 +51,7 @@ interface SimulationNode extends GraphNode {
 }
 
 export function KnowledgeGraphPage({
+  active = true,
   onNavigate,
   onAskAi,
   initialRootId,
@@ -74,14 +79,22 @@ export function KnowledgeGraphPage({
       const data = await learningClient.getGraph(rootId || undefined, hops);
       setNeighborhood(data);
 
-      // Initialize simulation nodes
-      const width = canvasRef.current?.width ?? 900;
-      const height = canvasRef.current?.height ?? 600;
+      // Initialize simulation nodes with parent container dimensions
+      const canvas = canvasRef.current;
+      const rect = canvas?.parentElement?.getBoundingClientRect();
+      const width = (rect && rect.width > 0) ? rect.width : (canvas?.width || 900);
+      const height = (rect && rect.height > 0) ? rect.height : (canvas?.height || 600);
+      if (canvas) {
+        canvas.width = width;
+        canvas.height = height;
+      }
       const cx = width / 2;
       const cy = height / 2;
 
+      const centerId = data.root_id || data.center?.id || data.nodes[0]?.id;
+
       const nodes: SimulationNode[] = data.nodes.map((n, i) => {
-        const isCenter = n.id === data.center.id;
+        const isCenter = n.id === centerId;
         const angle = (i / Math.max(1, data.nodes.length - 1)) * Math.PI * 2;
         const dist = isCenter ? 0 : 160 + (i % 3) * 60;
         return {
@@ -105,8 +118,25 @@ export function KnowledgeGraphPage({
   }, [rootId, hops]);
 
   useEffect(() => {
-    loadGraph();
-  }, [loadGraph]);
+    if (active) {
+      loadGraph();
+    }
+  }, [active, loadGraph]);
+
+  useEffect(() => {
+    const handleResize = () => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const rect = canvas.parentElement?.getBoundingClientRect();
+      if (rect && rect.width > 0 && rect.height > 0) {
+        canvas.width = rect.width;
+        canvas.height = rect.height;
+      }
+    };
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [active]);
 
   // Force simulation & render loop
   useEffect(() => {
@@ -120,8 +150,8 @@ export function KnowledgeGraphPage({
     const render = () => {
       if (!running) return;
 
-      const width = canvas.width;
-      const height = canvas.height;
+      const width = canvas.width || 900;
+      const height = canvas.height || 600;
       const cx = width / 2;
       const cy = height / 2;
 
@@ -159,8 +189,10 @@ export function KnowledgeGraphPage({
 
       // Spring force on edges
       for (const edge of edges) {
-        const source = nodeMap.get(edge.source);
-        const target = nodeMap.get(edge.target);
+        const sId = edge.source_id || edge.source;
+        const tId = edge.target_id || edge.target;
+        const source = sId ? nodeMap.get(sId) : undefined;
+        const target = tId ? nodeMap.get(tId) : undefined;
         if (source && target) {
           const dx = target.x - source.x;
           const dy = target.y - source.y;
@@ -197,8 +229,10 @@ export function KnowledgeGraphPage({
 
       // Draw Edges
       for (const edge of edges) {
-        const source = nodeMap.get(edge.source);
-        const target = nodeMap.get(edge.target);
+        const sId = edge.source_id || edge.source;
+        const tId = edge.target_id || edge.target;
+        const source = sId ? nodeMap.get(sId) : undefined;
+        const target = tId ? nodeMap.get(tId) : undefined;
         if (source && target) {
           const isHighlighted =
             (hoveredNode && (source.id === hoveredNode.id || target.id === hoveredNode.id)) ||
@@ -224,12 +258,13 @@ export function KnowledgeGraphPage({
       }
 
       // Draw Nodes
+      const centerId = neighborhood?.root_id || neighborhood?.center?.id || nodes[0]?.id;
       for (const node of nodes) {
         if (selectedType !== "all" && node.entity_type !== selectedType) {
           continue;
         }
 
-        const isCenter = neighborhood && node.id === neighborhood.center.id;
+        const isCenter = node.id === centerId;
         const isSelected = selectedNode?.id === node.id;
         const isHovered = hoveredNode?.id === node.id;
         const color = TYPE_COLORS[node.entity_type] ?? "#6b7280";

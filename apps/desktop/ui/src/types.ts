@@ -992,19 +992,26 @@ export interface GraphNode {
 }
 
 export interface GraphEdge {
-  source: string;
-  target: string;
-  relation: GraphRelationKind;
+  id?: string;
+  source_id?: string;
+  target_id?: string;
+  source?: string;
+  target?: string;
+  relation_kind?: GraphRelationKind;
+  relation?: GraphRelationKind;
   label?: string | null;
   weight?: number;
+  source_module?: string;
 }
 
 export interface GraphNeighborhood {
-  center: GraphNode;
+  root_id?: string | null;
+  center?: GraphNode;
   nodes: GraphNode[];
   edges: GraphEdge[];
-  total_nodes: number;
-  total_edges: number;
+  hops?: number;
+  total_nodes?: number;
+  total_edges?: number;
 }
 
 export interface CollectionItem {

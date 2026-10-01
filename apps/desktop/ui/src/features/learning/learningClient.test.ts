@@ -82,7 +82,7 @@ describe("LearningClient", () => {
       rootId: "silk_road",
       hops: 2,
     });
-    expect(graph.center.name).toBe("丝绸之路");
+    expect(graph.center?.name).toBe("丝绸之路");
   });
 
   it("calls collection CRUD methods correctly", async () => {

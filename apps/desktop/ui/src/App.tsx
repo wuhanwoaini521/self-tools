@@ -791,6 +791,7 @@ export default function App() {
             className={"page-pane" + (page === "graph" ? "" : " page-hidden")}
           >
             <KnowledgeGraphPage
+              active={page === "graph"}
               onNavigate={navigateToHash}
               onAskAi={(prompt) => deliverToAi(prompt)}
             />

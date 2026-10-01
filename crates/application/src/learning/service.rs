@@ -227,22 +227,25 @@ impl LearningService {
         hops: u32,
     ) -> Result<GraphNeighborhood, LearningPortError> {
         let hops = hops.clamp(1, 2);
-        let root = root_id.unwrap_or("history:story:meiji_restoration");
+        let root = match root_id {
+            Some(r) if !r.trim().is_empty() => r,
+            _ => "history:story:story-chu-han",
+        };
 
         let mut nodes = Vec::new();
         let mut edges = Vec::new();
 
         // 根节点
-        let (root_name, root_mod, root_type, root_summary) = if root.contains("meiji") {
-            ("明治维新", "history", EntityType::Event, "1868年日本近代化政治与社会变革")
-        } else if root.contains("tarim") {
-            ("塔里木盆地", "geography", EntityType::Place, "中国最大的内陆盆地，位于新疆南部")
-        } else if root.contains("tang") {
-            ("大唐盛世", "history", EntityType::Time, "公元618年-907年中国封建王朝繁荣顶峰")
-        } else if root.contains("hangzhou") {
-            ("杭州", "geography", EntityType::Destination, "浙江省省会，历史文化名城与江南水乡")
+        let (root_name, root_mod, root_type, root_summary) = if root.contains("chu-han") || root.contains("chuhan") {
+            ("楚汉争霸与秦汉帝国", "history", EntityType::Event, "从秦末战争、楚汉相持到刘邦建立汉朝的历史脉络")
+        } else if root.contains("sichuan") || root.contains("basin") {
+            ("四川盆地与巴蜀地理", "geography", EntityType::Place, "中国四大盆地之一，天府之国与四塞之地的地理枢纽")
+        } else if root.contains("an-lu") || root.contains("tang") {
+            ("大唐盛世与安史之乱", "history", EntityType::Time, "盛唐繁荣、两京沦陷与藩镇割据的时代大转折")
+        } else if root.contains("reservation") || root.contains("lang") {
+            ("高频词汇：Reservation", "language", EntityType::LanguageItem, "预约、保留与文献词根用法网络")
         } else {
-            ("核心探索节点", "knowledge", EntityType::Concept, "跨模块知识网络节点")
+            ("知识探索中心", "knowledge", EntityType::Concept, "跨历史、地理与语言的统一知识图谱")
         };
 
         nodes.push(GraphNode {
@@ -254,17 +257,19 @@ impl LearningService {
             summary: Some(root_summary.to_string()),
             metadata: serde_json::json!({"is_root": true}),
             learning_status: Some(LearningStatus::Learning),
-            mastery_score: Some(65.0),
+            mastery_score: Some(85.0),
         });
 
-        // 1-hop 关联节点与关系
-        if root.contains("meiji") {
+        // 关联节点与关系
+        if root.contains("chu-han") || root.contains("chuhan") {
             let related = [
-                ("history:person:emperor_meiji", "明治天皇", "history", EntityType::Person, "第122代天皇，宣布王政复古"),
-                ("history:event:boshin_war", "戊辰战争", "history", EntityType::Event, "1868-1869年维新派与幕府军内战"),
-                ("geography:country:japan", "日本国", "geography", EntityType::Place, "东亚岛国，位于太平洋西岸"),
-                ("history:person:tokugawa_yoshinobu", "德川庆喜", "history", EntityType::Person, "江户幕府第15代征夷大将军，大政奉还"),
-                ("history:time:1868", "1868年 (明治元年)", "history", EntityType::Time, "改元明治，颁布五条御誓文"),
+                ("history:person:liubang", "刘邦 (汉高祖)", "history", EntityType::Person, "汉朝开国皇帝，楚汉争霸胜利者"),
+                ("history:person:xiangyu", "项羽 (西楚霸王)", "history", EntityType::Person, "反秦领袖与西楚政权核心统治者"),
+                ("history:event:hongmen", "鸿门宴", "history", EntityType::Event, "公元前206年刘项关键政治博弈"),
+                ("geography:place:guanzhong", "关中平原", "geography", EntityType::Place, "秦汉核心根据地与三秦故地"),
+                ("geography:place:sichuan-basin", "四川盆地 (巴蜀)", "geography", EntityType::Place, "刘邦汉中起兵与粮饷基地"),
+                ("history:event:gaixia", "垓下之围", "history", EntityType::Event, "公元前202年楚汉最终决战"),
+                ("language:word:reservation", "Reservation (保留/储备)", "language", EntityType::LanguageItem, "历史文献与战略储备相关高频词"),
             ];
 
             for (node_id, name, module, etype, summary) in related {
@@ -277,7 +282,7 @@ impl LearningService {
                     summary: Some(summary.to_string()),
                     metadata: serde_json::Value::Null,
                     learning_status: Some(LearningStatus::Familiar),
-                    mastery_score: Some(72.0),
+                    mastery_score: Some(75.0),
                 });
 
                 edges.push(GraphEdge {
@@ -285,17 +290,17 @@ impl LearningService {
                     source_id: root.to_string(),
                     target_id: node_id.to_string(),
                     relation_kind: RelationKind::RelatedTo,
-                    label: "核心关联".to_string(),
+                    label: "脉络关联".to_string(),
                     weight: 1.0,
                     source_module: "history".to_string(),
                 });
             }
-        } else if root.contains("tarim") {
+        } else if root.contains("sichuan") || root.contains("basin") {
             let related = [
-                ("geography:mountain:tianshan", "天山山脉", "geography", EntityType::Place, "界于准噶尔与塔里木两大盆地之间"),
-                ("geography:desert:taklamakan", "塔克拉玛干沙漠", "geography", EntityType::Place, "位于塔里木盆地中央的世界第二大流动沙漠"),
-                ("history:event:silk_road", "丝绸之路", "history", EntityType::Topic, "连接古代欧亚大陆的陆上商贸大通道"),
-                ("geography:river:tarim_river", "塔里木河", "geography", EntityType::Place, "中国最长的内陆河"),
+                ("geography:mountain:longmen", "龙门山脉", "geography", EntityType::Place, "四川盆地西北边界山脉"),
+                ("geography:river:yangtze", "长江干流与三峡", "geography", EntityType::Place, "四川盆地出川水系大通道"),
+                ("history:story:story-chu-han", "楚汉争霸", "history", EntityType::Event, "汉王刘邦以巴蜀汉中为基地还定三秦"),
+                ("geography:place:chengdu_plain", "成都平原 (天府之国)", "geography", EntityType::Place, "都江堰灌溉下的核心农业水利区"),
             ];
 
             for (node_id, name, module, etype, summary) in related {
@@ -316,17 +321,18 @@ impl LearningService {
                     source_id: root.to_string(),
                     target_id: node_id.to_string(),
                     relation_kind: RelationKind::LocatedIn,
-                    label: "地理区位".to_string(),
+                    label: "地理枢纽".to_string(),
                     weight: 1.0,
                     source_module: "geography".to_string(),
                 });
             }
         } else {
-            // 通用关联
+            // 通用全景关联
             let related = [
-                ("history:topic:general_history", "中国历史通览", "history", EntityType::Topic, "通史脉络与事件"),
-                ("geography:place:asia", "亚洲地理概貌", "geography", EntityType::Place, "自然与人文地理"),
-                ("language:item:starter_words", "高频词汇集", "language", EntityType::LanguageItem, "语言学习基础词"),
+                ("history:story:story-chu-han", "楚汉争霸", "history", EntityType::Event, "秦汉交替与统一帝国建立"),
+                ("geography:place:sichuan-basin", "四川盆地", "geography", EntityType::Place, "中国四大盆地与巴蜀水系"),
+                ("history:story:story-an-lushan-rebellion", "安史之乱", "history", EntityType::Time, "盛唐由盛转衰的时代变局"),
+                ("language:word:reservation", "Reservation", "language", EntityType::LanguageItem, "语言核心词汇与语义网络"),
             ];
 
             for (node_id, name, module, etype, summary) in related {
@@ -339,7 +345,7 @@ impl LearningService {
                     summary: Some(summary.to_string()),
                     metadata: serde_json::Value::Null,
                     learning_status: Some(LearningStatus::NotStarted),
-                    mastery_score: Some(20.0),
+                    mastery_score: Some(40.0),
                 });
 
                 edges.push(GraphEdge {
@@ -347,7 +353,7 @@ impl LearningService {
                     source_id: root.to_string(),
                     target_id: node_id.to_string(),
                     relation_kind: RelationKind::RelatedTo,
-                    label: "相关知识".to_string(),
+                    label: "知识互联".to_string(),
                     weight: 0.8,
                     source_module: "knowledge".to_string(),
                 });
