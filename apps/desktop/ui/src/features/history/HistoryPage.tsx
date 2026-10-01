@@ -309,7 +309,7 @@ export function HistoryPage({
     if (selectedPeriod) void loadPeriod(selectedPeriod.id);
   }, [selectedPeriod?.id, loadPeriod]);
   useEffect(() => {
-    if (!intent?.id || !active || !homeLoaded) return;
+    if (!intent?.id || !active) return;
     if (intent.kind === "person") {
       void loadPerson(intent.id);
       return;
@@ -322,14 +322,15 @@ export function HistoryPage({
       void loadEvent(intent.id);
       return;
     }
-    if (homeStories.some((story) => story.id === intent.id))
+    if (homeStories.some((story) => story.id === intent.id) || intent.id.startsWith("story-"))
       void loadStory(intent.id);
     else void loadEvent(intent.id);
   }, [
     active,
-    homeLoaded,
     homeStories,
-    intent,
+    intent?.id,
+    intent?.kind,
+    intent?.nonce,
     loadEvent,
     loadPerson,
     loadStory,

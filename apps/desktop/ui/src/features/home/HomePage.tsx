@@ -414,7 +414,19 @@ export function HomePage({
               {(todayData.explore_recommendations ?? []).slice(0, 3).map((exp) => (
                 <div
                   key={exp.id}
-                  onClick={() => handleDeepLink(`#${exp.module}?id=${exp.entity_id}`)}
+                  onClick={() => {
+                    if (exp.module === "history") {
+                      if (exp.entity_type === "story") handleDeepLink(`#history?story=${exp.entity_id}`);
+                      else if (exp.entity_type === "person") handleDeepLink(`#history?person=${exp.entity_id}`);
+                      else handleDeepLink(`#history?event=${exp.entity_id}`);
+                    } else if (exp.module === "geography") {
+                      handleDeepLink(`#geography?id=${exp.entity_id}`);
+                    } else if (exp.module === "language") {
+                      handleDeepLink(`#language?id=${exp.entity_id}`);
+                    } else {
+                      handleDeepLink(`#${exp.module}?id=${exp.entity_id}`);
+                    }
+                  }}
                   style={{
                     background: "var(--surface-primary, #ffffff)",
                     border: "1px solid var(--border-color, #e5e7eb)",

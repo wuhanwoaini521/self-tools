@@ -532,10 +532,20 @@ export default function App() {
         const storyId = params.get("story");
         const personId = params.get("person");
         const eventId = params.get("event") || params.get("id");
+        const type = params.get("type");
         if (storyId) openHistory(storyId, "story");
         else if (personId) openHistory(personId, "person");
-        else if (eventId) openHistory(eventId, "event");
-        else setPage("history");
+        else if (type === "story" && eventId) openHistory(eventId, "story");
+        else if (type === "person" && eventId) openHistory(eventId, "person");
+        else if (eventId) {
+          if (eventId.startsWith("story-")) {
+            openHistory(eventId, "story");
+          } else {
+            openHistory(eventId, "event");
+          }
+        } else {
+          setPage("history");
+        }
       } else if (pathPart === "geography") {
         const id = params.get("id") || params.get("entityId");
         openGeography(id ?? undefined);
