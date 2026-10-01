@@ -67,6 +67,11 @@ export function useGlobalShortcuts({
         return;
       }
 
+      // 模块级快捷键优先。Markdown 编辑器在 **capture 阶段**（window 捕获，
+      // 先于本处理器冒泡）用 preventDefault 认领了自己的组合键，例如 ⌘K 是
+      // 「Zen 模式」的前缀。若这里继续处理，会把用户从 Markdown 页面切走，
+      // 该页面被卸载，模块快捷键永远不生效。
+      if (event.defaultPrevented) return;
       const isModifier = event.metaKey || event.ctrlKey;
       if (!isModifier) return;
 
