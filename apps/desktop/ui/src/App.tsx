@@ -52,7 +52,6 @@ import { ServerPage } from "./features/server/ServerPage";
 import { StudyBoardPage } from "./features/study/StudyBoardPage";
 import { SystemReadinessPage } from "./features/system/SystemReadinessPage";
 import { GlobalSearchPage } from "./features/system/GlobalSearchPage";
-import { GlobalSearchModal } from "./features/system/GlobalSearchModal";
 import { TravelPage } from "./features/travel/TravelPage";
 import { GeographyPage } from "./features/geography/GeographyPage";
 import { ReviewCenterPage } from "./features/learning/ReviewCenterPage";
@@ -112,7 +111,6 @@ interface NavItem {
   id: PageId;
   label: string;
   icon: typeof House;
-  disabled?: boolean;
 }
 
 /** 页面 id 集合（hash 路由与导航共用）。 */
@@ -135,24 +133,60 @@ const PAGE_IDS: PageId[] = [
   "search",
 ];
 
-/** 导航注册表:新功能在这里加一行即可(Tools 为未来模块的占位) */
-const NAV_ITEMS: NavItem[] = [
-  { id: "home", label: "Home", icon: House },
-  { id: "review", label: "Review", icon: Cards },
-  { id: "graph", label: "Graph", icon: TreeStructure },
-  { id: "collections", label: "Collections", icon: FolderSimple },
-  { id: "markdown", label: "Markdown", icon: Notebook },
-  { id: "rss", label: "RSS", icon: Rss },
-  { id: "news", label: "News", icon: Newspaper },
-  { id: "travel", label: "Travel", icon: Compass },
-  { id: "geography", label: "Geography", icon: MapTrifold },
-  { id: "history", label: "History", icon: Scroll },
-  { id: "language", label: "Language", icon: Translate },
-  { id: "knowledge", label: "Knowledge", icon: Brain },
-  { id: "study-board", label: "Study", icon: Notebook },
-  { id: "server", label: "Server", icon: HardDrives },
-  { id: "system", label: "System", icon: Heartbeat },
-  { id: "search", label: "Search", icon: MagnifyingGlass },
+/**
+ * 侧边导航分组。
+ *
+ * 分组只影响呈现，不影响路由：每个条目仍然是独立 hash route，`PAGE_IDS`
+ * 与历史深链接全部保持不变。目的是让 16 个入口不再平铺成一层，让用户一眼
+ * 看出「学习 / 发现 / 创作 / 知识 / 系统」这几条主线。
+ */
+const NAV_GROUPS: Array<{ label: string; items: NavItem[] }> = [
+  {
+    label: "概览",
+    items: [
+      { id: "home", label: "Home", icon: House },
+      { id: "review", label: "Review", icon: Cards },
+    ],
+  },
+  {
+    label: "学习",
+    items: [
+      { id: "history", label: "History", icon: Scroll },
+      { id: "geography", label: "Geography", icon: MapTrifold },
+      { id: "language", label: "Language", icon: Translate },
+      { id: "study-board", label: "Study", icon: Notebook },
+    ],
+  },
+  {
+    label: "发现",
+    items: [
+      { id: "news", label: "News", icon: Newspaper },
+      { id: "rss", label: "RSS", icon: Rss },
+      { id: "travel", label: "Travel", icon: Compass },
+    ],
+  },
+  {
+    label: "创作",
+    items: [
+      { id: "markdown", label: "Markdown", icon: Notebook },
+      { id: "collections", label: "Collections", icon: FolderSimple },
+    ],
+  },
+  {
+    label: "知识",
+    items: [
+      { id: "knowledge", label: "Knowledge", icon: Brain },
+      { id: "graph", label: "Graph", icon: TreeStructure },
+      { id: "search", label: "Search", icon: MagnifyingGlass },
+    ],
+  },
+  {
+    label: "系统",
+    items: [
+      { id: "server", label: "Server", icon: HardDrives },
+      { id: "system", label: "System", icon: Heartbeat },
+    ],
+  },
 ];
 
 const defaultSettings: AppSettings = {
@@ -338,7 +372,6 @@ export default function App() {
   const [knowledgeIntent, setKnowledgeIntent] = useState<KnowledgeIntent | null>(
     null,
   );
-  const [searchModalOpen, setSearchModalOpen] = useState(false);
   const startupRefreshed = useRef(false);
 
   /** 主题即时切换:CSS 变量作用于 :root,所有页面同步更新 */
@@ -564,7 +597,7 @@ export default function App() {
         else setPage("markdown");
       }
       else if (pathPart === "travel") setPage("travel");
-      else if (pathPart === "search") setSearchModalOpen(true);
+      else if (pathPart === "search") setPage("search");
       else if (PAGE_IDS.includes(pathPart as PageId)) setPage(pathPart as PageId);
     },
     [openGeography, openHistory, openLanguage, openKnowledge, openNote, newNote],
@@ -573,7 +606,7 @@ export default function App() {
   /** 全局快捷键与命令流监听 (⌘K / ⌘/ / ⌘, / ⌘1..9 / Esc) */
   useGlobalShortcuts({
     onToggleSearch: useCallback(() => {
-      setSearchModalOpen((prev) => !prev);
+      setPage("search");
     }, []),
     onToggleAi: useCallback(() => {
       setAiOpen((prev) => !prev);
@@ -585,7 +618,6 @@ export default function App() {
       setSettingsOpen(false);
       setAiOpen(false);
       setConversationOpen(false);
-      setSearchModalOpen(false);
     }, []),
     onSelectPage: useCallback((targetPage) => {
       setPage(targetPage);
@@ -704,40 +736,34 @@ export default function App() {
       <div className="app-body">
         {navigationLayout(layout) === "side" ? (
         <nav className="app-nav" aria-label="功能导航">
-          {NAV_ITEMS.map((item, index) =>
-            item.disabled ? (
-              <span
-                className="app-nav-item disabled"
-                key={item.id}
-                title="即将推出"
-              >
-                <item.icon size={18} />
-                {item.label}
-              </span>
-            ) : (
-              <button
-                key={item.id}
-                className={"app-nav-item" + (page === item.id ? " active" : "")}
-                onClick={() => setPage(item.id)}
-              >
-                <item.icon size={18} />
-                {item.label}
-                {shortcutDigitForPage(item.id) ? (
-                  // 按真实快捷键映射渲染，而不是侧边栏顺序：
-                  // Review/Graph/Collections 没有数字快捷键，显示序号会误导。
-                  <span className="nav-shortcut">
-                    ⌘{shortcutDigitForPage(item.id)}
-                  </span>
-                ) : null}
-                {item.id === "rss" && unreadTotal > 0 ? (
-                  <b>{unreadTotal > 99 ? "99+" : unreadTotal}</b>
-                ) : null}
-                {item.id === "news" && newsUnreadTotal > 0 ? (
-                  <b>{newsUnreadTotal > 99 ? "99+" : newsUnreadTotal}</b>
-                ) : null}
-              </button>
-            ),
-          )}
+          {NAV_GROUPS.map((group) => (
+            <div className="app-nav-group" key={group.label}>
+              <span className="app-nav-group-label">{group.label}</span>
+              {group.items.map((item) => (
+                <button
+                  key={item.id}
+                  className={"app-nav-item" + (page === item.id ? " active" : "")}
+                  onClick={() => setPage(item.id)}
+                >
+                  <item.icon size={18} />
+                  {item.label}
+                  {shortcutDigitForPage(item.id) ? (
+                    // 按真实快捷键映射渲染，而不是侧边栏顺序：
+                    // Review/Graph/Collections 没有数字快捷键，显示序号会误导。
+                    <span className="nav-shortcut">
+                      ⌘{shortcutDigitForPage(item.id)}
+                    </span>
+                  ) : null}
+                  {item.id === "rss" && unreadTotal > 0 ? (
+                    <b>{unreadTotal > 99 ? "99+" : unreadTotal}</b>
+                  ) : null}
+                  {item.id === "news" && newsUnreadTotal > 0 ? (
+                    <b>{newsUnreadTotal > 99 ? "99+" : newsUnreadTotal}</b>
+                  ) : null}
+                </button>
+              ))}
+            </div>
+          ))}
           <div className="app-nav-divider" />
           <button
             className={"app-nav-item" + (settingsOpen ? " active" : "")}
@@ -998,8 +1024,7 @@ export default function App() {
       </div>
       {navigationLayout(layout) === "bottom" ? (
         <nav className="app-bottom-nav" aria-label="主导航">
-          {NAV_ITEMS.filter((item) => !item.disabled)
-            .slice(0, 5)
+          {NAV_GROUPS.flatMap((group) => group.items)
             .map((item) => (
               <button
                 key={item.id}
@@ -1113,12 +1138,6 @@ export default function App() {
           onClose={() => setSettingsOpen(false)}
         />
       ) : null}
-      <GlobalSearchModal
-        isOpen={searchModalOpen}
-        onClose={() => setSearchModalOpen(false)}
-        onNavigate={navigateToHash}
-        onAskAi={(prompt) => deliverToAi(prompt)}
-      />
     </div>
   );
 }

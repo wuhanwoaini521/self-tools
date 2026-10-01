@@ -27,17 +27,6 @@ export interface ConversationDto extends ConversationSummaryDto {
   messages: ConversationMessageDto[];
 }
 
-/** 绝对时间 → 「x 分钟前」（会话列表用）。 */
-export function conversationRelativeTime(unixSeconds: number): string {
-  if (!unixSeconds) return "";
-  const delta = Math.floor(Date.now() / 1000) - unixSeconds;
-  if (delta < 60) return "刚刚";
-  if (delta < 3600) return `${Math.floor(delta / 60)} 分钟前`;
-  if (delta < 86400) return `${Math.floor(delta / 3600)} 小时前`;
-  if (delta < 86400 * 30) return `${Math.floor(delta / 86400)} 天前`;
-  return new Date(unixSeconds * 1000).toLocaleDateString("zh-CN");
-}
-
 export const conversationClient = {
   /** 列表（`includeArchived` = 「显示已归档」开关）。 */
   async list(limit = 20, includeArchived = false): Promise<ConversationSummaryDto[]> {

@@ -651,6 +651,26 @@ button {
  margin: 8px 4px;
  background: var(--line);
 }
+
+/* 侧边导航分组：把 16 个平铺入口收成几条主线。
+   分组标题只出现在桌面侧栏（移动端走底部导航，不显示分组）。 */
+.app-nav-group {
+ display: flex;
+ flex-direction: column;
+ gap: 2px;
+}
+.app-nav-group + .app-nav-group {
+ margin-top: 10px;
+}
+.app-nav-group-label {
+ padding: 2px 10px 4px;
+ color: var(--faint);
+ font-size: 10px;
+ font-weight: 700;
+ letter-spacing: 0.08em;
+ text-transform: uppercase;
+ opacity: 0.85;
+}
 .app-nav-footer {
  margin-top: auto;
  padding: 8px 10px 2px;
@@ -15719,9 +15739,13 @@ main.history-v2-period {
  right: 0;
  bottom: 0;
  z-index: 40;
- display: grid;
- grid-auto-flow: column;
- grid-auto-columns: 1fr;
+ display: flex;
+ flex-wrap: nowrap;
+ /* 移动端此前只显示前 5 个入口（slice(0,5)），其余 10 个页面在手机上无法直达。
+    改为全部列出 + 横向滚动，触控目标保持不被压缩。 */
+ overflow-x: auto;
+ scrollbar-width: none;
+ -webkit-overflow-scrolling: touch;
  gap: 2px;
  padding: 4px 4px calc(4px + var(--safe-area-bottom, 0px));
  background: color-mix(in srgb, var(--panel, #10171a) 92%, transparent);
@@ -15735,6 +15759,9 @@ main.history-v2-period {
  justify-content: center;
  gap: 2px;
  min-height: 48px; /* §90：≥44pt 触控目标 */
+ /* 横向滚动布局下不要被压扁，否则触控目标会掉到 44px 以下。 */
+ flex: 0 0 auto;
+ min-width: 64px;
  padding: 4px 2px;
  border: 0;
  border-radius: 10px;

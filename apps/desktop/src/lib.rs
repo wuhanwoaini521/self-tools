@@ -2789,7 +2789,6 @@ pub fn run() {
             learning::learning_list_collection_items,
             learning::learning_remove_collection_item,
             learning::learning_delete_collection,
-            learning::learning_global_search
         ])
         .run({
             #[cfg(feature = "e2e")]

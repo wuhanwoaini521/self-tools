@@ -1,7 +1,6 @@
 //! Desktop Learning OS 适配器与 Tauri 命令。
 
 use std::sync::{Arc, Mutex};
-use serde::{Deserialize, Serialize};
 use tauri::State;
 
 use devtoolbox_application::learning::{
@@ -127,27 +126,6 @@ impl LearningStorePort for LearningStoreAdapter {
     }
 }
 
-// ============================================================================
-// Global Search Payload Dto
-// ============================================================================
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct GlobalSearchResultGroup {
-    pub group_key: String,
-    pub group_title: String,
-    pub items: Vec<GlobalSearchItem>,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct GlobalSearchItem {
-    pub id: String,
-    pub module: String,
-    pub entity_type: String,
-    pub title: String,
-    pub subtitle: Option<String>,
-    pub snippet: Option<String>,
-    pub action_target: String,
-}
 
 // ============================================================================
 // Tauri Commands
@@ -366,113 +344,4 @@ pub async fn learning_delete_collection(
             code: "learning_error",
             message: e.to_string(),
         })
-}
-
-#[tauri::command]
-pub async fn learning_global_search(
-    state: State<'_, AppState>,
-    query: String,
-) -> Result<Vec<GlobalSearchResultGroup>, CommandError> {
-    let q = query.trim().to_lowercase();
-    if q.is_empty() {
-        return Ok(Vec::new());
-    }
-
-    let mut groups = Vec::new();
-
-    // 1. History 匹配
-    let mut history_items = Vec::new();
-    if let Ok(story) = state.history_duckdb.search_stories(&q, 3) {
-        for s in story {
-            history_items.push(GlobalSearchItem {
-                id: s.id.clone(),
-                module: "history".to_string(),
-                entity_type: "story".to_string(),
-                title: s.title_zh_cn.clone(),
-                subtitle: Some("历史故事".to_string()),
-                snippet: s.summary_zh_cn,
-                action_target: format!("#history?story={}", s.id),
-            });
-        }
-    }
-    if !history_items.is_empty() {
-        groups.push(GlobalSearchResultGroup {
-            group_key: "history".to_string(),
-            group_title: "历史知识库".to_string(),
-            items: history_items,
-        });
-    }
-
-    // 2. Geography 匹配
-    let mut geo_items = Vec::new();
-    if let Ok(results) = state.geography_store.lock().unwrap().search(&q, None, 3) {
-        for g in results {
-            geo_items.push(GlobalSearchItem {
-                id: g.id.clone(),
-                module: "geography".to_string(),
-                entity_type: "place".to_string(),
-                title: g.name.clone(),
-                subtitle: Some(format!("地理 · {}", g.entity_type.label())),
-                snippet: Some(g.summary),
-                action_target: format!("#geography?id={}", g.id),
-            });
-        }
-    }
-    if !geo_items.is_empty() {
-        groups.push(GlobalSearchResultGroup {
-            group_key: "geography".to_string(),
-            group_title: "地理百科".to_string(),
-            items: geo_items,
-        });
-    }
-
-    // 3. Language 匹配
-    let mut lang_items = Vec::new();
-    if let Ok(hits) = state.language_store.lock().unwrap().search(None, &q, 3) {
-        for h in hits {
-            lang_items.push(GlobalSearchItem {
-                id: h.item.id.clone(),
-                module: "language".to_string(),
-                entity_type: "word".to_string(),
-                title: h.item.text.clone(),
-                subtitle: Some(format!("语言词汇 · {}", h.item.language.label())),
-                snippet: Some(h.matched),
-                action_target: format!("#language?id={}", h.item.id),
-            });
-        }
-    }
-    if !lang_items.is_empty() {
-        groups.push(GlobalSearchResultGroup {
-            group_key: "language".to_string(),
-            group_title: "语言词典".to_string(),
-            items: lang_items,
-        });
-    }
-
-    // 4. Collections 匹配
-    let mut col_items = Vec::new();
-    if let Ok(cols) = state.learning_store.list_collections() {
-        for c in cols {
-            if c.title.to_lowercase().contains(&q) || c.description.as_deref().unwrap_or("").to_lowercase().contains(&q) {
-                col_items.push(GlobalSearchItem {
-                    id: c.id.clone(),
-                    module: "collections".to_string(),
-                    entity_type: "collection".to_string(),
-                    title: c.title.clone(),
-                    subtitle: Some(format!("知识合集 · {} 项", c.item_count)),
-                    snippet: c.description,
-                    action_target: format!("#collections?id={}", c.id),
-                });
-            }
-        }
-    }
-    if !col_items.is_empty() {
-        groups.push(GlobalSearchResultGroup {
-            group_key: "collections".to_string(),
-            group_title: "知识合集".to_string(),
-            items: col_items,
-        });
-    }
-
-    Ok(groups)
 }

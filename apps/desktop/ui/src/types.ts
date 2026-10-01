@@ -1073,18 +1073,3 @@ export interface TodayDashboardData {
   recent_bookmarks: ContinueItem[];
 }
 
-export interface GlobalSearchItem {
-  id: string;
-  module: string;
-  entity_type: string;
-  title: string;
-  subtitle?: string | null;
-  snippet?: string | null;
-  action_target: string;
-}
-
-export interface GlobalSearchResultGroup {
-  group_key: string;
-  group_title: string;
-  items: GlobalSearchItem[];
-}

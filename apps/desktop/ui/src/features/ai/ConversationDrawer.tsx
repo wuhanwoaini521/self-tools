@@ -14,10 +14,9 @@ import {
   Trash,
   X,
 } from "@phosphor-icons/react";
-import { isTauriRuntime } from "../../utils";
+import { formatRelativeTime, isTauriRuntime } from "../../utils";
 import {
   conversationClient,
-  conversationRelativeTime,
   type ConversationMessageDto,
   type ConversationSummaryDto,
 } from "./conversationClient";
@@ -237,7 +236,7 @@ export function ConversationDrawer({
                 >
                   <span className="ai-conversation-title">{item.title}</span>
                   <span className="ai-conversation-meta">
-                    {item.message_count} 条 · {conversationRelativeTime(item.updated_at)}
+                    {item.message_count} 条 · {formatRelativeTime(item.updated_at)}
                     {item.module_origin ? ` · ${item.module_origin}` : ""}
                   </span>
                 </button>
