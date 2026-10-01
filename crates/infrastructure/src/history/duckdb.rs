@@ -327,6 +327,28 @@ impl HistoryDuckDbRepository {
         })
     }
 
+    pub fn search_stories(
+        &self,
+        query: &str,
+        limit: i64,
+    ) -> Result<Vec<StoryResult>, InfrastructureError> {
+        let mut matches = Vec::new();
+        for story in self.get_stories()? {
+            if story.title_zh_cn.contains(query)
+                || story
+                    .summary_zh_cn
+                    .as_deref()
+                    .is_some_and(|text| text.contains(query))
+            {
+                matches.push(story);
+                if matches.len() >= limit.clamp(1, 100) as usize {
+                    break;
+                }
+            }
+        }
+        Ok(matches)
+    }
+
     pub fn get_story_events(
         &self,
         story_id: &str,

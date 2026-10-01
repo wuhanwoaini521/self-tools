@@ -73,10 +73,7 @@ impl NewsRepository {
             std::fs::create_dir_all(parent)
                 .map_err(|source| crate::error::io_error(parent, source))?;
         }
-        let connection = Connection::open(path)
-            .map_err(|source| InfrastructureError::Sqlite(source.to_string()))?;
-        connection
-            .pragma_update(None, "foreign_keys", "ON")
+        let connection = crate::sqlite::open_sqlite(path)
             .map_err(|source| InfrastructureError::Sqlite(source.to_string()))?;
         let repository = Self { connection };
         repository.ensure_schema()?;

@@ -21,7 +21,7 @@ pub struct ServerActionAuditSqlite {
 impl ServerActionAuditSqlite {
     /// 打开（或创建）审计库。
     pub fn open_store(path: impl AsRef<Path>) -> Result<Self, InfrastructureError> {
-        let connection = Connection::open(path).map_err(store_error)?;
+        let connection = crate::sqlite::open_sqlite(path).map_err(store_error)?;
         let store = Self {
             connection: parking_lot::Mutex::new(connection),
         };

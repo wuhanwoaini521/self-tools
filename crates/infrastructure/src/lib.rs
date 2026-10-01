@@ -11,6 +11,7 @@ pub mod geography;
 pub mod history;
 pub mod history_enrichment;
 pub mod language;
+pub mod learning;
 pub mod memory;
 pub mod news_migration;
 #[cfg(test)]
@@ -20,6 +21,7 @@ pub mod personal_ai;
 pub mod rss_store;
 pub mod server;
 pub mod settings_store;
+pub mod sqlite;
 pub mod study_board;
 pub mod travel;
 pub mod workspace_scanner;
@@ -46,6 +48,7 @@ pub use history::{
 };
 pub use history_enrichment::EnrichmentSqliteStore;
 pub use language::{LanguageStore, SearchHit, sources};
+pub use learning::LearningStore;
 pub use memory::{MEMORY_SCHEMA_VERSION, MemorySqliteStore};
 pub use news_migration::{NewsMigrationReport, migrate_news_from_rss};
 pub use news_store::{NEWS_SCHEMA_VERSION, NewsRepository};
@@ -56,6 +59,10 @@ pub use personal_ai::{
 pub use rss_store::{ArticleRow, FeedRepository, FeedRow, now_unix};
 pub use server::ServerActionAuditSqlite;
 pub use settings_store::SettingsStore;
+pub use sqlite::{
+    DEFAULT_BUSY_TIMEOUT, configure_sqlite, configure_sqlite_in_memory, open_sqlite,
+    open_sqlite_in_memory,
+};
 pub use study_board::{STUDY_BOARD_SCHEMA_VERSION, StudyBoardSqliteStore};
 pub use travel::{
     AmapPoiProvider, HttpWebFetcher, QWeatherProvider, SearchOptions, SearchProvider,

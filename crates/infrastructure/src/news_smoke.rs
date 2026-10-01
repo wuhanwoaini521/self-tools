@@ -698,6 +698,12 @@ fn news_and_rss_stay_in_separate_databases() {
         "News 文章不得被 rss.search 检索到"
     );
 
+    // 释放 service 和 store 触发 checkpoint 到主 db 文件。
+    drop(news_service);
+    drop(rss_service);
+    drop(news_store);
+    drop(rss_store);
+
     // 两个文件独立存在（不是同一份存储）。
     assert!(news_path.exists());
     assert!(rss_path.exists());

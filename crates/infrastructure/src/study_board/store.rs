@@ -35,7 +35,7 @@ impl StudyBoardSqliteStore {
             std::fs::create_dir_all(parent)
                 .map_err(|source| crate::error::io_error(parent, source))?;
         }
-        let connection = Connection::open(path)
+        let connection = crate::sqlite::open_sqlite(path)
             .map_err(|source| InfrastructureError::Sqlite(source.to_string()))?;
         let store = Self {
             connection: Mutex::new(connection),
@@ -46,7 +46,7 @@ impl StudyBoardSqliteStore {
 
     /// 内存库（测试用；不落盘）。
     pub fn open_in_memory() -> Result<Self, InfrastructureError> {
-        let connection = Connection::open_in_memory()
+        let connection = crate::sqlite::open_sqlite_in_memory()
             .map_err(|source| InfrastructureError::Sqlite(source.to_string()))?;
         let store = Self {
             connection: Mutex::new(connection),
