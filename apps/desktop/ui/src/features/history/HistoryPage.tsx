@@ -200,6 +200,9 @@ export function HistoryPage({
         if (story) {
           setSelectedStory(story);
           setDrawer(null);
+          const pane = document.querySelector(".page-pane.history-pane");
+          if (pane) pane.scrollTop = 0;
+          window.scrollTo(0, 0);
           void learningClient.recordEvent({
             module: "history",
             entity_type: "story",
@@ -602,7 +605,18 @@ function StoryCard({
 }) {
   const quality = qualityLabel(story.quality_status);
   return (
-    <button type="button" className="history-v2-story-card" onClick={onOpen}>
+    <div
+      role="button"
+      tabIndex={0}
+      className="history-v2-story-card"
+      onClick={onOpen}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onOpen();
+        }
+      }}
+    >
       <span className="history-v2-story-index">0{index + 1}</span>
       <div className="history-v2-story-card-main">
         <span className="history-v2-kicker">
@@ -631,7 +645,7 @@ function StoryCard({
         </div>
       </div>
       <ArrowRight size={18} className="history-v2-story-arrow" />
-    </button>
+    </div>
   );
 }
 
@@ -713,16 +727,23 @@ function StoryReader({
                   </span>
                   <i />
                 </div>
-                <button
-                  type="button"
+                <div
+                  role="button"
+                  tabIndex={0}
                   className="history-v2-flow-event"
                   onClick={() => onOpenEvent(event.event_id)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      onOpenEvent(event.event_id);
+                    }
+                  }}
                 >
                   <div className="history-v2-flow-date">
                     {rangeText(event.start_year, event.end_year)}
                   </div>
                   <h3>
-                    {event.name_zh_cn}
+                    <span>{event.name_zh_cn}</span>
                     <CaretRight size={16} />
                   </h3>
                   <p>
@@ -733,7 +754,7 @@ function StoryReader({
                   <small>
                     {event.transition_text_zh_cn || "时间线中的下一个节点"}
                   </small>
-                </button>
+                </div>
               </li>
             ))}
           </ol>
