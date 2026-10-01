@@ -249,14 +249,23 @@
  --pixel-ms: 120ms;
  --pixel-ease: steps(4, end);
  --pixel-depth-1: #d5cec0;
+
+ /* Pixel 点阵背景网格 */
+ --pixel-pattern-a: color-mix(in srgb, var(--accent) 20%, transparent);
+ --pixel-pattern-b: color-mix(in srgb, var(--line-strong, var(--line)) 35%, transparent);
 }
 
 :root[data-theme="pixel-light"] {
  --radius-control: 0px;
  --radius-overlay: 22px;
  --pixel-depth-1: #c9c1b2;
- --pixel-pattern-a: color-mix(in srgb, var(--accent) 10%, transparent);
- --pixel-pattern-b: color-mix(in srgb, var(--line-strong) 30%, transparent);
+ --pixel-pattern-a: color-mix(in srgb, var(--accent) 24%, transparent);
+ --pixel-pattern-b: color-mix(in srgb, var(--line-strong) 42%, transparent);
+}
+
+:root[data-theme="warm-editorial"] {
+ --pixel-pattern-a: color-mix(in srgb, var(--accent) 20%, transparent);
+ --pixel-pattern-b: color-mix(in srgb, var(--line-strong) 35%, transparent);
 }
 
 /* Warm Editorial Dark:暖黑夜间版,同一 Editorial 语言的深色表达。 */
@@ -377,6 +386,138 @@
  --pixel-ms: 120ms;
  --pixel-ease: steps(4, end);
  --pixel-depth-1: #141310;
+}
+
+/* Nord:北欧极光深色主题 */
+:root[data-theme="nord"] {
+ --bg: #2e3440;
+ --panel: #3b4252;
+ --panel-raised: #434c5e;
+ --panel-hover: #4c566a;
+ --line: #434c5e;
+ --line-soft: #3b4252;
+ --text: #eceff4;
+ --muted: #d8dee9;
+ --faint: #798294;
+ --accent: #88c0d0;
+ --accent-hover: #81a1c1;
+ --accent-soft: #273747;
+ --success: #a3be8c;
+ --success-soft: #2e3d2a;
+ --scrollbar-thumb: #4c566a;
+ --scrollbar-thumb-hover: #5e81ac;
+
+ --surface-bar: #242933;
+ --surface-control: #3b4252;
+ --surface-panel-deep: #292e39;
+ --surface-raised: #434c5e;
+ --surface-chip: #3b4252;
+ --surface-sunken: #272c36;
+ --surface-overlay: #3b4252;
+ --surface-overlay-hover: #434c5e;
+
+ --line-strong: #4c566a;
+ --line-hover: #5e81ac;
+ --line-tab: #434c5e;
+ --line-chip: #4c566a;
+ --line-toast: #4c566a;
+ --line-overlay: #4c566a;
+ --kbd-border: rgb(236 239 244 / 20%);
+ --inset-highlight: rgb(236 239 244 / 10%);
+
+ --text-control: #eceff4;
+ --icon: #d8dee9;
+ --icon-muted: #798294;
+ --icon-dim: #9aa5b8;
+ --text-hover: #ffffff;
+ --caret: #eceff4;
+ --text-on-accent: #2e3440;
+ --text-subtle: #d8dee9;
+ --text-heading: #e5e9f0;
+ --text-tree: #e5e9f0;
+ --text-outline: #e5e9f0;
+ --text-outline-number: #798294;
+ --text-status: #d8dee9;
+ --text-status-strong: #eceff4;
+ --text-panel-heading: #e5e9f0;
+ --text-tab: #d8dee9;
+ --text-bright: #eceff4;
+ --text-soft: #d8dee9;
+ --text-medium: #e5e9f0;
+ --text-chip-label: #eceff4;
+ --text-file: #e5e9f0;
+ --text-list-title: #eceff4;
+ --chip-bg: rgb(136 192 208 / 15%);
+ --code-text: #eceff4;
+ --code-block-bg: #282d38;
+ --code-block-bar: #3b4252;
+ --code-fence-bg: #242933;
+}
+
+/* Catppuccin Macchiato:舒适现代柔和深色 */
+:root[data-theme="catppuccin-macchiato"] {
+ --bg: #24273a;
+ --panel: #2a2d42;
+ --panel-raised: #363a4f;
+ --panel-hover: #3f445c;
+ --line: #3b3f58;
+ --line-soft: #2e3247;
+ --text: #cad3f5;
+ --muted: #a5adcb;
+ --faint: #6e738d;
+ --accent: #c6a0f6;
+ --accent-hover: #b7bdf8;
+ --accent-soft: #382d4f;
+ --success: #a6da95;
+ --success-soft: #283a2d;
+ --scrollbar-thumb: #494d64;
+ --scrollbar-thumb-hover: #5b6078;
+
+ --surface-bar: #1e2030;
+ --surface-control: #2e3247;
+ --surface-panel-deep: #202334;
+ --surface-raised: #363a4f;
+ --surface-chip: #2a2d42;
+ --surface-sunken: #181926;
+ --surface-overlay: #2a2d42;
+ --surface-overlay-hover: #363a4f;
+
+ --line-strong: #494d64;
+ --line-hover: #5b6078;
+ --line-tab: #3b3f58;
+ --line-chip: #494d64;
+ --line-toast: #494d64;
+ --line-overlay: #494d64;
+ --kbd-border: rgb(202 211 245 / 20%);
+ --inset-highlight: rgb(202 211 245 / 10%);
+
+ --text-control: #cad3f5;
+ --icon: #b8c0e0;
+ --icon-muted: #6e738d;
+ --icon-dim: #8087a2;
+ --text-hover: #ffffff;
+ --caret: #f4dbd6;
+ --text-on-accent: #1e2030;
+ --text-subtle: #a5adcb;
+ --text-heading: #b8c0e0;
+ --text-tree: #cad3f5;
+ --text-outline: #cad3f5;
+ --text-outline-number: #6e738d;
+ --text-status: #a5adcb;
+ --text-status-strong: #cad3f5;
+ --text-panel-heading: #b8c0e0;
+ --text-tab: #a5adcb;
+ --text-bright: #cad3f5;
+ --text-soft: #a5adcb;
+ --text-medium: #cad3f5;
+ --text-chip-label: #cad3f5;
+ --text-file: #cad3f5;
+ --text-list-title: #cad3f5;
+ --chip-bg: rgb(198 160 246 / 15%);
+ --code-text: #cad3f5;
+ --code-block-bg: #1e2030;
+ --code-block-bar: #2a2d42;
+ --code-fence-bg: #181926;
 }
 
 * {
@@ -528,13 +669,19 @@ button {
  background-position: 0 0, 4px 4px;
  background-size: 8px 8px;
 }
-:root[data-theme="pixel-light"] .app-content > .page-pane > [class$="-page"] {
+.app-content > .page-pane {
+ background-color: transparent;
+}
+.app-content > .page-pane > [class*="-page"],
+.app-content > .page-pane > [class$="-page"],
+.app-content > .page-pane > .page-scroll {
  background-color: transparent;
 }
 .page-pane {
  height: 100%;
  min-height: 0;
  overflow: hidden;
+ background-color: transparent;
 }
 .page-pane.history-pane {
  overflow: auto;
@@ -1710,1164 +1857,2561 @@ button {
  color: var(--text-on-accent);
 }
 
-/* ===== Travel Feature ===== */
+/* ===== Travel Feature (Immersive Upgrade) ===== */
 .travel-page {
- display: grid;
- gap: 22px;
- align-content: start;
+  display: grid;
+  gap: 20px;
+  align-content: start;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding-bottom: 40px;
 }
+
+.travel-hero {
+  display: grid;
+  gap: 8px;
+  padding: 8px 4px;
+}
+
+.travel-hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  padding: 4px 10px;
+  border-radius: 20px;
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
 .travel-hero h1 {
- margin: 0 0 6px;
- color: var(--text);
- font-size: 26px;
- font-weight: 800;
- letter-spacing: -0.4px;
+  margin: 2px 0 0;
+  color: var(--text);
+  font-size: 28px;
+  font-weight: 850;
+  letter-spacing: -0.5px;
 }
+
 .travel-hero p {
- margin: 0;
- color: var(--muted);
- font-size: 13px;
- max-width: 720px;
- line-height: 1.6;
+  margin: 0;
+  color: var(--muted);
+  font-size: 13.5px;
+  max-width: 780px;
+  line-height: 1.6;
 }
-.travel-search {
- display: grid;
- gap: 10px;
- padding: 18px;
- border: 1px solid var(--line);
- border-radius: var(--radius-overlay);
- background: var(--panel);
+
+/* 热门城市快捷推荐 */
+.travel-popular-cities {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 6px;
 }
-.travel-search > label {
- color: var(--text-heading);
- font-size: 11px;
- font-weight: 700;
- letter-spacing: 0.04em;
- text-transform: uppercase;
+
+.travel-popular-label {
+  color: var(--faint);
+  font-size: 12px;
+  font-weight: 600;
 }
+
+.travel-popular-tags {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.travel-popular-tag {
+  height: 26px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: var(--surface-control);
+  color: var(--text-control);
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.travel-popular-tag:hover:not(:disabled) {
+  border-color: var(--accent-border-active);
+  color: var(--accent-hover);
+  background: var(--panel-hover);
+  transform: translateY(-1px);
+}
+
+.travel-popular-tag.active {
+  border-color: var(--accent-selected-border);
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+  font-weight: 700;
+}
+
+/* 搜索主容器 */
+.travel-search-container {
+  display: grid;
+  gap: 14px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-overlay);
+  background: var(--panel);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+}
+
+.travel-input-group > label,
+.travel-must-visit-section > label,
+.travel-meta-item > label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+  color: var(--text-heading);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.travel-must-visit-section > label small {
+  color: var(--faint);
+  font-weight: 400;
+  font-size: 11px;
+}
+
+.star-icon {
+  color: #e5a024;
+}
+
 .travel-search-row {
- display: flex;
- gap: 8px;
+  display: flex;
+  gap: 10px;
 }
+
 .travel-search-row input {
- min-width: 0;
- flex: 1;
- height: 38px;
- padding: 0 12px;
- border: 1px solid var(--line);
- border-radius: var(--radius-control);
- background: var(--surface-control);
- color: var(--text-input);
- font-size: 14px;
+  min-width: 0;
+  flex: 1;
+  height: 42px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--surface-control);
+  color: var(--text-input);
+  font-size: 14px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
+
 .travel-search-row input::placeholder {
- color: var(--faint);
+  color: var(--faint);
 }
+
 .travel-search-row input:focus-visible {
- outline: none;
- border-color: var(--accent);
- box-shadow: 0 0 0 1px var(--accent);
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
 }
-.travel-search-row button {
- display: inline-flex;
- align-items: center;
- gap: 7px;
- height: 38px;
- padding: 0 16px;
- border: 1px solid var(--line);
- border-radius: var(--radius-control);
- background: linear-gradient(
-  180deg,
-  var(--accent-grad-a),
-  var(--accent-grad-b)
- );
- color: var(--text-on-accent);
- font-size: 13px;
- font-weight: 700;
- white-space: nowrap;
+
+.travel-submit-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 42px;
+  padding: 0 20px;
+  border: 1px solid var(--accent-selected-border);
+  border-radius: var(--radius-control);
+  background: linear-gradient(
+    180deg,
+    var(--accent-grad-a),
+    var(--accent-grad-b)
+  );
+  color: var(--text-on-accent);
+  font-size: 14px;
+  font-weight: 750;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: opacity 0.15s ease, transform 0.15s ease;
 }
-.travel-search-row button:hover:not(:disabled) {
- border-color: var(--accent-border-active);
+
+.travel-submit-btn:hover:not(:disabled) {
+  opacity: 0.92;
+  transform: translateY(-1px);
 }
-.travel-search-row button:disabled {
- opacity: 0.55;
- cursor: default;
+
+.travel-submit-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
-.travel-search-row button.travel-research-again {
- background: var(--surface-control);
- color: var(--text-control);
- border-color: var(--line);
+
+.travel-research-again {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 42px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--surface-control);
+  color: var(--text-control);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
 }
-.travel-search-row button.travel-research-again:hover:not(:disabled) {
- border-color: var(--line-strong);
- background: var(--panel-hover);
- color: var(--text-hover);
+
+.travel-research-again:hover:not(:disabled) {
+  border-color: var(--line-strong);
+  background: var(--panel-hover);
 }
+
+/* 必去景点标签输入 */
+.travel-must-visit-section {
+  display: grid;
+  gap: 6px;
+  padding-top: 4px;
+}
+
+.travel-must-input-wrapper {
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--surface-control);
+  min-height: 40px;
+  box-sizing: border-box;
+}
+
+.travel-must-tags {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.travel-must-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: 12px;
+  background: #fdf3d7;
+  color: #92540c;
+  border: 1px solid #f3d489;
+  font-size: 11.5px;
+  font-weight: 700;
+}
+
+.travel-must-chip svg {
+  color: #d97706;
+}
+
+.travel-must-chip button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #92540c;
+  cursor: pointer;
+  border-radius: 50%;
+}
+
+.travel-must-chip button:hover {
+  color: #e11d48;
+}
+
+.travel-must-tags input {
+  flex: 1;
+  min-width: 220px;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 13px;
+  height: 28px;
+}
+
+.travel-must-tags input::placeholder {
+  color: var(--faint);
+  font-size: 12px;
+}
+
+.travel-quick-spots {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 2px;
+}
+
+.quick-spots-label {
+  color: var(--faint);
+  font-size: 11px;
+}
+
+.travel-quick-spot-tag {
+  height: 22px;
+  padding: 0 8px;
+  border: 1px dashed var(--line);
+  border-radius: 11px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.travel-quick-spot-tag:hover:not(:disabled) {
+  border-color: #f3d489;
+  color: #d97706;
+  background: #fffbeb;
+}
+
+.travel-quick-spot-tag.selected {
+  border-color: #f3d489;
+  background: #fef3c7;
+  color: #b45309;
+  font-weight: 700;
+}
+
+/* 行程天数与偏好栏 */
 .travel-search-meta {
- display: flex;
- align-items: center;
- gap: 10px;
- flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  align-items: end;
+  gap: 16px;
+  padding-top: 6px;
+  border-top: 1px solid var(--line-soft);
 }
-.travel-search-meta > label,
-.travel-prefs-label {
- color: var(--muted);
- font-size: 12px;
+
+.travel-meta-item select {
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--surface-control);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
 }
-.travel-search-meta select {
- height: 30px;
- padding: 0 8px;
- border: 1px solid var(--line);
- border-radius: var(--radius-control);
- background: var(--surface-control);
- color: var(--text);
- font-size: 12px;
- font-weight: 600;
-}
+
 .travel-date-range {
- display: inline-flex;
- align-items: center;
- gap: 7px;
- height: 30px;
- padding: 0 9px;
- border: 1px solid var(--line);
- border-radius: var(--radius-control);
- background: var(--surface-control);
- color: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--surface-control);
+  color: var(--muted);
 }
-.travel-date-range > svg {
- flex: 0 0 auto;
- color: var(--accent);
-}
+
 .travel-date-range input {
- width: 104px;
- min-width: 0;
- border: 0;
- outline: 0;
- background: transparent;
- color: var(--text-control);
- font: inherit;
- font-size: 11px;
+  width: 108px;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 12px;
 }
-.travel-date-range input:disabled {
- color: var(--faint);
-}
+
 .travel-date-range span {
- color: var(--faint);
- font-size: 11px;
+  color: var(--faint);
+  font-size: 11px;
 }
+
 .travel-prefs {
- display: flex;
- gap: 6px;
- flex-wrap: wrap;
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
 }
+
 .travel-prefs button {
- height: 26px;
- padding: 0 10px;
- border: 1px solid var(--line);
- border-radius: 13px;
- background: var(--surface-chip);
- color: var(--text-chip-label);
- font-size: 11px;
- font-weight: 600;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface-control);
+  color: var(--text-control);
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
 }
+
 .travel-prefs button:hover:not(:disabled) {
- border-color: var(--line-hover);
- color: var(--text-hover);
+  border-color: var(--accent-border-active);
+  color: var(--accent-hover);
 }
+
 .travel-prefs button.selected {
- border-color: var(--accent-selected-border);
- background: var(--accent-solid);
- color: var(--text-on-accent);
-}
-.travel-prefs button:disabled {
- opacity: 0.6;
- cursor: default;
-}
-.travel-hint {
- display: flex;
- align-items: center;
- gap: 7px;
- margin: 0;
- color: var(--faint);
- font-size: 12px;
+  border-color: var(--accent-selected-border);
+  background: var(--accent-solid);
+  color: var(--text-on-accent);
+  font-weight: 700;
 }
 
-/* 历史 */
+/* 首页特性介绍卡片 */
+.travel-feature-intro {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+  margin-top: 10px;
+}
+
+.travel-feature-card {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-overlay);
+  background: var(--panel);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.travel-feature-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.05);
+}
+
+.travel-feature-card .feature-icon {
+  font-size: 24px;
+  margin-bottom: 8px;
+}
+
+.travel-feature-card h3 {
+  margin: 0 0 6px;
+  color: var(--text-heading);
+  font-size: 14px;
+  font-weight: 750;
+}
+
+.travel-feature-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+/* 历史卡片 */
 .travel-history {
- display: grid;
- gap: 8px;
-}
-.travel-history h2 {
- margin: 0;
- color: var(--text-heading);
- font-size: 11px;
- font-weight: 700;
- letter-spacing: 0.04em;
- text-transform: uppercase;
-}
-.travel-history-list {
- display: flex;
- gap: 8px;
- flex-wrap: wrap;
-}
-.travel-history-list button {
- display: inline-flex;
- align-items: center;
- gap: 6px;
- height: 30px;
- padding: 0 12px;
- border: 1px solid var(--line);
- border-radius: var(--radius-control);
- background: var(--surface-control);
- color: var(--text-control);
- font-size: 12px;
- font-weight: 600;
-}
-.travel-history-list button:hover {
- border-color: var(--line-strong);
- background: var(--panel-hover);
- color: var(--text-hover);
-}
-.travel-history-list button svg {
- color: var(--muted);
-}
-.travel-history-list button small {
- color: var(--faint);
- font-weight: 500;
+  display: grid;
+  gap: 8px;
 }
 
-/* 研究进度：阶段导航与当前工作区 */
+.travel-history h2 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  color: var(--text-heading);
+  font-size: 12px;
+  font-weight: 750;
+  text-transform: uppercase;
+}
+
+.travel-history-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 8px;
+}
+
+.travel-history-list button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--panel);
+  color: var(--text-control);
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.travel-history-list button:hover {
+  border-color: var(--accent-border-active);
+  background: var(--panel-hover);
+  transform: translateY(-1px);
+}
+
+.history-icon-box {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+  flex-shrink: 0;
+}
+
+.history-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.history-text b {
+  font-size: 13px;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.history-text small {
+  color: var(--faint);
+  font-size: 10.5px;
+}
+
+/* 进度面板 */
 .travel-research {
- padding: 18px;
- border: 1px solid var(--line);
- border-radius: var(--radius-overlay);
- background: var(--panel);
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-overlay);
+  background: var(--panel);
 }
+
 .travel-progress {
- position: relative;
- display: grid;
- grid-template-columns: minmax(208px, 0.78fr) 64px minmax(360px, 1.65fr);
- height: 520px;
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(208px, 0.78fr) 64px minmax(360px, 1.65fr);
+  height: 480px;
 }
+
 .travel-progress-steps {
- display: grid;
- align-content: start;
- gap: 4px;
- margin: 0;
- padding: 0;
- list-style: none;
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
+
 .travel-step {
- min-height: 48px;
- opacity: 0.42;
- transition:
-  opacity 0.2s ease,
-  transform 0.2s ease;
+  min-height: 44px;
+  opacity: 0.42;
+  transition: opacity 0.2s ease, transform 0.2s ease;
 }
+
 .travel-step > button {
- display: flex;
- align-items: center;
- gap: 10px;
- width: 100%;
- min-height: 48px;
- padding: 0 10px;
- border: 1px solid transparent;
- border-radius: var(--radius-control);
- background: transparent;
- color: inherit;
- text-align: left;
- transition:
-  background 0.2s ease,
-  border-color 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
 }
-.travel-step > button:hover {
- border-color: var(--line-strong);
- background: var(--panel-hover);
-}
-.travel-step > button:focus-visible {
- outline: 2px solid var(--accent);
- outline-offset: 2px;
-}
+
 .travel-step-icon {
- display: grid;
- place-items: center;
- width: 22px;
- height: 22px;
- flex-shrink: 0;
- color: var(--faint);
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  color: var(--faint);
 }
+
 .travel-step-body {
- display: flex;
- align-items: baseline;
- justify-content: space-between;
- gap: 10px;
- width: 100%;
- min-width: 0;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
 }
+
 .travel-step-body b {
- color: var(--text-control);
- font-size: 13px;
- font-weight: 650;
+  color: var(--text-control);
+  font-size: 12.5px;
+  font-weight: 650;
 }
+
 .travel-step-body small {
- flex-shrink: 0;
- color: var(--faint);
- font-size: 10px;
- white-space: nowrap;
+  color: var(--faint);
+  font-size: 10px;
 }
+
 .travel-step.done .travel-step-icon {
- color: var(--success);
+  color: var(--success);
 }
 .travel-step.in_progress .travel-step-icon {
- color: var(--accent);
+  color: var(--accent);
 }
 .travel-step.failed .travel-step-icon {
- color: #e5484d;
+  color: #e5484d;
 }
+
 .travel-step.active {
- opacity: 1;
- transform: translateX(2px);
+  opacity: 1;
+  transform: translateX(2px);
 }
 .travel-step.active > button {
- border-color: var(--accent-selected-border);
- background: var(--accent-soft);
+  border-color: var(--accent-selected-border);
+  background: var(--accent-soft);
 }
 .travel-step.active .travel-step-body b {
- color: var(--accent-hover);
+  color: var(--accent-hover);
 }
-.travel-step.active .travel-step-body small {
- color: var(--accent-hover);
- font-weight: 700;
-}
-.travel-step.selected {
- opacity: 0.82;
-}
-.travel-step.selected > button {
- border-color: var(--line-strong);
- background: var(--panel-hover);
-}
-.travel-step.selected .travel-step-body small {
- color: var(--text-control);
- font-weight: 700;
-}
-.travel-step.done:not(.active) .travel-step-body b {
- color: var(--success);
-}
+
 .travel-progress-fog {
- position: relative;
- min-width: 0;
- pointer-events: none;
+  position: relative;
+  min-width: 0;
+  pointer-events: none;
 }
 .travel-progress-fog::before,
 .travel-progress-fog::after,
 .travel-progress-fog span {
- position: absolute;
- display: block;
- content: "";
- left: 0;
- top: var(--travel-active-y);
- width: 100%;
- height: 1px;
- background: var(--accent);
- transform: translateY(-50%);
+  position: absolute;
+  display: block;
+  content: "";
+  left: 0;
+  top: var(--travel-active-y);
+  width: 100%;
+  height: 1px;
+  background: var(--accent);
+  transform: translateY(-50%);
 }
 .travel-progress-fog::before {
- opacity: 0.1;
- filter: blur(13px);
- box-shadow: 0 0 22px 9px var(--accent);
+  opacity: 0.1;
+  filter: blur(13px);
+  box-shadow: 0 0 22px 9px var(--accent);
 }
 .travel-progress-fog::after {
- opacity: 0.32;
- filter: blur(2px);
+  opacity: 0.32;
+  filter: blur(2px);
 }
 .travel-progress-fog span {
- width: 11px;
- height: 11px;
- border-radius: 50%;
- opacity: 0.8;
- box-shadow:
-  0 0 0 5px var(--accent-soft),
-  0 0 19px 7px var(--accent);
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  opacity: 0.8;
+  box-shadow: 0 0 0 5px var(--accent-soft), 0 0 19px 7px var(--accent);
 }
+
 .travel-progress-workspace {
- display: flex;
- flex-direction: column;
- min-width: 0;
- height: 100%;
- min-height: 0;
- box-sizing: border-box;
- padding: 24px;
- overflow: hidden;
- border: 1px solid var(--line);
- border-radius: calc(var(--radius-overlay) - 2px);
- background: var(--surface-control);
- box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 20px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-overlay);
+  background: var(--surface-control);
 }
+
 .travel-progress-workspace header {
- display: flex;
- align-items: flex-start;
- justify-content: space-between;
- gap: 16px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
 }
-.travel-progress-workspace header > div {
- display: grid;
- gap: 8px;
-}
+
 .travel-progress-status {
- display: inline-flex;
- align-items: center;
- gap: 6px;
- color: var(--accent-hover);
- font-size: 11px;
- font-weight: 750;
- letter-spacing: 0.04em;
- text-transform: uppercase;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--accent-hover);
+  font-size: 11px;
+  font-weight: 750;
+  text-transform: uppercase;
 }
-.travel-progress-workspace.done .travel-progress-status {
- color: var(--success);
-}
-.travel-progress-workspace.failed .travel-progress-status {
- color: #e5484d;
-}
+
 .travel-progress-workspace h2 {
- margin: 0;
- color: var(--text);
- font-size: 24px;
- font-weight: 750;
- letter-spacing: -0.35px;
+  margin: 4px 0 0;
+  color: var(--text);
+  font-size: 20px;
+  font-weight: 750;
 }
+
 .travel-progress-count {
- padding: 5px 8px;
- border: 1px solid var(--line-chip);
- border-radius: 12px;
- background: var(--surface-chip);
- color: var(--muted);
- font-size: 11px;
- font-weight: 700;
- white-space: nowrap;
+  padding: 4px 8px;
+  border: 1px solid var(--line-chip);
+  border-radius: 12px;
+  background: var(--surface-chip);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
 }
-.travel-progress-description {
- margin: 12px 0 0;
- color: var(--muted);
- font-size: 13px;
- line-height: 1.6;
-}
+
 .travel-progress-meter {
- height: 4px;
- margin: 22px 0 20px;
- overflow: hidden;
- border-radius: 999px;
- background: var(--line);
+  height: 4px;
+  margin: 16px 0 14px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--line);
 }
 .travel-progress-meter span {
- display: block;
- height: 100%;
- border-radius: inherit;
- background: var(--accent);
- box-shadow: 0 0 10px var(--accent);
- transition: width 0.35s ease;
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  box-shadow: 0 0 10px var(--accent);
+  transition: width 0.35s ease;
 }
+
 .travel-progress-live {
- flex: 1;
- min-height: 0;
- padding: 16px;
- overflow-y: auto;
- border: 1px solid var(--line);
- border-radius: var(--radius-control);
- background: var(--panel);
- overscroll-behavior: contain;
- scrollbar-width: thin;
- scrollbar-color: var(--scrollbar-thumb) transparent;
+  flex: 1;
+  min-height: 0;
+  padding: 14px;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--panel);
 }
-.travel-progress-live::-webkit-scrollbar {
- width: var(--scrollbar-width);
-}
-.travel-progress-live::-webkit-scrollbar-thumb {
- border: 2px solid transparent;
- border-radius: 8px;
- background: var(--scrollbar-thumb);
- background-clip: padding-box;
-}
+
 .travel-progress-live ol {
- display: grid;
- gap: 12px;
- margin: 0;
- padding: 0;
- list-style: none;
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
+
 .travel-progress-live li {
- display: grid;
- grid-template-columns: 46px minmax(0, 1fr);
- gap: 9px;
- padding-left: 11px;
- border-left: 1px solid var(--line-strong);
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr);
+  gap: 8px;
+  padding-left: 10px;
+  border-left: 1px solid var(--line-strong);
 }
+
 .travel-progress-live li > span {
- padding-top: 1px;
- color: var(--faint);
- font-size: 10px;
- font-weight: 700;
- white-space: nowrap;
+  color: var(--faint);
+  font-size: 10px;
+  font-weight: 700;
 }
-.travel-progress-live li > p,
-.travel-progress-waiting {
- margin: 0;
- color: var(--text-control);
- font-size: 12px;
- font-weight: 600;
- line-height: 1.65;
- overflow-wrap: anywhere;
+
+.travel-progress-live li > p {
+  margin: 0;
+  color: var(--text-control);
+  font-size: 12px;
+  line-height: 1.55;
 }
+
 .travel-progress-live li.done > span {
- color: var(--success);
+  color: var(--success);
 }
 .travel-progress-live li.in_progress > span {
- color: var(--accent-hover);
+  color: var(--accent-hover);
 }
 .travel-progress-live li.failed > span {
- color: #e5484d;
+  color: #e5484d;
 }
-.travel-progress-waiting {
- color: var(--muted);
- font-weight: 500;
-}
-.travel-progress-workspace footer {
- margin-top: 18px;
- color: var(--faint);
- font-size: 11px;
-}
-@media (max-width: 760px) {
- .travel-progress {
-  grid-template-columns: 1fr;
-  gap: 14px;
-  height: auto;
- }
- .travel-progress-fog {
-  display: none;
- }
- .travel-progress-workspace {
-  min-height: 280px;
- }
- .travel-progress-live {
-  max-height: 300px;
- }
-}
+
 .travel-error {
- display: grid;
- gap: 10px;
- justify-items: start;
- padding: 16px 18px;
- border: 1px solid var(--line);
- border-radius: var(--radius-overlay);
- background: var(--panel);
- color: var(--text);
- font-size: 13px;
+  padding: 16px 18px;
+  border: 1px solid #fecaca;
+  border-radius: var(--radius-overlay);
+  background: #fef2f2;
+  color: #991b1b;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
-.travel-error p {
- margin: 0;
-}
+
 .travel-error button {
- height: 30px;
- padding: 0 14px;
- border: 1px solid var(--line);
- border-radius: var(--radius-control);
- background: var(--surface-control);
- color: var(--text-control);
- font-size: 12px;
- font-weight: 600;
+  height: 30px;
+  padding: 0 14px;
+  border: 1px solid #f87171;
+  border-radius: var(--radius-control);
+  background: #fff;
+  color: #991b1b;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
 }
+
 .travel-cache-note {
- margin: 0;
- padding: 9px 12px;
- border: 1px solid var(--line);
- border-radius: var(--radius-control);
- background: var(--accent-soft);
- color: var(--accent-selected-text);
- font-size: 12px;
+  padding: 8px 14px;
+  border: 1px solid #bbf7d0;
+  border-radius: var(--radius-control);
+  background: #f0fdf4;
+  color: #166534;
+  font-size: 12px;
+  font-weight: 500;
 }
 
-/* 攻略 */
-.travel-guide {
- display: grid;
- gap: 16px;
- align-content: start;
+/* =========================================================
+   沉浸式 TravelGuide 模块样式
+   ========================================================= */
+
+.travel-guide-immersive {
+  display: grid;
+  gap: 20px;
 }
-.travel-guide-header {
- display: grid;
- gap: 4px;
- padding-bottom: 14px;
- border-bottom: 1px solid var(--line);
+
+/* Hero Poster 海报看板 */
+.travel-hero-poster {
+  position: relative;
+  overflow: hidden;
+  border-radius: calc(var(--radius-overlay) + 4px);
+  border: 1px solid var(--line);
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  color: #f8fafc;
+  padding: 28px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
 }
-.travel-guide-header h1 {
- margin: 0;
- color: var(--text);
- font-size: 26px;
- font-weight: 800;
- letter-spacing: -0.4px;
+
+.poster-backdrop-overlay {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 80% 20%, rgba(56, 189, 248, 0.15) 0%, transparent 60%),
+              radial-gradient(circle at 20% 80%, rgba(99, 102, 241, 0.12) 0%, transparent 60%);
+  pointer-events: none;
 }
-.travel-guide-header h1 span {
- margin-left: 10px;
- color: var(--muted);
- font-size: 15px;
- font-weight: 500;
- letter-spacing: 0;
+
+.poster-content {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 16px;
 }
-.travel-guide-header > p {
- margin: 0;
- color: var(--muted);
- font-size: 12px;
+
+.poster-kicker {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
 }
-.travel-guide-tags {
- display: flex;
- align-items: center;
- gap: 8px;
- flex-wrap: wrap;
- margin-top: 6px;
+
+.edition-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 12px;
+  background: rgba(56, 189, 248, 0.2);
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  color: #38bdf8;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
 }
-.travel-guide-tags b {
- padding: 2px 9px;
- border: 1px solid var(--line-chip);
- border-radius: 11px;
- background: var(--surface-chip);
- color: var(--text-chip-label);
- font-size: 10px;
- font-weight: 700;
+
+.cache-badge {
+  padding: 3px 8px;
+  border-radius: 10px;
+  background: rgba(234, 179, 8, 0.2);
+  border: 1px solid rgba(234, 179, 8, 0.4);
+  color: #facc15;
+  font-size: 10.5px;
+  font-weight: 600;
 }
-.travel-guide-tags b.travel-tag-warn {
- border-color: #c98a2e;
- color: #d9a04a;
+
+.time-badge {
+  color: #94a3b8;
+  font-size: 11px;
 }
-.travel-guide-tags i {
- color: var(--faint);
- font-size: 11px;
- font-style: normal;
+
+.poster-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
 }
-.travel-guide-notes {
- display: grid;
- gap: 4px;
- margin: 8px 0 0;
- padding: 0;
- list-style: none;
+
+.poster-city-info h1 {
+  margin: 0;
+  font-size: 38px;
+  font-weight: 900;
+  letter-spacing: -0.6px;
+  color: #ffffff;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
 }
-.travel-guide-notes li {
- padding-left: 10px;
- border-left: 2px solid var(--line-strong);
- color: var(--muted);
- font-size: 11px;
- line-height: 1.5;
+
+.poster-city-info .city-en {
+  font-size: 18px;
+  font-weight: 500;
+  color: #94a3b8;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
+
+.city-region {
+  margin: 6px 0 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #cbd5e1;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.trip-duration-pill,
+.trip-dates-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #f1f5f9;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* 天气胶囊挂件 */
+.poster-weather-widget {
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: var(--radius-overlay);
+  padding: 14px 18px;
+  min-width: 320px;
+  display: grid;
+  gap: 8px;
+}
+
+.weather-primary {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.weather-primary svg {
+  color: #f59e0b;
+}
+
+.weather-temp-wrap {
+  display: grid;
+}
+
+.weather-temp-wrap strong {
+  font-size: 28px;
+  font-weight: 850;
+  line-height: 1;
+  color: #fff;
+}
+
+.weather-temp-wrap span {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.weather-advice {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: rgba(56, 189, 248, 0.12);
+  color: #bae6fd;
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+
+.weather-advice svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: #38bdf8;
+}
+
+.weather-mini-list {
+  display: flex;
+  gap: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  padding-top: 8px;
+}
+
+.weather-mini-day {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  flex: 1;
+  text-align: center;
+}
+
+.weather-mini-day small {
+  font-size: 10px;
+  color: #94a3b8;
+}
+
+.weather-mini-day svg {
+  color: #fbbf24;
+}
+
+.weather-mini-day b {
+  font-size: 11.5px;
+  color: #fff;
+}
+
+.weather-mini-day span {
+  font-size: 10px;
+  color: #64748b;
+}
+
+.poster-city-summary {
+  margin: 0;
+  color: #cbd5e1;
+  font-size: 14px;
+  line-height: 1.7;
+  max-width: 860px;
+}
+
+/* 城市全景数据指标条 */
+.poster-stats-strip {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.stat-pill {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.stat-num {
+  font-size: 16px;
+  font-weight: 850;
+  color: #38bdf8;
+}
+
+.stat-label {
+  font-size: 11.5px;
+  color: #94a3b8;
+}
+
+/* 核心决策速览卡片 */
+.travel-quick-decisions-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.decision-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-overlay);
+  background: var(--panel);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+}
+
+.decision-icon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+
+.stay-card .decision-icon {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.food-card .decision-icon {
+  background: #fff7ed;
+  color: #ea580c;
+}
+
+.must-card .decision-icon {
+  background: #fefce8;
+  color: #ca8a04;
+}
+
+.alert-card .decision-icon {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.decision-body {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.decision-body small {
+  color: var(--faint);
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.decision-body b {
+  color: var(--text);
+  font-size: 13.5px;
+  font-weight: 750;
+}
+
+.decision-body p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+/* 沉浸式导航 Tab 栏 */
+.travel-nav-tabs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-overlay);
+  background: var(--surface-control);
+  overflow-x: auto;
+}
+
+.nav-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 38px;
+  padding: 0 16px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 650;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.nav-tab:hover:not(.active) {
+  color: var(--text);
+  background: var(--panel-hover);
+}
+
+.nav-tab.active {
+  border-color: var(--accent-selected-border);
+  background: var(--panel);
+  color: var(--accent-hover);
+  font-weight: 750;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+
+.tab-badge {
+  padding: 1px 6px;
+  border-radius: 10px;
+  background: var(--surface-chip);
+  color: var(--faint);
+  font-size: 10.5px;
+  font-weight: 700;
+}
+
+.nav-tab.active .tab-badge {
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+}
+
+/* Tab 面板公共样式 */
+.travel-tab-pane {
+  display: grid;
+  gap: 16px;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 .travel-section {
- display: grid;
- gap: 10px;
-}
-.travel-section h2 {
- margin: 0;
- color: var(--text-heading);
- font-size: 20px;
- font-weight: 800;
- letter-spacing: -0.2px;
-}
-.travel-section-body {
- display: grid;
- gap: 10px;
-}
-.travel-empty {
- margin: 0;
- color: var(--faint);
- font-size: 12px;
-}
-.travel-summary {
- margin: 0;
- color: var(--text-soft);
- font-size: 14px;
- line-height: 1.75;
-}
-.travel-chips {
- display: flex;
- gap: 6px;
- flex-wrap: wrap;
-}
-.travel-chips span {
- padding: 3px 10px;
- border: 1px solid var(--line-chip);
- border-radius: 12px;
- background: var(--surface-chip);
- color: var(--text-chip-label);
- font-size: 11px;
- font-weight: 600;
-}
-.travel-weather-card {
- display: grid;
- gap: 18px;
- padding: 19px;
- overflow: hidden;
- border: 1px solid var(--line);
- border-radius: var(--radius-overlay);
- background: var(--panel);
-}
-.travel-weather-card > header {
- display: flex;
- align-items: center;
- justify-content: space-between;
- gap: 18px;
-}
-.travel-weather-card > header > div {
- display: grid;
- gap: 4px;
-}
-.travel-weather-card > header small {
- color: var(--muted);
- font-size: 11px;
-}
-.travel-weather-card > header strong {
- color: var(--text);
- font-size: 42px;
- font-weight: 750;
- line-height: 1;
- letter-spacing: -1.5px;
-}
-.travel-weather-card > header p {
- margin: 0;
- color: var(--text-control);
- font-size: 13px;
- font-weight: 650;
-}
-.travel-weather-card > header p span {
- margin-left: 7px;
- color: var(--muted);
- font-weight: 500;
-}
-.travel-weather-card > header > svg {
- flex: 0 0 auto;
- color: #e0a12c;
-}
-.travel-weather-days {
- display: grid;
- grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
- gap: 7px;
-}
-.travel-weather-days > div {
- display: grid;
- justify-items: center;
- gap: 5px;
- min-width: 0;
- padding: 10px 5px;
- border: 1px solid transparent;
- border-radius: var(--radius-control);
- color: var(--muted);
-}
-.travel-weather-days > div.selected {
- border-color: var(--accent-selected-border);
- background: var(--accent-soft);
-}
-.travel-weather-days small {
- color: var(--muted);
- font-size: 11px;
-}
-.travel-weather-days svg {
- color: #e0a12c;
-}
-.travel-weather-days b {
- color: var(--text-heading);
- font-size: 15px;
-}
-.travel-weather-days span,
-.travel-weather-days em {
- color: var(--faint);
- font-size: 11px;
- font-style: normal;
-}
-.travel-weather-days em {
- overflow: hidden;
- max-width: 100%;
- text-overflow: ellipsis;
- white-space: nowrap;
-}
-.travel-weather-note {
- margin: -5px 0 0;
- padding-left: 10px;
- border-left: 2px solid var(--line-strong);
- color: var(--muted);
- font-size: 11px;
- line-height: 1.6;
-}
-.travel-map-card {
- overflow: hidden;
- border: 1px solid var(--line);
- border-radius: var(--radius-overlay);
- background: var(--panel);
-}
-.travel-map-card img {
- display: block;
- width: 100%;
- min-height: 220px;
- max-height: 360px;
- object-fit: cover;
- background: var(--surface-sunken);
-}
-.travel-map-caption {
- display: flex;
- align-items: center;
- justify-content: space-between;
- gap: 12px;
- padding: 10px 13px;
-}
-.travel-map-caption span {
- color: var(--muted);
- font-size: 11px;
-}
-.travel-map-caption button {
- display: inline-flex;
- align-items: center;
- gap: 5px;
- flex: 0 0 auto;
- padding: 0;
- border: 0;
- background: transparent;
- color: var(--accent-hover);
- font: inherit;
- font-size: 12px;
- font-weight: 700;
-}
-.travel-grid {
- display: grid;
- gap: 10px;
- grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-}
-.travel-attraction {
- display: grid;
- gap: 4px;
- padding: 12px 14px;
- border: 1px solid var(--line);
- border-radius: var(--radius-control);
- background: var(--surface-panel-deep);
-}
-.travel-attraction > b {
- color: var(--text-bright);
- font-size: 13px;
- font-weight: 700;
-}
-.travel-attraction > em {
- color: var(--faint);
- font-size: 11px;
- font-style: normal;
-}
-.travel-attraction p {
- margin: 0;
- color: var(--muted);
- font-size: 12px;
- line-height: 1.6;
-}
-.travel-verified-list,
-.travel-tips-list {
- display: grid;
- gap: 3px;
- margin: 4px 0 0;
- padding: 0;
- list-style: none;
-}
-.travel-verified-list li {
- display: flex;
- align-items: baseline;
- gap: 8px;
- color: var(--text-soft);
- font-size: 12px;
-}
-.travel-verified {
- display: inline-flex;
- align-items: center;
- gap: 6px;
- color: var(--text-bright);
- font-weight: 600;
-}
-.travel-verified i {
- color: var(--success);
- font-size: 10px;
- font-style: normal;
- font-weight: 600;
-}
-.travel-verified .travel-conflict {
- color: #e0a03a;
-}
-.travel-tips-list li {
- color: var(--muted);
- font-size: 12px;
- line-height: 1.6;
-}
-.travel-tips-list li::before {
- content: "· ";
- color: var(--accent);
-}
-.travel-list {
- display: grid;
- gap: 6px;
- margin: 0;
- padding: 0;
- list-style: none;
-}
-.travel-list li {
- display: grid;
- gap: 2px;
- padding: 9px 12px;
- border: 1px solid var(--line-soft);
- border-radius: var(--radius-control);
- background: var(--panel);
-}
-.travel-list li b {
- color: var(--text-control);
- font-size: 13px;
- font-weight: 600;
-}
-.travel-list li em {
- color: var(--accent-hover);
- font-size: 11px;
- font-style: normal;
-}
-.travel-list li p {
- margin: 0;
- color: var(--muted);
- font-size: 12px;
- line-height: 1.6;
-}
-.travel-list li small {
- color: var(--faint);
- font-size: 11px;
-}
-.travel-food {
- display: grid;
- gap: 12px;
-}
-.travel-transport {
- display: grid;
- gap: 6px;
-}
-.travel-transport p {
- margin: 0;
- color: var(--muted);
- font-size: 12px;
- line-height: 1.6;
-}
-.travel-itineraries {
- display: grid;
- gap: 12px;
- grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-}
-.travel-itinerary {
- display: grid;
- gap: 4px;
- margin: 0;
- padding: 12px 14px;
- border: 1px solid var(--line);
- border-radius: var(--radius-control);
- background: var(--surface-panel-deep);
- list-style: none;
-}
-.travel-itinerary-head {
- padding-bottom: 6px;
- border-bottom: 1px solid var(--line-soft);
- color: var(--accent-hover);
- font-size: 12px;
- font-weight: 700;
-}
-.travel-itinerary li {
- color: var(--text-soft);
- font-size: 12px;
- line-height: 1.5;
-}
-.travel-itinerary li b {
- color: var(--text-control);
-}
-.travel-itinerary li span {
- color: var(--faint);
- font-size: 11px;
-}
-.travel-itinerary li::before {
- content: "→ ";
- color: var(--faint);
-}
-.travel-itinerary-head::before {
- content: "";
-}
-.travel-warnings {
- display: grid;
- gap: 6px;
- margin: 0;
- padding: 0;
- list-style: none;
-}
-.travel-warnings li {
- display: grid;
- grid-template-columns: 20px minmax(0, 1fr);
- gap: 2px 8px;
- padding: 9px 12px;
- border: 1px solid var(--line);
- border-radius: var(--radius-control);
- background: var(--surface-panel-deep);
-}
-.travel-warnings li svg {
- grid-row: span 2;
- margin-top: 2px;
- color: #e0a03a;
-}
-.travel-warnings li b {
- color: var(--text-control);
- font-size: 13px;
- font-weight: 600;
-}
-.travel-warnings li p {
- margin: 0;
- color: var(--muted);
- font-size: 12px;
- line-height: 1.6;
-}
-.travel-conflict-note {
- display: flex;
- align-items: center;
- gap: 6px;
- margin: 0;
- color: #e0a03a;
- font-size: 12px;
+  display: grid;
+  gap: 12px;
 }
 
-/* Sources */
-.travel-sources-details {
- display: grid;
- gap: 12px;
+.travel-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
-.travel-sources-details > summary {
- display: flex;
- align-items: center;
- justify-content: space-between;
- gap: 16px;
- cursor: pointer;
- list-style: none;
+
+.section-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
-.travel-sources-details > summary::-webkit-details-marker {
- display: none;
+
+.section-title-icon {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: var(--accent-soft);
+  color: var(--accent-hover);
 }
-.travel-sources-details > summary::after {
- width: 7px;
- height: 7px;
- margin-left: auto;
- border-right: 1px solid var(--muted);
- border-bottom: 1px solid var(--muted);
- content: "";
- transform: rotate(45deg) translateY(-2px);
- transition: transform 0.2s ease;
+
+.section-title-wrap small {
+  color: var(--accent-hover);
+  font-size: 10.5px;
+  font-weight: 750;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
-.travel-sources-details[open] > summary::after {
- transform: rotate(225deg) translate(-2px, -2px);
+
+.section-title-wrap h2 {
+  margin: 0;
+  color: var(--text-heading);
+  font-size: 19px;
+  font-weight: 800;
 }
-.travel-sources-details > summary small {
- color: var(--faint);
- font-size: 11px;
- white-space: nowrap;
+
+/* ================= Tab 1: 智能日程规划 Timeline ================= */
+.itinerary-days-filter {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
 }
-.travel-sources {
- display: grid;
- gap: 6px;
+
+.day-filter-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--panel);
+  color: var(--text-control);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
 }
-.travel-source {
- display: flex;
- align-items: center;
- gap: 10px;
- padding: 9px 12px;
- border: 1px solid var(--line-soft);
- border-radius: var(--radius-control);
- background: var(--panel);
+
+.day-filter-btn:hover {
+  border-color: var(--accent-border-active);
+  color: var(--accent-hover);
 }
-.travel-source-main {
- display: grid;
- gap: 3px;
- min-width: 0;
- flex: 1;
+
+.day-filter-btn.active {
+  border-color: var(--accent-selected-border);
+  background: var(--accent-solid);
+  color: var(--text-on-accent);
+  font-weight: 700;
 }
-.travel-source-main > b {
- overflow: hidden;
- color: var(--text-control);
- font-size: 13px;
- font-weight: 600;
- text-overflow: ellipsis;
- white-space: nowrap;
+
+.day-filter-btn small {
+  font-size: 10.5px;
+  opacity: 0.8;
 }
-.travel-source-meta {
- display: flex;
- align-items: center;
- gap: 7px;
- flex-wrap: wrap;
+
+.itinerary-timeline-days {
+  display: grid;
+  gap: 20px;
 }
+
+.day-timeline-card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-overlay);
+  background: var(--panel);
+  overflow: hidden;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
+}
+
+.day-header-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--line-soft);
+  background: var(--surface-control);
+}
+
+.day-title-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.day-num-badge {
+  padding: 4px 10px;
+  border-radius: 8px;
+  background: var(--accent-solid);
+  color: var(--text-on-accent);
+  font-size: 12px;
+  font-weight: 850;
+  letter-spacing: 0.05em;
+}
+
+.day-title-text h3 {
+  margin: 0;
+  color: var(--text-heading);
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.day-theme-tag {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.day-stats-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.day-stat-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.distance-chip {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+  color: #15803d;
+  font-weight: 700;
+}
+
+.day-stops-flow {
+  padding: 20px;
+  display: grid;
+  gap: 0;
+}
+
+.timeline-stop-node {
+  position: relative;
+  display: grid;
+}
+
+.stop-card {
+  display: flex;
+  gap: 16px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--surface-control);
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.stop-card:hover {
+  border-color: var(--line-strong);
+  transform: translateX(2px);
+}
+
+.stop-badge-column {
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: 4px;
+  flex-shrink: 0;
+  width: 48px;
+}
+
+.stop-order-num {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.stop-time-label {
+  color: var(--faint);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.stop-main-content {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.stop-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.stop-title-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.stop-title-group h4 {
+  margin: 0;
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.must-visit-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 7px;
+  border-radius: 8px;
+  background: #fef3c7;
+  color: #92400e;
+  font-size: 10.5px;
+  font-weight: 750;
+}
+
+.stop-area-tag,
+.stop-duration-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: var(--surface-chip);
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.stop-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.stop-actions label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--faint);
+  font-size: 11px;
+}
+
+.stop-actions select {
+  height: 26px;
+  padding: 0 6px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--panel);
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.btn-remove-stop {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--panel);
+  color: var(--faint);
+  cursor: pointer;
+}
+
+.btn-remove-stop:hover {
+  color: #e11d48;
+  border-color: #fecaca;
+  background: #fff1f2;
+}
+
+.stop-reason {
+  margin: 0;
+  color: var(--text-soft);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.stop-facts-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-top: 6px;
+  border-top: 1px dashed var(--line-soft);
+}
+
+.fact-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: var(--panel);
+  border: 1px solid var(--line-soft);
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+.fact-pill svg {
+  color: var(--accent);
+}
+
+/* 核心：相邻景点间交通连接指示条 */
+.transit-connector-bar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding: 10px 0 10px 32px;
+}
+
+.transit-line {
+  position: absolute;
+  left: 31px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: repeating-linear-gradient(
+    to bottom,
+    var(--line-strong),
+    var(--line-strong) 4px,
+    transparent 4px,
+    transparent 8px
+  );
+}
+
+.transit-badge-wrap {
+  position: relative;
+  z-index: 1;
+}
+
+.transit-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 16px;
+  background: var(--panel);
+  border: 1px solid var(--line-strong);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  font-size: 11.5px;
+  color: var(--text-control);
+}
+
+.transit-badge svg {
+  color: var(--accent);
+}
+
+.transit-dist b {
+  color: var(--text-heading);
+  font-weight: 750;
+}
+
+.transit-divider {
+  color: var(--faint);
+}
+
+.transit-mode {
+  color: var(--accent-hover);
+  font-weight: 650;
+}
+
+.transit-tip {
+  color: var(--faint);
+}
+
+.transit-badge-simple {
+  color: var(--muted);
+}
+
+.day-empty-box {
+  display: grid;
+  place-items: center;
+  gap: 8px;
+  padding: 40px;
+  color: var(--faint);
+  text-align: center;
+}
+
+/* ================= Tab 2: 路线地图 ================= */
+.travel-map-dashboard {
+  display: grid;
+  gap: 12px;
+}
+
+.travel-map-tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.travel-map-tabs button {
+  height: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--panel);
+  color: var(--text-control);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.travel-map-tabs button.active {
+  border-color: var(--accent-selected-border);
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+  font-weight: 700;
+}
+
+.travel-map-layout {
+  display: grid;
+  grid-template-columns: 1fr 280px;
+  gap: 14px;
+  min-height: 420px;
+}
+
+.travel-map-canvas-container {
+  position: relative;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-overlay);
+  overflow: hidden;
+  background: var(--surface-sunken);
+}
+
+.travel-map-canvas {
+  width: 100%;
+  height: 100%;
+  min-height: 400px;
+}
+
+.travel-map-unconfigured-box {
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 10px;
+  height: 100%;
+  min-height: 380px;
+  padding: 20px;
+  text-align: center;
+  color: var(--muted);
+}
+
+.travel-map-unconfigured-box svg {
+  color: var(--faint);
+}
+
+.travel-map-unconfigured-box h4 {
+  margin: 0;
+  color: var(--text);
+  font-size: 15px;
+}
+
+.travel-map-unconfigured-box p {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--faint);
+}
+
+.travel-amap-marker {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--accent-solid);
+  color: var(--text-on-accent);
+  font-size: 12px;
+  font-weight: 850;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  border: 2px solid #fff;
+  transition: transform 0.15s ease;
+}
+
+.travel-amap-marker.active {
+  transform: scale(1.25);
+  background: #e11d48;
+}
+
+.travel-map-nodes-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-overlay);
+  background: var(--panel);
+}
+
+.travel-map-nodes-sidebar h4 {
+  margin: 0;
+  color: var(--text-heading);
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.route-nodes-list {
+  flex: 1;
+  overflow-y: auto;
+  display: grid;
+  gap: 8px;
+}
+
+.route-node-item {
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--surface-control);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.route-node-item:hover,
+.route-node-item.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.node-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.node-index {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--text-on-accent);
+  font-size: 10.5px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.node-head b {
+  font-size: 13px;
+  color: var(--text);
+  flex: 1;
+}
+
+.node-head small {
+  color: var(--faint);
+  font-size: 10.5px;
+}
+
+.node-distance-to-next {
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--muted);
+  padding-left: 28px;
+}
+
+.node-distance-to-next b {
+  color: var(--accent-hover);
+}
+
+.travel-link-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--surface-control);
+  color: var(--accent-hover);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  margin-top: auto;
+}
+
+/* ================= Tab 3: 全城景点图鉴 ================= */
+.attractions-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.attraction-category-tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.attraction-category-tabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 15px;
+  background: var(--panel);
+  color: var(--text-control);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.attraction-category-tabs button.active {
+  border-color: var(--accent-selected-border);
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+  font-weight: 700;
+}
+
+.attraction-search-box input {
+  height: 32px;
+  padding: 0 12px;
+  width: 240px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--panel);
+  color: var(--text);
+  font-size: 12.5px;
+}
+
+.attractions-gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 14px;
+}
+
+.attraction-gallery-card {
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-overlay);
+  background: var(--panel);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+  transition: all 0.15s ease;
+}
+
+.attraction-gallery-card:hover {
+  border-color: var(--line-strong);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.05);
+}
+
+.attraction-gallery-card.is-must-visit {
+  border-color: #fde68a;
+  background: #fffdf5;
+}
+
+.card-top-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.card-index-box {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  background: var(--surface-chip);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.card-title-wrap {
+  flex: 1;
+  min-width: 0;
+}
+
+.card-title-wrap h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: 15.5px;
+  font-weight: 800;
+}
+
+.card-area-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--faint);
+  font-size: 11px;
+  margin-top: 2px;
+}
+
+.btn-toggle-must {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  background: transparent;
+  color: var(--faint);
+  cursor: pointer;
+  border-radius: 50%;
+  transition: all 0.15s ease;
+}
+
+.btn-toggle-must:hover,
+.btn-toggle-must.active {
+  color: #d97706;
+  background: #fef3c7;
+}
+
+.card-intro {
+  margin: 10px 0 0;
+  color: var(--text-soft);
+  font-size: 12.5px;
+  line-height: 1.55;
+  flex: 1;
+}
+
+.card-tags-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.meta-tag {
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: var(--surface-chip);
+  color: var(--muted);
+  font-size: 10.5px;
+  font-weight: 600;
+}
+
+.duration-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--accent-hover);
+  background: var(--accent-soft);
+}
+
+.card-facts-block {
+  display: grid;
+  gap: 4px;
+  padding: 8px 10px;
+  margin-top: 10px;
+  border-radius: 6px;
+  background: var(--surface-control);
+  font-size: 11px;
+}
+
+.card-facts-block > div {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.card-facts-block small {
+  color: var(--faint);
+  flex-shrink: 0;
+}
+
+.card-footer-actions {
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line-soft);
+}
+
+.btn-primary-add {
+  width: 100%;
+  height: 32px;
+  border: 1px solid var(--accent-border-active);
+  border-radius: var(--radius-control);
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-primary-add:hover {
+  background: var(--accent-solid);
+  color: var(--text-on-accent);
+}
+
+.in-plan-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.in-plan-actions label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+.in-plan-actions select {
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--surface-control);
+  color: var(--text);
+  font-size: 11.5px;
+  font-weight: 650;
+}
+
+.btn-secondary-remove {
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--surface-control);
+  color: var(--faint);
+  font-size: 11.5px;
+  cursor: pointer;
+}
+
+.btn-secondary-remove:hover {
+  color: #e11d48;
+  border-color: #fecaca;
+  background: #fff1f2;
+}
+
+/* ================= Tab 4: 美食风味 ================= */
+.food-banner-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-overlay);
+  background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%);
+  color: #9a3412;
+}
+
+.food-banner-icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: #ea580c;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.food-banner-text h3 {
+  margin: 0 0 4px;
+  font-size: 16px;
+  font-weight: 850;
+  color: #7c2d12;
+}
+
+.food-banner-text p {
+  margin: 0;
+  font-size: 13px;
+  color: #9a3412;
+  line-height: 1.5;
+}
+
+.foods-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.food-item-card {
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--panel);
+}
+
+.food-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+
+.food-header h4 {
+  margin: 0;
+  color: var(--text);
+  font-size: 14.5px;
+  font-weight: 800;
+}
+
+.dish-type-badge {
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: #ffedd5;
+  color: #c2410c;
+  font-size: 10.5px;
+  font-weight: 700;
+}
+
+.food-area-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--faint);
+  font-size: 10.5px;
+}
+
+.food-intro {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+
+.restaurants-list {
+  display: grid;
+  gap: 10px;
+}
+
+.restaurant-card {
+  display: flex;
+  gap: 14px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--panel);
+}
+
+.restaurant-num {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--surface-chip);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.restaurant-body {
+  flex: 1;
+  display: grid;
+  gap: 4px;
+}
+
+.restaurant-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.restaurant-head h4 {
+  margin: 0;
+  color: var(--text);
+  font-size: 14.5px;
+  font-weight: 800;
+}
+
+.route-day-pill {
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.place-area-pill {
+  color: var(--faint);
+  font-size: 11px;
+}
+
+.restaurant-signature {
+  font-size: 12px;
+  color: var(--text-soft);
+}
+
+.restaurant-signature b {
+  color: #ea580c;
+}
+
+.restaurant-why {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* ================= Tab 5: 住宿与交通 ================= */
+.stay-areas-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.stay-area-card {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-overlay);
+  background: var(--panel);
+  display: grid;
+  gap: 8px;
+}
+
+.stay-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.stay-badge {
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.stay-card-header h4 {
+  margin: 0;
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.budget-tag {
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--surface-chip);
+  color: var(--muted);
+  font-size: 10.5px;
+}
+
+.stay-note {
+  margin: 0;
+  color: var(--text-soft);
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+
+.stay-features {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--success);
+}
+
+.transport-guide-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.transport-card {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--panel);
+  display: grid;
+  gap: 8px;
+}
+
+.transport-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--accent-hover);
+}
+
+.transport-head h4 {
+  margin: 0;
+  color: var(--text);
+  font-size: 14.5px;
+  font-weight: 750;
+}
+
+.transport-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+
+.transport-tips-card {
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--surface-control);
+  margin-top: 4px;
+}
+
+.transport-tips-card h4 {
+  margin: 0 0 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-heading);
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.transport-tips-card ul {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+/* ================= Tab 6: 避坑与信源 ================= */
+.warnings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 12px;
+}
+
+.warning-card {
+  padding: 16px;
+  border: 1px solid #fed7aa;
+  border-radius: var(--radius-overlay);
+  background: #fffaf5;
+  display: grid;
+  gap: 6px;
+}
+
+.warning-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #ea580c;
+}
+
+.warning-head h4 {
+  margin: 0;
+  color: #9a3412;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.warning-card p {
+  margin: 0;
+  color: #7c2d12;
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+
+.local-tips-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 10px;
+}
+
+.local-tip-card {
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--panel);
+}
+
+.local-tip-card h4 {
+  margin: 0 0 4px;
+  color: var(--text);
+  font-size: 13.5px;
+  font-weight: 750;
+}
+
+.local-tip-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.evidence-summary-bar {
+  display: flex;
+  gap: 16px;
+  padding: 12px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--surface-control);
+}
+
+.evidence-item {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.evidence-item .label {
+  color: var(--faint);
+}
+
+.evidence-item b {
+  color: var(--text);
+}
+
+.quality-tag {
+  color: var(--success) !important;
+}
+
+.sources-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.source-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 10px 14px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-control);
+  background: var(--panel);
+}
+
+.source-info {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
+}
+
+.source-info b {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 650;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.source-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .travel-stars {
- display: inline-flex;
+  display: inline-flex;
 }
 .travel-stars svg {
- color: var(--line-strong);
+  color: var(--line-strong);
 }
 .travel-stars svg.filled {
- color: #e0a03a;
-}
-.travel-level {
- padding: 1px 6px;
- border: 1px solid var(--line-chip);
- border-radius: 8px;
- font-size: 10px;
- font-style: normal;
- font-weight: 700;
-}
-.travel-level-s {
- border-color: #2e7d5b;
- color: #4caf83;
-}
-.travel-level-a {
- border-color: #b97a19;
- color: #d9a04a;
-}
-.travel-level-b {
- border-color: #3b5f8a;
- color: #6ca2dd;
-}
-.travel-snippet-tag {
- padding: 1px 6px;
- border: 1px solid var(--line-chip);
- border-radius: 8px;
- background: var(--surface-chip);
- color: var(--faint);
- font-size: 10px;
- font-style: normal;
- font-weight: 600;
-}
-.travel-source-meta small {
- color: var(--faint);
- font-size: 11px;
-}
-.travel-source > button {
- display: inline-flex;
- align-items: center;
- gap: 5px;
- flex-shrink: 0;
- height: 26px;
- padding: 0 9px;
- border: 1px solid var(--line);
- border-radius: var(--radius-control);
- background: var(--surface-control);
- color: var(--text-control);
- font-size: 11px;
- font-weight: 600;
-}
-.travel-source > button:hover {
- border-color: var(--line-strong);
- background: var(--panel-hover);
- color: var(--text-hover);
+  color: #f59e0b;
 }
 
-@keyframes dtb-spin {
- to {
-  transform: rotate(360deg);
- }
+.level-pill {
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 800;
 }
-.spin {
- animation: dtb-spin 0.9s linear infinite;
+.level-s { background: #dcfce7; color: #15803d; }
+.level-a { background: #fef3c7; color: #b45309; }
+.level-b { background: #e0f2fe; color: #0369a1; }
+.level-c { background: #f3f4f6; color: #4b5563; }
+
+.snippet-pill {
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--surface-chip);
+  color: var(--faint);
+  font-size: 10px;
 }
+
+.source-meta small {
+  color: var(--faint);
+  font-size: 11px;
+}
+
+.btn-visit-source {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--surface-control);
+  color: var(--text-control);
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.btn-visit-source:hover {
+  border-color: var(--line-strong);
+  background: var(--panel-hover);
+  color: var(--accent-hover);
+}
+
+.travel-verified {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text);
+  font-weight: 650;
+}
+.travel-verified i {
+  color: var(--success);
+  font-size: 10.5px;
+  font-style: normal;
+  font-weight: 700;
+}
+.travel-verified .travel-conflict {
+  color: #d97706;
+}
+
+/* 响应式调整 */
+@media (max-width: 900px) {
+  .travel-search-meta {
+    grid-template-columns: 1fr;
+  }
+  .travel-map-layout {
+    grid-template-columns: 1fr;
+  }
+  .poster-title-row {
+    flex-direction: column;
+  }
+  .poster-weather-widget {
+    min-width: 100%;
+  }
+}
+
 
 .focus-shell {
  display: grid;
@@ -15154,3 +16698,310 @@ main.history-v2-period {
  outline: 2px solid var(--accent-hover);
  outline-offset: 2px;
 }
+
+/* ==========================================================================
+ * Global Shortcuts, Command Palette & Theme Preview Components
+ * ========================================================================== */
+
+.app-bar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.app-bar-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control, 6px);
+  background: var(--surface-control);
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.app-bar-btn:hover,
+.app-bar-btn.active {
+  border-color: var(--line-strong);
+  background: var(--panel-hover);
+  color: var(--text-hover);
+}
+
+.app-bar-hotkey {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--chip-bg, rgba(255, 255, 255, 0.08));
+  border: 1px solid var(--line);
+  color: var(--faint);
+  font-family: monospace;
+}
+
+.shortcut-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--surface-control);
+  border: 1px solid var(--line);
+  color: var(--accent);
+  font-family: monospace;
+}
+
+.nav-shortcut {
+  margin-left: auto;
+  font-size: 10px;
+  opacity: 0.55;
+  font-family: monospace;
+}
+
+.search-badge-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.search-kicker {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: var(--accent);
+}
+
+.search-error-notice {
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: color-mix(in srgb, #ff4d4f 15%, transparent);
+  border: 1px solid color-mix(in srgb, #ff4d4f 30%, transparent);
+  color: #ff7875;
+  font-size: 13px;
+}
+
+.search-empty-box {
+  text-align: center;
+  padding: 32px 16px;
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+}
+
+.search-empty-box p {
+  margin: 0 0 6px;
+  font-size: 14px;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.search-empty-box small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.search-hits-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.quick-action-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.quick-action-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  text-align: left;
+  transition: border-color 0.15s, transform 0.15s;
+  cursor: pointer;
+}
+
+.quick-action-card:hover {
+  border-color: var(--accent);
+  transform: translateY(-1px);
+  background: var(--panel-hover);
+}
+
+.quick-action-icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: var(--surface-control);
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.quick-action-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  flex: 1;
+}
+
+.quick-action-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.quick-action-title-row strong {
+  font-size: 13px;
+  color: var(--text);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.quick-action-info p {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.search-shortcuts-reference {
+  margin-top: 24px;
+  padding: 16px;
+  border-radius: 10px;
+  background: var(--surface-control);
+  border: 1px solid var(--line-soft);
+}
+
+.search-shortcuts-reference h4 {
+  margin: 0 0 10px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+
+.shortcuts-legend {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 8px 16px;
+  font-size: 12px;
+  color: var(--text-subtle);
+}
+
+.shortcuts-legend div {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.shortcuts-legend kbd {
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--line-strong);
+  background: var(--panel);
+  font-size: 11px;
+  font-family: monospace;
+  font-weight: 600;
+}
+
+/* 设置面板主题色板预览卡片 */
+.settings-theme-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.theme-card-option {
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.theme-card-option:hover {
+  border-color: var(--line-strong);
+  background: var(--panel-hover);
+}
+
+.theme-card-option.active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1.5px var(--accent);
+}
+
+.theme-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.theme-card-header strong {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.theme-card-appearance {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: var(--surface-control);
+  color: var(--muted);
+}
+
+.theme-color-dots {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.theme-color-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1px solid rgba(128, 128, 128, 0.35);
+  flex-shrink: 0;
+}
+
+/* 首页跨模块实体关联标签 */
+.home-association-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent);
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--chip-bg, rgba(22, 136, 255, 0.1));
+  border: 1px solid var(--line-chip);
+  margin-bottom: 4px;
+}
+

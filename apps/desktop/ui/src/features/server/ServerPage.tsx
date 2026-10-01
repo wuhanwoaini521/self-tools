@@ -197,7 +197,7 @@ export function ServerPage({ active, setNotice }: ServerPageProps) {
     );
   }
 
-  const health = status?.health.overall ?? "unknown";
+  const health = status?.health?.overall ?? "unknown";
 
   return (
     <div className="server-page">

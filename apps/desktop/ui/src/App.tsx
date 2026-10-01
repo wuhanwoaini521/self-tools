@@ -1,6 +1,8 @@
 import {
   Brain,
+  Cards,
   Compass,
+  FolderSimple,
   Gear,
   HardDrives,
   Heartbeat,
@@ -13,6 +15,7 @@ import {
   Scroll,
   Sparkle,
   Translate,
+  TreeStructure,
   Wrench,
   X,
 } from "@phosphor-icons/react";
@@ -50,8 +53,12 @@ import { ServerPage } from "./features/server/ServerPage";
 import { StudyBoardPage } from "./features/study/StudyBoardPage";
 import { SystemReadinessPage } from "./features/system/SystemReadinessPage";
 import { GlobalSearchPage } from "./features/system/GlobalSearchPage";
+import { GlobalSearchModal } from "./features/system/GlobalSearchModal";
 import { TravelPage } from "./features/travel/TravelPage";
 import { GeographyPage } from "./features/geography/GeographyPage";
+import { ReviewCenterPage } from "./features/learning/ReviewCenterPage";
+import { KnowledgeGraphPage } from "./features/learning/KnowledgeGraphPage";
+import { CollectionsPage } from "./features/learning/CollectionsPage";
 import {
   applyTheme,
   getTheme,
@@ -64,6 +71,7 @@ import {
   useLayout,
   navigationLayout,
 } from "./layout";
+import { useGlobalShortcuts } from "./useGlobalShortcuts";
 import { PwaBanner } from "./PwaBanner";
 import type {
   AppSettings,
@@ -85,6 +93,9 @@ import { errorMessage, isTauriRuntime } from "./utils";
 
 type PageId =
   | "home"
+  | "review"
+  | "graph"
+  | "collections"
   | "markdown"
   | "rss"
   | "news"
@@ -109,6 +120,9 @@ interface NavItem {
 /** 页面 id 集合（hash 路由与导航共用）。 */
 const PAGE_IDS: PageId[] = [
   "home",
+  "review",
+  "graph",
+  "collections",
   "markdown",
   "rss",
   "news",
@@ -126,6 +140,9 @@ const PAGE_IDS: PageId[] = [
 /** 导航注册表:新功能在这里加一行即可(Tools 为未来模块的占位) */
 const NAV_ITEMS: NavItem[] = [
   { id: "home", label: "Home", icon: House },
+  { id: "review", label: "Review", icon: Cards },
+  { id: "graph", label: "Graph", icon: TreeStructure },
+  { id: "collections", label: "Collections", icon: FolderSimple },
   { id: "markdown", label: "Markdown", icon: Notebook },
   { id: "rss", label: "RSS", icon: Rss },
   { id: "news", label: "News", icon: Newspaper },
@@ -324,6 +341,7 @@ export default function App() {
   const [knowledgeIntent, setKnowledgeIntent] = useState<KnowledgeIntent | null>(
     null,
   );
+  const [searchModalOpen, setSearchModalOpen] = useState(false);
   const startupRefreshed = useRef(false);
 
   /** 主题即时切换:CSS 变量作用于 :root,所有页面同步更新 */
@@ -491,6 +509,86 @@ export default function App() {
     if (id) setLanguageIntent({ id, nonce: Date.now() });
   }, []);
 
+  const openKnowledge = useCallback((tab?: "memory" | "documents" | "files", docId?: string) => {
+    setPage("knowledge");
+    setKnowledgeIntent({
+      tab: tab ?? "memory",
+      documentId: docId ?? null,
+      nonce: Date.now(),
+    });
+  }, []);
+
+  const navigateToHash = useCallback(
+    (hash: string) => {
+      const raw = hash.startsWith("#") ? hash.slice(1) : hash;
+      const [pathPart, queryPart] = raw.split("?");
+      const params = new URLSearchParams(queryPart ?? "");
+
+      if (pathPart === "home") setPage("home");
+      else if (pathPart === "review") setPage("review");
+      else if (pathPart === "graph") setPage("graph");
+      else if (pathPart === "collections") setPage("collections");
+      else if (pathPart === "history") {
+        const storyId = params.get("story");
+        const personId = params.get("person");
+        const eventId = params.get("event") || params.get("id");
+        if (storyId) openHistory(storyId, "story");
+        else if (personId) openHistory(personId, "person");
+        else if (eventId) openHistory(eventId, "event");
+        else setPage("history");
+      } else if (pathPart === "geography") {
+        const id = params.get("id") || params.get("entityId");
+        openGeography(id ?? undefined);
+      } else if (pathPart === "language") {
+        const id = params.get("id") || params.get("word");
+        openLanguage(id ?? undefined);
+      } else if (pathPart === "news") setPage("news");
+      else if (pathPart === "study-board" || pathPart === "study") setPage("study-board");
+      else if (pathPart === "knowledge") {
+        const tab = params.get("tab") as "memory" | "documents" | "files" | null;
+        const docId = params.get("doc") || params.get("documentId");
+        if (tab || docId) {
+          openKnowledge(tab ?? undefined, docId ?? undefined);
+        } else {
+          setPage("knowledge");
+        }
+      } else if (pathPart === "server") setPage("server");
+      else if (pathPart === "markdown") {
+        const path = params.get("path");
+        const isNew = params.get("new");
+        if (path) openNote(path);
+        else if (isNew) newNote();
+        else setPage("markdown");
+      }
+      else if (pathPart === "travel") setPage("travel");
+      else if (pathPart === "search") setSearchModalOpen(true);
+      else if (PAGE_IDS.includes(pathPart as PageId)) setPage(pathPart as PageId);
+    },
+    [openGeography, openHistory, openLanguage, openKnowledge, openNote, newNote],
+  );
+
+  /** 全局快捷键与命令流监听 (⌘K / ⌘/ / ⌘, / ⌘1..9 / Esc) */
+  useGlobalShortcuts({
+    onToggleSearch: useCallback(() => {
+      setSearchModalOpen((prev) => !prev);
+    }, []),
+    onToggleAi: useCallback(() => {
+      setAiOpen((prev) => !prev);
+    }, []),
+    onOpenSettings: useCallback(() => {
+      setSettingsOpen(true);
+    }, []),
+    onCloseModals: useCallback(() => {
+      setSettingsOpen(false);
+      setAiOpen(false);
+      setConversationOpen(false);
+      setSearchModalOpen(false);
+    }, []),
+    onSelectPage: useCallback((targetPage) => {
+      setPage(targetPage);
+    }, []),
+  });
+
   /** 执行 AI 的 Action 请求（V4 §51：Frontend 决定是否执行）。 */
   const handleAiNavigate = useCallback(
     (action: AgentAction) => {
@@ -563,30 +661,48 @@ export default function App() {
     <div className={"app-shell app-shell-" + layout.device}>
       <PwaBanner />
       <header className="app-bar">
-        <div className="brand">
+        <div
+          className="brand"
+          onClick={() => setPage("home")}
+          style={{ cursor: "pointer" }}
+        >
           <strong>self-tools</strong>
           <span />
           <p>Personal AI Hub</p>
         </div>
-        <button
-          className="app-bar-gear"
-          title="Settings"
-          onClick={() => setSettingsOpen(true)}
-        >
-          <Gear size={19} />
-        </button>
-        <button
-          className="app-bar-ai"
-          title="Ask AI"
-          onClick={() => setAiOpen(true)}
-        >
-          <Sparkle size={18} weight="fill" />
-        </button>
+        <div className="app-bar-actions">
+          <button
+            className={
+              "app-bar-btn app-bar-search" +
+              (page === "search" ? " active" : "")
+            }
+            title="Search & Commands (⌘K)"
+            onClick={() => setPage(page === "search" ? "home" : "search")}
+          >
+            <MagnifyingGlass size={16} />
+            <span className="app-bar-hotkey">⌘K</span>
+          </button>
+          <button
+            className="app-bar-gear"
+            title="Settings (⌘,)"
+            onClick={() => setSettingsOpen(true)}
+          >
+            <Gear size={19} />
+          </button>
+          <button
+            className={"app-bar-ai" + (aiOpen ? " active" : "")}
+            title="Ask AI (⌘/)"
+            onClick={() => setAiOpen((prev) => !prev)}
+          >
+            <Sparkle size={18} weight="fill" />
+            <span className="app-bar-hotkey">⌘/</span>
+          </button>
+        </div>
       </header>
       <div className="app-body">
         {navigationLayout(layout) === "side" ? (
         <nav className="app-nav" aria-label="功能导航">
-          {NAV_ITEMS.map((item) =>
+          {NAV_ITEMS.map((item, index) =>
             item.disabled ? (
               <span
                 className="app-nav-item disabled"
@@ -604,6 +720,9 @@ export default function App() {
               >
                 <item.icon size={18} />
                 {item.label}
+                {index < 9 ? (
+                  <span className="nav-shortcut">⌘{index + 1}</span>
+                ) : null}
                 {item.id === "rss" && unreadTotal > 0 ? (
                   <b>{unreadTotal > 99 ? "99+" : unreadTotal}</b>
                 ) : null}
@@ -647,6 +766,31 @@ export default function App() {
               onOpenServer={() => setPage("server")}
               onOpenStudyBoard={() => setPage("study-board")}
               onOpenKnowledge={() => setPage("knowledge")}
+              onNavigate={navigateToHash}
+            />
+          </section>
+          <section
+            className={"page-pane" + (page === "review" ? "" : " page-hidden")}
+          >
+            <ReviewCenterPage
+              onNavigate={navigateToHash}
+              onAskAi={(prompt) => deliverToAi(prompt)}
+            />
+          </section>
+          <section
+            className={"page-pane" + (page === "graph" ? "" : " page-hidden")}
+          >
+            <KnowledgeGraphPage
+              onNavigate={navigateToHash}
+              onAskAi={(prompt) => deliverToAi(prompt)}
+            />
+          </section>
+          <section
+            className={"page-pane" + (page === "collections" ? "" : " page-hidden")}
+          >
+            <CollectionsPage
+              onNavigate={navigateToHash}
+              onAskAi={(prompt) => deliverToAi(prompt)}
             />
           </section>
           <section
@@ -660,24 +804,33 @@ export default function App() {
             <GlobalSearchPage
               active={page === "search"}
               onNavigate={(module, target) => {
-                // action_target.module 直接映射到 PageId；未知模块保持当前页。
-                const known: PageId[] = [
-                  "home",
-                  "markdown",
-                  "rss",
-                  "travel",
-                  "geography",
-                  "history",
-                  "language",
-                  "knowledge",
-                  "study-board",
-                  "server",
-                ];
-                if (known.includes(module as PageId)) {
+                if (module === "history") {
+                  const id = target.id || target.entityId || target.entity_id;
+                  const kind = target.kind || target.entityType || target.entity_type;
+                  openHistory(id ? String(id) : undefined, kind ? (String(kind) as "event" | "person" | "story") : undefined);
+                } else if (module === "geography") {
+                  const id = target.id || target.entityId || target.entity_id;
+                  openGeography(id ? String(id) : undefined);
+                } else if (module === "language") {
+                  const id = target.id || target.entityId || target.entity_id;
+                  openLanguage(id ? String(id) : undefined);
+                } else if (module === "knowledge" || module === "memory" || module === "documents" || module === "files") {
+                  const tab = module === "memory" ? "memory" : module === "documents" ? "documents" : module === "files" ? "files" : ((target.tab as "memory" | "documents" | "files") ?? "memory");
+                  const docId = target.documentId || target.doc || target.id;
+                  openKnowledge(tab, docId ? String(docId) : undefined);
+                } else if (module === "markdown") {
+                  if (target.path) openNote(String(target.path));
+                  else setPage("markdown");
+                } else if (module === "study_board" || module === "study") {
+                  setPage("study-board");
+                } else if (PAGE_IDS.includes(module as PageId)) {
                   setPage(module as PageId);
                 }
-                void target;
               }}
+              onNewNote={newNote}
+              onRefreshRss={() => void refreshFeeds()}
+              onAskAi={() => setAiOpen(true)}
+              onOpenSettings={() => setSettingsOpen(true)}
             />
           </section>
           <section
@@ -953,6 +1106,12 @@ export default function App() {
           onClose={() => setSettingsOpen(false)}
         />
       ) : null}
+      <GlobalSearchModal
+        isOpen={searchModalOpen}
+        onClose={() => setSearchModalOpen(false)}
+        onNavigate={navigateToHash}
+        onAskAi={(prompt) => deliverToAi(prompt)}
+      />
     </div>
   );
 }

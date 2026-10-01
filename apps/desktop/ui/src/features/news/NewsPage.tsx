@@ -31,6 +31,7 @@ import type {
 } from "../../types";
 import { errorMessage, formatDateTime, formatRelativeTime, isTauriRuntime } from "../../utils";
 import { newsClient } from "./newsClient";
+import { learningClient } from "../learning/learningClient";
 import { prepareRssContent, stripRssHtml } from "./newsContent";
 
 /** 栏目：今日 / 稍后读 / 订阅源。 */
@@ -116,6 +117,26 @@ export function NewsPage({
     }
   }, [tab, sourceFilter, searchQuery, setNotice]);
 
+  const autoRefreshedRef = useRef(false);
+
+  /** 触发一次抓取（news_refresh_now → RSS 摄取管道；本页不复制刷新逻辑）。 */
+  const refresh = useCallback(async () => {
+    if (!isTauriRuntime()) return;
+    setRefreshing(true);
+    try {
+      const report = await newsClient.refreshNow();
+      if (report.failures.length > 0) {
+        setNotice(`刷新完成，${report.failures.length} 个源失败`);
+      }
+      refreshNonce.current += 1;
+      await Promise.all([loadOverview(), loadStories()]);
+    } catch (error) {
+      setNotice(errorMessage(error));
+    } finally {
+      setRefreshing(false);
+    }
+  }, [loadOverview, loadStories, setNotice]);
+
   useEffect(() => {
     void loadOverview();
   }, [loadOverview]);
@@ -124,6 +145,15 @@ export function NewsPage({
     if (!active) return;
     void loadStories();
   }, [active, loadStories, refreshNonce.current]);
+
+  /** 首次进入新闻页面时，若已有配置好的新闻源但本地尚无文章缓存，自动发起一次静默抓取。 */
+  useEffect(() => {
+    if (!active || autoRefreshedRef.current) return;
+    if (sources.length > 0 && stories.length === 0 && !refreshing) {
+      autoRefreshedRef.current = true;
+      void refresh();
+    }
+  }, [active, sources.length, stories.length, refreshing, refresh]);
 
   /** 切文章时重置抓取结果。 */
   useEffect(() => {
@@ -136,6 +166,13 @@ export function NewsPage({
   const openStory = useCallback(
     async (story: NewsArticle) => {
       setSelected(story);
+      void learningClient.recordEvent({
+        module: "news",
+        entity_type: "article",
+        entity_id: String(story.id),
+        title: story.title,
+        action: "read",
+      });
       if (story.is_read) return;
       try {
         await newsClient.markRead(story.id);
@@ -176,24 +213,6 @@ export function NewsPage({
     },
     [selected, setNotice],
   );
-
-  /** 触发一次抓取（news_refresh_now → RSS 摄取管道；本页不复制刷新逻辑）。 */
-  const refresh = useCallback(async () => {
-    if (!isTauriRuntime()) return;
-    setRefreshing(true);
-    try {
-      const report = await newsClient.refreshNow();
-      if (report.failures.length > 0) {
-        setNotice(`刷新完成，${report.failures.length} 个源失败`);
-      }
-      refreshNonce.current += 1;
-      await Promise.all([loadOverview(), loadStories()]);
-    } catch (error) {
-      setNotice(errorMessage(error));
-    } finally {
-      setRefreshing(false);
-    }
-  }, [loadOverview, loadStories, setNotice]);
 
   /** 按需抓取文章页正文（仅 RSS 只有摘要时手动触发）。 */
   const fetchFullText = useCallback(
@@ -466,13 +485,39 @@ export function NewsPage({
               )}
             </div>
           ) : stories.length === 0 ? (
-            <p className="news-empty">
-              {tab === "starred"
-                ? "还没有收藏。阅读时点 ☆ 加入稍后读。"
-                : searchQuery.trim()
-                  ? "本地缓存的新闻里没有命中该关键词。"
-                  : "暂无新闻。点上方的刷新按钮抓取最新内容。"}
-            </p>
+            <div className="news-empty" style={{ textAlign: "center", padding: "48px 24px" }}>
+              <p style={{ color: "var(--text-secondary, #6b7280)", fontSize: 14, marginBottom: 16 }}>
+                {tab === "starred"
+                  ? "还没有收藏。阅读时点 ☆ 加入稍后读。"
+                  : searchQuery.trim()
+                    ? "本地缓存的新闻里没有命中该关键词。"
+                    : "已配置内置新闻源，暂无本地抓取缓存。"}
+              </p>
+              {tab === "today" && !searchQuery.trim() && (
+                <button
+                  type="button"
+                  onClick={() => void refresh()}
+                  disabled={refreshing}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: "8px 18px",
+                    borderRadius: 8,
+                    background: "var(--accent-primary, #2563eb)",
+                    color: "#ffffff",
+                    border: "none",
+                    fontWeight: 600,
+                    fontSize: 13,
+                    cursor: "pointer",
+                    boxShadow: "0 2px 8px rgba(37, 99, 235, 0.2)",
+                  }}
+                >
+                  <ArrowsClockwise size={15} className={refreshing ? "spin" : undefined} />
+                  {refreshing ? "正在抓取最新新闻..." : "立即抓取最新新闻"}
+                </button>
+              )}
+            </div>
           ) : (
             <ul className="news-story-list">
               {stories.map((story) => {

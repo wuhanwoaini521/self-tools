@@ -18,6 +18,8 @@ export interface ThemeDefinition {
   dataTheme: string;
   /** CodeMirror 扩展;Default 沿用 oneDark,其余主题提供与配色匹配的编辑器主题 */
   editorTheme: Extension;
+  /** 色板预览 [背景, 卡片, 强调色]，用于设置面板视觉卡片 */
+  previewColors?: [string, string, string];
 }
 
 export const DEFAULT_THEME_ID = "default";

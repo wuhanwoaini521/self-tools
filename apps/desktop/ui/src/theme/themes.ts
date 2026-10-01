@@ -10,10 +10,11 @@ import { DEFAULT_THEME_ID, registerTheme, type ThemeDefinition } from "./ThemeMa
  * 配色通过同名 data-theme 作用域下的 Design Tokens 覆盖,不散落硬编码。
  */
 
-/** 编辑器主题由 CSS token 统一驱动,扩展只需声明明暗 */
 const pixelLightEditor = EditorView.theme({}, { dark: false });
 const warmEditorialLightEditor = EditorView.theme({}, { dark: false });
 const warmEditorialDarkEditor = EditorView.theme({}, { dark: true });
+const nordDarkEditor = EditorView.theme({}, { dark: true });
+const catppuccinDarkEditor = EditorView.theme({}, { dark: true });
 
 const defaultTheme: ThemeDefinition = {
   id: DEFAULT_THEME_ID,
@@ -22,6 +23,7 @@ const defaultTheme: ThemeDefinition = {
   appearance: "light",
   dataTheme: "pixel-light",
   editorTheme: pixelLightEditor,
+  previewColors: ["#f7f5ef", "#faf8f3", "#1688ff"],
 };
 
 const warmEditorial: ThemeDefinition = {
@@ -31,6 +33,7 @@ const warmEditorial: ThemeDefinition = {
   appearance: "light",
   dataTheme: "warm-editorial",
   editorTheme: warmEditorialLightEditor,
+  previewColors: ["#f7f5ef", "#faf8f3", "#b97918"],
 };
 
 const warmEditorialDark: ThemeDefinition = {
@@ -40,10 +43,37 @@ const warmEditorialDark: ThemeDefinition = {
   appearance: "dark",
   dataTheme: "warm-editorial-dark",
   editorTheme: warmEditorialDarkEditor,
+  previewColors: ["#1d1c19", "#25231f", "#b97918"],
+};
+
+const nordTheme: ThemeDefinition = {
+  id: "nord",
+  name: "Nord",
+  description: "极简北欧冷色调，以极光蓝绿与冰雪灰白构建冷静专注环境。",
+  appearance: "dark",
+  dataTheme: "nord",
+  editorTheme: nordDarkEditor,
+  previewColors: ["#2e3440", "#3b4252", "#88c0d0"],
+};
+
+const catppuccinTheme: ThemeDefinition = {
+  id: "catppuccin-macchiato",
+  name: "Catppuccin Macchiato",
+  description: "现代舒适中对比度暗色主题，带有淡紫与柔和粉彩色调。",
+  appearance: "dark",
+  dataTheme: "catppuccin-macchiato",
+  editorTheme: catppuccinDarkEditor,
+  previewColors: ["#24273a", "#363a4f", "#c6a0f6"],
 };
 
 /** 注册即出现在界面风格选择器,未来主题(如 Nord / Paper)按同样方式追加 */
-export const builtinThemes: ThemeDefinition[] = [defaultTheme, warmEditorial, warmEditorialDark];
+export const builtinThemes: ThemeDefinition[] = [
+  defaultTheme,
+  warmEditorial,
+  warmEditorialDark,
+  nordTheme,
+  catppuccinTheme,
+];
 
 for (const theme of builtinThemes) {
   registerTheme(theme);

@@ -19,6 +19,7 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 import type { AppContextPayload } from "../ai/aiTypes";
 import { errorMessage, isTauriRuntime } from "../../utils";
 import { historyClient } from "./historyClient";
+import { learningClient } from "../learning/learningClient";
 import { EnrichmentPanel } from "./EnrichmentPanel";
 import { PeriodDetail } from "./PeriodDetail";
 import type {
@@ -199,6 +200,13 @@ export function HistoryPage({
         if (story) {
           setSelectedStory(story);
           setDrawer(null);
+          void learningClient.recordEvent({
+            module: "history",
+            entity_type: "story",
+            entity_id: story.story.id,
+            title: story.story.title_zh_cn,
+            action: "study",
+          });
         }
       } catch (cause) {
         setNotice(errorMessage(cause));
@@ -212,7 +220,16 @@ export function HistoryPage({
       setDrawerLoading(true);
       try {
         const event = await historyClient.eventDetail(eventId);
-        if (event) setDrawer({ kind: "event", data: event });
+        if (event) {
+          setDrawer({ kind: "event", data: event });
+          void learningClient.recordEvent({
+            module: "history",
+            entity_type: "event",
+            entity_id: event.event.id,
+            title: event.event.name_zh_cn,
+            action: "study",
+          });
+        }
       } catch (cause) {
         setNotice(errorMessage(cause));
       } finally {
@@ -227,8 +244,18 @@ export function HistoryPage({
       setDrawerLoading(true);
       try {
         const person = await historyClient.personDetail(personId);
-        if (person) setDrawer({ kind: "person", data: person });
-        else setNotice("未找到该人物的详情资料。");
+        if (person) {
+          setDrawer({ kind: "person", data: person });
+          void learningClient.recordEvent({
+            module: "history",
+            entity_type: "person",
+            entity_id: person.person.id,
+            title: person.person.canonical_name_zh_cn,
+            action: "study",
+          });
+        } else {
+          setNotice("未找到该人物的详情资料。");
+        }
       } catch (cause) {
         setNotice(errorMessage(cause));
       } finally {
@@ -244,8 +271,18 @@ export function HistoryPage({
       try {
         const work = await historyClient.workDetail(workId);
         const detail = normalizeWorkDetail(work);
-        if (detail) setDrawer({ kind: "work", data: detail });
-        else setNotice("未找到该作品的详情资料。");
+        if (detail) {
+          setDrawer({ kind: "work", data: detail });
+          void learningClient.recordEvent({
+            module: "history",
+            entity_type: "work",
+            entity_id: detail.work.id,
+            title: detail.work.title_zh_cn ?? detail.work.title,
+            action: "study",
+          });
+        } else {
+          setNotice("未找到该作品的详情资料。");
+        }
       } catch (cause) {
         setNotice(errorMessage(cause));
       } finally {
@@ -402,11 +439,34 @@ export function HistoryPage({
     );
   if (error && !homeStories.length && !periods.length)
     return (
-      <div className="history-v2-state">
-        <WarningCircle size={25} />
-        <span>{error}</span>
+      <div className="history-v2-state history-v2-error-diagnostic">
+        <WarningCircle size={32} />
+        <strong style={{ fontSize: "16px", color: "inherit" }}>
+          历史数据知识库未就绪
+        </strong>
+        <p style={{ maxWidth: "480px", margin: "4px 0", fontSize: "13px", lineHeight: "1.6" }}>
+          {error}
+        </p>
+        <div
+          style={{
+            padding: "10px 14px",
+            background: "rgba(125, 125, 125, 0.08)",
+            borderRadius: "6px",
+            fontSize: "12px",
+            textAlign: "left",
+            maxWidth: "480px",
+          }}
+        >
+          <div>💡 <strong>排查与引导：</strong></div>
+          <div style={{ marginTop: "4px" }}>
+            1. 确认 <code>history-data-pipeline/dist/history.duckdb</code> 产物存在。
+          </div>
+          <div>
+            2. 可在 <code>history-data-pipeline</code> 目录运行数据管线生成数据库文件。
+          </div>
+        </div>
         <button type="button" onClick={() => void loadHome()}>
-          重试
+          重新连接
         </button>
       </div>
     );
@@ -810,7 +870,7 @@ function DetailDrawer({
           text={drawer.data}
           eventName={drawer.eventName}
           onBack={() => {
-            const event = story?.events.find(
+            const event = story?.events?.find(
               (item) => item.name_zh_cn === drawer.eventName,
             );
             if (event && story)

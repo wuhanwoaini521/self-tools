@@ -49,11 +49,16 @@ class StartupErrorBoundary extends Component<
         >
           <h1>DevToolbox 启动失败</h1>
           <p>界面加载时发生了前端异常，请查看下面的错误信息：</p>
-          <pre style={{ whiteSpace: "pre-wrap", color: "#ff9b9b" }}>
-            {this.state.error.stack ?? this.state.error.message}
+          <pre style={{ whiteSpace: "pre-wrap", color: "#e11d48", fontWeight: "bold", fontSize: 15 }}>
+            {this.state.error.name}: {this.state.error.message}
           </pre>
+          {this.state.error.stack ? (
+            <pre style={{ whiteSpace: "pre-wrap", color: "#6b7280", fontSize: 12 }}>
+              {this.state.error.stack}
+            </pre>
+          ) : null}
           {this.state.componentStack ? (
-            <pre style={{ whiteSpace: "pre-wrap", color: "#57534a" }}>
+            <pre style={{ whiteSpace: "pre-wrap", color: "#374151", fontSize: 12 }}>
               {this.state.componentStack}
             </pre>
           ) : null}

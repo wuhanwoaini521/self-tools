@@ -1,6 +1,7 @@
 import { MapPin } from "@phosphor-icons/react";
 import { lazy, memo, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import type { GeoMapLine, GeoMapPoint, GeoRelationKind } from "../../types";
+import { ViewerErrorBoundary } from "./ViewerErrorBoundary";
 
 const MapLibreMap = lazy(() => import("./MapLibreMap").then((module) => ({ default: module.MapLibreMap })));
 
@@ -77,8 +78,35 @@ export const GeoMap = memo(function GeoMap({ points, lines, layer, active, onSel
       </div>
     </header>
     <div className="geo-map-viewport">
-      {mapLibreError ? <div className="geo-map-error-state" role="alert">在线地图暂时无法加载，请检查网络连接后重新进入 Geography 页面。</div> : <Suspense fallback={<div className="geo-maplibre-loading">正在载入 MapLibre 地图模块…</div>}><MapLibreMap points={points} lines={lines} layer={layer} onSelect={onSelect} onError={() => setMapLibreError(true)} center={viewpoint.center} /></Suspense>}
-      <div className="geo-map-legend"><span><i className="place" />地点</span><span><i className="terrain" />地形地貌</span><span><i className="river" />河流水系</span></div>
+      {mapLibreError ? (
+        <div className="geo-map-error-state" role="alert">
+          在线地图暂时无法加载，请检查网络连接后重新进入 Geography 页面。
+        </div>
+      ) : (
+        <ViewerErrorBoundary
+          fallback={
+            <div className="geo-map-error-state" role="alert">
+              在线地图暂时无法加载，可继续使用离线数据探索。
+            </div>
+          }
+        >
+          <Suspense fallback={<div className="geo-maplibre-loading">正在载入 MapLibre 地图模块…</div>}>
+            <MapLibreMap
+              points={points}
+              lines={lines}
+              layer={layer}
+              onSelect={onSelect}
+              onError={() => setMapLibreError(true)}
+              center={viewpoint.center}
+            />
+          </Suspense>
+        </ViewerErrorBoundary>
+      )}
+      <div className="geo-map-legend">
+        <span><i className="place" />地点</span>
+        <span><i className="terrain" />地形地貌</span>
+        <span><i className="river" />河流水系</span>
+      </div>
     </div>
     <footer className="geo-map-foot"><span><MapPin size={14} /> 点击实体继续探索</span><span>{mapLibreError ? "地图未连接" : "MapLibre · Mapterhorn DEM"} · {points.length} 个本地实体 · {visibleLines.length} 条关系</span></footer>
   </section>;

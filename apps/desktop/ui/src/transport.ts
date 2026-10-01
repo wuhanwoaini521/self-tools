@@ -27,10 +27,12 @@ function inTauriRuntime(): boolean {
 
 /** Tauri 实现：唯一职责是把调用转发给 `@tauri-apps/api/core` 的 invoke。 */
 export const tauriTransport: CommandTransport = {
-  invoke: (command, args) =>
-    // 边界转换：tauri 的 InvokeArgs 是尚未索引签名的递归类型，
-    // `Record<string, unknown>` 与它结构兼容，仅在此处做一次显式断言。
-    tauriInvoke(command, args as InvokeArgs | undefined),
+  invoke: (command, args) => {
+    if (!inTauriRuntime()) {
+      return Promise.reject(new Error("Not in Tauri runtime"));
+    }
+    return tauriInvoke(command, args as InvokeArgs | undefined);
+  },
   isTauriRuntime: inTauriRuntime,
   subscribe: (event, handler) => {
     if (!inTauriRuntime()) return () => {};

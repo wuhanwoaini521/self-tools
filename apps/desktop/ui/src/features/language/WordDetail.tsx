@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { LearningStateKind, WordDetail } from "../../types";
 import { errorMessage, isTauriRuntime } from "../../utils";
 import { languageClient } from "./languageClient";
+import { learningClient } from "../learning/learningClient";
 import { speak } from "./tts";
 
 interface WordDetailProps {
@@ -25,7 +26,16 @@ export function WordDetailView({
     if (!isTauriRuntime()) return;
     try {
       const result = await languageClient.item(itemId);
-      if (result) setDetail(result);
+      if (result) {
+        setDetail(result);
+        void learningClient.recordEvent({
+          module: "language",
+          entity_type: "word",
+          entity_id: result.item.id,
+          title: result.item.text,
+          action: "study",
+        });
+      }
     } catch (error) {
       setNotice(errorMessage(error));
     }

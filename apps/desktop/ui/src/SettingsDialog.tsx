@@ -147,19 +147,43 @@ export function SettingsDialog({
             <p className="settings-hint">
               切换立即生效,无需重启;下次启动自动恢复。
             </p>
-            <select
-              className="settings-select"
-              id="ui-theme-select"
-              value={current.id}
-              onChange={(event) => onThemeChange(event.target.value)}
-            >
-              {allThemes().map((theme) => (
-                <option key={theme.id} value={theme.id}>
-                  {theme.name}
-                </option>
-              ))}
-            </select>
-            <p className="settings-theme-description">{current.description}</p>
+            <div className="settings-theme-grid" role="radiogroup" aria-label="主题选择">
+              {allThemes().map((theme) => {
+                const isActive = theme.id === current.id;
+                return (
+                  <button
+                    key={theme.id}
+                    type="button"
+                    className={"theme-card-option" + (isActive ? " active" : "")}
+                    onClick={() => onThemeChange(theme.id)}
+                    role="radio"
+                    aria-checked={isActive}
+                  >
+                    <div className="theme-card-header">
+                      <strong>{theme.name}</strong>
+                      <span className="theme-card-appearance">
+                        {theme.appearance === "light" ? "浅色" : "深色"}
+                      </span>
+                    </div>
+                    {theme.previewColors ? (
+                      <div className="theme-color-dots">
+                        {theme.previewColors.map((color, idx) => (
+                          <span
+                            key={idx}
+                            className="theme-color-dot"
+                            style={{ backgroundColor: color }}
+                            title={color}
+                          />
+                        ))}
+                      </div>
+                    ) : null}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="settings-theme-description" style={{ marginTop: 8 }}>
+              {current.description}
+            </p>
           </section>
           <section className="settings-section">
             <label className="settings-label">Geography · 高德地图</label>

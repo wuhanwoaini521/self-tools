@@ -29,6 +29,7 @@ import type {
 } from "../../types";
 import { errorMessage, isTauriRuntime } from "../../utils";
 import { geographyClient } from "./geographyClient";
+import { learningClient } from "../learning/learningClient";
 import type { AppContextPayload } from "../ai/aiTypes";
 import { AmapRegionMap } from "./AmapRegionMap";
 import { GeoMap, type GeoMapLayer } from "./GeoMap";
@@ -902,11 +903,21 @@ export function GeographyPage({
   const openEntity = useCallback(
     async (id: string) => {
       if (!isTauriRuntime()) {
-        setDetail(fallbackDetail(id, home?.favorite_ids.includes(id)));
+        setDetail(fallbackDetail(id, Boolean(home?.favorite_ids?.includes(id))));
         return;
       }
       try {
-        setDetail(await geographyClient.detail(id));
+        const res = await geographyClient.detail(id);
+        setDetail(res);
+        if (res?.entity) {
+          void learningClient.recordEvent({
+            module: "geography",
+            entity_type: res.entity.entity_type ?? "place",
+            entity_id: res.entity.id,
+            title: res.entity.name,
+            action: "study",
+          });
+        }
       } catch (error) {
         setNotice(errorMessage(error));
       }

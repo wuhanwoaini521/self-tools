@@ -18,6 +18,7 @@ import {
   Trash,
 } from "@phosphor-icons/react";
 import type { AppContextPayload } from "../ai/aiTypes";
+import { learningClient } from "../learning/learningClient";
 
 export interface StudyBoardSummary {
   id: string;
@@ -280,6 +281,13 @@ export function StudyBoardPage({ active, onContextChange, onAskAi }: StudyBoardP
       setBoards((current) => {
         const others = current.filter((board) => board.id !== boardId);
         return [{ id: boardId, title, updated_at: Date.now() }, ...others].slice(0, 20);
+      });
+      void learningClient.recordEvent({
+        module: "study",
+        entity_type: "board",
+        entity_id: boardId,
+        title: title || "研习画板",
+        action: "study",
       });
       setStatus("已保存到本地");
     } catch (error) {

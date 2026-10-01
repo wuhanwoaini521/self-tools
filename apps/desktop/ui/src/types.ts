@@ -854,3 +854,230 @@ export interface SpeakingScore {
   completeness: number;
   fluency: number;
 }
+
+// ==================== Learning OS Types (V11) ====================
+
+export type LearningActionKind =
+  | "read"
+  | "study"
+  | "review"
+  | "note"
+  | "bookmark"
+  | "ask_ai"
+  | "share"
+  | "complete";
+
+export interface LearningEvent {
+  id?: string;
+  module: string;
+  action: LearningActionKind;
+  entity_type: string;
+  entity_id: string;
+  title: string;
+  summary?: string;
+  metadata?: Record<string, string>;
+  created_at?: number;
+}
+
+export type LearningStatus = "new" | "learning" | "reviewing" | "mastered" | "archived";
+
+export interface LearningProgress {
+  entity_key: string;
+  module: string;
+  entity_type: string;
+  entity_id: string;
+  title: string;
+  status: LearningStatus;
+  mastery_score: number; // 0..100
+  study_count: number;
+  review_count: number;
+  correct_streak: number;
+  last_action: LearningActionKind;
+  last_studied_at: number;
+  next_review_at?: number | null;
+  created_at: number;
+  updated_at: number;
+}
+
+export type UniversalReviewCardType = "recall" | "choice" | "qa" | "cloze";
+export type UniversalReviewRating = "again" | "hard" | "good" | "easy";
+
+export interface UniversalReviewCard {
+  id: string;
+  module: string;
+  entity_type: string;
+  entity_id: string;
+  card_type: UniversalReviewCardType;
+  prompt: string;
+  answer: string;
+  explanation?: string | null;
+  options?: string[] | null;
+  state: string;
+  interval_days: number;
+  ease_factor: number;
+  lapses: number;
+  reps: number;
+  due_at: number;
+  last_reviewed_at?: number | null;
+  created_at: number;
+  updated_at: number;
+}
+
+export interface ReviewQueueItem {
+  card_id: string;
+  module: string;
+  entity_type: string;
+  entity_id: string;
+  card_type: UniversalReviewCardType;
+  prompt: string;
+  answer: string;
+  explanation?: string | null;
+  options?: string[] | null;
+  interval_days: number;
+  ease_factor: number;
+  due_at: number;
+  overdue_hours: number;
+}
+
+export interface ReviewQueueStats {
+  due_count: number;
+  total_due?: number;
+  total_cards: number;
+  by_module: Record<string, number>;
+  mastered_count: number;
+  learning_count: number;
+  overdue_count?: number;
+  upcoming_count?: number;
+}
+
+export interface ReviewScheduleOutcome {
+  card_id: string;
+  new_state: string;
+  interval_days: number;
+  ease_factor: number;
+  due_at: number;
+  lapses: number;
+  mastery_delta: number;
+}
+
+export type GraphEntityType =
+  | "person"
+  | "place"
+  | "event"
+  | "time"
+  | "concept"
+  | "article"
+  | "language"
+  | "topic";
+
+export type GraphRelationKind =
+  | "located_in"
+  | "occurred_at"
+  | "participated_in"
+  | "created_by"
+  | "mentions"
+  | "references"
+  | "parent_of"
+  | "related_to";
+
+export interface GraphNode {
+  id: string;
+  name: string;
+  entity_type: GraphEntityType;
+  module: string;
+  summary?: string | null;
+  degree?: number;
+  mastery_score?: number;
+  learning_status?: LearningStatus;
+}
+
+export interface GraphEdge {
+  source: string;
+  target: string;
+  relation: GraphRelationKind;
+  label?: string | null;
+  weight?: number;
+}
+
+export interface GraphNeighborhood {
+  center: GraphNode;
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+  total_nodes: number;
+  total_edges: number;
+}
+
+export interface CollectionItem {
+  id: string;
+  collection_id: string;
+  module: string;
+  entity_type: string;
+  entity_id: string;
+  title: string;
+  note?: string | null;
+  created_at: number;
+}
+
+export interface Collection {
+  id: string;
+  title: string;
+  description?: string | null;
+  tags: string[];
+  items_count: number;
+  created_at: number;
+  updated_at: number;
+}
+
+export interface ContinueItem {
+  module: string;
+  entity_type: string;
+  entity_id: string;
+  title: string;
+  subtitle?: string | null;
+  progress_percent?: number | null;
+  last_studied_at: number;
+  action_target: string;
+}
+
+export interface ExploreRecommendation {
+  id: string;
+  title: string;
+  summary: string;
+  module: string;
+  entity_type: string;
+  entity_id: string;
+  reason: string;
+  connected_entity_title?: string | null;
+  tags: string[];
+}
+
+export interface TodayDashboardData {
+  date_str: string;
+  greeting: string;
+  studied_topics_today: number;
+  pending_reviews_count: number;
+  average_mastery: number;
+  recent_streak_days: number;
+  continue_items: ContinueItem[];
+  review_stats: ReviewQueueStats;
+  explore_recommendations: ExploreRecommendation[];
+  today_news_summary?: string | null;
+  recent_collections: Collection[];
+  recent_bookmarks: ContinueItem[];
+}
+
+export interface GlobalSearchItem {
+  id: string;
+  module: string;
+  entity_type: string;
+  title: string;
+  subtitle?: string | null;
+  snippet?: string | null;
+  action_target: string;
+}
+
+export interface GlobalSearchResultGroup {
+  group_key: string;
+  group_title: string;
+  items: GlobalSearchItem[];
+}
