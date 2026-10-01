@@ -19,7 +19,12 @@ export interface GlobalShortcutsOptions {
   onSelectPage: (page: ShortcutPageId) => void;
 }
 
-const PAGE_SHORTCUT_MAP: Record<string, ShortcutPageId> = {
+/**
+ * 数字快捷键 → 页面。注意这不是侧边栏的顺序：
+ * 侧边栏里 Review / Graph / Collections 也有序号徽标，但它们**不在**此映射内。
+ * 侧边栏必须按这张表渲染徽标，否则会出现「Review 显示 ⌘2、按 ⌘2 却去 Markdown」。
+ */
+export const PAGE_SHORTCUT_MAP: Record<string, ShortcutPageId> = {
   "1": "home",
   "2": "markdown",
   "3": "rss",
@@ -30,6 +35,14 @@ const PAGE_SHORTCUT_MAP: Record<string, ShortcutPageId> = {
   "8": "language",
   "9": "knowledge",
 };
+
+/** 页面 → 数字快捷键；该页没有数字快捷键时返回 null（侧边栏不显示徽标）。 */
+export function shortcutDigitForPage(page: string): string | null {
+  for (const [digit, target] of Object.entries(PAGE_SHORTCUT_MAP)) {
+    if (target === page) return digit;
+  }
+  return null;
+}
 
 /**
  * 全局快捷键监听:
@@ -57,13 +70,18 @@ export function useGlobalShortcuts({
       const isModifier = event.metaKey || event.ctrlKey;
       if (!isModifier) return;
 
-      const target = event.target as HTMLElement | null;
-      const isInputFocused =
-        target &&
-        (target.tagName === "INPUT" ||
-          target.tagName === "TEXTAREA" ||
-          target.isContentEditable ||
-          Boolean(target.closest(".cm-editor")));
+      const target = event.target;
+      // event.target 不一定是元素（document / window 也会成为 target）。
+      // 直接调用 target.closest 会在这种情况下抛 TypeError，
+      // 导致本处理器后半段（⌘K / ⌘/ / ⌘, / ⌘1..9）全部失效。
+      const element = target instanceof HTMLElement ? target : null;
+      const isInputFocused = Boolean(
+        element &&
+          (element.tagName === "INPUT" ||
+            element.tagName === "TEXTAREA" ||
+            element.isContentEditable ||
+            element.closest(".cm-editor")),
+      );
 
       // ⌘/Ctrl + K: 唤起全局搜索
       if (event.key.toLowerCase() === "k") {

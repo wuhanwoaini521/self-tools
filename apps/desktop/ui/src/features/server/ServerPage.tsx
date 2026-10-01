@@ -241,7 +241,13 @@ export function ServerPage({ active, setNotice }: ServerPageProps) {
           icon={<Cpu size={15} />}
           label="CPU"
           value={ratioText(status?.cpu_usage_ratio ?? null)}
-          hint={status ? `${status.cpu_cores} 核` : ""}
+          hint={
+            status
+              ? status.cpu_usage_ratio === null || Number.isNaN(status.cpu_usage_ratio)
+                ? `${status.cpu_cores} 核 · 使用率不可用`
+                : `${status.cpu_cores} 核`
+              : ""
+          }
         />
         <MetricTile
           icon={<MemoryIcon size={15} />}
@@ -252,12 +258,16 @@ export function ServerPage({ active, setNotice }: ServerPageProps) {
         <MetricTile
           icon={<HardDrives size={15} />}
           label="Storage"
-          value={
+          // 占比进 value（22px 主数值），卷名进 hint（11px 次要信息）。
+          // 曾把卷路径拼进 value，长路径会以主数值字号折行、撑破整张卡片的节奏。
+          value={ratioText(status?.tightest_volume_ratio ?? null)}
+          hint={
             status?.tightest_volume
-              ? `${ratioText(status.tightest_volume_ratio)} · ${status.tightest_volume}`
-              : "—"
+              ? `最紧张的卷 · ${status.tightest_volume}`
+              : status
+                ? "未检测到挂载卷"
+                : ""
           }
-          hint="最紧张的卷"
         />
       </section>
 

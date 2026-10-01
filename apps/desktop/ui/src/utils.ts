@@ -8,6 +8,33 @@ export function errorMessage(error: unknown) {
 
 export function fileName(value: string) { return value.split(/[\\/]/).filter(Boolean).pop() || value; }
 
+/** 句末标点：CJK 与 ASCII 并列，换行也算一句的边界。 */
+const SENTENCE_BOUNDARY = "。！？\n.!?";
+
+/**
+ * 按句末标点切句，标点归入前一句，空白不保留。
+ *
+ * 与「在句末标点后切分并吞掉后续空白」等价，但**刻意不使用 lookbehind**：
+ * lookbehind 需要 Safari 16.4+（macOS 13+）。macOS 12 的 WKWebView 仍是 Safari 15.6，
+ * 会把 `(?<=` 当成空名捕获组，抛 `SyntaxError: invalid group specifier name`，
+ * 使整个模块图解析失败、应用白屏。
+ */
+export function splitSentences(text: string): string[] {
+  const sentences: string[] = [];
+  let buffer = "";
+  for (const char of text) {
+    buffer += char;
+    if (SENTENCE_BOUNDARY.includes(char)) {
+      const sentence = buffer.trim();
+      if (sentence) sentences.push(sentence);
+      buffer = "";
+    }
+  }
+  const tail = buffer.trim();
+  if (tail) sentences.push(tail);
+  return sentences;
+}
+
 const MINUTE = 60;
 const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;

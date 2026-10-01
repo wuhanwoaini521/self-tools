@@ -1,4 +1,5 @@
 import DOMPurify from "dompurify";
+import { splitSentences } from "../../utils";
 
 const MARKDOWN_LINK_PATTERN = /^\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)$/;
 const MARKDOWN_LINKS_PATTERN = /\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g;
@@ -91,8 +92,8 @@ export function deduplicateRepeatedText(text: string): string {
     }
   }
 
-  // 2. 按标点分句去重（消除相邻重复的句子）
-  const sentences = trimmed.split(/(?<=[。！？\n.!?])\s*/);
+  // 2. 按标点分句去重（消除相邻重复的句子）；兼容性说明见 utils.splitSentences。
+  const sentences = splitSentences(trimmed);
   if (sentences.length > 1) {
     const unique: string[] = [];
     for (const raw of sentences) {

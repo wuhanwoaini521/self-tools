@@ -42,6 +42,24 @@ const TYPE_COLORS: Record<string, string> = {
   destination: "#14b8a6",
 };
 
+/** 图例与筛选项的中文标签；后端未登记的类型回落到原始 key。 */
+const ENTITY_TYPE_LABELS: Record<string, string> = {
+  person: "人物",
+  place: "地点",
+  event: "事件",
+  time: "年代",
+  concept: "概念",
+  article: "文章",
+  language: "语言",
+  language_item: "语言条目",
+  word: "词条",
+  topic: "专题",
+  destination: "目的地",
+};
+
+/** 节点标签绘制在圆下方（node.y + radius + 14），适配视口时要预留出来。 */
+const LABEL_ALLOWANCE = 22;
+
 interface SimulationNode extends GraphNode {
   x: number;
   y: number;
@@ -138,12 +156,75 @@ export function KnowledgeGraphPage({
     return () => window.removeEventListener("resize", handleResize);
   }, [active]);
 
+  /**
+   * 把力导向布局收敛后的节点缩放平移到画布可视区。
+   * 布局只关心相对距离（弹簧 140px / 斥力 ~100px），在大画布上会缩成中心一小团、
+   * 标签互相压盖；这里按节点包围盒求 scale + offset，让它铺满可视区。
+   */
+  const fitViewToNodes = useCallback(() => {
+    const canvas = canvasRef.current;
+    const nodes = simNodesRef.current;
+    if (!canvas || nodes.length === 0) return;
+
+    const width = canvas.width;
+    const height = canvas.height;
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    for (const node of nodes) {
+      // 标签画在节点下方（y + radius + ~16px），下边界要把它一起框进来，
+      // 否则最下方的节点会被画布底边裁掉。
+      minX = Math.min(minX, node.x - node.radius);
+      minY = Math.min(minY, node.y - node.radius);
+      maxX = Math.max(maxX, node.x + node.radius);
+      maxY = Math.max(maxY, node.y + node.radius + LABEL_ALLOWANCE);
+    }
+    if (!Number.isFinite(minX) || !Number.isFinite(minY)) return;
+
+    // 预留：顶部工具条高度、节点标签行高与外边距。
+    const padding = 64;
+    const topInset = 76;
+    const bottomInset = 44;
+    const graphW = Math.max(1, maxX - minX);
+    const graphH = Math.max(1, maxY - minY);
+    const usableW = Math.max(1, width - padding * 2);
+    const usableH = Math.max(1, height - topInset - bottomInset);
+
+    const k = Math.min(2.2, Math.max(0.35, Math.min(usableW / graphW, usableH / graphH)));
+    const graphCX = (minX + maxX) / 2;
+    const graphCY = (minY + maxY) / 2;
+    const viewCX = width / 2;
+    const viewCY = topInset + usableH / 2;
+
+    transformRef.current = { x: viewCX - graphCX * k, y: viewCY - graphCY * k, k };
+  }, []);
+
+  // 力导向稳定后再适配一次，保证首次进入就是铺满的视图。
+  useEffect(() => {
+    if (!active) return;
+    let fitTimer = 0;
+    const settle = window.setTimeout(() => {
+      fitTimer = window.setTimeout(() => fitViewToNodes(), 900);
+    }, 250);
+    return () => {
+      window.clearTimeout(settle);
+      window.clearTimeout(fitTimer);
+    };
+  }, [active, neighborhood, fitViewToNodes]);
+
   // Force simulation & render loop
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
+
+    // Canvas 绘制不吃 CSS 变量，这里按当前主题取前景色，保证暗色模式可读。
+    const styles = getComputedStyle(document.documentElement);
+    const textColor = styles.getPropertyValue("--text").trim() || "#1f2937";
+    const mutedColor = styles.getPropertyValue("--muted").trim() || "#9ca3af";
+    const accentColor = styles.getPropertyValue("--accent").trim() || "#3b82f6";
 
     let running = true;
 
@@ -241,19 +322,12 @@ export function KnowledgeGraphPage({
           ctx.beginPath();
           ctx.moveTo(source.x, source.y);
           ctx.lineTo(target.x, target.y);
-          ctx.strokeStyle = isHighlighted ? "#3b82f6" : "rgba(156, 163, 175, 0.35)";
+          ctx.strokeStyle = isHighlighted ? accentColor : mutedColor;
           ctx.lineWidth = isHighlighted ? 2.5 : 1.2;
           ctx.stroke();
 
-          // Label
-          if (edge.label) {
-            const midX = (source.x + target.x) / 2;
-            const midY = (source.y + target.y) / 2;
-            ctx.font = "10px sans-serif";
-            ctx.fillStyle = isHighlighted ? "#2563eb" : "rgba(156, 163, 175, 0.7)";
-            ctx.textAlign = "center";
-            ctx.fillText(edge.label, midX, midY - 3);
-          }
+          // 边标签在线中间的**屏幕坐标**下画（见下方 screen-space pass），
+          // 这里只记录，避免跟随 scale 放大后堆叠成一团。
         }
       }
 
@@ -298,13 +372,70 @@ export function KnowledgeGraphPage({
           ctx.stroke();
         }
 
-        // Node label
-        ctx.font = isCenter ? "bold 13px sans-serif" : "11px sans-serif";
-        ctx.fillStyle = isSelected ? "#1d4ed8" : "#1f2937";
-        ctx.textAlign = "center";
-        ctx.fillText(node.name, node.x, node.y + node.radius + 14);
       }
 
+      // 节点标签在**屏幕坐标**下绘制（不随 canvas scale 放大），并做贪心避让：
+      // 1) 标签若跟随缩放变换，k>1.5 时 11px 会变成 17px+ 并互相压盖；
+      // 2) 相邻节点的标签框常常重叠，中心 / 选中 / 悬停的节点优先显示，其余跳过。
+
+      const placedLabels: Array<{ x1: number; y1: number; x2: number; y2: number }> = [];
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.textAlign = "center";
+      ctx.textBaseline = "top";
+      // 中心 / 选中 / 悬停的节点先画，保证它们的标签不被避让逻辑丢掉。
+      const ordered = [...nodes].sort(
+        (a, b) => Number(b.id === centerId) - Number(a.id === centerId),
+      );
+      for (const node of ordered) {
+        if (selectedType !== "all" && node.entity_type !== selectedType) continue;
+        const sx = node.x * k + tx;
+        const sy = node.y * k + ty;
+        const screenR = node.radius * k;
+        const isCenter = node.id === centerId;
+        const isActive = isCenter || node.id === selectedNode?.id || node.id === hoveredNode?.id;
+        ctx.font = isCenter ? "600 13px sans-serif" : "11px sans-serif";
+        const text = node.name.length > 14 ? node.name.slice(0, 13) + "…" : node.name;
+        const tw = ctx.measureText(text).width;
+        const x1 = sx - tw / 2 - 2;
+        const x2 = sx + tw / 2 + 2;
+        const y1 = sy + screenR + 4;
+        const y2 = y1 + 14;
+        const collides = placedLabels.some((r) => !(x2 < r.x1 || x1 > r.x2 || y2 < r.y1 || y1 > r.y2));
+        if (collides && !isActive) continue;
+        placedLabels.push({ x1, y1, x2, y2 });
+        if (y2 > height) continue;
+        ctx.fillStyle = isActive ? accentColor : textColor;
+        ctx.fillText(text, sx, y1);
+      }
+
+      // 边标签：只在悬停/选中节点的关联边上显示。全量显示时十几条「脉络关联」
+      // 会叠在图中央，既不可读也没有信息量。
+      const focusId = hoveredNode?.id ?? selectedNode?.id;
+      if (focusId) {
+        ctx.font = "10px sans-serif";
+        for (const edge of edges) {
+          if (!edge.label) continue;
+          const sId = edge.source_id || edge.source;
+          const tId = edge.target_id || edge.target;
+          if (sId !== focusId && tId !== focusId) continue;
+          const source = sId ? nodeMap.get(sId) : undefined;
+          const target = tId ? nodeMap.get(tId) : undefined;
+          if (!source || !target) continue;
+          const mx = ((source.x + target.x) / 2) * k + tx;
+          const my = ((source.y + target.y) / 2) * k + ty;
+          const tw = ctx.measureText(edge.label).width;
+          const x1 = mx - tw / 2 - 3;
+          const x2 = mx + tw / 2 + 3;
+          const y1 = my - 12;
+          const y2 = my + 2;
+          if (placedLabels.some((r) => !(x2 < r.x1 || x1 > r.x2 || y2 < r.y1 || y1 > r.y2))) continue;
+          placedLabels.push({ x1, y1, x2, y2 });
+          ctx.fillStyle = accentColor;
+          ctx.fillText(edge.label, mx, y1);
+        }
+      }
+      ctx.restore();
       ctx.restore();
       animFrameRef.current = requestAnimationFrame(render);
     };
@@ -380,68 +511,72 @@ export function KnowledgeGraphPage({
   };
 
   return (
-    <div style={{ position: "relative", width: "100%", height: "100vh", overflow: "hidden", background: "var(--surface-secondary, #f8fafc)" }}>
+    <div style={{ position: "relative", width: "100%", height: "100%", minHeight: 0, overflow: "hidden", background: "var(--bg)" }}>
+
       {/* Top Toolbar */}
       <div
         style={{
           position: "absolute",
-          top: 16,
-          left: 20,
-          right: 20,
+          top: 12,
+          left: 16,
+          right: 16,
           zIndex: 10,
           display: "flex",
+          flexWrap: "wrap",
+          rowGap: 8,
           justifyContent: "space-between",
           alignItems: "center",
-          background: "rgba(255, 255, 255, 0.9)",
-          backdropFilter: "blur(12px)",
+          background: "var(--panel)",
           borderRadius: 12,
-          padding: "10px 18px",
-          border: "1px solid var(--border-color, #e2e8f0)",
+          padding: "10px 16px",
+          border: "1px solid var(--line)",
           boxShadow: "0 4px 12px rgba(0,0,0,0.04)",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 700, fontSize: 16, color: "var(--text-primary, #1e293b)" }}>
-            <Brain size={20} color="#2563eb" /> 跨模块知识图谱
+        <div style={{ display: "flex", flexWrap: "wrap", rowGap: 8, alignItems: "center", gap: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 700, fontSize: 15, whiteSpace: "nowrap", color: "var(--text)" }}>
+            <Brain size={18} color="var(--accent)" /> 跨模块知识图谱
           </div>
 
           {/* Hops selector */}
           <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13 }}>
-            <span style={{ color: "var(--text-secondary, #64748b)" }}>探索深度:</span>
+            <span style={{ color: "var(--muted)", whiteSpace: "nowrap" }}>探索深度</span>
             <select
               value={hops}
               onChange={(e) => setHops(Number(e.target.value))}
               style={{
                 padding: "4px 8px",
                 borderRadius: 6,
-                border: "1px solid var(--border-color, #cbd5e1)",
+                border: "1px solid var(--line)",
                 fontSize: 12,
-                background: "#ffffff",
+                color: "var(--text)",
+                background: "var(--panel-raised)",
               }}
             >
-              <option value={1}>1 跳 (直接关联)</option>
-              <option value={2}>2 跳 (二级脉络)</option>
+              <option value={1}>1 跳（直接关联）</option>
+              <option value={2}>2 跳（二级脉络）</option>
             </select>
           </div>
 
           {/* Type filter */}
           <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13 }}>
-            <span style={{ color: "var(--text-secondary, #64748b)" }}>实体类别:</span>
+            <span style={{ color: "var(--muted)", whiteSpace: "nowrap" }}>实体类别</span>
             <select
               value={selectedType}
               onChange={(e) => setSelectedType(e.target.value)}
               style={{
                 padding: "4px 8px",
                 borderRadius: 6,
-                border: "1px solid var(--border-color, #cbd5e1)",
+                border: "1px solid var(--line)",
                 fontSize: 12,
-                background: "#ffffff",
+                color: "var(--text)",
+                background: "var(--panel-raised)",
               }}
             >
               <option value="all">全部类型</option>
               {Object.keys(TYPE_COLORS).map((t) => (
                 <option key={t} value={t}>
-                  {t}
+                  {ENTITY_TYPE_LABELS[t] ?? t}
                 </option>
               ))}
             </select>
@@ -449,26 +584,31 @@ export function KnowledgeGraphPage({
         </div>
 
         {/* Legend */}
-        <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 11, color: "#64748b" }}>
+        <div style={{ display: "flex", flexWrap: "wrap", rowGap: 6, alignItems: "center", gap: 10, fontSize: 11, color: "var(--muted)" }}>
           {Object.entries(TYPE_COLORS).slice(0, 5).map(([type, color]) => (
-            <div key={type} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <div key={type} style={{ display: "flex", alignItems: "center", gap: 4, whiteSpace: "nowrap" }}>
               <span style={{ width: 8, height: 8, borderRadius: "50%", background: color }} />
-              <span style={{ textTransform: "capitalize" }}>{type}</span>
+              <span>{ENTITY_TYPE_LABELS[type] ?? type}</span>
             </div>
           ))}
           <button
-            onClick={loadGraph}
+            onClick={() => {
+              void loadGraph();
+              fitViewToNodes();
+            }}
             style={{
               display: "inline-flex",
               alignItems: "center",
               gap: 4,
               padding: "6px 12px",
               borderRadius: 6,
-              border: "1px solid var(--border-color, #cbd5e1)",
-              background: "#ffffff",
+              border: "1px solid var(--line)",
+              background: "var(--panel-raised)",
+              color: "var(--text)",
               cursor: "pointer",
               fontSize: 12,
               fontWeight: 600,
+              whiteSpace: "nowrap",
             }}
           >
             <ArrowsCounterClockwise size={14} className={loading ? "spin" : ""} /> 重置视图
@@ -479,8 +619,8 @@ export function KnowledgeGraphPage({
       {/* Canvas */}
       <canvas
         ref={canvasRef}
-        width={window.innerWidth}
-        height={window.innerHeight}
+        width={900}
+        height={600}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}

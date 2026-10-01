@@ -71,7 +71,15 @@ export function LanguagePage({
   const [refreshNonce, setRefreshNonce] = useState(0);
 
   const reload = useCallback(async () => {
-    if (!isTauriRuntime()) return;
+    // 非桌面运行时没有 IPC 可用：必须在这里收敛 loading，
+    // 否则页面会永远停在「加载语言数据…」，且没有任何错误提示。
+    if (!isTauriRuntime()) {
+      setLanguages([]);
+      setHasData(false);
+      setLoading(false);
+      setNotice("语言功能需要桌面应用才能读取本地词库，请在 DevToolbox 中打开。");
+      return;
+    }
     try {
       const [info, today] = await Promise.all([
         languageClient.languages(),

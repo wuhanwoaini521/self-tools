@@ -14,6 +14,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import type { AppSettings, DocumentDto, WorkspaceFile } from "../../types";
 import { errorMessage, fileName } from "../../utils";
+import { useLayout } from "../../layout";
 import { workspaceClient } from "../../workspaceClient";
 import { markdownClient } from "./markdownClient";
 import { matchesMarkdownShortcut, shortcutLabel } from "./shortcuts";
@@ -364,10 +365,14 @@ export function MarkdownPage({ settings, onSettingsChange, setNotice, active, in
   }, [path, workspace, workspaceFiles]);
 
   const documentTitle = path?.split(/[\\/]/).pop() ?? "untitled.md";
+  const layout = useLayout();
   const classes = ["focus-shell", "markdown-page", focusMode ? "focus-mode" : "", zenMode ? "zen-mode" : "", !sidebarVisible ? "sidebar-hidden" : "", !tasksVisible ? "tasks-hidden" : ""].filter(Boolean).join(" ");
   // 三栏宽度全部由状态驱动:Zen 或全隐藏时回退到单列撑满整宽,
   // 其余情况按可见列给出显式 grid-template-columns,编辑器永远为 minmax(0,1fr)。
-  const workbenchStyle: CSSProperties = zenMode
+  // 窄屏(≤900px)放不下 312+373 的两侧栏 → 强制单列,否则编辑器被挤成 0 宽、
+  // 标签条溢出视口。
+  const narrow = layout.device !== "desktop";
+  const workbenchStyle: CSSProperties = zenMode || narrow
     ? { gridTemplateColumns: "minmax(0, 1fr)" }
     : sidebarVisible
       ? tasksVisible

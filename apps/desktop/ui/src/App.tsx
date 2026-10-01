@@ -16,7 +16,6 @@ import {
   Sparkle,
   Translate,
   TreeStructure,
-  Wrench,
   X,
 } from "@phosphor-icons/react";
 import { openPath } from "@tauri-apps/plugin-opener";
@@ -71,7 +70,7 @@ import {
   useLayout,
   navigationLayout,
 } from "./layout";
-import { useGlobalShortcuts } from "./useGlobalShortcuts";
+import { shortcutDigitForPage, useGlobalShortcuts } from "./useGlobalShortcuts";
 import { PwaBanner } from "./PwaBanner";
 import type {
   AppSettings,
@@ -107,8 +106,7 @@ type PageId =
   | "study-board"
   | "server"
   | "system"
-  | "search"
-  | "tools";
+  | "search";
 
 interface NavItem {
   id: PageId;
@@ -155,7 +153,6 @@ const NAV_ITEMS: NavItem[] = [
   { id: "server", label: "Server", icon: HardDrives },
   { id: "system", label: "System", icon: Heartbeat },
   { id: "search", label: "Search", icon: MagnifyingGlass },
-  { id: "tools", label: "Tools", icon: Wrench, disabled: true },
 ];
 
 const defaultSettings: AppSettings = {
@@ -524,11 +521,7 @@ export default function App() {
       const [pathPart, queryPart] = raw.split("?");
       const params = new URLSearchParams(queryPart ?? "");
 
-      if (pathPart === "home") setPage("home");
-      else if (pathPart === "review") setPage("review");
-      else if (pathPart === "graph") setPage("graph");
-      else if (pathPart === "collections") setPage("collections");
-      else if (pathPart === "history") {
+      if (pathPart === "history") {
         const storyId = params.get("story");
         const personId = params.get("person");
         const eventId = params.get("event") || params.get("id");
@@ -649,8 +642,7 @@ export default function App() {
     if (
       page === "home" ||
       page === "markdown" ||
-      page === "rss" ||
-      page === "tools"
+      page === "rss"
     ) {
       setAiContext(null);
     }
@@ -730,8 +722,12 @@ export default function App() {
               >
                 <item.icon size={18} />
                 {item.label}
-                {index < 9 ? (
-                  <span className="nav-shortcut">⌘{index + 1}</span>
+                {shortcutDigitForPage(item.id) ? (
+                  // 按真实快捷键映射渲染，而不是侧边栏顺序：
+                  // Review/Graph/Collections 没有数字快捷键，显示序号会误导。
+                  <span className="nav-shortcut">
+                    ⌘{shortcutDigitForPage(item.id)}
+                  </span>
                 ) : null}
                 {item.id === "rss" && unreadTotal > 0 ? (
                   <b>{unreadTotal > 99 ? "99+" : unreadTotal}</b>

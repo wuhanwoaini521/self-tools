@@ -553,6 +553,9 @@ button {
  display: grid;
  height: 100vh;
  grid-template-rows: 52px minmax(0, 1fr);
+ /* 不显式声明列时是隐式 auto 列，会被内容的 max-content 撑到超过视口，
+    再被 overflow:hidden 裁掉（窄屏下内容右侧被切）。锁成 minmax(0,1fr)。 */
+ grid-template-columns: minmax(0, 1fr);
  overflow: hidden;
  background: var(--bg);
  background-image:
@@ -1955,7 +1958,8 @@ button {
 .travel-search-container {
   display: grid;
   gap: 14px;
-  padding: 20px;
+ /* 同样是隐式 auto 列：输入行 min-content 较宽时会顶破容器。 */
+ grid-template-columns: minmax(0, 1fr);
   border: 1px solid var(--line);
   border-radius: var(--radius-overlay);
   background: var(--panel);
@@ -4424,9 +4428,13 @@ button {
 .command-bar {
  display: flex;
  align-items: center;
+ /* 动作组在 ~1000px 内容宽度下会超出并被裁切（Zen Mode 的快捷键曾被切掉），
+    允许换到第二行，而不是横向溢出。 */
+ flex-wrap: wrap;
  gap: 18px;
+ row-gap: 8px;
  min-width: 0;
- padding: 0 19px;
+ padding: 8px 19px;
  border-bottom: 1px solid var(--line);
  background: var(--surface-bar);
 }
@@ -4465,6 +4473,9 @@ button {
 .command-actions {
  flex: 1;
  gap: 8px;
+ /* 窄屏放不下整排动作：允许组内换行，而不是把右侧内容顶出视口。 */
+ flex-wrap: wrap;
+ min-width: 0;
 }
 .command-actions button,
 .view-actions button {
@@ -4510,6 +4521,8 @@ button {
  display: flex;
  align-items: center;
  gap: 8px;
+ flex-wrap: wrap;
+ min-width: 0;
 }
 .view-actions button.active {
  border-color: var(--accent-border-active);
@@ -4716,6 +4729,9 @@ kbd {
  min-width: 0;
  min-height: 0;
  grid-template-rows: 40px 38px 1fr 46px;
+ /* 未声明列时是隐式 auto 列（按 max-content 定宽），会把 CodeMirror 撑到
+    超过容器宽度 → 标签条与编辑器溢出视口。锁成 minmax(0,1fr)。 */
+ grid-template-columns: minmax(0, 1fr);
  background: var(--surface-sunken);
 }
 .editor-tabs {
@@ -15295,6 +15311,8 @@ main.history-v2-period {
 .server-tile-hint {
  font-size: 11px;
  color: var(--muted);
+ /* 卷路径可能很长；允许断行，避免撑破 tile。 */
+ overflow-wrap: anywhere;
 }
 .server-block {
  display: flex;
@@ -15739,6 +15757,9 @@ main.history-v2-period {
 
 /* mobile：主内容预留底部导航高度；AI 面板全屏/底部抽屉由 presentation 决定。 */
 .app-shell-mobile .app-body {
+ /* 移动端没有侧边导航（改用底部导航），必须把基规则的两列塌成单列；
+    否则 198px 的空侧栏仍在占位，内容被压到 ~190px 并撑出横向滚动。 */
+ grid-template-columns: minmax(0, 1fr);
  padding-bottom: calc(64px + var(--safe-area-bottom, 0px));
 }
 .app-shell-mobile .app-bar-ai {
@@ -16043,10 +16064,10 @@ main.history-v2-period {
  border: 1px solid var(--line);
  border-radius: 10px;
  overflow: hidden;
- background: #151b1f;
+ background: var(--surface-sunken);
  background-image:
-  linear-gradient(to right, rgba(120, 150, 170, 0.14) 1px, transparent 1px),
-  linear-gradient(to bottom, rgba(120, 150, 170, 0.14) 1px, transparent 1px);
+  linear-gradient(to right, var(--line) 1px, transparent 1px),
+  linear-gradient(to bottom, var(--line) 1px, transparent 1px);
  background-size: 24px 24px;
 }
 .study-canvas {
@@ -17013,3 +17034,120 @@ main.history-v2-period {
   margin-bottom: 4px;
 }
 
+/* ==========================================================================
+ * 窄屏兜底（QA：768 / 390 实测）
+ * 以下规则修复多栏固定布局在窄视口下把内容顶出视口的问题。
+ * ========================================================================== */
+@media (max-width: 900px) {
+ /* RSS 三栏（236 + 280 + 阅读区）最小 516px，窄屏必然溢出 → 塌成单栏堆叠。 */
+ .rss-page {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow-y: auto;
+ }
+ .rss-feeds {
+  max-height: 190px;
+ }
+ .rss-articles {
+  border-right: 0;
+  border-top: 1px solid var(--line);
+ }
+ .rss-reader {
+  padding: 18px 16px 40px;
+ }
+ /* 顶栏动作与标题在窄屏换行，避免把右侧顶出视口。 */
+ .news-header {
+  flex-wrap: wrap;
+  row-gap: 8px;
+  padding: 8px 14px;
+ }
+ .news-header-actions {
+  flex-wrap: wrap;
+  min-width: 0;
+ }
+ .news-header-actions input {
+  width: 100%;
+  min-width: 0;
+ }
+ /* Hero 标题在窄屏强制断行，避免长单词/长句撑破容器。 */
+ .travel-hero h1 {
+  overflow-wrap: anywhere;
+ }
+ .travel-hero p {
+  overflow-wrap: anywhere;
+ }
+}
+
+/* .travel-page 曾写死 grid-template-columns: 389px（= 某个桌面内容宽），
+   窄屏容器只有 ~372px，直接把 hero 顶出视口。改为弹性单列。 */
+.travel-page {
+ grid-template-columns: minmax(0, 1fr);
+}
+
+@media (max-width: 900px) {
+ /* News 列表 + 阅读区双栏（最小 320px）窄屏放不下 → 塌成单栏。 */
+ .news-body {
+  grid-template-columns: minmax(0, 1fr);
+ }
+ .news-reader {
+  min-width: 0;
+ }
+ /* 多标签页条：标签本身有 min-width:205px，窄屏必然溢出。
+    标签条横向滚动是桌面编辑器的通用做法，不压缩标签可读性。 */
+ .editor-tabs {
+  overflow-x: auto;
+ scrollbar-width: thin;
+ }
+}
+
+/* ==========================================================================
+ * 旧 token 名 → 真实设计 token 的别名层
+ *
+ * Home / Collections / Review / News / EntityDrawer / GlobalSearchModal
+ * 这些页面在引入时用了另一套命名（--surface-primary / --text-secondary /
+ * --border-subtle …），而 styles.css 里从未定义过这些变量，于是每次都落到
+ * 硬编码的浅色 fallback —— 暗色主题下这些页面永远读不出正确前景色/边框色。
+ *
+ * 这里一次性把旧名映射到真实 token（自定义属性在计算值阶段才替换 var()，
+ * 因此放在主题块之后也能拿到当前主题的值）。
+ * ========================================================================== */
+:root {
+ --surface-primary: var(--panel);
+ --surface-secondary: var(--bg);
+ --text-primary: var(--text);
+ --text-secondary: var(--muted);
+ --text-tertiary: var(--faint);
+ --border-color: var(--line);
+ --border-subtle: var(--line-soft);
+ --accent-primary: var(--accent);
+
+ /* 模块/类别识别色：与知识图谱 TYPE_COLORS 同策略，固定色相不随主题变化。 */
+ --accent-blue: #3b82f6;
+ --accent-amber: #f59e0b;
+ --accent-emerald: #10b981;
+ --accent-rose: #f43f5e;
+ --accent-purple: #8b5cf6;
+}
+
+
+/* grid item 默认 min-width:auto，不会收缩到轨道宽度以下；
+   .travel-page 的子区块里输入行 min-content 较宽，需要显式允许收缩。 */
+.travel-page > * {
+ min-width: 0;
+}
+
+@media (max-width: 900px) {
+ /* 编辑器信息条（路径 / 字数 / 保存状态 / 更多）在窄屏放不下 → 允许换行。 */
+ .editor-meta {
+  flex-wrap: wrap;
+  row-gap: 4px;
+  min-height: 38px;
+  height: auto;
+ }
+ /* 编辑器底部状态条（Ln/Col、编码、任务数）同样需要换行。 */
+ .editor-status,
+ .editor-status > div {
+  flex-wrap: wrap;
+  row-gap: 2px;
+ }
+}

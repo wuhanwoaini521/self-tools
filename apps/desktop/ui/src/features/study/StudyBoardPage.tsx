@@ -43,15 +43,32 @@ interface Stroke {
 }
 
 const STROKE_COLORS = ["#1688ff", "#f5f5f5", "#ffb020", "#22c55e"] as const;
-/** 纸感底色（深灰而非纯黑，配浅色网格）。 */
-const CANVAS_BACKGROUND = "#151b1f";
-const CANVAS_GRID = "rgba(120, 150, 170, 0.14)";
+/**
+ * 历史遗留的画布底色常量。
+ * 旧版本把橡皮擦存成「不透明背景色」的一笔，读回时靠这个值识别并还原成
+ * destination-out（见 drawStrokes）。**不要跟着主题改**，否则老学习板的橡皮擦
+ * 会退化成一条实色线。
+ */
+const LEGACY_CANVAS_BACKGROUND = "#151b1f";
 
-function drawBoardBackground(ctx: CanvasRenderingContext2D, width: number, height: number) {
-  ctx.fillStyle = CANVAS_BACKGROUND;
+/** 画布底色 / 网格跟随当前主题，避免浅色主题下出现一整块死黑。 */
+function readCanvasPalette(): { background: string; grid: string } {
+  const styles = getComputedStyle(document.documentElement);
+  const surface = styles.getPropertyValue("--surface-sunken").trim() || "#faf8f3";
+  const line = styles.getPropertyValue("--line").trim() || "#e5e0d7";
+  return { background: surface, grid: line };
+}
+
+function drawBoardBackground(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  palette: { background: string; grid: string },
+) {
+  ctx.fillStyle = palette.background;
   ctx.fillRect(0, 0, width, height);
   const grid = 24;
-  ctx.strokeStyle = CANVAS_GRID;
+  ctx.strokeStyle = palette.grid;
   ctx.lineWidth = 1;
   ctx.beginPath();
   for (let x = grid; x < width; x += grid) {
@@ -65,11 +82,12 @@ function drawBoardBackground(ctx: CanvasRenderingContext2D, width: number, heigh
   ctx.stroke();
 }
 
+
 function drawStrokes(ctx: CanvasRenderingContext2D, strokes: Stroke[]) {
   for (const stroke of strokes) {
     if (stroke.points.length < 2) continue;
     // 이전 버전은 지우개를 불투명 배경색으로 저장했으므로 읽을 때 복원한다.
-    const isEraser = stroke.eraser ?? (stroke.color === CANVAS_BACKGROUND && stroke.width === 24);
+    const isEraser = stroke.eraser ?? (stroke.color === LEGACY_CANVAS_BACKGROUND && stroke.width === 24);
     ctx.globalCompositeOperation = isEraser ? "destination-out" : "source-over";
     ctx.strokeStyle = stroke.color;
     ctx.lineWidth = stroke.width;
@@ -176,7 +194,7 @@ export function StudyBoardPage({ active, onContextChange, onAskAi }: StudyBoardP
     setStrokes((current) => [
       ...current,
       {
-        color: tool === "eraser" ? CANVAS_BACKGROUND : color,
+        color: tool === "eraser" ? LEGACY_CANVAS_BACKGROUND : color,
         width: tool === "eraser" ? 24 : 3,
         points: [position[0], position[1]],
         eraser: tool === "eraser",
@@ -257,7 +275,7 @@ export function StudyBoardPage({ active, onContextChange, onAskAi }: StudyBoardP
       const ctx = output.getContext("2d");
       if (!ctx) return null;
       ctx.scale(dpr, dpr);
-      drawBoardBackground(ctx, canvas.width / dpr, canvas.height / dpr);
+      drawBoardBackground(ctx, canvas.width / dpr, canvas.height / dpr, readCanvasPalette());
       drawStrokes(ctx, strokes);
       return output.toDataURL("image/png").split(",")[1] ?? null;
     } catch {
@@ -383,8 +401,9 @@ export function StudyBoardPage({ active, onContextChange, onAskAi }: StudyBoardP
           onChange={(event) => setTitle(event.target.value)}
           aria-label="学习板标题"
         />
+        {/* 只展示笔画数与保存状态；boardId 是内部主键，不属于用户可读信息。 */}
         <span className="study-meta">
-          {strokes.length} 笔 · {boardId.slice(0, 12)}
+          {strokes.length} 笔{status ? ` · ${status}` : ""}
         </span>
       </header>
       {toolButtons}

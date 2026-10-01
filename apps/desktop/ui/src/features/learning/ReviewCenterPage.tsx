@@ -189,7 +189,7 @@ export function ReviewCenterPage({ onNavigate, onAskAi }: ReviewCenterPageProps)
       )}
 
       {/* Module filter tabs */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 24, borderBottom: "1px solid var(--border-subtle, #e5e7eb)", paddingBottom: 8 }}>
+      <div style={{ display: "flex", flexWrap: "wrap", rowGap: 8, gap: 8, marginBottom: 24, borderBottom: "1px solid var(--border-subtle)", paddingBottom: 8 }}>
         <button
           onClick={() => setSelectedModule("all")}
           style={{
