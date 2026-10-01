@@ -68,7 +68,75 @@ function resolveUrl(href: string, baseUrl?: string): string {
   try { return new URL(href, baseUrl).toString(); } catch { return href; }
 }
 
-/** RSS 正文统一净化、修复 Markdown 链接，并补全相对链接。 */
+/**
+ * 消除 RSS 源中因多图 alt/caption 重复导致的连续重复句或完全重复段落。
+ */
+export function deduplicateRepeatedText(text: string): string {
+  if (!text || text.length < 15) return text;
+
+  const trimmed = text.trim();
+
+  // 1. 检测整段文本由同一模式周期性重复构成（例如 2~10 次重复的图片说明）
+  for (let len = 10; len <= Math.floor(trimmed.length / 2); len++) {
+    const unit = trimmed.slice(0, len).trim();
+    if (unit.length < 8) continue;
+    const parts = trimmed.split(unit);
+    if (parts.length >= 3 && parts.every((p) => p.trim().length === 0 || p.trim() === unit)) {
+      return unit;
+    }
+  }
+
+  // 2. 按标点分句去重（消除相邻重复的句子）
+  const sentences = trimmed.split(/(?<=[。！？\n.!?])\s*/);
+  if (sentences.length > 1) {
+    const unique: string[] = [];
+    for (const raw of sentences) {
+      const s = raw.trim();
+      if (!s) continue;
+      if (unique.length > 0 && unique[unique.length - 1] === s) {
+        continue;
+      }
+      const existingCount = unique.filter((item) => item === s).length;
+      if (existingCount >= 2 && s.length >= 8) {
+        continue;
+      }
+      unique.push(s);
+    }
+    return unique.join(" ");
+  }
+
+  return trimmed;
+}
+
+function deduplicateDomParagraphs(document: Document): void {
+  const seenTexts = new Set<string>();
+  const elements = Array.from(document.querySelectorAll("p, div, blockquote, li"));
+
+  for (const el of elements) {
+    const hasImg = el.querySelectorAll("img").length > 0;
+    const text = el.textContent?.trim() || "";
+
+    if (text.length >= 8) {
+      if (seenTexts.has(text)) {
+        if (hasImg) {
+          Array.from(el.childNodes).forEach((node) => {
+            if (node.nodeType === Node.TEXT_NODE) node.remove();
+          });
+        } else {
+          el.remove();
+        }
+      } else {
+        seenTexts.add(text);
+        const clean = deduplicateRepeatedText(text);
+        if (clean !== text && !hasImg) {
+          el.textContent = clean;
+        }
+      }
+    }
+  }
+}
+
+/** RSS 正文统一净化、修复 Markdown 链接，并补全相对链接与消除重复段落。 */
 export function prepareRssContent(html: string, baseUrl?: string): string {
   const clean = sanitizeContent(html);
   const document = new DOMParser().parseFromString(clean, "text/html");
@@ -81,14 +149,16 @@ export function prepareRssContent(html: string, baseUrl?: string): string {
     });
   }
   document.querySelectorAll("img").forEach((image) => image.setAttribute("loading", "lazy"));
+  deduplicateDomParagraphs(document);
   return document.body.innerHTML;
 }
 
-/** 列表和首页摘要使用纯文本，去除源站截断尾巴上的「查看全文」等链接文字。 */
+/** 列表和首页摘要使用纯文本，去除源站截断尾巴上的「查看全文」等链接文字，并消除重复句。 */
 export function stripRssHtml(html: string, baseUrl?: string): string {
   const template = document.createElement("div");
   template.innerHTML = prepareRssContent(html, baseUrl);
-  const text = (template.textContent || "").replace(/\s+/g, " ").trim();
+  const rawText = (template.textContent || "").replace(/\s+/g, " ").trim();
+  const text = deduplicateRepeatedText(rawText);
   return text
     .replace(/(?:…{1,2}|\.{2,6}|⋯+)?\s*(?:查看全文|阅读全文|继续阅读|[Rr]ead\s*[Mm]ore)\s*$/u, "")
     .replace(/(?:…{1,2}|\.{2,6}|⋯+)\s*$/u, "")

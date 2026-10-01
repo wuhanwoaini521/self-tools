@@ -13,16 +13,25 @@ function parseMarkdownLink(value: string): MarkdownLink | null {
   return match ? { label: match[1], url: match[2] } : null;
 }
 
-/**
- * 少数 Feed 会把 HTML 再编码一层，导致 `<p>` 先变成普通文本。
- * 仅当净化结果完全没有元素且文本本身看起来是 HTML 时解码，避免扩大可执行内容范围。
- */
+function sanitizeHtml(input: string): string {
+  const sanitizeFn =
+    typeof DOMPurify?.sanitize === "function"
+      ? DOMPurify.sanitize
+      : typeof (DOMPurify as unknown as { default?: { sanitize?: typeof DOMPurify.sanitize } })?.default?.sanitize === "function"
+        ? (DOMPurify as unknown as { default: { sanitize: typeof DOMPurify.sanitize } }).default.sanitize
+        : (s: string) => s;
+  return sanitizeFn(input);
+}
+
 function sanitizeContent(input: string): string {
-  const clean = DOMPurify.sanitize(input);
+  const clean = sanitizeHtml(input);
+  if (typeof DOMParser === "undefined") {
+    return clean;
+  }
   const parsed = new DOMParser().parseFromString(clean, "text/html");
   const text = parsed.body.textContent ?? "";
   if (parsed.body.children.length === 0 && /<\/?(?:p|div|br|a|ul|ol|li)\b[^>]*>/i.test(text)) {
-    return DOMPurify.sanitize(text);
+    return sanitizeHtml(text);
   }
   return clean;
 }
@@ -64,9 +73,104 @@ function normalizeMarkdownLinks(document: Document): void {
   });
 }
 
-/** RSS 正文统一净化、修复 Markdown 链接，并补全相对链接。 */
+/**
+ * 消除 RSS 源中因多图 alt/caption 重复导致的连续重复句或完全重复段落。
+ */
+export function deduplicateRepeatedText(text: string): string {
+  if (!text || text.length < 15) return text;
+
+  const trimmed = text.trim();
+
+  // 1. 检测整段文本由同一模式周期性重复构成（例如 2~10 次重复的图片说明）
+  for (let len = 10; len <= Math.floor(trimmed.length / 2); len++) {
+    const unit = trimmed.slice(0, len).trim();
+    if (unit.length < 8) continue;
+    const parts = trimmed.split(unit);
+    if (parts.length >= 3 && parts.every((p) => p.trim().length === 0 || p.trim() === unit)) {
+      return unit;
+    }
+  }
+
+  // 2. 按标点分句去重（消除相邻重复的句子）
+  const sentences = trimmed.split(/(?<=[。！？\n.!?])\s*/);
+  if (sentences.length > 1) {
+    const unique: string[] = [];
+    for (const raw of sentences) {
+      const s = raw.trim();
+      if (!s) continue;
+      if (unique.length > 0 && unique[unique.length - 1] === s) {
+        continue;
+      }
+      const existingCount = unique.filter((item) => item === s).length;
+      if (existingCount >= 2 && s.length >= 8) {
+        continue;
+      }
+      unique.push(s);
+    }
+
+    if (unique.length === sentences.filter((s) => s.trim()).length) {
+      return trimmed;
+    }
+
+    let reconstructed = "";
+    for (let i = 0; i < unique.length; i++) {
+      const s = unique[i];
+      if (i === 0) {
+        reconstructed = s;
+      } else {
+        const prev = unique[i - 1];
+        const prevIsCjk = /[。！？，；：\u4e00-\u9fa5]$/.test(prev);
+        const currIsCjk = /^[\u4e00-\u9fa5]/.test(s);
+        if (prevIsCjk && currIsCjk) {
+          reconstructed += s;
+        } else {
+          reconstructed += " " + s;
+        }
+      }
+    }
+    return reconstructed;
+  }
+
+  return trimmed;
+}
+
+function deduplicateDomParagraphs(document: Document): void {
+  const seenTexts = new Set<string>();
+  const elements = Array.from(document.querySelectorAll("p, div, blockquote, li"));
+
+  for (const el of elements) {
+    // 若段落内包含图片，不直接删除元素，但去重内部纯文本
+    const hasImg = el.querySelectorAll("img").length > 0;
+    const text = el.textContent?.trim() || "";
+
+    if (text.length >= 8) {
+      if (seenTexts.has(text)) {
+        if (hasImg) {
+          // 只保留 img，清空重复文本
+          Array.from(el.childNodes).forEach((node) => {
+            if (node.nodeType === Node.TEXT_NODE) node.remove();
+          });
+        } else {
+          el.remove();
+        }
+      } else {
+        seenTexts.add(text);
+        // 对段落内部可能自带的多重重复进行清理
+        const clean = deduplicateRepeatedText(text);
+        if (clean !== text && !hasImg) {
+          el.textContent = clean;
+        }
+      }
+    }
+  }
+}
+
+/** RSS 正文统一净化、修复 Markdown 链接，并补全相对链接与消除重复段落。 */
 export function prepareRssContent(html: string, baseUrl?: string): string {
   const clean = sanitizeContent(html);
+  if (typeof DOMParser === "undefined") {
+    return clean;
+  }
   const document = new DOMParser().parseFromString(clean, "text/html");
   normalizeMarkdownLinks(document);
   if (baseUrl) {
@@ -87,14 +191,20 @@ export function prepareRssContent(html: string, baseUrl?: string): string {
     // 必须用内联属性:addEventListener 不会随 innerHTML 序列化。
     image.setAttribute("onerror", "this.style.display='none'");
   });
+  deduplicateDomParagraphs(document);
   return document.body.innerHTML;
 }
 
-/** 列表和首页摘要使用纯文本，去除源站截断尾巴上的「查看全文」等链接文字。 */
+/** 列表和首页摘要使用纯文本，去除源站截断尾巴上的「查看全文」等链接文字，并消除重复句。 */
 export function stripRssHtml(html: string, baseUrl?: string): string {
+  if (typeof document === "undefined") {
+    const rawText = html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+    return deduplicateRepeatedText(rawText);
+  }
   const template = document.createElement("div");
   template.innerHTML = prepareRssContent(html, baseUrl);
-  const text = (template.textContent || "").replace(/\s+/g, " ").trim();
+  const rawText = (template.textContent || "").replace(/\s+/g, " ").trim();
+  const text = deduplicateRepeatedText(rawText);
   return text
     .replace(/(?:…{1,2}|\.{2,6}|⋯+)?\s*(?:查看全文|阅读全文|继续阅读|[Rr]ead\s*[Mm]ore)\s*$/u, "")
     .replace(/(?:…{1,2}|\.{2,6}|⋯+)\s*$/u, "")
