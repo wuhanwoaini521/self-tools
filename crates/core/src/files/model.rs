@@ -93,7 +93,10 @@ pub fn validate_root_path(path: &Path) -> Result<(), &'static str> {
     let trimmed = path_str.trim_end_matches('/');
 
     // 跨平台盘符识别（如 "c:" 或 "d:"）
-    if trimmed.len() == 2 && trimmed.ends_with(':') && trimmed.chars().next().unwrap().is_ascii_alphabetic() {
+    if trimmed.len() == 2
+        && trimmed.ends_with(':')
+        && trimmed.chars().next().unwrap().is_ascii_alphabetic()
+    {
         return Err("不允许将整个系统根目录添加为知识库根目录");
     }
 

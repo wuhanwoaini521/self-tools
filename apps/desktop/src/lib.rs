@@ -2629,11 +2629,15 @@ pub fn run() {
                     composition::FeedFetcherAdapter::new(client.clone()),
                 ));
             let learning_store_raw = Arc::new(Mutex::new(
-                devtoolbox_infrastructure::LearningStore::open(config_directory.join("learning.db"))
-                    .expect("open learning database"),
+                devtoolbox_infrastructure::LearningStore::open(
+                    config_directory.join("learning.db"),
+                )
+                .expect("open learning database"),
             ));
             let learning_store: Arc<dyn devtoolbox_application::learning::LearningStorePort> =
-                Arc::new(learning::LearningStoreAdapter::new(Arc::clone(&learning_store_raw)));
+                Arc::new(learning::LearningStoreAdapter::new(Arc::clone(
+                    &learning_store_raw,
+                )));
             app.manage(AppState {
                 rss_repository,
                 rss_fetcher: composition::FeedFetcherAdapter::new(client.clone()),

@@ -30,23 +30,29 @@ describe("桌面导航与主要页面", () => {
 
   it("设置对话框打开、修改主题并在关闭后保留选择", async () => {
     await openPage("Home", "home");
-    await $("button[title='Settings']").click();
+    await $("button[aria-label='Settings']").click();
     const settings = await $(".settings-dialog");
     await settings.waitForDisplayed();
 
-    const theme = await $("#ui-theme-select");
-    await theme.selectByIndex(1);
-    const selectedTheme = await theme.getValue();
+    // 主题控件是 radiogroup（button.theme-card-option[role=radio]），
+    // 不再是 <select id="ui-theme-select">；选中态由 aria-checked 表达。
+    const themes = await $$(".theme-card-option");
+    expect(themes.length).toBeGreaterThan(1);
+    await themes[1].click();
+    await expect(themes[1]).toHaveAttribute("aria-checked", "true");
+
     await $("button[title='关闭设置']").click();
     await expect(settings).not.toBeDisplayed();
-    await $("button[title='Settings']").click();
-    await expect($("#ui-theme-select")).toHaveValue(selectedTheme);
+
+    await $("button[aria-label='Settings']").click();
+    const reopened = await $$(".theme-card-option");
+    await expect(reopened[1]).toHaveAttribute("aria-checked", "true");
     await $("button[title='关闭设置']").click();
   });
 
   it("AI 面板在未配置模型时仍能显示受控空态", async () => {
     await openPage("Home", "home");
-    await $("button[title='Ask AI']").click();
+    await $("button[aria-label='Ask AI']").click();
     await expect($(".ai-panel")).toBeDisplayed();
     await expect($(".ai-panel-unconfigured")).toBeDisplayed();
     await $(".ai-panel button[title='关闭']").click();

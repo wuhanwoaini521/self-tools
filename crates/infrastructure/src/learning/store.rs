@@ -13,9 +13,10 @@ use std::path::Path;
 use rusqlite::{Connection, OptionalExtension, params};
 
 use devtoolbox_core::learning::{
-    Collection, CollectionItem, ContinueItem, LearningAction, LearningEvent, LearningProgress,
-    LearningStatus, MasteryCalculator, ReviewCardType, ReviewQueueItem, ReviewQueueStats,
-    ReviewRating, ReviewScheduleOutcome, SpacedRepetitionScheduler, UniversalReviewCard,
+    Collection, CollectionItem, CollectionItemRef, ContinueItem, LearningAction, LearningEvent,
+    LearningProgress, LearningStatus, MasteryCalculator, ReviewCardType, ReviewQueueItem,
+    ReviewQueueStats, ReviewRating, ReviewScheduleOutcome, SpacedRepetitionScheduler,
+    UniversalReviewCard,
 };
 
 use crate::error::InfrastructureError;
@@ -159,8 +160,12 @@ impl LearningStore {
     // ========================================================================
 
     /// 记录学习事件，并原子更新进度与掌握度。
-    pub fn record_event(&self, event: &LearningEvent) -> Result<LearningProgress, InfrastructureError> {
-        let metadata_str = serde_json::to_string(&event.metadata).unwrap_or_else(|_| "{}".to_string());
+    pub fn record_event(
+        &self,
+        event: &LearningEvent,
+    ) -> Result<LearningProgress, InfrastructureError> {
+        let metadata_str =
+            serde_json::to_string(&event.metadata).unwrap_or_else(|_| "{}".to_string());
 
         // 1. 插入事件
         self.connection.execute(
@@ -188,14 +193,21 @@ impl LearningStore {
                 &event.module,
                 &event.entity_type,
                 &event.entity_id,
-                event.entity_title.clone().unwrap_or_else(|| event.entity_id.clone()),
+                event
+                    .entity_title
+                    .clone()
+                    .unwrap_or_else(|| event.entity_id.clone()),
                 event.timestamp,
             )
         });
 
         // 3. 更新统计
         match &event.action {
-            LearningAction::Study | LearningAction::View | LearningAction::Complete | LearningAction::Note | LearningAction::Bookmark => {
+            LearningAction::Study
+            | LearningAction::View
+            | LearningAction::Complete
+            | LearningAction::Note
+            | LearningAction::Bookmark => {
                 progress.study_count += 1;
             }
             LearningAction::Review => {
@@ -215,10 +227,8 @@ impl LearningStore {
         }
 
         progress.last_studied_at = event.timestamp;
-        if let Some(title) = &event.entity_title {
-            if !title.is_empty() {
-                progress.entity_title = title.clone();
-            }
+        if let Some(title) = event.entity_title.as_ref().filter(|t| !t.is_empty()) {
+            progress.entity_title = title.clone();
         }
 
         // 4. 计算掌握度
@@ -240,48 +250,59 @@ impl LearningStore {
     }
 
     /// 获取实体进度。
-    pub fn get_progress(&self, entity_key: &str) -> Result<Option<LearningProgress>, InfrastructureError> {
-        let mut stmt = self.connection.prepare(
-            "SELECT entity_key, module, entity_type, entity_id, entity_title, status,
+    pub fn get_progress(
+        &self,
+        entity_key: &str,
+    ) -> Result<Option<LearningProgress>, InfrastructureError> {
+        let mut stmt = self
+            .connection
+            .prepare(
+                "SELECT entity_key, module, entity_type, entity_id, entity_title, status,
                     study_count, review_count, correct_count, incorrect_count, mastery_score,
                     last_studied_at, next_review_at, interval_days, ease, custom_tags_json
              FROM learning_progress WHERE entity_key = ?1",
-        ).map_err(sqlite_err)?;
+            )
+            .map_err(sqlite_err)?;
 
-        let row = stmt.query_row(params![entity_key], |row| {
-            let status_str: String = row.get(5)?;
-            let tags_str: String = row.get(15)?;
-            let custom_tags: Vec<String> = serde_json::from_str(&tags_str).unwrap_or_default();
+        let row = stmt
+            .query_row(params![entity_key], |row| {
+                let status_str: String = row.get(5)?;
+                let tags_str: String = row.get(15)?;
+                let custom_tags: Vec<String> = serde_json::from_str(&tags_str).unwrap_or_default();
 
-            Ok(LearningProgress {
-                entity_key: row.get(0)?,
-                module: row.get(1)?,
-                entity_type: row.get(2)?,
-                entity_id: row.get(3)?,
-                entity_title: row.get(4)?,
-                status: LearningStatus::parse(&status_str),
-                study_count: row.get(6)?,
-                review_count: row.get(7)?,
-                correct_count: row.get(8)?,
-                incorrect_count: row.get(9)?,
-                mastery_score: row.get(10)?,
-                last_studied_at: row.get(11)?,
-                next_review_at: row.get(12)?,
-                interval_days: row.get(13)?,
-                ease: row.get(14)?,
-                custom_tags,
+                Ok(LearningProgress {
+                    entity_key: row.get(0)?,
+                    module: row.get(1)?,
+                    entity_type: row.get(2)?,
+                    entity_id: row.get(3)?,
+                    entity_title: row.get(4)?,
+                    status: LearningStatus::parse(&status_str),
+                    study_count: row.get(6)?,
+                    review_count: row.get(7)?,
+                    correct_count: row.get(8)?,
+                    incorrect_count: row.get(9)?,
+                    mastery_score: row.get(10)?,
+                    last_studied_at: row.get(11)?,
+                    next_review_at: row.get(12)?,
+                    interval_days: row.get(13)?,
+                    ease: row.get(14)?,
+                    custom_tags,
+                })
             })
-        }).optional().map_err(sqlite_err)?;
+            .optional()
+            .map_err(sqlite_err)?;
 
         Ok(row)
     }
 
     /// 保存或更新 Progress。
     pub fn save_progress(&self, progress: &LearningProgress) -> Result<(), InfrastructureError> {
-        let tags_str = serde_json::to_string(&progress.custom_tags).unwrap_or_else(|_| "[]".to_string());
+        let tags_str =
+            serde_json::to_string(&progress.custom_tags).unwrap_or_else(|_| "[]".to_string());
 
-        self.connection.execute(
-            "INSERT INTO learning_progress (
+        self.connection
+            .execute(
+                "INSERT INTO learning_progress (
                 entity_key, module, entity_type, entity_id, entity_title, status,
                 study_count, review_count, correct_count, incorrect_count, mastery_score,
                 last_studied_at, next_review_at, interval_days, ease, custom_tags_json
@@ -299,25 +320,26 @@ impl LearningStore {
                 interval_days = excluded.interval_days,
                 ease = excluded.ease,
                 custom_tags_json = excluded.custom_tags_json",
-            params![
-                progress.entity_key,
-                progress.module,
-                progress.entity_type,
-                progress.entity_id,
-                progress.entity_title,
-                progress.status.as_str(),
-                progress.study_count,
-                progress.review_count,
-                progress.correct_count,
-                progress.incorrect_count,
-                progress.mastery_score,
-                progress.last_studied_at,
-                progress.next_review_at,
-                progress.interval_days,
-                progress.ease,
-                tags_str,
-            ],
-        ).map_err(sqlite_err)?;
+                params![
+                    progress.entity_key,
+                    progress.module,
+                    progress.entity_type,
+                    progress.entity_id,
+                    progress.entity_title,
+                    progress.status.as_str(),
+                    progress.study_count,
+                    progress.review_count,
+                    progress.correct_count,
+                    progress.incorrect_count,
+                    progress.mastery_score,
+                    progress.last_studied_at,
+                    progress.next_review_at,
+                    progress.interval_days,
+                    progress.ease,
+                    tags_str,
+                ],
+            )
+            .map_err(sqlite_err)?;
 
         Ok(())
     }
@@ -338,11 +360,13 @@ impl LearningStore {
                      ORDER BY last_studied_at DESC LIMIT :limit";
 
         let mut stmt = self.connection.prepare(query).map_err(sqlite_err)?;
-        let mut rows = stmt.query(rusqlite::named_params! {
-            ":module": module_filter,
-            ":status": status_filter.map(|s| s.as_str()),
-            ":limit": limit as i64,
-        }).map_err(sqlite_err)?;
+        let mut rows = stmt
+            .query(rusqlite::named_params! {
+                ":module": module_filter,
+                ":status": status_filter.map(|s| s.as_str()),
+                ":limit": limit as i64,
+            })
+            .map_err(sqlite_err)?;
 
         let mut list = Vec::new();
         while let Some(row) = rows.next().map_err(sqlite_err)? {
@@ -376,8 +400,14 @@ impl LearningStore {
     // ========================================================================
 
     /// 添加或更新通用复习卡片。
-    pub fn upsert_review_card(&self, card: &UniversalReviewCard) -> Result<(), InfrastructureError> {
-        let options_str = card.options.as_ref().map(|opts| serde_json::to_string(opts).unwrap_or_default());
+    pub fn upsert_review_card(
+        &self,
+        card: &UniversalReviewCard,
+    ) -> Result<(), InfrastructureError> {
+        let options_str = card
+            .options
+            .as_ref()
+            .map(|opts| serde_json::to_string(opts).unwrap_or_default());
         let card_type_str = match card.card_type {
             ReviewCardType::Recall => "recall",
             ReviewCardType::MultipleChoice => "multiple_choice",
@@ -431,7 +461,10 @@ impl LearningStore {
     }
 
     /// 获取指定卡片。
-    pub fn get_review_card(&self, card_id: &str) -> Result<Option<UniversalReviewCard>, InfrastructureError> {
+    pub fn get_review_card(
+        &self,
+        card_id: &str,
+    ) -> Result<Option<UniversalReviewCard>, InfrastructureError> {
         let mut stmt = self.connection.prepare(
             "SELECT id, module, entity_id, entity_type, card_type, prompt, answer, options_json,
                     hint, context, due_at, interval_days, ease, mastery_score, repetition_count,
@@ -439,39 +472,42 @@ impl LearningStore {
              FROM review_cards WHERE id = ?1",
         ).map_err(sqlite_err)?;
 
-        let row = stmt.query_row(params![card_id], |row| {
-            let card_type_str: String = row.get(4)?;
-            let card_type = match card_type_str.as_str() {
-                "multiple_choice" => ReviewCardType::MultipleChoice,
-                "qa" => ReviewCardType::Qa,
-                "map_locate" => ReviewCardType::MapLocate,
-                "fill_blank" => ReviewCardType::FillBlank,
-                _ => ReviewCardType::Recall,
-            };
-            let opts_str: Option<String> = row.get(7)?;
-            let options = opts_str.and_then(|s| serde_json::from_str(&s).ok());
+        let row = stmt
+            .query_row(params![card_id], |row| {
+                let card_type_str: String = row.get(4)?;
+                let card_type = match card_type_str.as_str() {
+                    "multiple_choice" => ReviewCardType::MultipleChoice,
+                    "qa" => ReviewCardType::Qa,
+                    "map_locate" => ReviewCardType::MapLocate,
+                    "fill_blank" => ReviewCardType::FillBlank,
+                    _ => ReviewCardType::Recall,
+                };
+                let opts_str: Option<String> = row.get(7)?;
+                let options = opts_str.and_then(|s| serde_json::from_str(&s).ok());
 
-            Ok(UniversalReviewCard {
-                id: row.get(0)?,
-                module: row.get(1)?,
-                entity_id: row.get(2)?,
-                entity_type: row.get(3)?,
-                card_type,
-                prompt: row.get(5)?,
-                answer: row.get(6)?,
-                options,
-                hint: row.get(8)?,
-                context: row.get(9)?,
-                due_at: row.get(10)?,
-                interval_days: row.get(11)?,
-                ease: row.get(12)?,
-                mastery_score: row.get(13)?,
-                repetition_count: row.get(14)?,
-                lapses: row.get(15)?,
-                last_reviewed_at: row.get(16)?,
-                created_at: row.get(17)?,
+                Ok(UniversalReviewCard {
+                    id: row.get(0)?,
+                    module: row.get(1)?,
+                    entity_id: row.get(2)?,
+                    entity_type: row.get(3)?,
+                    card_type,
+                    prompt: row.get(5)?,
+                    answer: row.get(6)?,
+                    options,
+                    hint: row.get(8)?,
+                    context: row.get(9)?,
+                    due_at: row.get(10)?,
+                    interval_days: row.get(11)?,
+                    ease: row.get(12)?,
+                    mastery_score: row.get(13)?,
+                    repetition_count: row.get(14)?,
+                    lapses: row.get(15)?,
+                    last_reviewed_at: row.get(16)?,
+                    created_at: row.get(17)?,
+                })
             })
-        }).optional().map_err(sqlite_err)?;
+            .optional()
+            .map_err(sqlite_err)?;
 
         Ok(row)
     }
@@ -492,11 +528,13 @@ impl LearningStore {
                      ORDER BY due_at ASC, mastery_score ASC LIMIT :limit";
 
         let mut stmt = self.connection.prepare(query).map_err(sqlite_err)?;
-        let mut rows = stmt.query(rusqlite::named_params! {
-            ":now": now,
-            ":module": module_filter,
-            ":limit": limit as i64,
-        }).map_err(sqlite_err)?;
+        let mut rows = stmt
+            .query(rusqlite::named_params! {
+                ":now": now,
+                ":module": module_filter,
+                ":limit": limit as i64,
+            })
+            .map_err(sqlite_err)?;
 
         let mut items = Vec::new();
         while let Some(row) = rows.next().map_err(sqlite_err)? {
@@ -535,7 +573,8 @@ impl LearningStore {
             };
 
             let is_overdue = due_at < now.saturating_sub(86400);
-            let urgency = (100.0 - mastery_score) + ((now - due_at) as f64 / 86400.0).max(0.0) * 5.0;
+            let urgency =
+                (100.0 - mastery_score) + ((now - due_at) as f64 / 86400.0).max(0.0) * 5.0;
 
             items.push(ReviewQueueItem {
                 card,
@@ -549,45 +588,60 @@ impl LearningStore {
 
     /// 获取复习中心统计指标。
     pub fn get_review_stats(&self, now: i64) -> Result<ReviewQueueStats, InfrastructureError> {
-        let total_due: u32 = self.connection.query_row(
-            "SELECT COUNT(*) FROM review_cards WHERE due_at <= ?1",
-            params![now],
-            |r| r.get(0),
-        ).unwrap_or(0);
+        let total_due: u32 = self
+            .connection
+            .query_row(
+                "SELECT COUNT(*) FROM review_cards WHERE due_at <= ?1",
+                params![now],
+                |r| r.get(0),
+            )
+            .unwrap_or(0);
 
-        let total_cards: u32 = self.connection.query_row(
-            "SELECT COUNT(*) FROM review_cards",
-            [],
-            |r| r.get(0),
-        ).unwrap_or(0);
+        let total_cards: u32 = self
+            .connection
+            .query_row("SELECT COUNT(*) FROM review_cards", [], |r| r.get(0))
+            .unwrap_or(0);
 
-        let mastered_count: u32 = self.connection.query_row(
-            "SELECT COUNT(*) FROM learning_progress WHERE status = 'mastered'",
-            [],
-            |r| r.get(0),
-        ).unwrap_or(0);
+        let mastered_count: u32 = self
+            .connection
+            .query_row(
+                "SELECT COUNT(*) FROM learning_progress WHERE status = 'mastered'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap_or(0);
 
-        let learning_count: u32 = self.connection.query_row(
-            "SELECT COUNT(*) FROM learning_progress WHERE status = 'learning'",
-            [],
-            |r| r.get(0),
-        ).unwrap_or(0);
+        let learning_count: u32 = self
+            .connection
+            .query_row(
+                "SELECT COUNT(*) FROM learning_progress WHERE status = 'learning'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap_or(0);
 
-        let overdue_count: u32 = self.connection.query_row(
-            "SELECT COUNT(*) FROM review_cards WHERE due_at <= ?1",
-            params![now.saturating_sub(86400)],
-            |r| r.get(0),
-        ).unwrap_or(0);
+        let overdue_count: u32 = self
+            .connection
+            .query_row(
+                "SELECT COUNT(*) FROM review_cards WHERE due_at <= ?1",
+                params![now.saturating_sub(86400)],
+                |r| r.get(0),
+            )
+            .unwrap_or(0);
 
-        let upcoming_count: u32 = self.connection.query_row(
-            "SELECT COUNT(*) FROM review_cards WHERE due_at > ?1 AND due_at <= ?2",
-            params![now, now + 7 * 86400],
-            |r| r.get(0),
-        ).unwrap_or(0);
+        let upcoming_count: u32 = self
+            .connection
+            .query_row(
+                "SELECT COUNT(*) FROM review_cards WHERE due_at > ?1 AND due_at <= ?2",
+                params![now, now + 7 * 86400],
+                |r| r.get(0),
+            )
+            .unwrap_or(0);
 
-        let mut stmt = self.connection.prepare(
-            "SELECT module, COUNT(*) FROM review_cards WHERE due_at <= ?1 GROUP BY module",
-        ).map_err(sqlite_err)?;
+        let mut stmt = self
+            .connection
+            .prepare("SELECT module, COUNT(*) FROM review_cards WHERE due_at <= ?1 GROUP BY module")
+            .map_err(sqlite_err)?;
 
         let mut by_module = HashMap::new();
         let mut rows = stmt.query(params![now]).map_err(sqlite_err)?;
@@ -616,8 +670,9 @@ impl LearningStore {
         rating: ReviewRating,
         now: i64,
     ) -> Result<ReviewScheduleOutcome, InfrastructureError> {
-        let card = self.get_review_card(card_id)?
-            .ok_or_else(|| InfrastructureError::Sqlite(format!("review card {card_id} not found")))?;
+        let card = self.get_review_card(card_id)?.ok_or_else(|| {
+            InfrastructureError::Sqlite(format!("review card {card_id} not found"))
+        })?;
 
         let outcome = SpacedRepetitionScheduler::schedule(
             card.interval_days,
@@ -629,8 +684,9 @@ impl LearningStore {
         );
 
         // 1. 更新卡片
-        self.connection.execute(
-            "UPDATE review_cards SET
+        self.connection
+            .execute(
+                "UPDATE review_cards SET
                 interval_days = ?1,
                 ease = ?2,
                 due_at = ?3,
@@ -638,16 +694,17 @@ impl LearningStore {
                 lapses = ?5,
                 last_reviewed_at = ?6
              WHERE id = ?7",
-            params![
-                outcome.interval_days,
-                outcome.ease,
-                outcome.due_at,
-                outcome.repetition_count,
-                outcome.lapses,
-                now,
-                card_id,
-            ],
-        ).map_err(sqlite_err)?;
+                params![
+                    outcome.interval_days,
+                    outcome.ease,
+                    outcome.due_at,
+                    outcome.repetition_count,
+                    outcome.lapses,
+                    now,
+                    card_id,
+                ],
+            )
+            .map_err(sqlite_err)?;
 
         // 2. 发送并记录 LearningEvent
         let event_action = if outcome.is_correct {
@@ -657,7 +714,7 @@ impl LearningStore {
         };
 
         let event = LearningEvent {
-            id: format!("evt_{now}_{}", &card.entity_id),
+            id: format!("evt_{now}_{}", card.entity_id),
             module: card.module.clone(),
             entity_type: card.entity_type.clone(),
             entity_id: card.entity_id.clone(),
@@ -736,42 +793,55 @@ impl LearningStore {
     pub fn add_collection_item(
         &self,
         collection_id: &str,
-        module: &str,
-        entity_type: &str,
-        entity_id: &str,
-        title: &str,
-        note: Option<&str>,
+        entity: CollectionItemRef,
         now: i64,
     ) -> Result<CollectionItem, InfrastructureError> {
-        let item_id = format!("coli_{now}_{entity_id}");
+        let item_id = format!("coli_{now}_{}", entity.entity_id);
         self.connection.execute(
             "INSERT INTO collection_items (id, collection_id, module, entity_type, entity_id, title, note, added_at)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-            params![item_id, collection_id, module, entity_type, entity_id, title, note, now],
+            params![
+                item_id,
+                collection_id,
+                entity.module,
+                entity.entity_type,
+                entity.entity_id,
+                entity.title,
+                entity.note,
+                now,
+            ],
         ).map_err(sqlite_err)?;
 
-        self.connection.execute(
-            "UPDATE collections SET updated_at = ?1 WHERE id = ?2",
-            params![now, collection_id],
-        ).map_err(sqlite_err)?;
+        self.connection
+            .execute(
+                "UPDATE collections SET updated_at = ?1 WHERE id = ?2",
+                params![now, collection_id],
+            )
+            .map_err(sqlite_err)?;
 
         Ok(CollectionItem {
             id: item_id,
             collection_id: collection_id.to_string(),
-            module: module.to_string(),
-            entity_type: entity_type.to_string(),
-            entity_id: entity_id.to_string(),
-            title: title.to_string(),
-            note: note.map(str::to_string),
+            module: entity.module,
+            entity_type: entity.entity_type,
+            entity_id: entity.entity_id,
+            title: entity.title,
+            note: entity.note,
             added_at: now,
         })
     }
 
-    pub fn list_collection_items(&self, collection_id: &str) -> Result<Vec<CollectionItem>, InfrastructureError> {
-        let mut stmt = self.connection.prepare(
-            "SELECT id, collection_id, module, entity_type, entity_id, title, note, added_at
+    pub fn list_collection_items(
+        &self,
+        collection_id: &str,
+    ) -> Result<Vec<CollectionItem>, InfrastructureError> {
+        let mut stmt = self
+            .connection
+            .prepare(
+                "SELECT id, collection_id, module, entity_type, entity_id, title, note, added_at
              FROM collection_items WHERE collection_id = ?1 ORDER BY added_at DESC",
-        ).map_err(sqlite_err)?;
+            )
+            .map_err(sqlite_err)?;
 
         let mut rows = stmt.query(params![collection_id]).map_err(sqlite_err)?;
         let mut items = Vec::new();
@@ -791,13 +861,28 @@ impl LearningStore {
     }
 
     pub fn remove_collection_item(&self, item_id: &str) -> Result<(), InfrastructureError> {
-        self.connection.execute("DELETE FROM collection_items WHERE id = ?1", params![item_id]).map_err(sqlite_err)?;
+        self.connection
+            .execute(
+                "DELETE FROM collection_items WHERE id = ?1",
+                params![item_id],
+            )
+            .map_err(sqlite_err)?;
         Ok(())
     }
 
     pub fn delete_collection(&self, collection_id: &str) -> Result<(), InfrastructureError> {
-        self.connection.execute("DELETE FROM collection_items WHERE collection_id = ?1", params![collection_id]).map_err(sqlite_err)?;
-        self.connection.execute("DELETE FROM collections WHERE id = ?1", params![collection_id]).map_err(sqlite_err)?;
+        self.connection
+            .execute(
+                "DELETE FROM collection_items WHERE collection_id = ?1",
+                params![collection_id],
+            )
+            .map_err(sqlite_err)?;
+        self.connection
+            .execute(
+                "DELETE FROM collections WHERE id = ?1",
+                params![collection_id],
+            )
+            .map_err(sqlite_err)?;
         Ok(())
     }
 
@@ -806,7 +891,10 @@ impl LearningStore {
     // ========================================================================
 
     /// 查询最近继续学习列表（去重聚合最新活动）。
-    pub fn get_continue_items(&self, limit: usize) -> Result<Vec<ContinueItem>, InfrastructureError> {
+    pub fn get_continue_items(
+        &self,
+        limit: usize,
+    ) -> Result<Vec<ContinueItem>, InfrastructureError> {
         let mut stmt = self.connection.prepare(
             "SELECT module, entity_type, entity_id, entity_title, MAX(last_studied_at) as recent_time, mastery_score
              FROM learning_progress
@@ -855,7 +943,10 @@ impl LearningStore {
     }
 
     /// 查询今日学习的主题数量。
-    pub fn count_topics_studied_today(&self, day_start_ts: i64) -> Result<u32, InfrastructureError> {
+    pub fn count_topics_studied_today(
+        &self,
+        day_start_ts: i64,
+    ) -> Result<u32, InfrastructureError> {
         let count: u32 = self.connection.query_row(
             "SELECT COUNT(DISTINCT entity_key) FROM learning_progress WHERE last_studied_at >= ?1",
             params![day_start_ts],
@@ -866,11 +957,15 @@ impl LearningStore {
 
     /// 查询平均掌握度。
     pub fn get_average_mastery(&self) -> Result<f64, InfrastructureError> {
-        let avg: Option<f64> = self.connection.query_row(
-            "SELECT AVG(mastery_score) FROM learning_progress WHERE mastery_score > 0",
-            [],
-            |r| r.get(0),
-        ).optional().unwrap_or(None);
+        let avg: Option<f64> = self
+            .connection
+            .query_row(
+                "SELECT AVG(mastery_score) FROM learning_progress WHERE mastery_score > 0",
+                [],
+                |r| r.get(0),
+            )
+            .optional()
+            .unwrap_or(None);
         Ok(avg.unwrap_or(0.0))
     }
 }
@@ -931,19 +1026,42 @@ mod tests {
         store.upsert_review_card(&card).expect("upsert review card");
 
         // 3. 查询待复习队列
-        let due_list = store.list_due_reviews(None, now, 10).expect("list due reviews");
+        let due_list = store
+            .list_due_reviews(None, now, 10)
+            .expect("list due reviews");
         assert_eq!(due_list.len(), 1);
         assert_eq!(due_list[0].card.prompt, "明治维新发生在何年？");
 
         // 4. 提交复习打分
-        let outcome = store.record_review_outcome("card_1", ReviewRating::Good, now).expect("submit review");
+        let outcome = store
+            .record_review_outcome("card_1", ReviewRating::Good, now)
+            .expect("submit review");
         assert_eq!(outcome.repetition_count, 1);
         assert_eq!(outcome.interval_days, 1.0);
         assert!(outcome.is_correct);
 
         // 5. 合集功能测试
-        let col = store.create_collection("日本近代史专题", Some("历史与地理综合探索"), &["历史".to_string(), "日本".to_string()], now).expect("create collection");
-        store.add_collection_item(&col.id, "history", "story", "meiji_restoration", "明治维新", Some("核心起点"), now).expect("add item");
+        let col = store
+            .create_collection(
+                "日本近代史专题",
+                Some("历史与地理综合探索"),
+                &["历史".to_string(), "日本".to_string()],
+                now,
+            )
+            .expect("create collection");
+        store
+            .add_collection_item(
+                &col.id,
+                CollectionItemRef {
+                    module: "history".to_string(),
+                    entity_type: "story".to_string(),
+                    entity_id: "meiji_restoration".to_string(),
+                    title: "明治维新".to_string(),
+                    note: Some("核心起点".to_string()),
+                },
+                now,
+            )
+            .expect("add item");
 
         let cols = store.list_collections().expect("list collections");
         assert_eq!(cols.len(), 1);

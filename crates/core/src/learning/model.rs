@@ -219,8 +219,8 @@ impl MasteryCalculator {
         let days_since_last = ((now.saturating_sub(last_studied_at)) as f64 / 86400.0).max(0.0);
         let recency_score = (1.0 / (1.0 + days_since_last * 0.04)) * 15.0;
 
-        let total_score = (accuracy_score + depth_score + interval_score + recency_score)
-            .clamp(0.0, 100.0);
+        let total_score =
+            (accuracy_score + depth_score + interval_score + recency_score).clamp(0.0, 100.0);
         let rounded_score = (total_score * 10.0).round() / 10.0;
 
         // 状态推导
@@ -591,6 +591,22 @@ pub struct CollectionItem {
     pub added_at: i64,
 }
 
+/**
+ * 跨模块实体引用。
+ *
+ * 合集 / 学习事件只保存**引用**（哪个模块的哪种实体），不复制实体本身。
+ * 此前这条引用以 5 个并列位置参数在 port / service / store / adapter 之间传递，
+ * 同一组参数在 5 处签名里重复；抽成本结构后签名更短，也明确了「引用」语义。
+ */
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct CollectionItemRef {
+    pub module: String,
+    pub entity_type: String,
+    pub entity_id: String,
+    pub title: String,
+    pub note: Option<String>,
+}
+
 // ============================================================================
 // 6. Today & Explore Dashboard 聚合模型
 // ============================================================================
@@ -683,12 +699,26 @@ mod tests {
         assert_eq!(o1.lapses, 0);
 
         // 再评分 Good：1 天 -> 3 天
-        let o2 = SpacedRepetitionScheduler::schedule(o1.interval_days, o1.ease, o1.repetition_count, o1.lapses, ReviewRating::Good, now);
+        let o2 = SpacedRepetitionScheduler::schedule(
+            o1.interval_days,
+            o1.ease,
+            o1.repetition_count,
+            o1.lapses,
+            ReviewRating::Good,
+            now,
+        );
         assert_eq!(o2.interval_days, 3.0);
         assert_eq!(o2.repetition_count, 2);
 
         // Again 评分：重置
-        let o3 = SpacedRepetitionScheduler::schedule(o2.interval_days, o2.ease, o2.repetition_count, o2.lapses, ReviewRating::Again, now);
+        let o3 = SpacedRepetitionScheduler::schedule(
+            o2.interval_days,
+            o2.ease,
+            o2.repetition_count,
+            o2.lapses,
+            ReviewRating::Again,
+            now,
+        );
         assert_eq!(o3.interval_days, 0.0);
         assert_eq!(o3.repetition_count, 0);
         assert_eq!(o3.lapses, 1);

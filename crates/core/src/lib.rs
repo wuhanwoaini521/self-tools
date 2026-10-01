@@ -45,8 +45,8 @@ pub use language::{
     normalize_roman, score as speaking_score, tones_from_syllables,
 };
 pub use learning::{
-    Collection, CollectionItem, ContinueItem, EntityType, ExploreRecommendation, GraphEdge,
-    GraphNeighborhood, GraphNode, LearningAction, LearningEvent, LearningProgress,
+    Collection, CollectionItem, CollectionItemRef, ContinueItem, EntityType, ExploreRecommendation,
+    GraphEdge, GraphNeighborhood, GraphNode, LearningAction, LearningEvent, LearningProgress,
     LearningStatus, MasteryCalculator, RelationKind, ReviewCardType, ReviewQueueItem,
     ReviewQueueStats, ReviewRating as UniversalReviewRating, ReviewScheduleOutcome,
     SpacedRepetitionScheduler, TodayDashboardData, UniversalReviewCard,

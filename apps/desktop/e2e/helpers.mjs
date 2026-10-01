@@ -10,7 +10,9 @@ export async function waitForApp() {
 }
 
 export async function openPage(label, id) {
-  const navButton = await $(`//nav[@aria-label='功能导航']//button[normalize-space(.)='${label}']`);
+  // 按 aria-label 定位：按钮文本里还含快捷键徽标（⌘1）与未读数，
+  // 用 normalize-space(.) 匹配会随徽标变化而失效。
+  const navButton = await $(`//nav[@aria-label='功能导航']//button[@aria-label='${label}']`);
   await navButton.click();
   await browser.waitUntil(
     async () => (await navButton.getAttribute("class"))?.includes("active") === true,

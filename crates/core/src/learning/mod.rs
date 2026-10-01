@@ -11,8 +11,8 @@
 pub mod model;
 
 pub use model::{
-    Collection, CollectionItem, ContinueItem, EntityType, ExploreRecommendation, GraphEdge,
-    GraphNeighborhood, GraphNode, LearningAction, LearningEvent, LearningProgress,
+    Collection, CollectionItem, CollectionItemRef, ContinueItem, EntityType, ExploreRecommendation,
+    GraphEdge, GraphNeighborhood, GraphNode, LearningAction, LearningEvent, LearningProgress,
     LearningStatus, MasteryCalculator, RelationKind, ReviewCardType, ReviewQueueItem,
     ReviewQueueStats, ReviewRating, ReviewScheduleOutcome, SpacedRepetitionScheduler,
     TodayDashboardData, UniversalReviewCard,

@@ -141,9 +141,9 @@ export function SettingsDialog({
         </header>
         <div className="settings-body">
           <section className="settings-section">
-            <label className="settings-label" htmlFor="ui-theme-select">
-              界面风格
-            </label>
+            {/* 主题控件已由 <select> 改为 radiogroup，这里不再有对应的表单 id；
+                保留 htmlFor 会指向不存在的 #ui-theme-select。 */}
+            <span className="settings-label">界面风格</span>
             <p className="settings-hint">
               切换立即生效,无需重启;下次启动自动恢复。
             </p>

@@ -2,9 +2,9 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use devtoolbox_core::learning::{
-    Collection, CollectionItem, ContinueItem, LearningAction, LearningEvent, LearningProgress,
-    LearningStatus, MasteryCalculator, ReviewQueueItem, ReviewQueueStats, ReviewRating,
-    ReviewScheduleOutcome, SpacedRepetitionScheduler, UniversalReviewCard,
+    Collection, CollectionItem, CollectionItemRef, ContinueItem, LearningAction, LearningEvent,
+    LearningProgress, LearningStatus, MasteryCalculator, ReviewQueueItem, ReviewQueueStats,
+    ReviewRating, ReviewScheduleOutcome, SpacedRepetitionScheduler, UniversalReviewCard,
 };
 
 use crate::learning::ports::{LearningPortError, LearningStorePort};
@@ -29,13 +29,29 @@ impl LearningStorePort for MockLearningStore {
         let existing = progress_guard.get(&entity_key).cloned();
 
         let study_count = existing.as_ref().map(|p| p.study_count).unwrap_or(0)
-            + if event.action == LearningAction::Study { 1 } else { 0 };
+            + if event.action == LearningAction::Study {
+                1
+            } else {
+                0
+            };
         let review_count = existing.as_ref().map(|p| p.review_count).unwrap_or(0)
-            + if event.action == LearningAction::Review { 1 } else { 0 };
+            + if event.action == LearningAction::Review {
+                1
+            } else {
+                0
+            };
         let correct_count = existing.as_ref().map(|p| p.correct_count).unwrap_or(0)
-            + if event.action == LearningAction::Correct { 1 } else { 0 };
+            + if event.action == LearningAction::Correct {
+                1
+            } else {
+                0
+            };
         let incorrect_count = existing.as_ref().map(|p| p.incorrect_count).unwrap_or(0)
-            + if event.action == LearningAction::Incorrect { 1 } else { 0 };
+            + if event.action == LearningAction::Incorrect {
+                1
+            } else {
+                0
+            };
 
         let (mastery_score, status) = MasteryCalculator::calculate(
             study_count,
@@ -51,7 +67,10 @@ impl LearningStorePort for MockLearningStore {
             module: event.module.clone(),
             entity_type: event.entity_type.clone(),
             entity_id: event.entity_id.clone(),
-            entity_title: event.entity_title.clone().unwrap_or_else(|| event.entity_id.clone()),
+            entity_title: event
+                .entity_title
+                .clone()
+                .unwrap_or_else(|| event.entity_id.clone()),
             status,
             mastery_score,
             study_count,
@@ -69,7 +88,10 @@ impl LearningStorePort for MockLearningStore {
         Ok(progress)
     }
 
-    fn get_progress(&self, entity_key: &str) -> Result<Option<LearningProgress>, LearningPortError> {
+    fn get_progress(
+        &self,
+        entity_key: &str,
+    ) -> Result<Option<LearningProgress>, LearningPortError> {
         Ok(self.progress.lock().unwrap().get(entity_key).cloned())
     }
 
@@ -91,11 +113,17 @@ impl LearningStorePort for MockLearningStore {
     }
 
     fn upsert_review_card(&self, card: &UniversalReviewCard) -> Result<(), LearningPortError> {
-        self.cards.lock().unwrap().insert(card.id.clone(), card.clone());
+        self.cards
+            .lock()
+            .unwrap()
+            .insert(card.id.clone(), card.clone());
         Ok(())
     }
 
-    fn get_review_card(&self, card_id: &str) -> Result<Option<UniversalReviewCard>, LearningPortError> {
+    fn get_review_card(
+        &self,
+        card_id: &str,
+    ) -> Result<Option<UniversalReviewCard>, LearningPortError> {
         Ok(self.cards.lock().unwrap().get(card_id).cloned())
     }
 
@@ -113,7 +141,11 @@ impl LearningStorePort for MockLearningStore {
             .map(|c| ReviewQueueItem {
                 card: c.clone(),
                 is_overdue: now > c.due_at,
-                urgency_score: if now > c.due_at { (now - c.due_at) as f64 / 3600.0 } else { 0.0 },
+                urgency_score: if now > c.due_at {
+                    (now - c.due_at) as f64 / 3600.0
+                } else {
+                    0.0
+                },
             })
             .collect();
         due.truncate(limit);
@@ -160,7 +192,9 @@ impl LearningStorePort for MockLearningStore {
         now: i64,
     ) -> Result<ReviewScheduleOutcome, LearningPortError> {
         let mut cards_guard = self.cards.lock().unwrap();
-        let card = cards_guard.get_mut(card_id).ok_or_else(|| LearningPortError::NotFound(card_id.to_string()))?;
+        let card = cards_guard
+            .get_mut(card_id)
+            .ok_or_else(|| LearningPortError::NotFound(card_id.to_string()))?;
 
         let outcome = SpacedRepetitionScheduler::schedule(
             card.interval_days,
@@ -209,21 +243,17 @@ impl LearningStorePort for MockLearningStore {
     fn add_collection_item(
         &self,
         collection_id: &str,
-        module: &str,
-        entity_type: &str,
-        entity_id: &str,
-        title: &str,
-        note: Option<&str>,
+        entity: CollectionItemRef,
         now: i64,
     ) -> Result<CollectionItem, LearningPortError> {
         let item = CollectionItem {
             id: format!("item_{}", now),
             collection_id: collection_id.to_string(),
-            module: module.to_string(),
-            entity_type: entity_type.to_string(),
-            entity_id: entity_id.to_string(),
-            title: title.to_string(),
-            note: note.map(str::to_string),
+            module: entity.module,
+            entity_type: entity.entity_type,
+            entity_id: entity.entity_id,
+            title: entity.title,
+            note: entity.note,
             added_at: now,
         };
         self.collection_items.lock().unwrap().push(item.clone());
@@ -233,7 +263,10 @@ impl LearningStorePort for MockLearningStore {
         Ok(item)
     }
 
-    fn list_collection_items(&self, collection_id: &str) -> Result<Vec<CollectionItem>, LearningPortError> {
+    fn list_collection_items(
+        &self,
+        collection_id: &str,
+    ) -> Result<Vec<CollectionItem>, LearningPortError> {
         Ok(self
             .collection_items
             .lock()
@@ -245,13 +278,19 @@ impl LearningStorePort for MockLearningStore {
     }
 
     fn remove_collection_item(&self, item_id: &str) -> Result<(), LearningPortError> {
-        self.collection_items.lock().unwrap().retain(|i| i.id != item_id);
+        self.collection_items
+            .lock()
+            .unwrap()
+            .retain(|i| i.id != item_id);
         Ok(())
     }
 
     fn delete_collection(&self, collection_id: &str) -> Result<(), LearningPortError> {
         self.collections.lock().unwrap().remove(collection_id);
-        self.collection_items.lock().unwrap().retain(|i| i.collection_id != collection_id);
+        self.collection_items
+            .lock()
+            .unwrap()
+            .retain(|i| i.collection_id != collection_id);
         Ok(())
     }
 
@@ -312,20 +351,28 @@ fn test_learning_service_full_flow() {
     assert_eq!(progress.status, LearningStatus::Learning);
 
     // Initial review card auto-created (due at 1000 + 86400 = 87400)
-    let queue = service.get_review_queue(Some("history"), 90_000, 10).expect("queue");
+    let queue = service
+        .get_review_queue(Some("history"), 90_000, 10)
+        .expect("queue");
     assert_eq!(queue.len(), 1);
     assert_eq!(queue[0].card.prompt, "历史回顾：丝绸之路的历史变迁");
 
     // Submit review rating
-    let outcome = service.submit_review(&queue[0].card.id, ReviewRating::Good, 90_000).expect("review");
+    let outcome = service
+        .submit_review(&queue[0].card.id, ReviewRating::Good, 90_000)
+        .expect("review");
     assert!(outcome.interval_days >= 1.0);
 
     // Check today dashboard
-    let today = service.get_today_dashboard(90_000).expect("today dashboard");
+    let today = service
+        .get_today_dashboard(90_000)
+        .expect("today dashboard");
     assert_eq!(today.continue_items.len(), 1);
 
     // Knowledge graph
-    let graph = service.get_knowledge_graph(Some("history:story:silk_road"), 1).expect("graph");
+    let graph = service
+        .get_knowledge_graph(Some("history:story:silk_road"), 1)
+        .expect("graph");
     assert_eq!(graph.root_id.as_deref(), Some("history:story:silk_road"));
     assert!(!graph.nodes.is_empty());
 }

@@ -3,8 +3,9 @@
 use thiserror::Error;
 
 use devtoolbox_core::learning::{
-    Collection, CollectionItem, ContinueItem, LearningEvent, LearningProgress, LearningStatus,
-    ReviewQueueItem, ReviewQueueStats, ReviewRating, ReviewScheduleOutcome, UniversalReviewCard,
+    Collection, CollectionItem, CollectionItemRef, ContinueItem, LearningEvent, LearningProgress,
+    LearningStatus, ReviewQueueItem, ReviewQueueStats, ReviewRating, ReviewScheduleOutcome,
+    UniversalReviewCard,
 };
 
 #[derive(Debug, Error)]
@@ -19,7 +20,8 @@ pub enum LearningPortError {
 
 pub trait LearningStorePort: Send + Sync {
     fn record_event(&self, event: &LearningEvent) -> Result<LearningProgress, LearningPortError>;
-    fn get_progress(&self, entity_key: &str) -> Result<Option<LearningProgress>, LearningPortError>;
+    fn get_progress(&self, entity_key: &str)
+    -> Result<Option<LearningProgress>, LearningPortError>;
     fn list_progress(
         &self,
         module_filter: Option<&str>,
@@ -28,7 +30,10 @@ pub trait LearningStorePort: Send + Sync {
     ) -> Result<Vec<LearningProgress>, LearningPortError>;
 
     fn upsert_review_card(&self, card: &UniversalReviewCard) -> Result<(), LearningPortError>;
-    fn get_review_card(&self, card_id: &str) -> Result<Option<UniversalReviewCard>, LearningPortError>;
+    fn get_review_card(
+        &self,
+        card_id: &str,
+    ) -> Result<Option<UniversalReviewCard>, LearningPortError>;
     fn list_due_reviews(
         &self,
         module_filter: Option<&str>,
@@ -54,14 +59,13 @@ pub trait LearningStorePort: Send + Sync {
     fn add_collection_item(
         &self,
         collection_id: &str,
-        module: &str,
-        entity_type: &str,
-        entity_id: &str,
-        title: &str,
-        note: Option<&str>,
+        entity: CollectionItemRef,
         now: i64,
     ) -> Result<CollectionItem, LearningPortError>;
-    fn list_collection_items(&self, collection_id: &str) -> Result<Vec<CollectionItem>, LearningPortError>;
+    fn list_collection_items(
+        &self,
+        collection_id: &str,
+    ) -> Result<Vec<CollectionItem>, LearningPortError>;
     fn remove_collection_item(&self, item_id: &str) -> Result<(), LearningPortError>;
     fn delete_collection(&self, collection_id: &str) -> Result<(), LearningPortError>;
 

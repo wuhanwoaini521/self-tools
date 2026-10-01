@@ -12,10 +12,10 @@
 use std::sync::Arc;
 
 use devtoolbox_core::learning::{
-    Collection, CollectionItem, EntityType, ExploreRecommendation, GraphEdge,
-    GraphNeighborhood, GraphNode, LearningAction, LearningEvent, LearningProgress,
-    LearningStatus, RelationKind, ReviewCardType, ReviewQueueItem, ReviewQueueStats,
-    ReviewRating, ReviewScheduleOutcome, TodayDashboardData, UniversalReviewCard,
+    Collection, CollectionItem, CollectionItemRef, EntityType, ExploreRecommendation, GraphEdge,
+    GraphNeighborhood, GraphNode, LearningAction, LearningEvent, LearningProgress, LearningStatus,
+    RelationKind, ReviewCardType, ReviewQueueItem, ReviewQueueStats, ReviewRating,
+    ReviewScheduleOutcome, TodayDashboardData, UniversalReviewCard,
 };
 
 use crate::learning::ports::{LearningPortError, LearningStorePort};
@@ -34,18 +34,44 @@ impl LearningService {
     // ========================================================================
 
     /// 记录学习行为，并自动更新进度与按需生成复习卡。
-    pub fn record_event(&self, event: &LearningEvent) -> Result<LearningProgress, LearningPortError> {
+    pub fn record_event(
+        &self,
+        event: &LearningEvent,
+    ) -> Result<LearningProgress, LearningPortError> {
         let progress = self.store.record_event(event)?;
 
         // 如果是首次深度学习或收藏，自动生成一份复习卡片
-        if progress.study_count == 1 && matches!(event.action, LearningAction::Study | LearningAction::Bookmark | LearningAction::Complete) {
-            let card_id = format!("card_{}_{}_{}", &event.module, &event.entity_type, &event.entity_id);
+        if progress.study_count == 1
+            && matches!(
+                event.action,
+                LearningAction::Study | LearningAction::Bookmark | LearningAction::Complete
+            )
+        {
+            let card_id = format!(
+                "card_{}_{}_{}",
+                event.module, event.entity_type, event.entity_id
+            );
             let prompt = match event.module.as_str() {
-                "history" => format!("历史回顾：{}", event.entity_title.as_deref().unwrap_or(&event.entity_id)),
-                "geography" => format!("地理百科：{} 的地理特征与区位？", event.entity_title.as_deref().unwrap_or(&event.entity_id)),
-                "language" => format!("词汇掌握：{} 的含义与用法？", event.entity_title.as_deref().unwrap_or(&event.entity_id)),
-                "study" => format!("学习板要点回顾：{}", event.entity_title.as_deref().unwrap_or(&event.entity_id)),
-                _ => format!("知识复习：{}", event.entity_title.as_deref().unwrap_or(&event.entity_id)),
+                "history" => format!(
+                    "历史回顾：{}",
+                    event.entity_title.as_deref().unwrap_or(&event.entity_id)
+                ),
+                "geography" => format!(
+                    "地理百科：{} 的地理特征与区位？",
+                    event.entity_title.as_deref().unwrap_or(&event.entity_id)
+                ),
+                "language" => format!(
+                    "词汇掌握：{} 的含义与用法？",
+                    event.entity_title.as_deref().unwrap_or(&event.entity_id)
+                ),
+                "study" => format!(
+                    "学习板要点回顾：{}",
+                    event.entity_title.as_deref().unwrap_or(&event.entity_id)
+                ),
+                _ => format!(
+                    "知识复习：{}",
+                    event.entity_title.as_deref().unwrap_or(&event.entity_id)
+                ),
             };
 
             let card = UniversalReviewCard {
@@ -55,7 +81,10 @@ impl LearningService {
                 entity_type: event.entity_type.clone(),
                 card_type: ReviewCardType::Recall,
                 prompt,
-                answer: event.entity_title.clone().unwrap_or_else(|| event.entity_id.clone()),
+                answer: event
+                    .entity_title
+                    .clone()
+                    .unwrap_or_else(|| event.entity_id.clone()),
                 options: None,
                 hint: Some(format!("来自 {} 模块的学习记录", event.module)),
                 context: event.source.clone(),
@@ -75,7 +104,10 @@ impl LearningService {
         Ok(progress)
     }
 
-    pub fn get_progress(&self, entity_key: &str) -> Result<Option<LearningProgress>, LearningPortError> {
+    pub fn get_progress(
+        &self,
+        entity_key: &str,
+    ) -> Result<Option<LearningProgress>, LearningPortError> {
         self.store.get_progress(entity_key)
     }
 
@@ -85,7 +117,8 @@ impl LearningService {
         status_filter: Option<LearningStatus>,
         limit: usize,
     ) -> Result<Vec<LearningProgress>, LearningPortError> {
-        self.store.list_progress(module_filter, status_filter, limit)
+        self.store
+            .list_progress(module_filter, status_filter, limit)
     }
 
     // ========================================================================
@@ -162,32 +195,45 @@ impl LearningService {
     // ========================================================================
 
     /// 确定性探索推荐生成（图谱邻域 + 薄弱点巩固 + 新鲜知识探索）。
-    pub fn get_explore_recommendations(&self, limit: usize) -> Result<Vec<ExploreRecommendation>, LearningPortError> {
-        let mut recs = Vec::new();
+    pub fn get_explore_recommendations(
+        &self,
+        limit: usize,
+    ) -> Result<Vec<ExploreRecommendation>, LearningPortError> {
+        let mut recs = Vec::with_capacity(limit.max(8));
 
         // 1. 推荐常驻高质量跨模块主题 (确定性 fallback)
         recs.push(ExploreRecommendation {
             id: "rec_chuhan".to_string(),
             title: "楚汉争霸与汉王朝的建立".to_string(),
-            summary: "探索鸿门宴、垓下之围、关键历史人物（刘邦、项羽、韩信）与政权更迭。".to_string(),
+            summary: "探索鸿门宴、垓下之围、关键历史人物（刘邦、项羽、韩信）与政权更迭。"
+                .to_string(),
             module: "history".to_string(),
             entity_type: "story".to_string(),
             entity_id: "story-chu-han".to_string(),
             reason: "历史精选 · 跨越政治与地理的时代转折".to_string(),
             connected_entity_title: Some("秦汉帝国 · 楚汉争霸".to_string()),
-            tags: vec!["历史故事".to_string(), "汉朝".to_string(), "刘邦".to_string()],
+            tags: vec![
+                "历史故事".to_string(),
+                "汉朝".to_string(),
+                "刘邦".to_string(),
+            ],
         });
 
         recs.push(ExploreRecommendation {
             id: "rec_sichuan".to_string(),
             title: "四川盆地与成都平原地理".to_string(),
-            summary: "中国著名内陆红盆地，西连成都平原，四塞之国与天府之国的地理大通道。".to_string(),
+            summary: "中国著名内陆红盆地，西连成都平原，四塞之国与天府之国的地理大通道。"
+                .to_string(),
             module: "geography".to_string(),
             entity_type: "place".to_string(),
             entity_id: "sichuan-basin".to_string(),
             reason: "地理百科 · 自然地貌与天府之国".to_string(),
             connected_entity_title: Some("中国地形与盆地".to_string()),
-            tags: vec!["地理".to_string(), "地貌".to_string(), "四川盆地".to_string()],
+            tags: vec![
+                "地理".to_string(),
+                "地貌".to_string(),
+                "四川盆地".to_string(),
+            ],
         });
 
         recs.push(ExploreRecommendation {
@@ -236,17 +282,43 @@ impl LearningService {
         let mut edges = Vec::new();
 
         // 根节点
-        let (root_name, root_mod, root_type, root_summary) = if root.contains("chu-han") || root.contains("chuhan") {
-            ("楚汉争霸与秦汉帝国", "history", EntityType::Event, "从秦末战争、楚汉相持到刘邦建立汉朝的历史脉络")
-        } else if root.contains("sichuan") || root.contains("basin") {
-            ("四川盆地与巴蜀地理", "geography", EntityType::Place, "中国四大盆地之一，天府之国与四塞之地的地理枢纽")
-        } else if root.contains("an-lu") || root.contains("tang") {
-            ("大唐盛世与安史之乱", "history", EntityType::Time, "盛唐繁荣、两京沦陷与藩镇割据的时代大转折")
-        } else if root.contains("reservation") || root.contains("lang") {
-            ("高频词汇：Reservation", "language", EntityType::LanguageItem, "预约、保留与文献词根用法网络")
-        } else {
-            ("知识探索中心", "knowledge", EntityType::Concept, "跨历史、地理与语言的统一知识图谱")
-        };
+        let (root_name, root_mod, root_type, root_summary) =
+            if root.contains("chu-han") || root.contains("chuhan") {
+                (
+                    "楚汉争霸与秦汉帝国",
+                    "history",
+                    EntityType::Event,
+                    "从秦末战争、楚汉相持到刘邦建立汉朝的历史脉络",
+                )
+            } else if root.contains("sichuan") || root.contains("basin") {
+                (
+                    "四川盆地与巴蜀地理",
+                    "geography",
+                    EntityType::Place,
+                    "中国四大盆地之一，天府之国与四塞之地的地理枢纽",
+                )
+            } else if root.contains("an-lu") || root.contains("tang") {
+                (
+                    "大唐盛世与安史之乱",
+                    "history",
+                    EntityType::Time,
+                    "盛唐繁荣、两京沦陷与藩镇割据的时代大转折",
+                )
+            } else if root.contains("reservation") || root.contains("lang") {
+                (
+                    "高频词汇：Reservation",
+                    "language",
+                    EntityType::LanguageItem,
+                    "预约、保留与文献词根用法网络",
+                )
+            } else {
+                (
+                    "知识探索中心",
+                    "knowledge",
+                    EntityType::Concept,
+                    "跨历史、地理与语言的统一知识图谱",
+                )
+            };
 
         nodes.push(GraphNode {
             id: root.to_string(),
@@ -263,13 +335,55 @@ impl LearningService {
         // 关联节点与关系
         if root.contains("chu-han") || root.contains("chuhan") {
             let related = [
-                ("history:person:liubang", "刘邦 (汉高祖)", "history", EntityType::Person, "汉朝开国皇帝，楚汉争霸胜利者"),
-                ("history:person:xiangyu", "项羽 (西楚霸王)", "history", EntityType::Person, "反秦领袖与西楚政权核心统治者"),
-                ("history:event:hongmen", "鸿门宴", "history", EntityType::Event, "公元前206年刘项关键政治博弈"),
-                ("geography:place:guanzhong", "关中平原", "geography", EntityType::Place, "秦汉核心根据地与三秦故地"),
-                ("geography:place:sichuan-basin", "四川盆地 (巴蜀)", "geography", EntityType::Place, "刘邦汉中起兵与粮饷基地"),
-                ("history:event:gaixia", "垓下之围", "history", EntityType::Event, "公元前202年楚汉最终决战"),
-                ("language:word:reservation", "Reservation (保留/储备)", "language", EntityType::LanguageItem, "历史文献与战略储备相关高频词"),
+                (
+                    "history:person:liubang",
+                    "刘邦 (汉高祖)",
+                    "history",
+                    EntityType::Person,
+                    "汉朝开国皇帝，楚汉争霸胜利者",
+                ),
+                (
+                    "history:person:xiangyu",
+                    "项羽 (西楚霸王)",
+                    "history",
+                    EntityType::Person,
+                    "反秦领袖与西楚政权核心统治者",
+                ),
+                (
+                    "history:event:hongmen",
+                    "鸿门宴",
+                    "history",
+                    EntityType::Event,
+                    "公元前206年刘项关键政治博弈",
+                ),
+                (
+                    "geography:place:guanzhong",
+                    "关中平原",
+                    "geography",
+                    EntityType::Place,
+                    "秦汉核心根据地与三秦故地",
+                ),
+                (
+                    "geography:place:sichuan-basin",
+                    "四川盆地 (巴蜀)",
+                    "geography",
+                    EntityType::Place,
+                    "刘邦汉中起兵与粮饷基地",
+                ),
+                (
+                    "history:event:gaixia",
+                    "垓下之围",
+                    "history",
+                    EntityType::Event,
+                    "公元前202年楚汉最终决战",
+                ),
+                (
+                    "language:word:reservation",
+                    "Reservation (保留/储备)",
+                    "language",
+                    EntityType::LanguageItem,
+                    "历史文献与战略储备相关高频词",
+                ),
             ];
 
             for (node_id, name, module, etype, summary) in related {
@@ -297,10 +411,34 @@ impl LearningService {
             }
         } else if root.contains("sichuan") || root.contains("basin") {
             let related = [
-                ("geography:mountain:longmen", "龙门山脉", "geography", EntityType::Place, "四川盆地西北边界山脉"),
-                ("geography:river:yangtze", "长江干流与三峡", "geography", EntityType::Place, "四川盆地出川水系大通道"),
-                ("history:story:story-chu-han", "楚汉争霸", "history", EntityType::Event, "汉王刘邦以巴蜀汉中为基地还定三秦"),
-                ("geography:place:chengdu_plain", "成都平原 (天府之国)", "geography", EntityType::Place, "都江堰灌溉下的核心农业水利区"),
+                (
+                    "geography:mountain:longmen",
+                    "龙门山脉",
+                    "geography",
+                    EntityType::Place,
+                    "四川盆地西北边界山脉",
+                ),
+                (
+                    "geography:river:yangtze",
+                    "长江干流与三峡",
+                    "geography",
+                    EntityType::Place,
+                    "四川盆地出川水系大通道",
+                ),
+                (
+                    "history:story:story-chu-han",
+                    "楚汉争霸",
+                    "history",
+                    EntityType::Event,
+                    "汉王刘邦以巴蜀汉中为基地还定三秦",
+                ),
+                (
+                    "geography:place:chengdu_plain",
+                    "成都平原 (天府之国)",
+                    "geography",
+                    EntityType::Place,
+                    "都江堰灌溉下的核心农业水利区",
+                ),
             ];
 
             for (node_id, name, module, etype, summary) in related {
@@ -329,10 +467,34 @@ impl LearningService {
         } else {
             // 通用全景关联
             let related = [
-                ("history:story:story-chu-han", "楚汉争霸", "history", EntityType::Event, "秦汉交替与统一帝国建立"),
-                ("geography:place:sichuan-basin", "四川盆地", "geography", EntityType::Place, "中国四大盆地与巴蜀水系"),
-                ("history:story:story-an-lushan-rebellion", "安史之乱", "history", EntityType::Time, "盛唐由盛转衰的时代变局"),
-                ("language:word:reservation", "Reservation", "language", EntityType::LanguageItem, "语言核心词汇与语义网络"),
+                (
+                    "history:story:story-chu-han",
+                    "楚汉争霸",
+                    "history",
+                    EntityType::Event,
+                    "秦汉交替与统一帝国建立",
+                ),
+                (
+                    "geography:place:sichuan-basin",
+                    "四川盆地",
+                    "geography",
+                    EntityType::Place,
+                    "中国四大盆地与巴蜀水系",
+                ),
+                (
+                    "history:story:story-an-lushan-rebellion",
+                    "安史之乱",
+                    "history",
+                    EntityType::Time,
+                    "盛唐由盛转衰的时代变局",
+                ),
+                (
+                    "language:word:reservation",
+                    "Reservation",
+                    "language",
+                    EntityType::LanguageItem,
+                    "语言核心词汇与语义网络",
+                ),
             ];
 
             for (node_id, name, module, etype, summary) in related {
@@ -389,17 +551,16 @@ impl LearningService {
     pub fn add_collection_item(
         &self,
         collection_id: &str,
-        module: &str,
-        entity_type: &str,
-        entity_id: &str,
-        title: &str,
-        note: Option<&str>,
+        entity: CollectionItemRef,
         now: i64,
     ) -> Result<CollectionItem, LearningPortError> {
-        self.store.add_collection_item(collection_id, module, entity_type, entity_id, title, note, now)
+        self.store.add_collection_item(collection_id, entity, now)
     }
 
-    pub fn list_collection_items(&self, collection_id: &str) -> Result<Vec<CollectionItem>, LearningPortError> {
+    pub fn list_collection_items(
+        &self,
+        collection_id: &str,
+    ) -> Result<Vec<CollectionItem>, LearningPortError> {
         self.store.list_collection_items(collection_id)
     }
 

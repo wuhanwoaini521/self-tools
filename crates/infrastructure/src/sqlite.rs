@@ -3,9 +3,9 @@
 //! 强制启用 WAL 模式、设置 busy_timeout 以及开启外键约束，
 //! 避免多模块/并发访问时的写锁竞争与锁库问题。
 
+use rusqlite::Connection;
 use std::path::Path;
 use std::time::Duration;
-use rusqlite::Connection;
 
 /// 默认的 SQLite 忙等待超时时间（5 秒）。
 pub const DEFAULT_BUSY_TIMEOUT: Duration = Duration::from_millis(5000);

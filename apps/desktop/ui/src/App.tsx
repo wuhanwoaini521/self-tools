@@ -719,6 +719,7 @@ export default function App() {
           <button
             className="app-bar-gear"
             title="Settings (⌘,)"
+            aria-label="Settings"
             onClick={() => setSettingsOpen(true)}
           >
             <Gear size={19} />
@@ -726,6 +727,7 @@ export default function App() {
           <button
             className={"app-bar-ai" + (aiOpen ? " active" : "")}
             title="Ask AI (⌘/)"
+            aria-label="Ask AI"
             onClick={() => setAiOpen((prev) => !prev)}
           >
             <Sparkle size={18} weight="fill" />
@@ -744,6 +746,10 @@ export default function App() {
                   key={item.id}
                   className={"app-nav-item" + (page === item.id ? " active" : "")}
                   onClick={() => setPage(item.id)}
+                  // 按钮内含快捷键徽标与未读数，文本节点不是稳定标识；
+                  // 显式 aria-label 同时让读屏只念模块名而不念「⌘1」。
+                  aria-label={item.label}
+                  aria-current={page === item.id ? "page" : undefined}
                 >
                   <item.icon size={18} />
                   {item.label}
