@@ -51,6 +51,84 @@ impl KnowledgeRoot {
             enabled: true,
         }
     }
+
+    /// 尝试创建并校验根目录安全性。
+    pub fn try_new(
+        id: impl Into<String>,
+        label: impl Into<String>,
+        path: impl Into<String>,
+    ) -> Result<Self, &'static str> {
+        let p_str = path.into();
+        validate_root_path(Path::new(&p_str))?;
+        Ok(Self::new(id, label, p_str))
+    }
+}
+
+/// 判定指定的根目录路径是否属于禁止/高危配置的系统或顶级路径。
+///
+/// 防止用户误将系统根目录（`/`、`C:\`）、系统关键目录（`/etc`、`/System`、`C:\Windows`）
+/// 等配置为知识库扫描根，从而引发隐私泄漏或性能问题。
+pub fn validate_root_path(path: &Path) -> Result<(), &'static str> {
+    let mut components = path.components().peekable();
+
+    if components.peek().is_none() {
+        return Err("路径不能为空");
+    }
+
+    let raw_str = path.to_string_lossy();
+    if raw_str.trim().is_empty() {
+        return Err("路径不能为空");
+    }
+
+    let non_root_components: Vec<_> = path
+        .components()
+        .filter(|c| !matches!(c, Component::RootDir | Component::Prefix(_)))
+        .collect();
+
+    if non_root_components.is_empty() {
+        return Err("不允许将整个系统根目录添加为知识库根目录");
+    }
+
+    let path_str = raw_str.replace('\\', "/").to_lowercase();
+    let trimmed = path_str.trim_end_matches('/');
+
+    // 跨平台盘符识别（如 "c:" 或 "d:"）
+    if trimmed.len() == 2 && trimmed.ends_with(':') && trimmed.chars().next().unwrap().is_ascii_alphabetic() {
+        return Err("不允许将整个系统根目录添加为知识库根目录");
+    }
+
+    let prohibited_exact = [
+        "/etc",
+        "/var",
+        "/private",
+        "/system",
+        "/windows",
+        "/windows/system32",
+        "/program files",
+        "/program files (x86)",
+        "/proc",
+        "/sys",
+        "/dev",
+        "/bin",
+        "/sbin",
+        "/usr/bin",
+        "/usr/sbin",
+    ];
+
+    for prohibited in prohibited_exact {
+        if trimmed == prohibited || trimmed.starts_with(&format!("{prohibited}/")) {
+            return Err("不允许将系统关键目录添加为知识库根目录");
+        }
+        // Windows 盘符前缀（如 c:/windows）
+        if trimmed.len() > 2 && trimmed.chars().nth(1) == Some(':') {
+            let without_drive = &trimmed[2..];
+            if without_drive == prohibited || without_drive.starts_with(&format!("{prohibited}/")) {
+                return Err("不允许将系统关键目录添加为知识库根目录");
+            }
+        }
+    }
+
+    Ok(())
 }
 
 /// 文件索引条目（元数据；不缓存正文）。
@@ -543,5 +621,17 @@ mod tests {
         assert_eq!(back, metadata);
         assert_eq!(metadata.file_id, file_id("docs", "notes/a.md"));
         assert_ne!(metadata.file_id, file_id("other", "notes/a.md"));
+    }
+
+    #[test]
+    fn validate_root_path_blocks_system_roots() {
+        assert!(validate_root_path(Path::new("/")).is_err());
+        assert!(validate_root_path(Path::new("C:\\")).is_err());
+        assert!(validate_root_path(Path::new("/etc")).is_err());
+        assert!(validate_root_path(Path::new("/etc/hosts")).is_err());
+        assert!(validate_root_path(Path::new("C:\\Windows")).is_err());
+        assert!(validate_root_path(Path::new("/System")).is_err());
+        assert!(validate_root_path(Path::new("/Users/myuser/Documents")).is_ok());
+        assert!(validate_root_path(Path::new("D:\\Notes\\Knowledge")).is_ok());
     }
 }

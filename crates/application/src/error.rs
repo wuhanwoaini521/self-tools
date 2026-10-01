@@ -79,6 +79,17 @@ pub enum ApplicationError {
         kind: crate::news::NewsErrorKind,
         message: String,
     },
+    /// Learning OS 失败（V11）。
+    #[error("learning error: {message}")]
+    Learning { message: String },
+}
+
+impl From<crate::learning::LearningPortError> for ApplicationError {
+    fn from(error: crate::learning::LearningPortError) -> Self {
+        Self::Learning {
+            message: error.to_string(),
+        }
+    }
 }
 
 impl From<crate::news::NewsError> for ApplicationError {

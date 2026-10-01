@@ -115,11 +115,41 @@ impl TravelSessionRegistry {
     pub fn register(&self) -> (String, SharedResearchSession) {
         let id = format!("t{}", self.next_id.fetch_add(1, Ordering::Relaxed) + 1);
         let session = Arc::new(Mutex::new(TravelResearchSession::new()));
-        self.sessions
-            .lock()
-            .expect("travel registry poisoned")
-            .insert(id.clone(), Arc::clone(&session));
+        let mut map = self.sessions.lock().expect("travel registry poisoned");
+        if map.len() >= 100 {
+            // 自动清理已完成的陈旧会话，限制内存增长
+            let done_keys: Vec<String> = map
+                .iter()
+                .filter(|(_, s)| s.lock().map(|sess| sess.is_done()).unwrap_or(false))
+                .map(|(k, _)| k.clone())
+                .collect();
+            for k in done_keys {
+                map.remove(&k);
+                if map.len() < 80 {
+                    break;
+                }
+            }
+        }
+        map.insert(id.clone(), Arc::clone(&session));
         (id, session)
+    }
+
+    /// 清理已完成会话，保证总数不超过 `max_entries`。
+    pub fn prune(&self, max_entries: usize) {
+        let mut map = self.sessions.lock().expect("travel registry poisoned");
+        if map.len() > max_entries {
+            let done_keys: Vec<String> = map
+                .iter()
+                .filter(|(_, s)| s.lock().map(|sess| sess.is_done()).unwrap_or(false))
+                .map(|(k, _)| k.clone())
+                .collect();
+            for k in done_keys {
+                map.remove(&k);
+                if map.len() <= max_entries {
+                    break;
+                }
+            }
+        }
     }
 
     /// 按 id 查询会话；未知 id 返回 `None`。
@@ -217,5 +247,17 @@ mod tests {
         let view = session.view();
         assert!(!view.from_cache);
         assert!(view.guide.is_some());
+    }
+
+    #[test]
+    fn registry_prune_removes_finished_sessions() {
+        let registry = TravelSessionRegistry::new();
+        let (id1, s1) = registry.register();
+        let (_id2, _s2) = registry.register();
+        s1.lock().unwrap().finish(CityGuide::default(), true);
+        assert_eq!(registry.len(), 2);
+        registry.prune(1);
+        assert_eq!(registry.len(), 1);
+        assert!(registry.get(&id1).is_none());
     }
 }

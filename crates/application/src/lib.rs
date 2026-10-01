@@ -12,6 +12,7 @@ pub mod geography;
 pub mod history;
 pub mod knowledge;
 pub mod language;
+pub mod learning;
 pub mod mcp;
 pub mod memory;
 pub mod news;
@@ -45,6 +46,7 @@ pub use knowledge::{
     KnowledgeContext, KnowledgeMetrics, KnowledgeRetrievalService, KnowledgeSourceRetriever,
 };
 pub use language::{LanguageInfo, LanguageSearchHit, LanguageService, TodayView};
+pub use learning::{LearningPortError, LearningService, LearningStorePort};
 pub use memory::{MemoryConfig, MemoryService, MemoryStats, MemoryStorePort};
 pub use news::{
     NewsArticle, NewsCategory, NewsError, NewsErrorKind, NewsIngestPort, NewsIngestService,

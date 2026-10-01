@@ -10,5 +10,5 @@ pub mod model;
 pub use model::{
     DEFAULT_DENY_PATTERNS, FileAccessDenied, FileAccessPolicy, FileContentKind, FileFingerprint,
     FileIndexStats, FileMetadata, FileQuery, FileReadOutcome, KnowledgeRoot, RawFile, display_path,
-    extension_of, file_id, file_name_of,
+    extension_of, file_id, file_name_of, validate_root_path,
 };

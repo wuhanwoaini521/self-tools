@@ -13,6 +13,7 @@ pub mod history_enrichment;
 pub mod history_records;
 pub mod knowledge;
 pub mod language;
+pub mod learning;
 pub mod mcp;
 pub mod memory;
 pub mod news;
@@ -42,6 +43,13 @@ pub use language::{
     LanguageCode, LanguageItem, LanguageItemType, LanguageMetadata, LearningState,
     LearningStateKind, ReviewRating, ReviewScheduler, SourceLicense, kana_to_romaji,
     normalize_roman, score as speaking_score, tones_from_syllables,
+};
+pub use learning::{
+    Collection, CollectionItem, ContinueItem, EntityType, ExploreRecommendation, GraphEdge,
+    GraphNeighborhood, GraphNode, LearningAction, LearningEvent, LearningProgress,
+    LearningStatus, MasteryCalculator, RelationKind, ReviewCardType, ReviewQueueItem,
+    ReviewQueueStats, ReviewRating as UniversalReviewRating, ReviewScheduleOutcome,
+    SpacedRepetitionScheduler, TodayDashboardData, UniversalReviewCard,
 };
 pub use parser::{
     TaskLineInfo, cycle_task_mark, is_task_line, iter_task_lines, make_task_line, match_task,
