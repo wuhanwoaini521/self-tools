@@ -8,6 +8,7 @@
 #   make package  build the release bundle (tauri build)
 #   make install  install frontend dependencies
 #   make test     run Rust workspace tests
+export CXXFLAGS ?= -std=c++17
 
 .PHONY: help dev dev-web build package install test
 

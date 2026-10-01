@@ -24,7 +24,8 @@ const viewports = [
   { name: "small-mobile", width: 360, height: 800 },
 ];
 const pages = [
-  ["home", "Home"], ["markdown", "Markdown"], ["rss", "RSS"], ["news", "News"],
+  ["home", "Home"], ["review", "Review"], ["graph", "Graph"], ["collections", "Collections"],
+  ["markdown", "Markdown"], ["rss", "RSS"], ["news", "News"],
   ["travel", "Travel"], ["geography", "Geography"], ["history", "History"],
   ["language", "Language"], ["knowledge", "Knowledge"], ["study-board", "Study"],
   ["server", "Server"], ["system", "System"], ["search", "Search"],
@@ -108,7 +109,15 @@ async function inspectPage(page, viewport, route, label) {
 try {
   await mkdir(outDir, { recursive: true });
   await startViteIfNeeded();
-  browser = await chromium.launch({ headless: true });
+  const chromeCandidates = [
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    "/Applications/Chromium.app/Contents/MacOS/Chromium",
+  ];
+  const executablePath = chromeCandidates.find((c) => existsSync(c));
+  browser = await chromium.launch({
+    headless: true,
+    ...(executablePath ? { executablePath } : {}),
+  });
 
   for (const viewport of viewports) {
     const context = await browser.newContext({
@@ -138,14 +147,14 @@ try {
     for (const [route, label] of pages) await inspectPage(page, viewport, route, label);
 
     await page.goto(`${baseUrl}/#home`, { waitUntil: "domcontentloaded" });
-    await page.locator("button[title='Settings']").click();
+    await page.locator(".app-bar-gear").click();
     await page.locator(".settings-dialog").waitFor({ state: "visible" });
     const settingsShot = join(outDir, viewport.name, "settings.png");
     await page.screenshot({ path: settingsShot, fullPage: false });
     report.push({ viewport: viewport.name, route: "settings", label: "Settings dialog", screenshot: settingsShot });
     await page.locator("button[title='关闭设置']").click();
 
-    await page.locator("button[title='Ask AI']").click();
+    await page.locator(".app-bar-ai").click();
     await page.locator(".ai-panel").waitFor({ state: "visible" });
     const aiShot = join(outDir, viewport.name, "ai-panel.png");
     await page.screenshot({ path: aiShot, fullPage: false });

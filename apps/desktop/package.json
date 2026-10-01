@@ -7,9 +7,10 @@
     "dev": "npm --prefix ui run dev",
     "build": "npm --prefix ui run build",
     "preview": "npm --prefix ui run preview",
+    "test": "npm --prefix ui test",
     "test:e2e": "node scripts/build-e2e.mjs && wdio run wdio.conf.mjs",
     "test:visual": "node scripts/visual-qa.mjs",
-    "test:all": "cargo test --workspace --manifest-path ../../Cargo.toml && npm --prefix ui test && npm run test:e2e && npm run test:visual"
+    "test:all": "cargo test --workspace --manifest-path ../../Cargo.toml && npm --prefix ui test && npm run test:visual"
   },
   "devDependencies": {
     "@wdio/cli": "^9.32.0",

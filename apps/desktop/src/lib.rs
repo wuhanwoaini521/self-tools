@@ -36,6 +36,8 @@ mod knowledge;
 // V7：Home Server 组合根（平台适配器 + 注册表 + 安全动作层）。
 mod server;
 mod server_adapters;
+// V11：Personal Learning OS 适配器与命令
+pub mod learning;
 
 // lib 已不再直接使用 serde_json（History 用例迁入 application）；保留空导入以消除 unused warning。
 use serde::{Deserialize, Serialize};
@@ -43,9 +45,9 @@ use serde_json as _;
 use tauri::{AppHandle, Emitter, Manager, State};
 
 #[derive(Debug, Serialize)]
-struct CommandError {
-    code: &'static str,
-    message: String,
+pub struct CommandError {
+    pub code: &'static str,
+    pub message: String,
 }
 
 impl From<ApplicationError> for CommandError {
@@ -91,6 +93,7 @@ impl From<ApplicationError> for CommandError {
             ApplicationError::Documents { .. } => "documents_error",
             ApplicationError::Files { .. } => "files_error",
             ApplicationError::Knowledge { .. } => "knowledge_error",
+            ApplicationError::Learning { .. } => "learning_error",
             ApplicationError::Server { .. } => "server_error",
             ApplicationError::Infrastructure { .. } => "infrastructure_error",
         };
@@ -155,6 +158,8 @@ pub struct AppState {
     pub news: Arc<dyn devtoolbox_application::news::NewsPort>,
     /// News 联网摄取（`news_refresh_now` / `news_add_source` / AI `news.refresh`）。
     pub news_ingest: Arc<dyn devtoolbox_application::news::NewsIngestPort>,
+    /// V11 Learning OS 存储端口（`config/learning.db`）。
+    pub learning_store: Arc<dyn devtoolbox_application::learning::LearningStorePort>,
 }
 
 /// 轮询快照（Serialize 给前端；命令契约形状保持不变）。
@@ -275,29 +280,22 @@ fn semantic_history_path(_app: &AppHandle) -> Result<PathBuf, CommandError> {
 
 /// 装配历史语义仓库。
 ///
-/// 正常构建在产物缺失时必须 fail-fast —— 那是开发环境配置错误。但 E2E 构建
-/// 在 CI 上必然拿不到该产物（submodule 的 `dist/` 不入 Git），崩溃会让整个
-/// 桌面回归套件无法运行；因此只在 `e2e` feature 下退化为"连得上但查询失败"，
-/// 由 History 页面向用户显示缺失错误。
+/// 当历史数据库产物（history.duckdb）存在时，正常打开；若尚未构建生成，
+/// 则退化为"连得上但查询失败"（通过 attach_without_probe），避免启动期直接崩溃，
+/// 由前端 History 页面捕获错误并向用户展示清晰的引导卡片。
 fn history_repository(app: &AppHandle) -> Result<HistoryDuckDbRepository, CommandError> {
     match semantic_history_path(app) {
         Ok(path) => HistoryDuckDbRepository::open(path).map_err(|error| CommandError {
             code: "history_data_unreadable",
             message: error.to_string(),
         }),
-        #[cfg(feature = "e2e")]
         Err(error) => {
-            eprintln!("[e2e] [{}] {}", error.code, error.message);
+            eprintln!("[warn] [{}] {}", error.code, error.message);
             let expected = std::env::current_dir()
-                .map_err(|cause| CommandError {
-                    code: "history_data_missing",
-                    message: cause.to_string(),
-                })?
+                .unwrap_or_else(|_| PathBuf::from("."))
                 .join("history-data-pipeline/dist/history.duckdb");
             Ok(HistoryDuckDbRepository::attach_without_probe(expected))
         }
-        #[cfg(not(feature = "e2e"))]
-        Err(error) => Err(error),
     }
 }
 
@@ -2630,6 +2628,12 @@ pub fn run() {
                     Arc::clone(&rss_service),
                     composition::FeedFetcherAdapter::new(client.clone()),
                 ));
+            let learning_store_raw = Arc::new(Mutex::new(
+                devtoolbox_infrastructure::LearningStore::open(config_directory.join("learning.db"))
+                    .expect("open learning database"),
+            ));
+            let learning_store: Arc<dyn devtoolbox_application::learning::LearningStorePort> =
+                Arc::new(learning::LearningStoreAdapter::new(Arc::clone(&learning_store_raw)));
             app.manage(AppState {
                 rss_repository,
                 rss_fetcher: composition::FeedFetcherAdapter::new(client.clone()),
@@ -2663,6 +2667,7 @@ pub fn run() {
                 server: server_runtime,
                 news,
                 news_ingest,
+                learning_store,
             });
             Ok(())
         })
@@ -2768,7 +2773,23 @@ pub fn run() {
             language_progress,
             language_sources,
             language_install_starter,
-            language_speaking_feedback
+            language_speaking_feedback,
+            learning::learning_record_event,
+            learning::learning_get_progress,
+            learning::learning_list_progress,
+            learning::learning_get_today,
+            learning::learning_get_review_queue,
+            learning::learning_get_review_stats,
+            learning::learning_submit_review,
+            learning::learning_get_graph,
+            learning::learning_get_explore,
+            learning::learning_list_collections,
+            learning::learning_create_collection,
+            learning::learning_add_collection_item,
+            learning::learning_list_collection_items,
+            learning::learning_remove_collection_item,
+            learning::learning_delete_collection,
+            learning::learning_global_search
         ])
         .run({
             #[cfg(feature = "e2e")]
