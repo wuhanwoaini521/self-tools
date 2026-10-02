@@ -914,7 +914,7 @@ export function GeographyPage({
             module: "geography",
             entity_type: res.entity.entity_type ?? "place",
             entity_id: res.entity.id,
-            title: res.entity.name,
+            entity_title: res.entity.name,
             action: "study",
           });
         }

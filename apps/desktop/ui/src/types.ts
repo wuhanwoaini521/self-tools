@@ -649,6 +649,7 @@ export interface GeographyHome {
 }
 
 // ---------- Language ----------
+// 逐字段对应 crates/core/src/language/** 的 serde 输出。
 
 export type LanguageCode = "eng" | "jpn" | "cmn" | "yue";
 export type LanguageItemType =
@@ -659,8 +660,9 @@ export type LanguageItemType =
   | "PASSAGE"
   | "GRAMMAR"
   | "PRONUNCIATION";
-export type LearningStateKind = "new" | "learning" | "review" | "mastered";
-export type ReviewRating = "again" | "hard" | "good" | "easy";
+/** 学习层条目类型（进入学习闭环的四类）。 */
+export type LearningItemType = "word" | "phrase" | "sentence" | "article";
+export type Difficulty = "unknown" | "easy" | "medium" | "hard";
 export type PronunciationScheme =
   | "ARPABET"
   | "IPA"
@@ -677,6 +679,20 @@ export interface LanguageItem {
   reading: string | null;
   romanization: string | null;
   meta: unknown;
+  source: string;
+}
+
+/** 学习层统一条目（word / phrase / sentence / article 同一形状）。 */
+export interface LanguageLearningItem {
+  id: string;
+  type: LearningItemType;
+  language: LanguageCode;
+  content: string;
+  translation: string | null;
+  pronunciation: string | null;
+  romanization: string | null;
+  difficulty: Difficulty;
+  tags: string[];
   source: string;
 }
 
@@ -740,17 +756,19 @@ export interface SentenceRecord {
   source: string;
 }
 export interface KanjiView {
+  readings: string[];
+  meanings: string[];
   stroke_count: number | null;
   grade: number | null;
-  radical: number | null;
-  jlpt: string | null;
+  jlpt: number | null;
+  frequency_rank: number | null;
 }
-export interface LicenseKindUnion {
+export interface SourceLicense {
   kind: string;
   attribution_required: boolean;
-  commercial_use_allowed: boolean;
-  redistribution_allowed: boolean;
-  share_alike_required: boolean;
+  commercial_use: boolean;
+  redistribution: boolean;
+  share_alike: boolean;
 }
 export interface LanguageSource {
   id: string;
@@ -759,23 +777,12 @@ export interface LanguageSource {
   download_source: string;
   dataset_version: string;
   downloaded_at: number | null;
-  license: LicenseKindUnion;
+  license: SourceLicense;
   license_url: string | null;
   attribution: string;
   commercial_use: boolean;
   redistribution: boolean;
   notes: string | null;
-}
-export interface LearningState {
-  item_id: string;
-  state: LearningStateKind;
-  interval_days: number;
-  ease: number;
-  due_at: number;
-  review_count: number;
-  lapses: number;
-  started_at: number;
-  updated_at: number;
 }
 export interface WordDetail {
   item: LanguageItem;
@@ -784,42 +791,104 @@ export interface WordDetail {
   relations: RelationView[];
   examples: ExampleView[];
   sentences: SentenceRecord[];
-  state: LearningState | null;
-  favorite: boolean;
   source: LanguageSource | null;
   kanji: KanjiView | null;
 }
-export interface TodayPlan {
-  due_reviews: number;
-  new_words: number;
-  sentences: number;
-  listening: number;
-  speaking: number;
-  total: number;
+
+// ---------- 学习卡片（进 Language 直接给这个）----------
+
+/** 一件今天该学的东西。 */
+export interface StudyCard {
+  item: LanguageLearningItem;
+  /** 来自平台复习队列（已学过，到期该复习）。 */
+  from_review: boolean;
+  /** 复习卡 id；新内容没有卡（第一次作答后才建卡）。 */
+  card_id: string | null;
 }
-export interface TodayView {
-  language: string;
-  plan: TodayPlan;
-  languages: LanguageInfo[];
+
+// ---------- Lesson ----------
+
+export interface LessonStep {
+  item_id: string;
+  type: LearningItemType;
+  content: string;
+  translation: string | null;
 }
-export interface ReviewCard {
-  item: LanguageItem;
-  state: LearningStateKind;
+export interface Lesson {
+  id: string;
+  title: string;
+  language: LanguageCode;
+  description: string | null;
+  steps: LessonStep[];
+  created_at: number;
+  updated_at: number;
 }
-export interface ReviewOutcome {
-  state: LearningStateKind;
-  interval_days: number;
-  ease: number;
-  due_at: number;
-  lapses: number;
+/** Lesson + 恢复位置 + 每步的完整学习条目。 */
+export interface LessonView extends Lesson {
+  step_index: number;
+  items: LanguageLearningItem[];
 }
-export interface ProgressView {
-  total: number;
-  mastered: number;
-  learning: number;
-  reviews: number;
-  favorites: number;
+export interface ContinueLesson {
+  lesson: Lesson;
+  step_index: number;
+  completed_steps: number;
+  total_steps: number;
+  last_studied_at: number;
 }
+
+// ---------- 错题 ----------
+
+export interface Mistake {
+  id: string;
+  item_id: string;
+  type: LearningItemType;
+  language: LanguageCode;
+  content: string;
+  question: string;
+  user_answer: string;
+  correct_answer: string;
+  error_count: number;
+  last_missed_at: number;
+}
+
+// ---------- 句子学习 ----------
+
+export interface SentenceChunk {
+  text: string;
+  item_id: string | null;
+  meaning: string | null;
+  reading: string | null;
+}
+export interface SentenceStudy {
+  id: string;
+  language: LanguageCode;
+  original: string;
+  translation: string | null;
+  reading: string | null;
+  romanization: string | null;
+  chunks: SentenceChunk[];
+  key_words: string[];
+  grammar: string | null;
+  usage: string | null;
+  license: string | null;
+  author: string | null;
+}
+
+// ---------- 进度（来自平台 learning_progress） ----------
+
+/** 薄弱项：掌握度低且最近学过。 */
+export interface WeakItem {
+  entity_id: string;
+  entity_type: string;
+  content: string;
+  translation: string | null;
+  mastery_score: number;
+  incorrect_count: number;
+  status: LearningStatus;
+  difficulty: Difficulty;
+  last_studied_at: number;
+}
+
 export interface DatasetManifest {
   id: string;
   name: string;
@@ -856,108 +925,120 @@ export interface SpeakingScore {
 }
 
 // ==================== Learning OS Types (V11) ====================
+// 以下类型逐字段对应 `crates/core/src/learning/model.rs` 的 serde 输出
+// （snake_case 字段名、snake_case 枚举值）。此前此处是一套自造形状
+// （`title`/`correct_streak`/`ease_factor`/`card_id`…），与后端没有一个字段对得上，
+// 导致 `learning_record_event` 在全部 8 个调用点反序列化失败，学习事件从未落库。
 
 export type LearningActionKind =
-  | "read"
+  | "view"
   | "study"
+  | "complete"
   | "review"
-  | "note"
+  | "answer"
+  | "correct"
+  | "incorrect"
   | "bookmark"
+  | "note"
   | "ask_ai"
-  | "share"
-  | "complete";
+  // `LearningAction::Custom(String)` 的未标记分支：任何其它字符串按原样落库。
+  | (string & {});
 
 export interface LearningEvent {
+  /** 可留空：由后端按 `module:entity_type:entity_id:timestamp` 生成稳定主键。 */
   id?: string;
   module: string;
-  action: LearningActionKind;
   entity_type: string;
   entity_id: string;
-  title: string;
-  summary?: string;
-  metadata?: Record<string, string>;
-  created_at?: number;
+  entity_title?: string | null;
+  action: LearningActionKind;
+  /** 可留空（0）：由后端取当前时间。 */
+  timestamp?: number;
+  duration_ms?: number | null;
+  metadata?: Record<string, unknown>;
+  source?: string | null;
 }
 
-export type LearningStatus = "new" | "learning" | "reviewing" | "mastered" | "archived";
+export type LearningStatus =
+  | "not_started"
+  | "learning"
+  | "familiar"
+  | "mastered";
 
 export interface LearningProgress {
   entity_key: string;
   module: string;
   entity_type: string;
   entity_id: string;
-  title: string;
+  entity_title: string;
   status: LearningStatus;
-  mastery_score: number; // 0..100
   study_count: number;
   review_count: number;
-  correct_streak: number;
-  last_action: LearningActionKind;
+  correct_count: number;
+  incorrect_count: number;
+  /** 0..100，确定性加权（正确率 / 深度 / 间隔 / 新鲜度）。 */
+  mastery_score: number;
   last_studied_at: number;
-  next_review_at?: number | null;
-  created_at: number;
-  updated_at: number;
+  next_review_at: number | null;
+  interval_days: number;
+  ease: number;
+  custom_tags: string[];
 }
 
-export type UniversalReviewCardType = "recall" | "choice" | "qa" | "cloze";
+export type UniversalReviewCardType =
+  | "recall"
+  | "multiple_choice"
+  | "qa"
+  | "map_locate"
+  | "fill_blank";
+
 export type UniversalReviewRating = "again" | "hard" | "good" | "easy";
 
 export interface UniversalReviewCard {
   id: string;
   module: string;
-  entity_type: string;
   entity_id: string;
+  entity_type: string;
   card_type: UniversalReviewCardType;
   prompt: string;
   answer: string;
-  explanation?: string | null;
-  options?: string[] | null;
-  state: string;
-  interval_days: number;
-  ease_factor: number;
-  lapses: number;
-  reps: number;
+  options: string[] | null;
+  hint: string | null;
+  context: string | null;
   due_at: number;
-  last_reviewed_at?: number | null;
+  interval_days: number;
+  ease: number;
+  mastery_score: number;
+  repetition_count: number;
+  lapses: number;
+  last_reviewed_at: number | null;
   created_at: number;
-  updated_at: number;
 }
 
 export interface ReviewQueueItem {
-  card_id: string;
-  module: string;
-  entity_type: string;
-  entity_id: string;
-  card_type: UniversalReviewCardType;
-  prompt: string;
-  answer: string;
-  explanation?: string | null;
-  options?: string[] | null;
-  interval_days: number;
-  ease_factor: number;
-  due_at: number;
-  overdue_hours: number;
+  card: UniversalReviewCard;
+  is_overdue: boolean;
+  urgency_score: number;
 }
 
 export interface ReviewQueueStats {
+  total_due: number;
   due_count: number;
-  total_due?: number;
-  total_cards: number;
+  overdue_count: number;
+  upcoming_count: number;
   by_module: Record<string, number>;
   mastered_count: number;
   learning_count: number;
-  overdue_count?: number;
-  upcoming_count?: number;
+  total_cards: number;
 }
 
 export interface ReviewScheduleOutcome {
-  card_id: string;
-  new_state: string;
   interval_days: number;
-  ease_factor: number;
+  ease: number;
   due_at: number;
+  repetition_count: number;
   lapses: number;
-  mastery_delta: number;
+  is_correct: boolean;
 }
 
 export type GraphEntityType =

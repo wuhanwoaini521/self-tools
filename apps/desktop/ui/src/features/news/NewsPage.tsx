@@ -170,7 +170,7 @@ export function NewsPage({
         module: "news",
         entity_type: "article",
         entity_id: String(story.id),
-        title: story.title,
+        entity_title: story.title,
         action: "read",
       });
       if (story.is_read) return;

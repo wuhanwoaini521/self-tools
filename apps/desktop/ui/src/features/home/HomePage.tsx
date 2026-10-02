@@ -25,10 +25,8 @@ import type { ReactNode } from "react";
 import type {
   ArticleDto,
   GeographyHome,
-  ReviewCard,
   SemanticHistoryHome,
   TodayDashboardData,
-  TodayView,
 } from "../../types";
 import { fileName, formatRelativeTime, greetingByHour } from "../../utils";
 import { stripRssHtml } from "../rss/rssContent";
@@ -39,8 +37,8 @@ interface HomePageProps {
   latestArticles: ArticleDto[];
   geographyHome: GeographyHome | null;
   historyHome: SemanticHistoryHome | null;
-  todayView: TodayView | null;
-  reviewCard: ReviewCard | null;
+  /** 平台 Today 聚合（含各模块待复习数）。Language 不再自建第二套。 */
+  platformToday: TodayDashboardData | null;
   rssRefreshing: boolean;
   onOpenNote: (path: string) => void;
   onOpenArticle: (article: ArticleDto) => void;
@@ -110,8 +108,7 @@ export function HomePage({
   latestArticles,
   geographyHome,
   historyHome,
-  todayView,
-  reviewCard,
+  platformToday,
   rssRefreshing,
   onOpenNote,
   onOpenArticle,
@@ -183,8 +180,9 @@ export function HomePage({
     null;
   const isHistoryLinked = Boolean(matchedHistoryStory);
 
-  const languageItem = reviewCard?.item ?? null;
-  const language = LANGUAGE_LABELS[todayView?.language ?? "jpn"] ?? "日语";
+  // Language 在首页只展示「今天要复习多少」——那是平台 Today 的数字。
+  const languageDueCount = platformToday?.pending_reviews_count ?? 0;
+  const language = LANGUAGE_LABELS.jpn ?? "日语";
   const placeName =
     geoEntity?.name ?? recommendation?.title ?? "从一个地点开始";
   const placeEnglish = geoEntity?.name_en ?? "A place to explore";
@@ -686,32 +684,28 @@ export function HomePage({
             <span>{language}</span>
           </header>
           <div className="home-language-inner">
-            <span className="home-language-label">今日学习词汇</span>
-            <strong>{languageItem?.text ?? "vision"}</strong>
-            {languageItem?.reading || languageItem?.romanization ? (
-              <small>
-                {languageItem.reading ?? languageItem.romanization}
-              </small>
-            ) : (
-              <small>/ˈvɪʒən/</small>
-            )}
+            <span className="home-language-label">今天待复习</span>
+            <strong>{languageDueCount}</strong>
+            <small>
+              {languageDueCount > 0
+                ? "条到期 · 先把记住的再确认一遍"
+                : "条 · 暂时没有到期的复习"}
+            </small>
             <div className="home-language-divider" />
-            <span className="home-language-label">今日计划</span>
-            <p>{todayView?.plan?.total ?? 0} 项学习任务 · 复习优先</p>
             <div className="home-language-example">
-              <span>例句</span>
+              <span>怎么开始</span>
               <p>
-                {languageItem
-                  ? "从一个词开始，把文章读得更深一点。"
-                  : "The next step starts with a clear vision."}
+                {languageDueCount > 0
+                  ? "打开 Language，从今天到期的复习开始；答错的会自动进入错题本。"
+                  : "打开 Language 学一课新内容，到复习时间它会自动出现在这里。"}
               </p>
             </div>
             <button
               type="button"
               className="home-language-practice"
-              onClick={() => onOpenLanguage(languageItem?.id)}
+              onClick={() => onOpenLanguage()}
             >
-              开始练习 <ArrowRight size={17} />
+              开始学习 <ArrowRight size={17} />
             </button>
           </div>
           <button

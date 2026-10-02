@@ -304,7 +304,7 @@ export function StudyBoardPage({ active, onContextChange, onAskAi }: StudyBoardP
         module: "study",
         entity_type: "board",
         entity_id: boardId,
-        title: title || "研习画板",
+        entity_title: title || "研习画板",
         action: "study",
       });
       setStatus("已保存到本地");

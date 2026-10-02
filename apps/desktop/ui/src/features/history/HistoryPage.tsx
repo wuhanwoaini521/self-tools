@@ -207,7 +207,7 @@ export function HistoryPage({
             module: "history",
             entity_type: "story",
             entity_id: story.story.id,
-            title: story.story.title_zh_cn,
+            entity_title: story.story.title_zh_cn,
             action: "study",
           });
         }
@@ -229,7 +229,7 @@ export function HistoryPage({
             module: "history",
             entity_type: "event",
             entity_id: event.event.id,
-            title: event.event.name_zh_cn,
+            entity_title: event.event.name_zh_cn,
             action: "study",
           });
         }
@@ -253,7 +253,7 @@ export function HistoryPage({
             module: "history",
             entity_type: "person",
             entity_id: person.person.id,
-            title: person.person.canonical_name_zh_cn,
+            entity_title: person.person.canonical_name_zh_cn,
             action: "study",
           });
         } else {
@@ -280,7 +280,7 @@ export function HistoryPage({
             module: "history",
             entity_type: "work",
             entity_id: detail.work.id,
-            title: detail.work.title_zh_cn ?? detail.work.title,
+            entity_title: detail.work.title_zh_cn ?? detail.work.title,
             action: "study",
           });
         } else {

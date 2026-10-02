@@ -69,13 +69,16 @@ export function ReviewCenterPage({ onNavigate, onAskAi }: ReviewCenterPageProps)
     loadData();
   }, [loadData]);
 
-  const currentCard = queue[currentIndex] ?? null;
+  const currentItem = queue[currentIndex] ?? null;
+  // `ReviewQueueItem` 是 `{ card, is_overdue, urgency_score }`（后端嵌套形状），
+  // 此前这里当成扁平卡片读 `.card_id` / `.prompt`，运行时全部为 undefined。
+  const currentCard = currentItem?.card ?? null;
 
   const handleRating = async (rating: UniversalReviewRating) => {
     if (!currentCard || submitting) return;
     setSubmitting(true);
     try {
-      await learningClient.submitReview(currentCard.card_id, rating);
+      await learningClient.submitReview(currentCard.id, rating);
       setSessionCompletedCount((c) => c + 1);
 
       if (currentIndex + 1 < queue.length) {
@@ -342,9 +345,9 @@ export function ReviewCenterPage({ onNavigate, onAskAi }: ReviewCenterPageProps)
                 <div style={{ fontSize: 16, fontWeight: 600, color: "var(--text-primary, #1e293b)", marginBottom: 8 }}>
                   {currentCard.answer}
                 </div>
-                {currentCard.explanation && (
+                {(currentCard.context ?? currentCard.hint) && (
                   <div style={{ fontSize: 13, color: "var(--text-secondary, #64748b)", lineHeight: 1.5 }}>
-                    {currentCard.explanation}
+                    {currentCard.context ?? currentCard.hint}
                   </div>
                 )}
                 {onAskAi && (

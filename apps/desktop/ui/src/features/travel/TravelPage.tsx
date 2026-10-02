@@ -266,7 +266,7 @@ export function TravelPage({
                 module: "travel",
                 entity_type: "guide",
                 entity_id: cityName,
-                title: `${cityName} ${requestedDays}日游`,
+                entity_title: `${cityName} ${requestedDays}日游`,
                 action: "study",
               });
             } else {
@@ -311,7 +311,7 @@ export function TravelPage({
           module: "travel",
           entity_type: "guide",
           entity_id: summary.city,
-          title: `${summary.city} ${summary.days}日游`,
+          entity_title: `${summary.city} ${summary.days}日游`,
           action: "study",
         });
       } else setNotice("本地没有找到该攻略，可能已被清除。");
