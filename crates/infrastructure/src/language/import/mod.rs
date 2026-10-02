@@ -1,9 +1,8 @@
 //! Language 数据集导入框架（#44/#45/#76）。
 //!
 //! 统一：Raw → Checksum → Parser(纯函数) → Normalizer → Validator → 去重 → SQLite。
-//! 每个数据集实现 `LanguageDatasetImporter`；许可证 Gate：Unknown/非商业数据被拒绝进入默认包。
-
-use std::time::Duration;
+//! 每个数据集是一个自由函数 `parse(raw) -> Vec<ImportedItem>`（纯函数，无网络）；
+//! 许可证 Gate：Unknown/非商业数据被拒绝进入默认包。
 
 use devtoolbox_core::language::{
     LanguageCode, LanguageItemType, LanguageMetadata, LanguageRelationKind, LanguageSource,
@@ -144,14 +143,9 @@ pub struct ImportReport {
     pub skipped: i64,
 }
 
-/// 数据集导入器接口（#45）。
-pub trait LanguageDatasetImporter {
-    /// 数据集来源（含许可证）。
-    fn source(&self) -> &'static LanguageSource;
-    fn importer_version(&self) -> i64;
-    /// 解析原始内容为标准化条目（纯函数；无网络）。
-    fn parse(&self, raw: &str) -> Result<Vec<ImportedItem>, ImportError>;
-}
+// 此前这里有一个 `LanguageDatasetImporter` trait，但工作区里**没有任何类型实现它**
+// （每个 importer 都是自由函数 `pub fn parse`）。它只是一层没有调用方的抽象，
+// 已删除；新增数据集沿用既有的 `pub fn parse(...)` + `sources::open_*()` 形态。
 
 /// 许可证 Gate（#76）：未知/非商业许可 → 拒绝。
 pub fn gate_license(source: &LanguageSource) -> Result<(), ImportError> {
@@ -194,32 +188,8 @@ pub fn import_into(
 }
 
 /// 从失败导入中恢复：报告级别错误（供 CLI/应用复用）。
-pub fn import_failed(report: &ImportReport) -> bool {
-    report.inserted == 0 && report.updated == 0 && report.skipped > 0
-}
-
 /// 简易校验和（非加密；用于清单记录）。
-pub fn simple_sha256(bytes: &[u8]) -> String {
-    use std::fmt::Write;
-    // 不引入外部 crate：用固定 FNV-1a 双通做档案标记即可（非安全用途）。
-    let mut h1: u64 = 0xcbf29ce484222325;
-    let mut h2: u64 = 0x84222325cbf29ce4;
-    for byte in bytes {
-        h1 ^= u64::from(*byte);
-        h1 = h1.wrapping_mul(0x100000001b3);
-        h2 ^= u64::from(*byte).rotate_left(1);
-        h2 = h2.wrapping_mul(0x100000001b3 ^ 0x9e3779b1);
-    }
-    let mut out = String::with_capacity(32);
-    let _ = write!(out, "{h1:016x}{h2:016x}");
-    out
-}
-
 // 兼容辅助：解析超时估算（CLI 统计用）。
-pub fn estimated_duration(count: usize) -> Duration {
-    Duration::from_millis(((count / 1_000).clamp(1, 120) * 250) as u64)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

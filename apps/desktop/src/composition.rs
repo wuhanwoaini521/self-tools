@@ -72,8 +72,8 @@ use devtoolbox_application::language::{
     LanguageCount, LanguageDetailRows, LanguageExample, LanguageStorePort, SearchHitModel,
 };
 use devtoolbox_core::language::{
-    DatasetManifest, LanguageCode, LanguageItem, LanguageSource, LearningState, LearningStateKind,
-    ReviewOutcome, ReviewRating, SentenceRecord, TodayPlan,
+    DatasetManifest, LanguageCode, LanguageLearningItem, LanguageSource, Lesson, LessonPosition,
+    Mistake, SentenceRecord, SentenceStudy,
 };
 use devtoolbox_infrastructure::language::LanguageStore;
 
@@ -139,8 +139,6 @@ impl LanguageStorePort for LanguageStoreAdapter {
                     })
                     .collect(),
                 sentences: rows.sentences,
-                state: rows.state,
-                favorite: rows.favorite,
                 extra: rows.extra,
             })
             .map_err(err_text)
@@ -151,92 +149,6 @@ impl LanguageStorePort for LanguageStoreAdapter {
             .lock()
             .expect("language store poisoned")
             .source_by_id(id)
-            .map_err(err_text)
-    }
-
-    fn today_plan(&self, language: LanguageCode, now: i64) -> Result<TodayPlan, String> {
-        self.store
-            .lock()
-            .expect("language store poisoned")
-            .today_plan(language, now)
-            .map_err(err_text)
-    }
-
-    fn review_next(
-        &self,
-        language: LanguageCode,
-        now: i64,
-    ) -> Result<Option<LanguageItem>, String> {
-        self.store
-            .lock()
-            .expect("language store poisoned")
-            .review_next(language, now)
-            .map_err(err_text)
-    }
-
-    fn learning_state(&self, item_id: &str) -> Result<Option<LearningState>, String> {
-        self.store
-            .lock()
-            .expect("language store poisoned")
-            .learning_state(item_id)
-            .map_err(err_text)
-    }
-
-    fn rate_review(
-        &self,
-        item_id: &str,
-        rating: ReviewRating,
-        now: i64,
-    ) -> Result<ReviewOutcome, String> {
-        self.store
-            .lock()
-            .expect("language store poisoned")
-            .rate_review(item_id, rating, now)
-            .map_err(err_text)
-    }
-
-    fn toggle_favorite(&self, item_id: &str, now: i64) -> Result<bool, String> {
-        self.store
-            .lock()
-            .expect("language store poisoned")
-            .toggle_favorite(item_id, now)
-            .map_err(err_text)
-    }
-
-    fn favorites(&self, limit: usize) -> Result<Vec<LanguageItem>, String> {
-        self.store
-            .lock()
-            .expect("language store poisoned")
-            .favorites(limit)
-            .map_err(err_text)
-    }
-
-    fn set_learning_state(
-        &self,
-        item_id: &str,
-        state: LearningStateKind,
-        now: i64,
-    ) -> Result<(), String> {
-        self.store
-            .lock()
-            .expect("language store poisoned")
-            .set_learning_state(item_id, state, now)
-            .map_err(err_text)
-    }
-
-    fn progress(&self) -> Result<serde_json::Value, String> {
-        self.store
-            .lock()
-            .expect("language store poisoned")
-            .progress()
-            .map_err(err_text)
-    }
-
-    fn favorites_count(&self) -> Result<i64, String> {
-        self.store
-            .lock()
-            .expect("language store poisoned")
-            .favorites_count()
             .map_err(err_text)
     }
 
@@ -273,6 +185,137 @@ impl LanguageStorePort for LanguageStoreAdapter {
             .lock()
             .expect("language store poisoned")
             .sentences_by_language(language, limit)
+            .map_err(err_text)
+    }
+
+    // ---- 学习内容 ----
+
+    fn learning_item(&self, item_id: &str) -> Result<Option<LanguageLearningItem>, String> {
+        self.store
+            .lock()
+            .expect("language store poisoned")
+            .learning_item(item_id)
+            .map_err(err_text)
+    }
+
+    fn next_new_items(
+        &self,
+        language: LanguageCode,
+        exclude: &[String],
+        limit: usize,
+    ) -> Result<Vec<LanguageLearningItem>, String> {
+        self.store
+            .lock()
+            .expect("language store poisoned")
+            .next_new_items(language, exclude, limit)
+            .map_err(err_text)
+    }
+
+    fn learning_items(&self, item_ids: &[String]) -> Result<Vec<LanguageLearningItem>, String> {
+        self.store
+            .lock()
+            .expect("language store poisoned")
+            .learning_items(item_ids)
+            .map_err(err_text)
+    }
+
+    fn sentence_study(&self, sentence_id: &str) -> Result<Option<SentenceStudy>, String> {
+        self.store
+            .lock()
+            .expect("language store poisoned")
+            .sentence_study(sentence_id)
+            .map_err(err_text)
+    }
+
+    // ---- Lesson ----
+
+    fn upsert_lesson(&self, lesson: &Lesson) -> Result<(), String> {
+        self.store
+            .lock()
+            .expect("language store poisoned")
+            .upsert_lesson(lesson)
+            .map_err(err_text)
+    }
+
+    fn lesson(&self, lesson_id: &str) -> Result<Option<Lesson>, String> {
+        self.store
+            .lock()
+            .expect("language store poisoned")
+            .lesson(lesson_id)
+            .map_err(err_text)
+    }
+
+    fn lessons(&self, language: Option<LanguageCode>, limit: usize) -> Result<Vec<Lesson>, String> {
+        self.store
+            .lock()
+            .expect("language store poisoned")
+            .lessons(language, limit)
+            .map_err(err_text)
+    }
+
+    fn delete_lesson(&self, lesson_id: &str) -> Result<(), String> {
+        self.store
+            .lock()
+            .expect("language store poisoned")
+            .delete_lesson(lesson_id)
+            .map_err(err_text)
+    }
+
+    fn save_lesson_position(&self, position: &LessonPosition) -> Result<(), String> {
+        self.store
+            .lock()
+            .expect("language store poisoned")
+            .save_lesson_position(position)
+            .map_err(err_text)
+    }
+
+    fn lesson_position(&self, lesson_id: &str) -> Result<Option<LessonPosition>, String> {
+        self.store
+            .lock()
+            .expect("language store poisoned")
+            .lesson_position(lesson_id)
+            .map_err(err_text)
+    }
+
+    fn recent_lesson_positions(&self, limit: usize) -> Result<Vec<LessonPosition>, String> {
+        self.store
+            .lock()
+            .expect("language store poisoned")
+            .recent_lesson_positions(limit)
+            .map_err(err_text)
+    }
+
+    // ---- 错题 ----
+
+    fn record_mistake(&self, mistake: &Mistake, card_id: &str) -> Result<(), String> {
+        self.store
+            .lock()
+            .expect("language store poisoned")
+            .record_mistake(mistake, card_id)
+            .map_err(err_text)
+    }
+
+    fn mistakes(&self, limit: usize) -> Result<Vec<Mistake>, String> {
+        self.store
+            .lock()
+            .expect("language store poisoned")
+            .mistakes(limit)
+            .map_err(err_text)
+    }
+
+    fn resolve_mistake(&self, item_id: &str, card_id: &str) -> Result<(), String> {
+        self.store
+            .lock()
+            .expect("language store poisoned")
+            .resolve_mistake(item_id, card_id)
+            .map_err(err_text)
+    }
+
+    fn mistake_count(&self) -> Result<i64, String> {
+        self.store
+            .lock()
+            .expect("language store poisoned")
+            .mistake_count()
             .map_err(err_text)
     }
 }

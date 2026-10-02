@@ -11,13 +11,37 @@ use serde::{Deserialize, Serialize};
 use crate::language::metadata::LanguageMetadata;
 
 /// 语言代码（与 Tatoeba/ISO 对齐：`eng`/`jpn`/`cmn`/`yue`）。
-#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
-#[serde(rename_all = "lowercase")]
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum LanguageCode {
     Eng,
     Jap,
     Zho,
     Yue,
+}
+
+// serde 必须输出 `code()` 里的代码（eng / jpn / cmn / yue），而不是变体名的小写
+// （jap / zho）。前端的 `LanguageCode`、TTS 语音映射、SQLite 的 `language` 列
+// 一律使用 Tatoeba / ISO-639-3 代码；此前 `rename_all = "lowercase"` 让同一条日语
+// 词条在 `language_languages` 里是 "jpn"、在 `language_search` 里却是 "jap"，
+// 结果是 TTS 查不到日语语音、CJK 判断恒为 false。
+impl Serialize for LanguageCode {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.code())
+    }
+}
+
+impl<'de> Deserialize<'de> for LanguageCode {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let raw = String::deserialize(deserializer)?;
+        // 兼容历史上已落库的 "jap" / "zho"（SQLite `language_items.language` 就是它们）。
+        Self::from_code(&raw)
+            .or_else(|| match raw.trim().to_ascii_lowercase().as_str() {
+                "jap" => Some(Self::Jap),
+                "zho" => Some(Self::Zho),
+                _ => None,
+            })
+            .ok_or_else(|| serde::de::Error::custom(format!("unknown language code: {raw}")))
+    }
 }
 
 impl LanguageCode {
@@ -243,30 +267,6 @@ pub struct SentenceRecord {
     pub source: String,
 }
 
-/// 音频资产（#37）。
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
-#[serde(rename_all = "UPPERCASE")]
-pub enum AudioType {
-    Recorded,
-    Tts,
-    UserRecording,
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct AudioAsset {
-    pub id: String,
-    pub item_id: String,
-    pub language: LanguageCode,
-    pub text: String,
-    pub voice: Option<String>,
-    pub provider: String,
-    pub audio_type: AudioType,
-    pub local_path: Option<String>,
-    pub remote_source: Option<String>,
-    pub generated_at: Option<i64>,
-    pub source_license: Option<String>,
-}
-
 /// 每语言条目计数（Stats / Sources 页用）。
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct LanguageCount {
@@ -275,4 +275,61 @@ pub struct LanguageCount {
     pub phrases: i64,
     pub sentences: i64,
     pub total: i64,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// serde 必须输出 Tatoeba / ISO-639-3 代码。
+    ///
+    /// 回归缺陷：`#[serde(rename_all = "lowercase")]` 让日语序列化成 `jap`、
+    /// 普通话序列化成 `zho`，而同一条目在 `language_languages` 里却是 `jpn` / `cmn`。
+    /// 前端 TTS 的语音映射与 CJK 判断按 `jpn` / `cmn` 查表，因此日文与中文条目
+    /// 全部用 en-US 语音朗读，且 CJK 分支恒不进入。
+    #[test]
+    fn language_code_serializes_to_iso_639_3() {
+        for (code, expected) in [
+            (LanguageCode::Eng, "eng"),
+            (LanguageCode::Jap, "jpn"),
+            (LanguageCode::Zho, "cmn"),
+            (LanguageCode::Yue, "yue"),
+        ] {
+            let json = serde_json::to_string(&code).expect("serialize");
+            assert_eq!(json, format!("\"{expected}\""));
+            let back: LanguageCode = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(back, code);
+        }
+    }
+
+    /// 反序列化必须兼容历史上已落库的 `jap` / `zho`（SQLite language 列的值）。
+    #[test]
+    fn language_code_deserializes_legacy_variant_names() {
+        assert_eq!(
+            serde_json::from_str::<LanguageCode>("\"jap\"").expect("legacy jap"),
+            LanguageCode::Jap
+        );
+        assert_eq!(
+            serde_json::from_str::<LanguageCode>("\"zho\"").expect("legacy zho"),
+            LanguageCode::Zho
+        );
+        assert!(
+            serde_json::from_str::<LanguageCode>("\"klingon\"").is_err(),
+            "未知语言代码必须报错而不是静默回落"
+        );
+    }
+
+    /// 嵌套在结构体里的语言字段同样必须是 ISO 代码（前端按这个值选 TTS 语音）。
+    #[test]
+    fn nested_language_fields_use_iso_codes() {
+        let item = LanguageItem::plain(
+            LanguageCode::Jap,
+            LanguageItemType::Word,
+            "jmdict:1".into(),
+            "駅".into(),
+            "jmdict".into(),
+        );
+        let value = serde_json::to_value(&item).expect("serialize item");
+        assert_eq!(value["language"], "jpn");
+    }
 }

@@ -9,13 +9,17 @@
 //! - 命中按分数倒序，按来源裁剪（`limit_per_source`），总数硬截断（`MAX_TOTAL_HITS`）；
 //! - 查询为空白时返回空结果（不是错误）。
 
+pub mod language_source;
 pub mod ports;
 pub mod service;
 pub mod sources;
 
+pub use language_source::LanguageSearchPort;
 pub use ports::GlobalSearchPort;
 pub use service::GlobalSearchService;
 pub use sources::{DocumentSearchPort, FileSearchPort, MemorySearchPort};
 
+#[cfg(test)]
+mod language_source_tests;
 #[cfg(test)]
 mod tests;

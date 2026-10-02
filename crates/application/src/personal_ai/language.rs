@@ -13,7 +13,7 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use devtoolbox_core::language::{LanguageCode, LanguageItem};
+use devtoolbox_core::language::LanguageCode;
 use devtoolbox_core::personal_ai::{AppContext, ChatMessage, ChatModelProvider, ChatRequest};
 use devtoolbox_core::{AgentError, ModuleDescriptor, ToolResult, ToolRisk, ToolSpec};
 
@@ -146,24 +146,28 @@ impl LanguageTools {
     }
 
     fn language_context(&self, language: LanguageCode) -> Result<ToolResult, AgentError> {
-        let now = now_unix();
-        let today = self
-            .store
-            .today_plan(language, now)
-            .map_err(AgentError::tool_execution_failed)?;
         let sentences = self
             .store
             .sentences_by_language(language, 3)
             .map_err(AgentError::tool_execution_failed)?;
+        let mistakes = self
+            .store
+            .mistakes(3)
+            .map_err(AgentError::tool_execution_failed)?
+            .into_iter()
+            .filter(|mistake| mistake.language == language)
+            .map(|mistake| {
+                serde_json::json!({
+                    "id": mistake.item_id,
+                    "text": mistake.content,
+                    "error_count": mistake.error_count,
+                })
+            })
+            .collect::<Vec<_>>();
         let data = serde_json::json!({
             "language": language.code(),
             "label": language.native_label(),
-            "today": {
-                "due_reviews": today.due_reviews,
-                "new_words": today.new_words,
-                "sentences": today.sentences,
-                "total": today.total,
-            },
+            "mistakes": cap_list(&mistakes, 3, |entry| entry.clone()),
             "sentences_head": cap_list(&sentences, 3, |sentence| serde_json::json!({
                 "text": sentence.text,
             })),
@@ -328,35 +332,39 @@ impl LanguageTools {
             .map(|value| value as usize)
             .unwrap_or(5)
             .clamp(1, 20);
-        let now = now_unix();
-        let today = self
+        // AI 出题只使用**真实内容**：待复习的错题 + 该语言的例句。
+        // 过去这里读 Language 私有的 `today_plan` / `review_next`（自建第二套复习队列），
+        // 那是平台 `learning.db` 的重复能力，且两处队列互不同步。
+        let mistakes = self
             .store
-            .today_plan(language, now)
+            .mistakes(limit)
+            .map_err(AgentError::tool_execution_failed)?
+            .into_iter()
+            .filter(|mistake| mistake.language == language)
+            .map(|mistake| {
+                serde_json::json!({
+                    "id": mistake.item_id,
+                    "text": mistake.content,
+                    "question": mistake.question,
+                    "error_count": mistake.error_count,
+                })
+            })
+            .collect::<Vec<_>>();
+        let sentences = self
+            .store
+            .sentences_by_language(language, limit)
             .map_err(AgentError::tool_execution_failed)?;
-        let mut due: Vec<LanguageItem> = Vec::new();
-        while due.len() < limit {
-            match self
-                .store
-                .review_next(language, now)
-                .map_err(AgentError::tool_execution_failed)?
-            {
-                Some(item) => due.push(item),
-                None => break,
-            }
-        }
         Ok(ToolResult::ok(serde_json::json!({
             "language": language.code(),
-            "today": {
-                "due_reviews": today.due_reviews,
-                "new_words": today.new_words,
-                "total": today.total,
-            },
-            "due": cap_list(&due, limit, |item| serde_json::json!({
-                "id": item.id,
-                "text": item.text,
-                "reading": item.reading,
+            "mistakes": cap_list(&mistakes, limit, |entry| entry.clone()),
+            "sentences_head": cap_list(&sentences, limit, |sentence| serde_json::json!({
+                "text": sentence.text,
             })),
-            "note": if due.is_empty() { "暂无待复习词条" } else { "" },
+            "note": if mistakes.is_empty() && sentences.is_empty() {
+                "该语言暂无可练习内容"
+            } else {
+                ""
+            },
         })))
     }
 }
@@ -560,10 +568,6 @@ fn cap_list<T>(
     map: impl Fn(&T) -> serde_json::Value,
 ) -> Vec<serde_json::Value> {
     items.iter().take(max).map(map).collect()
-}
-
-pub(crate) fn now_unix() -> i64 {
-    crate::time::now_unix()
 }
 
 #[cfg(test)]

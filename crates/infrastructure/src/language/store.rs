@@ -9,10 +9,11 @@ use std::path::Path;
 use rusqlite::{Connection, OptionalExtension, params};
 
 use devtoolbox_core::language::{
-    LanguageCode, LanguageCount, LanguageItem, LanguageItemType, LanguageMetadata,
-    LanguageRelation, LanguageRelationKind, LanguageSource, LearningState, LearningStateKind,
-    LicenseKind, Meaning, Pronunciation, PronunciationScheme, ReviewOutcome, ReviewRating,
-    ReviewScheduler, SentenceRecord, SourceLicense, TodayPlan, normalize_roman,
+    Difficulty, LanguageCode, LanguageCount, LanguageItem, LanguageItemType, LanguageLearningItem,
+    LanguageMetadata, LanguageRelation, LanguageRelationKind, LanguageSource, LearningItemType,
+    Lesson, LessonPosition, LessonStep, LicenseKind, Meaning, Mistake, Pronunciation,
+    PronunciationScheme, SentenceChunk, SentenceRecord, SentenceStudy, SourceLicense,
+    normalize_roman,
 };
 
 use crate::error::InfrastructureError;
@@ -36,14 +37,14 @@ pub struct ItemDetailRows {
     pub related_items: Vec<LanguageItem>,
     pub examples: Vec<ImportedExample>,
     pub sentences: Vec<SentenceRecord>,
-    pub state: Option<LearningState>,
-    pub favorite: bool,
     /// item_extra JSON（kanji 元数据等）。
     pub extra: Option<serde_json::Value>,
 }
 
 pub struct LanguageStore {
     connection: Connection,
+    /// 数据库文件路径。用于「重开库验证持久化」这类测试与备份。
+    path: std::path::PathBuf,
 }
 
 fn sqlite(error: rusqlite::Error) -> InfrastructureError {
@@ -53,19 +54,32 @@ fn sqlite(error: rusqlite::Error) -> InfrastructureError {
 impl LanguageStore {
     /// 打开（必要时创建）语言数据库并确保 Schema 存在。
     pub fn open(path: impl AsRef<Path>) -> Result<Self, InfrastructureError> {
-        if let Some(parent) = path.as_ref().parent() {
+        let path = path.as_ref().to_path_buf();
+        if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)
                 .map_err(|source| crate::error::io_error(parent, source))?;
         }
-        let connection = Connection::open(path)
+        let connection = Connection::open(&path)
             .map_err(|error| InfrastructureError::Sqlite(error.to_string()))?;
         connection
             .pragma_update(None, "foreign_keys", "ON")
             .map_err(sqlite)?;
-        let store = Self { connection };
+        let store = Self { connection, path };
         store.ensure_schema()?;
         store.seed_languages()?;
         Ok(store)
+    }
+
+    /// 数据库文件路径。
+    #[must_use]
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+
+    /// 暴露底层连接，仅供同 crate 的测试构造「旧版本」数据库。
+    #[cfg(test)]
+    pub(crate) fn connection_for_tests(&self) -> &Connection {
+        &self.connection
     }
 
     fn ensure_schema(&self) -> Result<(), InfrastructureError> {
@@ -137,29 +151,31 @@ impl LanguageStore {
                 local_path TEXT, remote_source TEXT, generated_at INTEGER, source_license TEXT
             );
             CREATE INDEX IF NOT EXISTS idx_audio_item ON audio_assets(item_id);
-            -- 用户学习数据（与词典表隔离，#59）
-            CREATE TABLE IF NOT EXISTS learning_states (
-                item_id TEXT PRIMARY KEY, state TEXT NOT NULL, interval_days REAL NOT NULL DEFAULT 0,
-                ease REAL NOT NULL DEFAULT 2.5, due_at INTEGER NOT NULL,
-                review_count INTEGER NOT NULL DEFAULT 0, lapses INTEGER NOT NULL DEFAULT 0,
-                started_at INTEGER NOT NULL, updated_at INTEGER NOT NULL
+            -- ===== 学习内容（Lesson / 错题）=====
+            --
+            -- 只存「语言学习内容」：Lesson 的步骤**引用** language_items.id，不复制
+            -- 词条正文（`steps_json` 里的 text 只是列表渲染用的快照）。
+            -- 掌握度、复习排期、LearningEvent 一律归平台 `learning.db`
+            -- （`learning_progress` / `review_cards` / `learning_events`），
+            -- 本库**不再**持有第二份 SRS —— 旧的 `learning_states` / `review_logs` /
+            -- `favorites` / `learning_sessions` 已在此前的双写中被删除（见 migrate）。
+            CREATE TABLE IF NOT EXISTS lessons (
+                id TEXT PRIMARY KEY, language TEXT NOT NULL, title TEXT NOT NULL,
+                description TEXT, steps_json TEXT NOT NULL, created_at INTEGER NOT NULL,
+                updated_at INTEGER NOT NULL
             );
-            CREATE INDEX IF NOT EXISTS idx_learning_due ON learning_states(due_at);
-            CREATE TABLE IF NOT EXISTS review_logs (
-                id INTEGER PRIMARY KEY AUTOINCREMENT, item_id TEXT NOT NULL,
-                reviewed_at INTEGER NOT NULL, rating TEXT NOT NULL, state_before TEXT NOT NULL,
-                state_after TEXT NOT NULL, interval_days REAL NOT NULL
+            CREATE INDEX IF NOT EXISTS idx_lessons_language ON lessons(language, updated_at DESC);
+            CREATE TABLE IF NOT EXISTS lesson_positions (
+                lesson_id TEXT PRIMARY KEY, step_index INTEGER NOT NULL, updated_at INTEGER NOT NULL
             );
-            CREATE INDEX IF NOT EXISTS idx_review_logs_item ON review_logs(item_id, reviewed_at);
-            CREATE TABLE IF NOT EXISTS favorites (
-                item_id TEXT PRIMARY KEY, created_at INTEGER NOT NULL
+            CREATE TABLE IF NOT EXISTS mistakes (
+                id TEXT PRIMARY KEY, item_id TEXT NOT NULL, item_type TEXT NOT NULL,
+                language TEXT NOT NULL, content TEXT NOT NULL, question TEXT NOT NULL,
+                user_answer TEXT NOT NULL, correct_answer TEXT NOT NULL,
+                error_count INTEGER NOT NULL DEFAULT 1, last_missed_at INTEGER NOT NULL
             );
-            CREATE TABLE IF NOT EXISTS learning_sessions (
-                id INTEGER PRIMARY KEY AUTOINCREMENT, day TEXT NOT NULL,
-                started_at INTEGER NOT NULL, ended_at INTEGER,
-                new_count INTEGER NOT NULL DEFAULT 0, review_count INTEGER NOT NULL DEFAULT 0,
-                sentences INTEGER NOT NULL DEFAULT 0
-            );
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_mistakes_dedup ON mistakes(item_id, id);
+            CREATE INDEX IF NOT EXISTS idx_mistakes_recent ON mistakes(last_missed_at DESC);
             CREATE VIRTUAL TABLE IF NOT EXISTS item_fts USING fts5(
                 search_key, meanings_key, item_id UNINDEXED, tokenize='unicode61'
             );
@@ -170,7 +186,30 @@ impl LanguageStore {
                    i.source
             FROM language_items i LEFT JOIN item_extra e ON e.item_id = i.id
             WHERE i.item_type = 'SENTENCE';",
-        ).map_err(sqlite)
+        ).map_err(sqlite)?;
+        self.migrate_dropped_learning_tables()
+    }
+
+    /// 删除已被平台 `learning.db` 取代的重复学习表。
+    ///
+    /// 这四张表承载的是平台已有的能力（`learning_progress` / `review_cards` /
+    /// `learning_events` / `collection_items`）。保留它们意味着同一份掌握度有两处
+    /// 互不同步的副本——此前 `WordDetail` 一次点击就同时写两处。
+    ///
+    /// **不使用 `IF EXISTS` 判空 + 逐表 drop 的写法**：`DROP TABLE` 在表不存在时
+    /// 已按 SQL 标准成功，因此这里逐条执行即可，重复运行（每次启动都会调用）是幂等的。
+    fn migrate_dropped_learning_tables(&self) -> Result<(), InfrastructureError> {
+        for table in [
+            "learning_states",
+            "review_logs",
+            "favorites",
+            "learning_sessions",
+        ] {
+            self.connection
+                .execute_batch(&format!("DROP TABLE IF EXISTS {table};"))
+                .map_err(sqlite)?;
+        }
+        Ok(())
     }
 
     fn seed_languages(&self) -> Result<(), InfrastructureError> {
@@ -739,8 +778,6 @@ impl LanguageStore {
                 .map(|item| item.text.clone())
                 .unwrap_or_default(),
         )?;
-        let state = self.learning_state(id)?;
-        let favorite = self.is_favorite(id)?;
         let extra = self.item_extra(id)?;
         Ok(ItemDetailRows {
             item,
@@ -750,8 +787,6 @@ impl LanguageStore {
             related_items,
             examples,
             sentences,
-            state,
-            favorite,
             extra,
         })
     }
@@ -914,242 +949,521 @@ impl LanguageStore {
         Ok(rows)
     }
 
-    // ---------------- 用户学习数据 ----------------
+    // ---------------- 学习内容：Lesson / 错题 / 句子拆解 ----------------
+    //
+    // 掌握度、复习排期、事件流归平台 `learning.db`；本库只存语言内容本身。
 
-    pub fn learning_state(
+    /// 读取多个学习条目（含释义与首个读音），用于组装 Lesson 步骤。
+    ///
+    /// 单条查询 + 逐项补全，避免在调用方形成 N+1。
+    pub fn learning_items(
         &self,
-        item_id: &str,
-    ) -> Result<Option<LearningState>, InfrastructureError> {
-        self.connection
-            .query_row(
-                "SELECT item_id, state, interval_days, ease, due_at, review_count, lapses, started_at, updated_at
-                 FROM learning_states WHERE item_id = ?1",
-                [item_id],
-                map_state,
-            )
-            .optional()
-            .map_err(sqlite)
+        item_ids: &[String],
+    ) -> Result<Vec<LanguageLearningItem>, InfrastructureError> {
+        let mut out = Vec::with_capacity(item_ids.len());
+        for id in item_ids {
+            if let Some(item) = self.learning_item(id)? {
+                out.push(item);
+            }
+        }
+        Ok(out)
     }
 
-    pub fn upsert_state(&self, state: &LearningState) -> Result<(), InfrastructureError> {
-        let state_name = state_kind_name(state.state);
+    /// 取「还没学过」的词，作为学习卡片的来源。
+    ///
+    /// 「学过」的判定在平台 `learning_progress` 里，语言库看不到，因此由调用方
+    /// 把已学 id 传进来排除（单点真相仍在平台）。排除列表只生成占位符，
+    /// 值一律走绑定参数，不做字符串拼接。
+    ///
+    /// 排序用 `imported_at, id` 保证稳定——同一批数据每次进来给的是同一批词，
+    /// 不会刷新一次换一批。
+    pub fn next_new_items(
+        &self,
+        language: LanguageCode,
+        exclude: &[String],
+        limit: usize,
+    ) -> Result<Vec<LanguageLearningItem>, InfrastructureError> {
+        if limit == 0 {
+            return Ok(Vec::new());
+        }
+        let mut sql = String::from(
+            "SELECT id FROM language_items
+             WHERE language = ?1 AND item_type = 'WORD'
+               AND source <> 'cmudict'",
+        );
+        if !exclude.is_empty() {
+            sql.push_str(" AND id NOT IN (");
+            for index in 0..exclude.len() {
+                if index > 0 {
+                    sql.push(',');
+                }
+                sql.push_str(&format!("?{}", index + 2));
+            }
+            sql.push(')');
+        }
+        sql.push_str(&format!(
+            " ORDER BY imported_at, id LIMIT ?{}",
+            exclude.len() + 2
+        ));
+
+        // 绑定顺序必须与占位符一致：`?1` = 语言，`?2..` = 排除列表，最后一个 = limit。
+        // （先前把 limit 绑在 `?1` 上，`WHERE language = ?1` 拿到的是 limit，
+        //  于是任何语言都查不到新词。）
+        let code = language.code();
+        let limit_value = limit as i64;
+        let mut statement = self.connection.prepare(&sql).map_err(sqlite)?;
+        let ids = {
+            let bound: Vec<&dyn rusqlite::ToSql> = std::iter::once(&code as &dyn rusqlite::ToSql)
+                .chain(exclude.iter().map(|id| id as &dyn rusqlite::ToSql))
+                .chain(std::iter::once(&limit_value as &dyn rusqlite::ToSql))
+                .collect();
+            let rows = statement
+                .query_map(bound.as_slice(), |row| row.get::<_, String>(0))
+                .map_err(sqlite)?;
+            rows.collect::<Result<Vec<_>, _>>().map_err(sqlite)?
+        };
+
+        self.learning_items(&ids)
+    }
+
+    /// 单个学习条目：适配为 [`LanguageLearningItem`]。
+    ///
+    /// 难度由**真实**的 `mistakes.error_count` 推导（没答错过就是 `Unknown`），
+    /// 不猜测考纲级别。
+    pub fn learning_item(
+        &self,
+        item_id: &str,
+    ) -> Result<Option<LanguageLearningItem>, InfrastructureError> {
+        let Some(item) = self.item(item_id)? else {
+            return Ok(None);
+        };
+        let translation = self.meanings(item_id)?.first().and_then(|meaning| {
+            meaning
+                .gloss
+                .clone()
+                .or_else(|| meaning.raw.clone())
+                .filter(|gloss| !gloss.trim().is_empty())
+        });
+        let pronunciation = self
+            .pronunciations(item_id)?
+            .first()
+            .map(|pronunciation| pronunciation.phonemes.clone())
+            .filter(|phonemes| !phonemes.trim().is_empty());
+
+        let incorrect_count: u32 = self
+            .connection
+            .query_row(
+                "SELECT COALESCE(SUM(error_count), 0) FROM mistakes WHERE item_id = ?1",
+                [item_id],
+                |row| row.get(0),
+            )
+            .map_err(sqlite)?;
+
+        Ok(LanguageLearningItem::from_item(
+            &item,
+            translation,
+            pronunciation,
+            Difficulty::derive(incorrect_count),
+        ))
+    }
+
+    // ---------------- Lesson ----------------
+
+    pub fn upsert_lesson(&self, lesson: &Lesson) -> Result<(), InfrastructureError> {
+        let steps = serde_json::to_string(&lesson.steps).map_err(|error| {
+            InfrastructureError::Sqlite(format!("lesson steps 序列化失败：{error}"))
+        })?;
         self.connection
             .execute(
-                "INSERT OR REPLACE INTO learning_states
-                    (item_id, state, interval_days, ease, due_at, review_count, lapses, started_at, updated_at)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+                "INSERT INTO lessons (id, language, title, description, steps_json, created_at, updated_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+                 ON CONFLICT(id) DO UPDATE SET
+                    title = excluded.title,
+                    description = excluded.description,
+                    steps_json = excluded.steps_json,
+                    updated_at = excluded.updated_at",
                 params![
-                    state.item_id, state_name, state.interval_days, state.ease, state.due_at,
-                    state.review_count, state.lapses, state.started_at, state.updated_at
+                    lesson.id,
+                    lesson.language.code(),
+                    lesson.title,
+                    lesson.description,
+                    steps,
+                    lesson.created_at,
+                    lesson.updated_at,
                 ],
             )
             .map_err(sqlite)?;
         Ok(())
     }
 
-    /// 复习一次：更新状态 + 写日志。
-    pub fn rate_review(
-        &mut self,
-        item_id: &str,
-        rating: ReviewRating,
-        now: i64,
-    ) -> Result<ReviewOutcome, InfrastructureError> {
-        let transaction = self.connection.transaction().map_err(sqlite)?;
-        let current = transaction
+    pub fn lesson(&self, lesson_id: &str) -> Result<Option<Lesson>, InfrastructureError> {
+        self.connection
             .query_row(
-                "SELECT item_id, state, interval_days, ease, due_at, review_count, lapses, started_at, updated_at
-                 FROM learning_states WHERE item_id = ?1",
-                [item_id],
-                map_state,
+                "SELECT id, language, title, description, steps_json, created_at, updated_at
+                 FROM lessons WHERE id = ?1",
+                [lesson_id],
+                map_lesson,
             )
             .optional()
-            .map_err(sqlite)?
-            .unwrap_or_else(|| LearningState::new(item_id, now));
-        let outcome = ReviewScheduler::schedule(&current, rating, now);
-        let updated = LearningState {
-            item_id: item_id.to_string(),
-            state: outcome.state,
-            interval_days: outcome.interval_days,
-            ease: outcome.ease,
-            due_at: outcome.due_at,
-            review_count: current.review_count + 1,
-            lapses: outcome.lapses,
-            started_at: current.started_at,
-            updated_at: now,
-        };
-        transaction
-            .execute(
-                "INSERT OR REPLACE INTO learning_states
-                    (item_id, state, interval_days, ease, due_at, review_count, lapses, started_at, updated_at)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
-                params![
-                    updated.item_id, state_kind_name(updated.state), updated.interval_days,
-                    updated.ease, updated.due_at, updated.review_count, updated.lapses,
-                    updated.started_at, updated.updated_at
-                ],
-            )
-            .map_err(sqlite)?;
-        transaction
-            .execute(
-                "INSERT INTO review_logs (item_id, reviewed_at, rating, state_before, state_after, interval_days)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-                params![
-                    item_id, now, rating_name(rating), state_kind_name(current.state),
-                    state_kind_name(updated.state), updated.interval_days
-                ],
-            )
-            .map_err(sqlite)?;
-        transaction.commit().map_err(sqlite)?;
-        Ok(outcome)
+            .map_err(sqlite)
     }
 
-    /// 批量标记学习状态（Library / Word Detail 手动设置）。
-    pub fn set_learning_state(
+    /// 该语言的 Lesson 列表（按最近更新）。
+    pub fn lessons(
         &self,
-        item_id: &str,
-        state: LearningStateKind,
-        now: i64,
-    ) -> Result<(), InfrastructureError> {
-        let current = self
-            .learning_state(item_id)?
-            .unwrap_or_else(|| LearningState::new(item_id, now));
-        let updated = LearningState {
-            state,
-            updated_at: now,
-            ..current
-        };
-        self.upsert_state(&updated)
-    }
-
-    pub fn is_favorite(&self, item_id: &str) -> Result<bool, InfrastructureError> {
-        let exists = self
-            .connection
-            .query_row(
-                "SELECT 1 FROM favorites WHERE item_id = ?1",
-                [item_id],
-                |row| row.get::<_, i64>(0),
-            )
-            .optional()
-            .map_err(sqlite)?;
-        Ok(exists.is_some())
-    }
-
-    pub fn toggle_favorite(&self, item_id: &str, now: i64) -> Result<bool, InfrastructureError> {
-        let exists = self.is_favorite(item_id)?;
-        if exists {
-            self.connection
-                .execute("DELETE FROM favorites WHERE item_id = ?1", [item_id])
-                .map_err(sqlite)?;
-            Ok(false)
-        } else {
-            self.connection
-                .execute(
-                    "INSERT OR IGNORE INTO favorites (item_id, created_at) VALUES (?1, ?2)",
-                    params![item_id, now],
-                )
-                .map_err(sqlite)?;
-            Ok(true)
-        }
-    }
-
-    pub fn favorites(&self, limit: usize) -> Result<Vec<LanguageItem>, InfrastructureError> {
+        language: Option<LanguageCode>,
+        limit: usize,
+    ) -> Result<Vec<Lesson>, InfrastructureError> {
         let mut statement = self
             .connection
             .prepare(
-                "SELECT i.id, i.language, i.item_type, i.text, i.reading, i.romanization, i.meta_json, i.source
-                 FROM favorites f JOIN language_items i ON i.id = f.item_id
-                 ORDER BY f.created_at DESC LIMIT ?1",
+                "SELECT id, language, title, description, steps_json, created_at, updated_at
+                 FROM lessons
+                 WHERE (?1 IS NULL OR language = ?1)
+                 ORDER BY updated_at DESC LIMIT ?2",
             )
             .map_err(sqlite)?;
         let rows = statement
-            .query_map([limit as i64], map_item)
+            .query_map(
+                params![language.map(LanguageCode::code), limit as i64],
+                map_lesson,
+            )
             .map_err(sqlite)?
             .collect::<Result<Vec<_>, _>>()
             .map_err(sqlite)?;
         Ok(rows)
     }
 
-    /// 下一条复习卡片：先到期，再新词（本语言）。
-    pub fn review_next(
-        &self,
-        language: LanguageCode,
-        now: i64,
-    ) -> Result<Option<LanguageItem>, InfrastructureError> {
-        let code = language.code();
-        let due = self
-            .connection
-            .query_row(
-                "SELECT i.id, i.language, i.item_type, i.text, i.reading, i.romanization, i.meta_json, i.source
-                 FROM learning_states s JOIN language_items i ON i.id = s.item_id
-                 WHERE i.language = ?1 AND s.due_at <= ?2
-                 ORDER BY s.due_at LIMIT 1",
-                params![code, now],
-                map_item,
+    pub fn delete_lesson(&mut self, lesson_id: &str) -> Result<(), InfrastructureError> {
+        let transaction = self.connection.transaction().map_err(sqlite)?;
+        transaction
+            .execute(
+                "DELETE FROM lesson_positions WHERE lesson_id = ?1",
+                [lesson_id],
             )
-            .optional()
             .map_err(sqlite)?;
-        if let Some(item) = due {
-            return Ok(Some(item));
-        }
-        // 新词：该语言尚未开始学习的词
-        let fresh = self
-            .connection
-            .query_row(
-                "SELECT i.id, i.language, i.item_type, i.text, i.reading, i.romanization, i.meta_json, i.source
-                 FROM language_items i
-                 WHERE i.language = ?1 AND i.item_type = 'WORD'
-                   AND NOT EXISTS (SELECT 1 FROM learning_states s WHERE s.item_id = i.id)
-                 ORDER BY i.imported_at, i.id LIMIT 1",
-                [code],
-                map_item,
-            )
-            .optional()
+        transaction
+            .execute("DELETE FROM lessons WHERE id = ?1", [lesson_id])
             .map_err(sqlite)?;
-        Ok(fresh)
+        transaction.commit().map_err(sqlite)
     }
 
-    /// Today 计划（#61）。
-    pub fn today_plan(
+    /// 保存学习进度位置（「继续学习」依赖它跨会话恢复）。
+    pub fn save_lesson_position(
         &self,
+        position: &LessonPosition,
+    ) -> Result<(), InfrastructureError> {
+        self.connection
+            .execute(
+                "INSERT INTO lesson_positions (lesson_id, step_index, updated_at)
+                 VALUES (?1, ?2, ?3)
+                 ON CONFLICT(lesson_id) DO UPDATE SET
+                    step_index = excluded.step_index,
+                    updated_at = excluded.updated_at",
+                params![position.lesson_id, position.step_index, position.updated_at],
+            )
+            .map_err(sqlite)?;
+        Ok(())
+    }
+
+    pub fn lesson_position(
+        &self,
+        lesson_id: &str,
+    ) -> Result<Option<LessonPosition>, InfrastructureError> {
+        self.connection
+            .query_row(
+                "SELECT lesson_id, step_index, updated_at FROM lesson_positions WHERE lesson_id = ?1",
+                [lesson_id],
+                |row| {
+                    Ok(LessonPosition {
+                        lesson_id: row.get(0)?,
+                        step_index: row.get::<_, i64>(1)?.max(0) as usize,
+                        updated_at: row.get(2)?,
+                    })
+                },
+            )
+            .optional()
+            .map_err(sqlite)
+    }
+
+    /// 最近学过的 Lesson（Continue 学习入口）。
+    pub fn recent_lesson_positions(
+        &self,
+        limit: usize,
+    ) -> Result<Vec<LessonPosition>, InfrastructureError> {
+        let mut statement = self
+            .connection
+            .prepare(
+                "SELECT lesson_id, step_index, updated_at FROM lesson_positions
+                 ORDER BY updated_at DESC LIMIT ?1",
+            )
+            .map_err(sqlite)?;
+        let rows = statement
+            .query_map([limit as i64], |row| {
+                Ok(LessonPosition {
+                    lesson_id: row.get(0)?,
+                    step_index: row.get::<_, i64>(1)?.max(0) as usize,
+                    updated_at: row.get(2)?,
+                })
+            })
+            .map_err(sqlite)?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(sqlite)?;
+        Ok(rows)
+    }
+
+    // ---------------- 错题 ----------------
+
+    /// 记录一次答错。同一 `(item_id, card_id)` 再次答错时**累加**错误次数，
+    /// 而不是插入重复行——否则反复答错会无限堆积同一条记录。
+    pub fn record_mistake(
+        &self,
+        mistake: &Mistake,
+        card_id: &str,
+    ) -> Result<(), InfrastructureError> {
+        self.connection
+            .execute(
+                "INSERT INTO mistakes
+                    (id, item_id, item_type, language, content, question, user_answer,
+                     correct_answer, error_count, last_missed_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 1, ?9)
+                 ON CONFLICT(item_id, id) DO UPDATE SET
+                    user_answer = excluded.user_answer,
+                    error_count = mistakes.error_count + 1,
+                    last_missed_at = excluded.last_missed_at",
+                params![
+                    card_id,
+                    mistake.item_id,
+                    mistake.item_type.as_str(),
+                    mistake.language.code(),
+                    mistake.content,
+                    mistake.question,
+                    mistake.user_answer,
+                    mistake.correct_answer,
+                    mistake.last_missed_at,
+                ],
+            )
+            .map_err(sqlite)?;
+        Ok(())
+    }
+
+    /// 错题列表（最近答错优先）。
+    pub fn mistakes(&self, limit: usize) -> Result<Vec<Mistake>, InfrastructureError> {
+        let mut statement = self
+            .connection
+            .prepare(
+                "SELECT id, item_id, item_type, language, content, question, user_answer,
+                        correct_answer, error_count, last_missed_at
+                 FROM mistakes ORDER BY last_missed_at DESC LIMIT ?1",
+            )
+            .map_err(sqlite)?;
+        let rows = statement
+            .query_map([limit as i64], map_mistake)
+            .map_err(sqlite)?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(sqlite)?;
+        Ok(rows)
+    }
+
+    /// 答对后移除该错题（「再次掌握」）。
+    pub fn resolve_mistake(&self, item_id: &str, card_id: &str) -> Result<(), InfrastructureError> {
+        self.connection
+            .execute(
+                "DELETE FROM mistakes WHERE item_id = ?1 AND id = ?2",
+                params![item_id, card_id],
+            )
+            .map_err(sqlite)?;
+        Ok(())
+    }
+
+    pub fn mistake_count(&self) -> Result<i64, InfrastructureError> {
+        self.connection
+            .query_row("SELECT COUNT(*) FROM mistakes", [], |row| row.get(0))
+            .map_err(sqlite)
+    }
+
+    // ---------------- 句子拆解 ----------------
+
+    /// 句子学习视图。
+    ///
+    /// 切分策略：对 CJK 用**词典最长匹配**，对拉丁文按空白/标点切分。
+    /// 命中的词才带 `item_id` 与释义；查不到的片段原样保留（`meaning: None`），
+    /// 不猜测。这样「词典没有收录」在 UI 上是可见的事实，而不是被编造的解释掩盖。
+    pub fn sentence_study(
+        &self,
+        sentence_id: &str,
+    ) -> Result<Option<SentenceStudy>, InfrastructureError> {
+        let Some(item) = self.item(sentence_id)? else {
+            return Ok(None);
+        };
+        let sentence = SentenceRecord {
+            sentence_id: item.id.clone(),
+            language: item.language,
+            text: item.text.clone(),
+            author: None,
+            license: String::new(),
+            source: item.source.clone(),
+        };
+
+        let extra = self.item_extra(sentence_id)?;
+        let author = extra
+            .as_ref()
+            .and_then(|value| value.get("author"))
+            .and_then(serde_json::Value::as_str)
+            .map(str::to_string);
+        let license = extra
+            .as_ref()
+            .and_then(|value| value.get("license"))
+            .and_then(serde_json::Value::as_str)
+            .map(str::to_string);
+
+        // 译文：Tatoeba 的译文以同语言对的形式存在 examples 表里；
+        // 找不到就是 None。
+        let translation = self
+            .examples(sentence_id)?
+            .into_iter()
+            .find_map(|example| example.translation.filter(|text| !text.trim().is_empty()));
+
+        let chunks = self.segment_sentence(&item.text, item.language)?;
+        let key_words = chunks
+            .iter()
+            .filter_map(|chunk| chunk.item_id.clone())
+            .collect();
+
+        Ok(Some(SentenceStudy {
+            id: item.id.clone(),
+            language: item.language,
+            original: sentence.text,
+            translation,
+            reading: item.reading.clone(),
+            romanization: item.romanization.clone(),
+            chunks,
+            key_words,
+            grammar: None,
+            usage: None,
+            license,
+            author,
+        }))
+    }
+
+    /// 词典最长匹配切分。
+    fn segment_sentence(
+        &self,
+        text: &str,
         language: LanguageCode,
-        now: i64,
-    ) -> Result<TodayPlan, InfrastructureError> {
-        let code = language.code();
-        let due_reviews: i64 = self
+    ) -> Result<Vec<SentenceChunk>, InfrastructureError> {
+        let mut chunks = Vec::new();
+        let chars: Vec<char> = text.chars().collect();
+        let mut index = 0usize;
+
+        while index < chars.len() {
+            let current = chars[index];
+
+            // 空白与标点：独立成块，不查词典。
+            if current.is_whitespace() || is_punctuation(current) {
+                let start = index;
+                while index < chars.len()
+                    && (chars[index].is_whitespace() || is_punctuation(chars[index]))
+                {
+                    index += 1;
+                }
+                chunks.push(SentenceChunk {
+                    text: chars[start..index].iter().collect(),
+                    item_id: None,
+                    meaning: None,
+                    reading: None,
+                });
+                continue;
+            }
+
+            // CJK：词典最长匹配（最长 8 字，覆盖常见多字词）。
+            if is_cjk(current) {
+                let start = index;
+                let mut end = chars.len().min(index + 8);
+                let mut matched: Option<(usize, DictionaryHit)> = None;
+                while end > index {
+                    let candidate: String = chars[index..end].iter().collect();
+                    if let Some(hit) = self.lookup_word(&candidate, language)? {
+                        matched = Some((end, hit));
+                        break;
+                    }
+                    end -= 1;
+                }
+                if let Some((stop, hit)) = matched {
+                    chunks.push(SentenceChunk {
+                        item_id: Some(hit.item_id),
+                        meaning: hit.meaning,
+                        reading: hit.reading,
+                        text: chars[start..stop].iter().collect(),
+                    });
+                    index = stop;
+                } else {
+                    chunks.push(SentenceChunk {
+                        text: current.to_string(),
+                        item_id: None,
+                        meaning: None,
+                        reading: None,
+                    });
+                    index += 1;
+                }
+                continue;
+            }
+
+            // 拉丁字母 / 数字：连续字符成词。
+            let start = index;
+            while index < chars.len()
+                && (chars[index].is_alphanumeric() || chars[index] == '\'')
+                && !is_cjk(chars[index])
+            {
+                index += 1;
+            }
+            let word: String = chars[start..index].iter().collect();
+            let hit = self.lookup_word(&word, language)?;
+            chunks.push(SentenceChunk {
+                item_id: hit.as_ref().map(|found| found.item_id.clone()),
+                meaning: hit.as_ref().and_then(|found| found.meaning.clone()),
+                reading: hit.and_then(|found| found.reading),
+                text: word,
+            });
+        }
+
+        Ok(chunks)
+    }
+
+    /// 查一个词条，返回 [`DictionaryHit`]。
+    fn lookup_word(
+        &self,
+        text: &str,
+        language: LanguageCode,
+    ) -> Result<Option<DictionaryHit>, InfrastructureError> {
+        if text.is_empty() {
+            return Ok(None);
+        }
+        let id: Option<String> = self
             .connection
             .query_row(
-                "SELECT COUNT(*) FROM learning_states s JOIN language_items i ON i.id = s.item_id
-                 WHERE i.language = ?1 AND s.due_at <= ?2",
-                params![code, now],
+                "SELECT id FROM language_items
+                 WHERE text = ?1 AND language = ?2 AND item_type IN ('WORD', 'PHRASE')
+                 ORDER BY LENGTH(text) DESC LIMIT 1",
+                params![text, language.code()],
                 |row| row.get(0),
             )
+            .optional()
             .map_err(sqlite)?;
-        let new_words: i64 = self
-            .connection
-            .query_row(
-                "SELECT COUNT(*) FROM language_items i
-                 WHERE i.language = ?1 AND i.item_type = 'WORD' AND i.source <> 'cmudict'
-                   AND NOT EXISTS (SELECT 1 FROM learning_states s WHERE s.item_id = i.id)",
-                [code],
-                |row| row.get(0),
-            )
-            .map_err(sqlite)?;
-        let sentences: i64 = self
-            .connection
-            .query_row(
-                "SELECT COUNT(*) FROM language_items WHERE language = ?1 AND item_type = 'SENTENCE'",
-                [code],
-                |row| row.get(0),
-            )
-            .map_err(sqlite)?;
-        Ok(TodayPlan {
-            due_reviews,
-            new_words,
-            sentences,
-            listening: sentences.min(5),
-            speaking: sentences.min(3),
-            total: due_reviews + new_words.min(10) + sentences.min(5),
-        })
+        let Some(id) = id else { return Ok(None) };
+        let meaning = self.meanings(&id)?.first().and_then(|meaning| {
+            meaning
+                .gloss
+                .clone()
+                .or_else(|| meaning.raw.clone())
+                .filter(|gloss| !gloss.trim().is_empty())
+        });
+        let reading = self.item(&id).ok().flatten().and_then(|item| item.reading);
+        Ok(Some(DictionaryHit {
+            item_id: id,
+            meaning,
+            reading,
+        }))
     }
 
     /// 每语言条目统计（Settings → Language Data）。
@@ -1184,44 +1498,6 @@ impl LanguageStore {
             .collect::<Result<Vec<_>, _>>()
             .map_err(sqlite)?;
         Ok(rows)
-    }
-
-    /// 用户学习概览（Library）。
-    pub fn progress(&self) -> Result<serde_json::Value, InfrastructureError> {
-        let total: i64 = self
-            .connection
-            .query_row(
-                "SELECT COUNT(*) FROM learning_states WHERE review_count > 0",
-                [],
-                |row| row.get(0),
-            )
-            .map_err(sqlite)?;
-        let mastered: i64 = self
-            .connection
-            .query_row(
-                "SELECT COUNT(*) FROM learning_states WHERE state = 'mastered'",
-                [],
-                |row| row.get(0),
-            )
-            .map_err(sqlite)?;
-        let learning: i64 = self
-            .connection
-            .query_row(
-                "SELECT COUNT(*) FROM learning_states WHERE state = 'learning' OR state = 'review'",
-                [],
-                |row| row.get(0),
-            )
-            .map_err(sqlite)?;
-        let total_reviews: i64 = self
-            .connection
-            .query_row("SELECT COUNT(*) FROM review_logs", [], |row| row.get(0))
-            .map_err(sqlite)?;
-        Ok(serde_json::json!({
-            "total": total,
-            "mastered": mastered,
-            "learning": learning,
-            "reviews": total_reviews,
-        }))
     }
 
     pub fn item_extra(&self, id: &str) -> Result<Option<serde_json::Value>, InfrastructureError> {
@@ -1262,13 +1538,6 @@ impl LanguageStore {
             )
             .map_err(sqlite)
     }
-
-    pub fn favorites_count(&self) -> Result<i64, InfrastructureError> {
-        self.connection
-            .query_row("SELECT COUNT(*) FROM favorites", [], |row| row.get(0))
-            .map_err(sqlite)
-    }
-
     pub fn total_items(&self) -> Result<i64, InfrastructureError> {
         self.connection
             .query_row("SELECT COUNT(*) FROM language_items", [], |row| row.get(0))
@@ -1344,20 +1613,6 @@ fn map_source(row: &rusqlite::Row<'_>) -> rusqlite::Result<LanguageSource> {
     })
 }
 
-fn map_state(row: &rusqlite::Row<'_>) -> rusqlite::Result<LearningState> {
-    Ok(LearningState {
-        item_id: row.get(0)?,
-        state: state_kind_from_name(&row.get::<_, String>(1)?),
-        interval_days: row.get(2)?,
-        ease: row.get(3)?,
-        due_at: row.get(4)?,
-        review_count: row.get(5)?,
-        lapses: row.get(6)?,
-        started_at: row.get(7)?,
-        updated_at: row.get(8)?,
-    })
-}
-
 fn map_sentence(row: &rusqlite::Row<'_>) -> rusqlite::Result<SentenceRecord> {
     let code = row.get::<_, String>(1)?;
     let language = LanguageCode::from_code(&code).ok_or_else(|| {
@@ -1370,6 +1625,50 @@ fn map_sentence(row: &rusqlite::Row<'_>) -> rusqlite::Result<SentenceRecord> {
         author: row.get(3)?,
         license: row.get(4)?,
         source: row.get(5)?,
+    })
+}
+
+fn map_lesson(row: &rusqlite::Row<'_>) -> rusqlite::Result<Lesson> {
+    let code = row.get::<_, String>(1)?;
+    let language = LanguageCode::from_code(&code).ok_or_else(|| {
+        rusqlite::Error::InvalidColumnName(format!("unknown language code: {code}"))
+    })?;
+    let steps_json = row.get::<_, String>(4)?;
+    let steps: Vec<LessonStep> = serde_json::from_str(&steps_json).map_err(|error| {
+        rusqlite::Error::InvalidColumnName(format!("lesson steps 解析失败：{error}"))
+    })?;
+    Ok(Lesson {
+        id: row.get(0)?,
+        language,
+        title: row.get(2)?,
+        description: row.get(3)?,
+        steps,
+        created_at: row.get(5)?,
+        updated_at: row.get(6)?,
+    })
+}
+
+fn map_mistake(row: &rusqlite::Row<'_>) -> rusqlite::Result<Mistake> {
+    let code = row.get::<_, String>(3)?;
+    let language = LanguageCode::from_code(&code).ok_or_else(|| {
+        rusqlite::Error::InvalidColumnName(format!("unknown language code: {code}"))
+    })?;
+    let item_type_name = row.get::<_, String>(2)?;
+    let item_type = LearningItemType::parse(&item_type_name).ok_or_else(|| {
+        rusqlite::Error::InvalidColumnName(format!("unknown learning item type: {item_type_name}"))
+    })?;
+    let error_count = row.get::<_, i64>(8)?.max(0) as u32;
+    Ok(Mistake {
+        id: row.get(0)?,
+        item_id: row.get(1)?,
+        item_type,
+        language,
+        content: row.get(4)?,
+        question: row.get(5)?,
+        user_answer: row.get(6)?,
+        correct_answer: row.get(7)?,
+        error_count,
+        last_missed_at: row.get(9)?,
     })
 }
 
@@ -1478,37 +1777,38 @@ fn license_kind_from_name(name: &str) -> LicenseKind {
     }
 }
 
-fn state_kind_name(kind: LearningStateKind) -> &'static str {
-    match kind {
-        LearningStateKind::New => "new",
-        LearningStateKind::Learning => "learning",
-        LearningStateKind::Review => "review",
-        LearningStateKind::Mastered => "mastered",
-    }
-}
-
-fn state_kind_from_name(name: &str) -> LearningStateKind {
-    match name {
-        "learning" => LearningStateKind::Learning,
-        "review" => LearningStateKind::Review,
-        "mastered" => LearningStateKind::Mastered,
-        _ => LearningStateKind::New,
-    }
-}
-
-fn rating_name(rating: ReviewRating) -> &'static str {
-    match rating {
-        ReviewRating::Again => "again",
-        ReviewRating::Hard => "hard",
-        ReviewRating::Good => "good",
-        ReviewRating::Easy => "easy",
-    }
-}
-
 fn is_cjk(ch: char) -> bool {
     matches!(ch as u32,
         0x3400..=0x4DBF | 0x4E00..=0x9FFF | 0xF900..=0xFAFF
         | 0x3040..=0x30FF | 0x31F0..=0x31FF)
+}
+
+/// 一次词典命中的结果：词条 id、首个释义、读音。
+struct DictionaryHit {
+    item_id: String,
+    meaning: Option<String>,
+    reading: Option<String>,
+}
+
+/// 句子切分用的标点判定（中英文标点 + 常见全角符号）。
+fn is_punctuation(ch: char) -> bool {
+    ch.is_ascii_punctuation()
+        || matches!(
+            ch,
+            '。' | '、'
+                | '「'
+                | '」'
+                | '『'
+                | '』'
+                | '・'
+                | '…'
+                | '，'
+                | '．'
+                | '？'
+                | '！'
+                | '：'
+                | '；'
+        )
 }
 
 /// 构建 FTS5 前缀查询（把查询按空白切 token，每个加前缀 `*`）。
@@ -1596,7 +1896,7 @@ mod tests {
     }
 
     // 从共享 fixture 走真实管道做集成断言的具体用例见 application 层；
-    // 这里验证 schema 创建与用户学习数据的隔离语义。
+    // 这里验证 schema 创建与学习内容（Lesson / 错题 / 句子拆解 / 迁移）的持久化语义。
     #[test]
     fn open_creates_schema() {
         let (_dir, store) = fixture_store();
@@ -1606,37 +1906,289 @@ mod tests {
     }
 
     #[test]
-    fn learning_tables_isolated_from_items() {
+    fn next_new_items_filters_by_language_and_excludes_learned() {
         let (_dir, mut store) = fixture_store_mut();
-        let now = crate::now_unix();
+        seed_item(&mut store, "jmdict:1", "駅", "WORD");
+        seed_item(&mut store, "jmdict:2", "電車", "WORD");
+        {
+            store
+                .import_items(
+                    &[ImportedItem::new(
+                        "wn:reservation".to_string(),
+                        LanguageCode::Eng,
+                        LanguageItemType::Word,
+                        "reservation".to_string(),
+                    )],
+                    "oewn",
+                    crate::now_unix(),
+                )
+                .expect("import english");
+        }
+
+        // 按语言过滤：不能把英语词混进日语队列
+        let jp = store
+            .next_new_items(LanguageCode::Jap, &[], 10)
+            .expect("new items");
+        assert_eq!(jp.len(), 2, "日语应有两词，实际 {:?}", jp.len());
+        assert!(
+            jp.iter().all(|item| item.language == LanguageCode::Jap),
+            "队列里出现了别的语言"
+        );
+
+        // 排除已学
+        let jp_after = store
+            .next_new_items(LanguageCode::Jap, &["jmdict:1".to_string()], 10)
+            .expect("new items");
+        assert_eq!(
+            jp_after.len(),
+            1,
+            "排除后应只剩一个词，实际 {:?}",
+            jp_after.len()
+        );
+        assert_eq!(jp_after[0].id, "jmdict:2");
+
+        // 英语队列独立
+        let en = store
+            .next_new_items(LanguageCode::Eng, &[], 10)
+            .expect("new items");
+        assert_eq!(en.len(), 1);
+        assert_eq!(en[0].language, LanguageCode::Eng);
+
+        // limit 生效
+        assert_eq!(
+            store
+                .next_new_items(LanguageCode::Jap, &[], 1)
+                .expect("new items")
+                .len(),
+            1
+        );
+        assert!(
+            store
+                .next_new_items(LanguageCode::Jap, &[], 0)
+                .expect("new items")
+                .is_empty()
+        );
+    }
+
+    #[test]
+    fn next_new_items_is_stable_across_calls() {
+        let (_dir, mut store) = fixture_store_mut();
+        seed_item(&mut store, "jmdict:1", "駅", "WORD");
+        seed_item(&mut store, "jmdict:2", "電車", "WORD");
+        seed_item(&mut store, "jmdict:3", "切符", "WORD");
+
+        let first: Vec<String> = store
+            .next_new_items(LanguageCode::Jap, &[], 2)
+            .expect("new items")
+            .into_iter()
+            .map(|item| item.id)
+            .collect();
+        let second: Vec<String> = store
+            .next_new_items(LanguageCode::Jap, &[], 2)
+            .expect("new items")
+            .into_iter()
+            .map(|item| item.id)
+            .collect();
+        assert_eq!(
+            first, second,
+            "同一批数据每次应给同一批词，否则刷新一次换一批"
+        );
+    }
+
+    fn seed_item(store: &mut LanguageStore, id: &str, text: &str, item_type: &str) {
+        let mut item = ImportedItem::new(
+            id.to_string(),
+            LanguageCode::Jap,
+            item_type_from_name(item_type),
+            text.to_string(),
+        );
+        item.reading = Some("エキ".to_string());
         store
-            .upsert_state(&LearningState::new("x", now))
-            .expect("state");
-        assert!(store.learning_state("x").expect("read").is_some());
-        // 词典表操作不影响学习表
-        let items: Vec<ImportedItem> = Vec::new();
-        store.import_items(&items, "s", now).expect("import empty");
-        assert!(store.learning_state("x").expect("read").is_some());
+            .import_items(&[item], "jmdict", crate::now_unix())
+            .expect("import");
     }
 
     #[test]
-    fn review_roundtrip() {
+    fn lesson_roundtrip_persists_steps_and_position_across_reopen() {
+        let directory = tempdir().expect("tempdir");
+        let path = directory.path().join("language.db");
+        let now = crate::now_unix();
+
+        {
+            let mut store = LanguageStore::open(&path).expect("open");
+            seed_item(&mut store, "jmdict:1", "駅", "WORD");
+            seed_item(&mut store, "jmdict:2", "電車", "WORD");
+
+            let lesson = Lesson {
+                id: "lesson-travel".into(),
+                title: "日本 · 交通基础".into(),
+                language: LanguageCode::Jap,
+                description: Some("出行必需词".into()),
+                steps: vec![
+                    LessonStep {
+                        item_id: "jmdict:1".into(),
+                        item_type: LearningItemType::Word,
+                        content: "駅".into(),
+                        translation: None,
+                    },
+                    LessonStep {
+                        item_id: "jmdict:2".into(),
+                        item_type: LearningItemType::Word,
+                        content: "電車".into(),
+                        translation: None,
+                    },
+                ],
+                created_at: now,
+                updated_at: now,
+            };
+            store.upsert_lesson(&lesson).expect("upsert lesson");
+            store
+                .save_lesson_position(&LessonPosition {
+                    lesson_id: "lesson-travel".into(),
+                    step_index: 1,
+                    updated_at: now,
+                })
+                .expect("save position");
+        }
+
+        // 重开库（模拟重启 App）→ 步骤与位置都还在
+        let reopened = LanguageStore::open(&path).expect("reopen");
+        let loaded = reopened
+            .lesson("lesson-travel")
+            .expect("read lesson")
+            .expect("lesson exists");
+        assert_eq!(loaded.title, "日本 · 交通基础");
+        assert_eq!(loaded.steps.len(), 2);
+        assert_eq!(loaded.step_position("jmdict:2"), Some(1));
+
+        let position = reopened
+            .lesson_position("lesson-travel")
+            .expect("read position")
+            .expect("position exists");
+        assert_eq!(position.step_index, 1, "学习位置应跨重启保留");
+    }
+
+    #[test]
+    fn repeated_mistake_increments_error_count_without_duplicating() {
         let (_dir, mut store) = fixture_store_mut();
+        seed_item(&mut store, "jmdict:1", "駅", "WORD");
         let now = crate::now_unix();
-        let outcome = store
-            .rate_review("en:wn:reservation", ReviewRating::Good, now)
-            .expect("rate");
-        assert!(outcome.interval_days >= 1.0);
-        assert_eq!(outcome.state, LearningStateKind::Review);
+        let mistake = || Mistake {
+            id: "card_x".into(),
+            item_id: "jmdict:1".into(),
+            item_type: LearningItemType::Word,
+            language: LanguageCode::Jap,
+            content: "駅".into(),
+            question: "駅".into(),
+            user_answer: "火车".into(),
+            correct_answer: "车站".into(),
+            error_count: 1,
+            last_missed_at: now,
+        };
+
+        store.record_mistake(&mistake(), "card_x").expect("record");
+        store
+            .record_mistake(&mistake(), "card_x")
+            .expect("record again");
+
+        let all = store.mistakes(10).expect("mistakes");
+        assert_eq!(all.len(), 1, "同一条错误不应重复插入");
+        assert_eq!(all[0].error_count, 2, "重复答错应累加");
+        assert_eq!(store.mistake_count().expect("count"), 1);
+
+        // 答对后移除
+        store
+            .resolve_mistake("jmdict:1", "card_x")
+            .expect("resolve");
+        assert!(store.mistakes(10).expect("mistakes").is_empty());
     }
 
     #[test]
-    fn favorites_toggle_roundtrip() {
-        let (_dir, store) = fixture_store();
-        let now = crate::now_unix();
-        assert!(!store.is_favorite("a").expect("not favorite"));
-        assert!(store.toggle_favorite("a", now).expect("add"));
-        assert!(store.is_favorite("a").expect("favorite"));
-        assert!(!store.toggle_favorite("a", now).expect("remove"));
+    fn sentence_segments_against_real_dictionary_and_admits_misses() {
+        let (_dir, mut store) = fixture_store_mut();
+        seed_item(&mut store, "jmdict:1", "駅", "WORD");
+
+        let mut sentence = ImportedItem::new(
+            "tatoeba:4812".to_string(),
+            LanguageCode::Jap,
+            LanguageItemType::Sentence,
+            "駅に行きます。".to_string(),
+        );
+        sentence.reading = Some("エキにいきます。".to_string());
+        store
+            .import_items(&[sentence], "tatoeba", crate::now_unix())
+            .expect("import sentence");
+
+        let study = store
+            .sentence_study("tatoeba:4812")
+            .expect("study")
+            .expect("exists");
+        assert_eq!(study.original, "駅に行きます。");
+        assert!(study.has_breakdown());
+
+        // 「駅」在词典里 → 应带 item_id
+        let station = study
+            .chunks
+            .iter()
+            .find(|chunk| chunk.text == "駅")
+            .expect("駅 chunk");
+        assert_eq!(station.item_id.as_deref(), Some("jmdict:1"));
+        assert!(study.key_words.contains(&"jmdict:1".to_string()));
+
+        // 词典未收录的片段不得凭空产生释义
+        assert!(
+            study
+                .chunks
+                .iter()
+                .filter(|chunk| chunk.item_id.is_none() && chunk.meaning.is_some())
+                .count()
+                == 0,
+            "未收录片段不应有释义"
+        );
+    }
+
+    #[test]
+    fn legacy_learning_tables_are_migrated_away_without_db_reset() {
+        let directory = tempdir().expect("tempdir");
+        let path = directory.path().join("language.db");
+
+        // 造一个「旧版本」库：带被平台取代的重复学习表与其中的真实用户数据。
+        {
+            let legacy = LanguageStore::open(&path).expect("open");
+            legacy
+                .connection_for_tests()
+                .execute_batch(
+                    "CREATE TABLE learning_states (item_id TEXT PRIMARY KEY, state TEXT NOT NULL, interval_days REAL NOT NULL DEFAULT 0, ease REAL NOT NULL DEFAULT 2.5, due_at INTEGER NOT NULL, review_count INTEGER NOT NULL DEFAULT 0, lapses INTEGER NOT NULL DEFAULT 0, started_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);
+                     CREATE TABLE review_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, item_id TEXT NOT NULL, reviewed_at INTEGER NOT NULL, rating TEXT NOT NULL, state_before TEXT NOT NULL, state_after TEXT NOT NULL, interval_days REAL NOT NULL);
+                     CREATE TABLE favorites (item_id TEXT PRIMARY KEY, created_at INTEGER NOT NULL);
+                     CREATE TABLE learning_sessions (id INTEGER PRIMARY KEY AUTOINCREMENT, day TEXT NOT NULL, started_at INTEGER NOT NULL, ended_at INTEGER, new_count INTEGER NOT NULL DEFAULT 0, review_count INTEGER NOT NULL DEFAULT 0, sentences INTEGER NOT NULL DEFAULT 0);
+                     INSERT INTO learning_states VALUES ('jmdict:1','learning',2.5,2.5,1700000000,3,0,1,1);
+                     INSERT INTO favorites VALUES ('jmdict:1', 1700000000);",
+                )
+                .expect("create legacy tables");
+        }
+
+        // 再次 open 会跑迁移：旧表被删除，无需重置数据库。
+        let store = LanguageStore::open(&path).expect("reopen after migration");
+        let remaining: i64 = store
+            .connection_for_tests()
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name IN ('learning_states','review_logs','favorites','learning_sessions')",
+                [],
+                |row| row.get(0),
+            )
+            .expect("count legacy tables");
+        assert_eq!(remaining, 0, "重复学习表应被迁移删除");
+
+        // 词典侧与新表不受影响，且迁移可重复执行（再次 open 不报错）。
+        assert!(store.total_items().expect("count") == 0);
+        assert!(
+            store
+                .lessons(Some(LanguageCode::Jap), 10)
+                .expect("lessons")
+                .is_empty()
+        );
+        drop(store);
+        LanguageStore::open(&path).expect("迁移幂等：二次 open 不应失败");
     }
 }

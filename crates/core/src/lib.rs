@@ -40,9 +40,10 @@ pub use personal_ai::{
 };
 
 pub use language::{
-    LanguageCode, LanguageItem, LanguageItemType, LanguageMetadata, LearningState,
-    LearningStateKind, ReviewRating, ReviewScheduler, SourceLicense, kana_to_romaji,
-    normalize_roman, score as speaking_score, tones_from_syllables,
+    Difficulty, LanguageCode, LanguageItem, LanguageItemType, LanguageLearningItem,
+    LanguageMetadata, LearningItemType, Lesson, LessonPosition, LessonStep, Mistake, SentenceChunk,
+    SentenceStudy, SourceLicense, kana_to_romaji, normalize_roman, score as speaking_score,
+    tones_from_syllables,
 };
 pub use learning::{
     Collection, CollectionItem, CollectionItemRef, ContinueItem, EntityType, ExploreRecommendation,

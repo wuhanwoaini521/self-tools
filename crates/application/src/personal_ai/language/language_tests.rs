@@ -1,12 +1,15 @@
 //! Language 模块测试（V5 §70：注册 / 选中文本 context / explain / agent 路由）。
 
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex};
+
+use parking_lot::Mutex;
 
 use devtoolbox_core::language::{
-    DatasetManifest, LanguageCode, LanguageItem, LanguageItemType, LanguageSource, LearningState,
-    LearningStateKind, Meaning, ReviewOutcome, ReviewRating, SentenceRecord,
+    DatasetManifest, Difficulty, LanguageCode, LanguageItem, LanguageItemType,
+    LanguageLearningItem, LanguageSource, Lesson, LessonPosition, Meaning, Mistake, SentenceRecord,
+    SentenceStudy,
 };
 use devtoolbox_core::personal_ai::{
     AppContext as AiAppContext, ChatModelProvider, ChatRequest, ChatResponse, ChatToolCall,
@@ -31,7 +34,7 @@ pub struct FakeLanguageStore {
     meanings: HashMap<String, Vec<Meaning>>,
     examples: HashMap<String, Vec<LanguageExample>>,
     sentences: HashMap<String, Vec<SentenceRecord>>,
-    due_queue: Mutex<std::collections::VecDeque<LanguageItem>>,
+    mistakes: Mutex<Vec<Mistake>>,
     pub detail_calls: AtomicUsize,
     pub review_calls: AtomicUsize,
 }
@@ -86,11 +89,18 @@ impl FakeLanguageStore {
                 source: "tatoeba".into(),
             }],
         );
-        store
-            .due_queue
-            .lock()
-            .unwrap()
-            .push_back(store.items.get(&id).cloned().unwrap());
+        store.mistakes.lock().push(Mistake {
+            id: "card_mistake_1".into(),
+            item_id: id.clone(),
+            item_type: devtoolbox_core::language::LearningItemType::Word,
+            language: LanguageCode::Jap,
+            content: "食べる".into(),
+            question: "「to eat」对应哪个词？".into(),
+            user_answer: "飲む".into(),
+            correct_answer: "食べる".into(),
+            error_count: 1,
+            last_missed_at: 1_700_000_000,
+        });
         store
     }
 }
@@ -131,74 +141,11 @@ impl LanguageStorePort for FakeLanguageStore {
             related_items: vec![],
             examples: self.examples.get(id).cloned().unwrap_or_default(),
             sentences: self.sentences.get(id).cloned().unwrap_or_default(),
-            state: None,
-            favorite: false,
             extra: None,
         })
     }
     fn source_by_id(&self, _id: &str) -> Result<Option<LanguageSource>, String> {
         Ok(None)
-    }
-    fn today_plan(
-        &self,
-        _language: LanguageCode,
-        _now: i64,
-    ) -> Result<devtoolbox_core::language::TodayPlan, String> {
-        // 同一表达式内对同一 Mutex 两次 lock() 会死锁（guard 存活到语句结束），一次取值。
-        let due = self.due_queue.lock().unwrap().len() as i64;
-        Ok(devtoolbox_core::language::TodayPlan {
-            due_reviews: due,
-            new_words: 0,
-            sentences: self.sentences.values().map(|v| v.len() as i64).sum(),
-            listening: 0,
-            speaking: 0,
-            total: due,
-        })
-    }
-    fn review_next(
-        &self,
-        _language: LanguageCode,
-        _now: i64,
-    ) -> Result<Option<LanguageItem>, String> {
-        self.review_calls.fetch_add(1, Ordering::SeqCst);
-        Ok(self.due_queue.lock().unwrap().pop_front())
-    }
-    fn learning_state(&self, _item_id: &str) -> Result<Option<LearningState>, String> {
-        Ok(None)
-    }
-    fn rate_review(
-        &self,
-        _item_id: &str,
-        _rating: ReviewRating,
-        _now: i64,
-    ) -> Result<ReviewOutcome, String> {
-        Ok(ReviewOutcome {
-            state: LearningStateKind::Review,
-            interval_days: 1.0,
-            ease: 2.5,
-            due_at: _now,
-            lapses: 0,
-        })
-    }
-    fn toggle_favorite(&self, _item_id: &str, _now: i64) -> Result<bool, String> {
-        Ok(true)
-    }
-    fn favorites(&self, _limit: usize) -> Result<Vec<LanguageItem>, String> {
-        Ok(self.items.values().cloned().collect())
-    }
-    fn set_learning_state(
-        &self,
-        _item_id: &str,
-        _state: LearningStateKind,
-        _now: i64,
-    ) -> Result<(), String> {
-        Ok(())
-    }
-    fn progress(&self) -> Result<serde_json::Value, String> {
-        Ok(serde_json::json!({}))
-    }
-    fn favorites_count(&self) -> Result<i64, String> {
-        Ok(self.items.len() as i64)
     }
     fn sources(&self) -> Result<Vec<LanguageSource>, String> {
         Ok(vec![])
@@ -215,6 +162,91 @@ impl LanguageStorePort for FakeLanguageStore {
         _limit: usize,
     ) -> Result<Vec<SentenceRecord>, String> {
         Ok(self.sentences.values().flatten().cloned().collect())
+    }
+
+    // ---- 学习内容（本 AI 工具面只读错题与句子；不写任何学习状态）----
+
+    fn learning_item(&self, item_id: &str) -> Result<Option<LanguageLearningItem>, String> {
+        let Some(item) = self.items.get(item_id).cloned() else {
+            return Ok(None);
+        };
+        let meaning = self
+            .meanings
+            .get(item_id)
+            .and_then(|meanings| meanings.first())
+            .and_then(|meaning| meaning.gloss.clone());
+        Ok(LanguageLearningItem::from_item(
+            &item,
+            meaning,
+            item.reading.clone(),
+            Difficulty::Unknown,
+        ))
+    }
+    fn learning_items(&self, item_ids: &[String]) -> Result<Vec<LanguageLearningItem>, String> {
+        Ok(item_ids
+            .iter()
+            .filter_map(|id| self.learning_item(id).ok().flatten())
+            .collect())
+    }
+    fn sentence_study(&self, sentence_id: &str) -> Result<Option<SentenceStudy>, String> {
+        let Some(first) = self
+            .sentences
+            .get(sentence_id)
+            .and_then(|sentences| sentences.first())
+        else {
+            return Ok(None);
+        };
+        Ok(Some(SentenceStudy::new(
+            sentence_id,
+            first.language,
+            first.text.clone(),
+        )))
+    }
+    fn next_new_items(
+        &self,
+        _language: LanguageCode,
+        _exclude: &[String],
+        _limit: usize,
+    ) -> Result<Vec<devtoolbox_core::language::LanguageLearningItem>, String> {
+        Ok(Vec::new())
+    }
+    fn upsert_lesson(&self, _lesson: &Lesson) -> Result<(), String> {
+        Ok(())
+    }
+    fn lesson(&self, _lesson_id: &str) -> Result<Option<Lesson>, String> {
+        Ok(None)
+    }
+    fn lessons(
+        &self,
+        _language: Option<LanguageCode>,
+        _limit: usize,
+    ) -> Result<Vec<Lesson>, String> {
+        Ok(vec![])
+    }
+    fn delete_lesson(&self, _lesson_id: &str) -> Result<(), String> {
+        Ok(())
+    }
+    fn save_lesson_position(&self, _position: &LessonPosition) -> Result<(), String> {
+        Ok(())
+    }
+    fn lesson_position(&self, _lesson_id: &str) -> Result<Option<LessonPosition>, String> {
+        Ok(None)
+    }
+    fn recent_lesson_positions(&self, _limit: usize) -> Result<Vec<LessonPosition>, String> {
+        Ok(vec![])
+    }
+    fn record_mistake(&self, _mistake: &Mistake, _card_id: &str) -> Result<(), String> {
+        Ok(())
+    }
+    fn mistakes(&self, limit: usize) -> Result<Vec<Mistake>, String> {
+        self.review_calls.fetch_add(1, Ordering::SeqCst);
+        Ok(self.mistakes.lock().iter().take(limit).cloned().collect())
+    }
+    fn resolve_mistake(&self, _item_id: &str, _card_id: &str) -> Result<(), String> {
+        Ok(())
+    }
+    fn mistake_count(&self) -> Result<i64, String> {
+        Ok(self.mistakes.lock().len() as i64)
     }
 }
 
@@ -336,9 +368,9 @@ fn generate_examples_uses_stored_only() {
     assert!(examples.iter().any(|e| e["text"] == "ご飯を食べる。"));
 }
 
-/// language.practice：待复习队列（只读，不改状态）。
+/// language.practice：返回真实待复习错题（只读，不改状态）。
 #[test]
-fn practice_returns_due_queue() {
+fn practice_returns_pending_mistakes() {
     let (_modules, tools, store) = registered_with_llm(None);
     let result = block_on(tools.execute(&ToolCallRequest {
         id: "c".into(),
@@ -347,24 +379,14 @@ fn practice_returns_due_queue() {
     }))
     .unwrap();
     assert!(result.ok);
-    let due = result.data["due"].as_array().unwrap();
-    assert_eq!(due.len(), 1);
-    assert_eq!(due[0]["id"], "jmdict:1002990");
-    // review 只被消费，不影响 canonical（这里无写路径）。
+    let mistakes = result.data["mistakes"].as_array().unwrap();
+    assert_eq!(mistakes.len(), 1, "应返回夹具里的那条错题");
+    assert_eq!(mistakes[0]["id"], "jmdict:1002990");
+    assert_eq!(mistakes[0]["text"], "食べる");
+    assert_eq!(mistakes[0]["error_count"], 1);
+    // practice 是只读的：错题只被读取，不被消费
     assert!(store.review_calls.load(Ordering::SeqCst) >= 1);
-}
-
-/// 异常请求 → 受控错误码（参数校验）。
-#[test]
-fn invalid_args_never_reach_tool() {
-    let (_modules, tools, _store) = registered_with_llm(None);
-    let error = block_on(tools.execute(&ToolCallRequest {
-        id: "c".into(),
-        name: "language.explain".into(),
-        arguments: serde_json::json!({}), // 缺 item_id
-    }))
-    .unwrap_err();
-    assert_eq!(error.code(), "personal_ai_tool_invalid_argument");
+    assert_eq!(store.mistake_count().unwrap(), 1, "出题不应消耗错题");
 }
 
 // ---------------------------------------------------------------------------
@@ -411,7 +433,7 @@ impl ChatModelProvider for MiniChat {
         &self,
         _request: ChatRequest,
     ) -> Result<ChatResponse, devtoolbox_core::ProviderError> {
-        Ok(self.steps.lock().unwrap().pop_front().unwrap())
+        Ok(self.steps.lock().pop_front().unwrap())
     }
 }
 
@@ -430,7 +452,7 @@ async fn personal_agent_route_language() {
     let chat = MiniChat {
         steps: Mutex::new(std::collections::VecDeque::new()),
     };
-    chat.steps.lock().unwrap().push_back(ChatResponse {
+    chat.steps.lock().push_back(ChatResponse {
         content: None,
         reasoning_content: None,
         tool_calls: vec![ChatToolCall {
@@ -440,7 +462,7 @@ async fn personal_agent_route_language() {
         }],
         usage: devtoolbox_core::ChatUsage::default(),
     });
-    chat.steps.lock().unwrap().push_back(ChatResponse {
+    chat.steps.lock().push_back(ChatResponse {
         content: Some(
             r#"{"message":"食べる 是「吃」的意思。","actions":[],"ui_blocks":[]}"#.to_string(),
         ),

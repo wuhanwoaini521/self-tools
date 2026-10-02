@@ -20,7 +20,7 @@ use devtoolbox_application::knowledge::{
 };
 use devtoolbox_application::memory::{MemoryService, MemoryStoreError, MemoryStorePort};
 use devtoolbox_application::search::{
-    DocumentSearchPort, FileSearchPort, GlobalSearchService, MemorySearchPort,
+    DocumentSearchPort, FileSearchPort, GlobalSearchService, LanguageSearchPort, MemorySearchPort,
 };
 use devtoolbox_core::documents::{
     DocumentChunk, DocumentFingerprint, DocumentHit, DocumentIndexStats, DocumentMeta, DocumentType,
@@ -302,6 +302,7 @@ impl KnowledgeRuntime {
         config_directory: &Path,
         settings_loader: SettingsLoader,
         budget: KnowledgeBudget,
+        language: Arc<devtoolbox_application::language::LanguageService>,
     ) -> Result<Self, String> {
         let memory_store = MemorySqliteStore::open(config_directory.join("memory.db"))
             .map_err(|error| error.to_string())?;
@@ -338,7 +339,9 @@ impl KnowledgeRuntime {
             Arc::clone(&metrics),
         ));
 
-        // V11-O：三源全局检索（LLM-free）。
+        // 全局检索（LLM-free）。Language 也接入：此前 `SearchSource::Language`
+        // 在 core 里定义却无人注册，⌘K 搜不到任何词条，只能用模块私有的
+        // `language_search`——那是第二套搜索入口。
         let search = Arc::new(GlobalSearchService::new(vec![
             Arc::new(MemorySearchPort::new(Arc::clone(&memory))),
             Arc::new(DocumentSearchPort::new(Arc::clone(&documents))),
@@ -346,6 +349,7 @@ impl KnowledgeRuntime {
                 Arc::clone(&files),
                 Arc::clone(&settings),
             )),
+            Arc::new(LanguageSearchPort::new(language)),
         ]));
         Ok(Self {
             memory,
@@ -426,7 +430,18 @@ mod tests {
                 ..AppSettings::default()
             })
         });
-        KnowledgeRuntime::build(directory, loader, KnowledgeBudget::default()).expect("build")
+        // 全局检索的 Language 源指向同一个 `language.db`；这里给一个空临时库即可
+        // ——本组用例断言的是三个检索库与检索器的装配，不涉及语言内容。
+        let language_store =
+            devtoolbox_infrastructure::language::LanguageStore::open(directory.join("language.db"))
+                .expect("open language database");
+        let language = Arc::new(devtoolbox_application::language::LanguageService::new(
+            Arc::new(crate::composition::LanguageStoreAdapter::new(Arc::new(
+                std::sync::Mutex::new(language_store),
+            ))),
+        ));
+        KnowledgeRuntime::build(directory, loader, KnowledgeBudget::default(), language)
+            .expect("build")
     }
 
     #[test]

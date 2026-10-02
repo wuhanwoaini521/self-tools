@@ -3,30 +3,24 @@
 //! 分层约定与 `crates/core/src/travel/` 一致：领域模型与纯规则在此，
 //! 解析/存储/网络在 infrastructure，用例编排在 application。
 
+pub mod learning;
 pub mod license;
 pub mod metadata;
 pub mod model;
-pub mod review;
 pub mod romaji;
 pub mod speaking;
-pub mod speech;
 
+pub use learning::{
+    Difficulty, LanguageLearningItem, LearningItemType, Lesson, LessonPosition, LessonStep,
+    Mistake, SentenceChunk, SentenceStudy,
+};
 pub use license::{DatasetManifest, LanguageSource, LicenseKind, SourceLicense};
 pub use metadata::{
     CantoneseMetadata, EnglishMetadata, JapaneseMetadata, LanguageMetadata, MandarinMetadata,
 };
 pub use model::{
-    AudioAsset, AudioType, LanguageCode, LanguageCount, LanguageItem, LanguageItemType,
-    LanguageRelation, LanguageRelationKind, Meaning, Pronunciation, PronunciationScheme,
-    SentenceRecord,
-};
-pub use review::{
-    LearningState, LearningStateKind, ReviewOutcome, ReviewRating, ReviewScheduler, TodayPlan,
+    LanguageCode, LanguageCount, LanguageItem, LanguageItemType, LanguageRelation,
+    LanguageRelationKind, Meaning, Pronunciation, PronunciationScheme, SentenceRecord,
 };
 pub use romaji::{kana_to_romaji, normalize_roman, tones_from_syllables};
 pub use speaking::{SpeakingScore, WordDiff, compare_words, score, tokenize};
-pub use speech::{
-    PronunciationFeedback, QualitativeLevel, SpeechError, SpeechErrorKind, SpeechProvider,
-    SpeechRecognition, SpeechRecognitionRequest, SpeechSynthesis, SpeechSynthesisRequest,
-    qualitative_feedback,
-};

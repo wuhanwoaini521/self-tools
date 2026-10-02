@@ -237,10 +237,20 @@ mod tests {
         let directory = tempfile::tempdir().unwrap();
         let settings: crate::knowledge::SettingsLoader =
             Arc::new(|| Ok(devtoolbox_core::settings::AppSettings::default()));
+        let language_store = devtoolbox_infrastructure::language::LanguageStore::open(
+            directory.path().join("language.db"),
+        )
+        .expect("open language database");
+        let language = Arc::new(devtoolbox_application::language::LanguageService::new(
+            Arc::new(crate::composition::LanguageStoreAdapter::new(Arc::new(
+                std::sync::Mutex::new(language_store),
+            ))),
+        ));
         let knowledge = crate::knowledge::KnowledgeRuntime::build(
             directory.path(),
             Arc::clone(&settings),
             devtoolbox_core::knowledge::KnowledgeBudget::default(),
+            language,
         )
         .expect("knowledge runtime");
         let server = crate::server::ServerRuntime::build(

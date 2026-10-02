@@ -1,18 +1,24 @@
-//! LanguageService：搜索 / 词详情 / Today / Review / 收藏 / 统计（#48-#68 的用例层）。
+//! LanguageService：**词典侧**用例（搜索 / 详情 / 来源 / 句子 / 统计）。
+//!
+//! 这里**没有**复习、掌握度、进度、收藏——那些是平台能力，由
+//! [`LanguageLearningService`](super::learning::LanguageLearningService) 编排
+//! 平台的 `LearningService` 完成。本模块过去在本文件里自建了
+//! `today` / `review_next` / `rate` / `toggle_favorite` / `set_state` / `progress`
+//! 六个方法，与平台 `learning.db` 形成两套互不同步的复习与进度；
+//! 这六个方法已删除，前者改用平台。
 
 use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 
-use crate::ApplicationError;
-use crate::time::now_unix;
 use devtoolbox_core::language::{
-    DatasetManifest, LanguageCode, LanguageItem, LanguageMetadata, LanguageRelation,
-    LanguageSource, LearningState, LearningStateKind, Meaning, Pronunciation, ReviewOutcome,
-    ReviewRating, SentenceRecord, SpeakingScore, TodayPlan, score as score_speaking,
+    LanguageCode, LanguageItem, LanguageMetadata, LanguageRelation, LanguageSource, Meaning,
+    Pronunciation, SentenceRecord, SpeakingScore, score as score_speaking,
 };
 
-use super::ports::{LanguageDetailRows, LanguageStorePort, verify_source_license};
+use crate::error::ApplicationError;
+
+use super::ports::{LanguageDetailRows, LanguageStorePort};
 
 /// 语言信息（含条目统计，#90）。
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -27,15 +33,15 @@ pub struct LanguageInfo {
 }
 
 /// 搜索结果命中。
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct LanguageSearchHit {
     pub item: LanguageItem,
-    /// 命中字段说明（exact/reading/romanization/meaning/text-like/english-index）。
+    /// 命中字段说明（让用户知道「为什么命中」）。
     pub matched: String,
 }
 
 /// 词详情（#63 + 来源）。
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct WordDetail {
     pub item: LanguageItem,
     pub meanings: Vec<Meaning>,
@@ -43,20 +49,20 @@ pub struct WordDetail {
     pub relations: Vec<RelationView>,
     pub examples: Vec<ExampleView>,
     pub sentences: Vec<SentenceRecord>,
-    pub state: Option<LearningState>,
-    pub favorite: bool,
     pub source: Option<LanguageSource>,
     pub kanji: Option<KanjiView>,
 }
 
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+/// 关联词视图。
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct RelationView {
     pub relation: LanguageRelation,
     pub item: LanguageItem,
     pub label: String,
 }
 
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+/// 例句视图。
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct ExampleView {
     pub text: String,
     pub translation: Option<String>,
@@ -64,45 +70,22 @@ pub struct ExampleView {
 }
 
 /// 汉字详情（KANJIDIC2 基础元数据）。
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct KanjiView {
-    pub stroke_count: Option<i64>,
-    pub grade: Option<i64>,
-    pub radical: Option<i64>,
-    pub jlpt: Option<String>,
-}
-
-/// Today 视图（#61）。
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
-pub struct TodayView {
-    pub language: String,
-    pub plan: TodayPlan,
-    pub languages: Vec<LanguageInfo>,
-}
-
-/// 复习卡片。
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
-pub struct ReviewCard {
-    pub item: LanguageItem,
-    pub state: LearningStateKind,
+    pub readings: Vec<String>,
+    pub meanings: Vec<String>,
+    pub stroke_count: Option<u8>,
+    pub grade: Option<u8>,
+    pub jlpt: Option<u8>,
+    pub frequency_rank: Option<u16>,
 }
 
 /// 来源视图（含条目数）。
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct SourceInfo {
     pub source: LanguageSource,
     pub item_count: i64,
-    pub manifest: Option<DatasetManifest>,
-}
-
-/// 学习进度总览。
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
-pub struct ProgressView {
-    pub total: i64,
-    pub mastered: i64,
-    pub learning: i64,
-    pub reviews: i64,
-    pub favorites: i64,
+    pub manifest: Option<devtoolbox_core::language::DatasetManifest>,
 }
 
 pub struct LanguageService {
@@ -180,23 +163,29 @@ impl LanguageService {
         let Some(item) = rows.item.clone() else {
             return Ok(None);
         };
-        let source = rows.item.as_ref().and_then(|item| {
-            store
-                .source_by_id(&item.source)
-                .map_err(language_error)
-                .ok()
-                .flatten()
-        });
-        let relations = rows
-            .relations
-            .iter()
-            .zip(rows.related_items.iter())
-            .map(|(relation, related)| RelationView {
+        let source = store
+            .source_by_id(&item.source)
+            .map_err(language_error)
+            .ok()
+            .flatten();
+        // 逐条按 relation.to_item_id 取关联词：旧实现用
+        // `relations.iter().zip(related_items.iter())`，一旦有悬空关系就会
+        // 让**之后所有** relation 与词错位（标签贴到别的词上）。
+        let mut relations = Vec::with_capacity(rows.relations.len());
+        for relation in &rows.relations {
+            let Some(related) = rows
+                .related_items
+                .iter()
+                .find(|candidate| candidate.id == relation.to_item_id)
+            else {
+                continue;
+            };
+            relations.push(RelationView {
                 relation: relation.clone(),
                 item: related.clone(),
                 label: relation.kind.label().to_string(),
-            })
-            .collect();
+            });
+        }
         let examples = rows
             .examples
             .into_iter()
@@ -214,88 +203,22 @@ impl LanguageService {
             relations,
             examples,
             sentences: rows.sentences,
-            state: rows.state,
-            favorite: rows.favorite,
             source,
             kanji,
         }))
     }
 
-    /// Today（#61）。
-    pub fn today(&self, language: &str) -> Result<TodayView, ApplicationError> {
-        let languages = self.languages()?;
+    /// 按语言取句子（听力/口语/Daily Expression，#61/#79）。
+    pub fn sentences(
+        &self,
+        language: &str,
+        limit: usize,
+    ) -> Result<Vec<SentenceRecord>, ApplicationError> {
         let store = &*self.store;
         let code = LanguageCode::from_code(language).unwrap_or(LanguageCode::Eng);
-        let plan = store.today_plan(code, now_unix()).map_err(language_error)?;
-        Ok(TodayView {
-            language: code.code().to_string(),
-            plan,
-            languages,
-        })
-    }
-
-    /// 下一张复习卡（到期优先，其次新词）。
-    pub fn review_next(&self, language: &str) -> Result<Option<ReviewCard>, ApplicationError> {
-        let store = &*self.store;
-        let code = LanguageCode::from_code(language).unwrap_or(LanguageCode::Eng);
-        let item = store
-            .review_next(code, now_unix())
-            .map_err(language_error)?;
-        let Some(item) = item else { return Ok(None) };
-        let state = store
-            .learning_state(&item.id)
-            .map_err(language_error)?
-            .map(|state| state.state)
-            .unwrap_or(LearningStateKind::New);
-        Ok(Some(ReviewCard { item, state }))
-    }
-
-    /// 评分一次复习。
-    pub fn rate(
-        &self,
-        item_id: &str,
-        rating: ReviewRating,
-    ) -> Result<ReviewOutcome, ApplicationError> {
-        let store = &*self.store;
         store
-            .rate_review(item_id, rating, now_unix())
+            .sentences_by_language(code, limit)
             .map_err(language_error)
-    }
-
-    pub fn toggle_favorite(&self, item_id: &str) -> Result<bool, ApplicationError> {
-        let store = &*self.store;
-        store
-            .toggle_favorite(item_id, now_unix())
-            .map_err(language_error)
-    }
-
-    pub fn favorites(&self, limit: usize) -> Result<Vec<LanguageItem>, ApplicationError> {
-        let store = &*self.store;
-        store.favorites(limit).map_err(language_error)
-    }
-
-    pub fn set_state(
-        &self,
-        item_id: &str,
-        state: LearningStateKind,
-    ) -> Result<(), ApplicationError> {
-        let store = &*self.store;
-        store
-            .set_learning_state(item_id, state, now_unix())
-            .map_err(language_error)
-    }
-
-    pub fn progress(&self) -> Result<ProgressView, ApplicationError> {
-        let store = &*self.store;
-        let value = store.progress().map_err(language_error)?;
-        let favorites = store.favorites_count().map_err(language_error)?;
-        Ok(ProgressView {
-            total: value["total"].as_i64().unwrap_or(0),
-            mastered: value["mastered"].as_i64().unwrap_or(0),
-            learning: value["learning"].as_i64().unwrap_or(0),
-            reviews: value["reviews"].as_i64().unwrap_or(0),
-            favorites,
-        })
     }
 
     /// Settings → Language Data（#90）。
@@ -319,7 +242,7 @@ impl LanguageService {
         Ok(result)
     }
 
-    /// 口语评分（#68，纯函数经命令层调用）。
+    /// 口语反馈（#68，纯函数经命令层调用）。
     #[must_use]
     pub fn speaking_feedback(
         &self,
@@ -331,37 +254,6 @@ impl LanguageService {
     ) -> SpeakingScore {
         score_speaking(target, transcript, duration_ms, target_ms, long_pauses_ms)
     }
-
-    /// 按语言取句子（听力/口语/Daily Expression，#61/#79）。
-    pub fn sentences(
-        &self,
-        language: &str,
-        limit: usize,
-    ) -> Result<Vec<SentenceRecord>, ApplicationError> {
-        let store = &*self.store;
-        let code = LanguageCode::from_code(language).unwrap_or(LanguageCode::Eng);
-        store
-            .sentences_by_language(code, limit)
-            .map_err(language_error)
-    }
-
-    /// 许可证 Gate 转发（供 Tauri/CLI 使用）。
-    pub fn verify_source(&self, source: &LanguageSource) -> Result<(), ApplicationError> {
-        verify_source_license(source).map_err(|error| ApplicationError::License(error.to_string()))
-    }
-
-    /// 全部词条语言（帮助前端构建语言下拉）。
-    pub fn available_languages(&self) -> Result<Vec<String>, ApplicationError> {
-        let store = &*self.store;
-        let mut languages: Vec<String> = store
-            .language_counts()
-            .map_err(language_error)?
-            .into_iter()
-            .map(|count| count.language.code().to_string())
-            .collect();
-        languages.sort();
-        Ok(languages)
-    }
 }
 
 fn read_kanji(
@@ -369,24 +261,43 @@ fn read_kanji(
     extra: &Option<serde_json::Value>,
 ) -> Option<KanjiView> {
     let extra = extra.as_ref()?;
-    let object = extra.as_object()?;
-    let has_kanji = object.contains_key("stroke_count")
-        || object.contains_key("grade")
-        || object.contains_key("radical")
-        || object.contains_key("kanjidic2_jlpt");
-    if !has_kanji {
+    let grade = extra.get("grade").and_then(serde_json::Value::as_u64);
+    let jlpt = extra.get("jlpt").and_then(serde_json::Value::as_u64);
+    let stroke_count = extra.get("strokes").and_then(serde_json::Value::as_u64);
+    let frequency_rank = extra.get("freq_rank").and_then(serde_json::Value::as_u64);
+    let readings: Vec<String> = extra
+        .get("readings")
+        .and_then(serde_json::Value::as_array)
+        .map(|values| {
+            values
+                .iter()
+                .filter_map(serde_json::Value::as_str)
+                .map(str::to_string)
+                .collect()
+        })
+        .unwrap_or_default();
+    let meanings: Vec<String> = extra
+        .get("meanings")
+        .and_then(serde_json::Value::as_array)
+        .map(|values| {
+            values
+                .iter()
+                .filter_map(serde_json::Value::as_str)
+                .map(str::to_string)
+                .collect()
+        })
+        .unwrap_or_default();
+
+    if grade.is_none() && jlpt.is_none() && readings.is_empty() && meanings.is_empty() {
         let _ = meta;
         return None;
     }
     Some(KanjiView {
-        stroke_count: object
-            .get("stroke_count")
-            .and_then(serde_json::Value::as_i64),
-        grade: object.get("grade").and_then(serde_json::Value::as_i64),
-        radical: object.get("radical").and_then(serde_json::Value::as_i64),
-        jlpt: object
-            .get("kanjidic2_jlpt")
-            .and_then(serde_json::Value::as_str)
-            .map(str::to_string),
+        readings,
+        meanings,
+        stroke_count: stroke_count.map(|value| value.min(u64::from(u8::MAX)) as u8),
+        grade: grade.map(|value| value.min(u64::from(u8::MAX)) as u8),
+        jlpt: jlpt.map(|value| value.min(u64::from(u8::MAX)) as u8),
+        frequency_rank: frequency_rank.map(|value| value.min(u64::from(u16::MAX)) as u16),
     })
 }

@@ -45,7 +45,11 @@ pub use geography::{
 pub use knowledge::{
     KnowledgeContext, KnowledgeMetrics, KnowledgeRetrievalService, KnowledgeSourceRetriever,
 };
-pub use language::{LanguageInfo, LanguageSearchHit, LanguageService, TodayView};
+pub use language::{
+    ContinueLesson, ExampleView, KanjiView, LanguageInfo, LanguageLearningService,
+    LanguageSearchHit, LanguageService, RelationView, SourceInfo, StudyAction, WeakItem,
+    WordDetail,
+};
 pub use learning::{LearningPortError, LearningService, LearningStorePort};
 pub use memory::{MemoryConfig, MemoryService, MemoryStats, MemoryStorePort};
 pub use news::{

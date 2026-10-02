@@ -10,8 +10,7 @@ pub mod store;
 
 pub use import::{
     ImportError, ImportReport, ImportedExample, ImportedItem, ImportedMeaning,
-    ImportedPronunciation, ImportedRelation, LanguageDatasetImporter, gate_license, import_into,
-    sources,
+    ImportedPronunciation, ImportedRelation, gate_license, import_into, sources,
 };
 pub use importing::{
     ImportingError, import_cantonese, import_english, import_japanese, import_kanji,
