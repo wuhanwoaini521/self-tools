@@ -34,12 +34,17 @@ impl LearningService {
     // ========================================================================
 
     /// 记录学习行为，并自动更新进度与按需生成复习卡。
+    ///
+    /// 入参的 `id` / `timestamp` 可以留空（前端只描述"发生了什么"）。此处归一化：
+    /// 空 id 用 `module:type:id:timestamp` 生成稳定主键，空时间戳取调用方注入的 `now`，
+    /// 避免 8 个前端调用点各自编造 id 与本地时钟。
     pub fn record_event(
         &self,
         event: &LearningEvent,
+        now: i64,
     ) -> Result<LearningProgress, LearningPortError> {
-        let progress = self.store.record_event(event)?;
-
+        let event = normalize_event(event, now);
+        let progress = self.store.record_event(&event)?;
         // 如果是首次深度学习或收藏，自动生成一份复习卡片
         if progress.study_count == 1
             && matches!(
@@ -127,6 +132,14 @@ impl LearningService {
 
     pub fn upsert_review_card(&self, card: &UniversalReviewCard) -> Result<(), LearningPortError> {
         self.store.upsert_review_card(card)
+    }
+
+    /// 取单张复习卡。提交评分前调用方需要卡片的 `prompt` / `answer` 作为正确答案。
+    pub fn get_review_card(
+        &self,
+        card_id: &str,
+    ) -> Result<Option<UniversalReviewCard>, LearningPortError> {
+        self.store.get_review_card(card_id)
     }
 
     pub fn get_review_queue(
@@ -571,4 +584,22 @@ impl LearningService {
     pub fn delete_collection(&self, collection_id: &str) -> Result<(), LearningPortError> {
         self.store.delete_collection(collection_id)
     }
+}
+
+/// 补齐前端未提供的 `id` / `timestamp`。
+///
+/// `id` 由 `module:entity_type:entity_id:timestamp` 派生：同一实体在同一秒内的
+/// 重复事件天然合并（`learning_events.id` 是主键），不同秒则各自成行。
+fn normalize_event(event: &LearningEvent, now: i64) -> LearningEvent {
+    let mut normalized = event.clone();
+    if normalized.timestamp == 0 {
+        normalized.timestamp = now;
+    }
+    if normalized.id.is_empty() {
+        normalized.id = format!(
+            "evt_{}_{}_{}_{}",
+            normalized.module, normalized.entity_type, normalized.entity_id, normalized.timestamp
+        );
+    }
+    normalized
 }

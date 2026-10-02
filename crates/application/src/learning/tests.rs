@@ -345,7 +345,7 @@ fn test_learning_service_full_flow() {
         source: None,
     };
 
-    let progress = service.record_event(&event).expect("record event");
+    let progress = service.record_event(&event, 1000).expect("record event");
     assert_eq!(progress.entity_key, "history:story:silk_road");
     assert_eq!(progress.study_count, 1);
     assert_eq!(progress.status, LearningStatus::Learning);

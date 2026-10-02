@@ -705,6 +705,20 @@ impl LearningStore {
                 ],
             )
             .map_err(sqlite_err)?;
+        // 1b. 把本次 SRS 结果落到 `learning_progress`。
+        //
+        // 这三列（interval_days / ease / next_review_at）由 `learning_progress` 持久化，
+        // 但此前**没有任何代码写它们**：`record_event` 用 `progress.interval_days` 算掌握度，
+        // 而该值恒为 0.0 → 间隔因子恒为 0 → `MasteryCalculator` 的
+        // `score >= 85.0 && interval_days >= 14.0` 判定永不成立，`Mastered` 无法到达。
+        // 先写这三列，再由 `record_event` 重算掌握度，复习才会真正推动掌握阶段。
+        let entity_key = format!("{}:{}:{}", card.module, card.entity_type, card.entity_id);
+        if let Some(mut progress) = self.get_progress(&entity_key)? {
+            progress.interval_days = outcome.interval_days;
+            progress.ease = outcome.ease;
+            progress.next_review_at = Some(outcome.due_at);
+            self.save_progress(&progress)?;
+        }
 
         // 2. 发送并记录 LearningEvent
         let event_action = if outcome.is_correct {
@@ -1066,5 +1080,160 @@ mod tests {
         let cols = store.list_collections().expect("list collections");
         assert_eq!(cols.len(), 1);
         assert_eq!(cols[0].item_count, 1);
+    }
+
+    /// 复习结果必须真正推进 `learning_progress` 的 SRS 字段。
+    ///
+    /// 回归缺陷：`interval_days` / `ease` / `next_review_at` 此前从无写入点，
+    /// 于是掌握度的「间隔因子」恒为 0，`Mastered`（要求 interval ≥ 14 天）
+    /// 在生产中永远不可达。本用例锁定该链路。
+    #[test]
+    fn review_outcome_persists_srs_fields_into_progress() {
+        let store = LearningStore::open_in_memory().expect("open store");
+        let now = 1_700_000_000i64;
+        let entity_id = "jmdict:1002990";
+
+        // 首次学习 → 建立 progress 与复习卡
+        store
+            .record_event(&LearningEvent {
+                id: "evt_1".to_string(),
+                module: "language".to_string(),
+                entity_type: "word".to_string(),
+                entity_id: entity_id.to_string(),
+                entity_title: Some("駅".to_string()),
+                action: LearningAction::Study,
+                timestamp: now,
+                duration_ms: None,
+                metadata: serde_json::json!({}),
+                source: None,
+            })
+            .expect("record study");
+
+        let card = UniversalReviewCard {
+            id: "card_lang_1".to_string(),
+            module: "language".to_string(),
+            entity_id: entity_id.to_string(),
+            entity_type: "word".to_string(),
+            card_type: ReviewCardType::Recall,
+            prompt: "駅 的含义？".to_string(),
+            answer: "车站".to_string(),
+            options: None,
+            hint: None,
+            context: None,
+            due_at: now,
+            interval_days: 0.0,
+            ease: 2.5,
+            mastery_score: 0.0,
+            repetition_count: 0,
+            lapses: 0,
+            last_reviewed_at: None,
+            created_at: now,
+        };
+        store.upsert_review_card(&card).expect("upsert card");
+
+        // 连续 Good 若干轮，间隔应逐轮增长并写回 progress
+        let entity_key = format!("language:word:{entity_id}");
+        let mut clock = now;
+        let mut last_interval = 0.0;
+        for round in 0..5 {
+            let outcome = store
+                .record_review_outcome("card_lang_1", ReviewRating::Good, clock)
+                .expect("review");
+            assert!(
+                outcome.interval_days > last_interval,
+                "round {round}: interval 应递增，实际 {} -> {}",
+                last_interval,
+                outcome.interval_days
+            );
+            last_interval = outcome.interval_days;
+
+            let progress = store
+                .get_progress(&entity_key)
+                .expect("get progress")
+                .expect("progress 存在");
+            assert_eq!(progress.interval_days, outcome.interval_days);
+            assert_eq!(progress.ease, outcome.ease);
+            assert_eq!(progress.next_review_at, Some(outcome.due_at));
+            assert!(progress.review_count > 0);
+
+            clock = outcome.due_at;
+        }
+
+        // 间隔越过 14 天阈值后，Mastered 必须可达。
+        let progress = store
+            .get_progress(&entity_key)
+            .expect("get progress")
+            .expect("progress 存在");
+        assert!(
+            progress.interval_days >= 14.0,
+            "多轮 Good 后间隔应达到 14 天阈值，实际 {}",
+            progress.interval_days
+        );
+        assert_eq!(progress.status, LearningStatus::Mastered);
+    }
+
+    /// 答错必须记为 Incorrect，并让掌握度不因重复出错而虚高。
+    #[test]
+    fn incorrect_review_records_error_and_keeps_progress_honest() {
+        let store = LearningStore::open_in_memory().expect("open store");
+        let now = 1_700_000_000i64;
+        let entity_key = "language:word:wrong_one";
+
+        store
+            .record_event(&LearningEvent {
+                id: "evt_1".to_string(),
+                module: "language".to_string(),
+                entity_type: "word".to_string(),
+                entity_id: "wrong_one".to_string(),
+                entity_title: Some("切符".to_string()),
+                action: LearningAction::Study,
+                timestamp: now,
+                duration_ms: None,
+                metadata: serde_json::json!({}),
+                source: None,
+            })
+            .expect("record study");
+
+        let card = UniversalReviewCard {
+            id: "card_wrong".to_string(),
+            module: "language".to_string(),
+            entity_id: "wrong_one".to_string(),
+            entity_type: "word".to_string(),
+            card_type: ReviewCardType::FillBlank,
+            prompt: "切符".to_string(),
+            answer: "ticket".to_string(),
+            options: None,
+            hint: None,
+            context: None,
+            due_at: now,
+            interval_days: 0.0,
+            ease: 2.5,
+            mastery_score: 0.0,
+            repetition_count: 0,
+            lapses: 0,
+            last_reviewed_at: None,
+            created_at: now,
+        };
+        store.upsert_review_card(&card).expect("upsert card");
+
+        let outcome = store
+            .record_review_outcome("card_wrong", ReviewRating::Again, now)
+            .expect("review");
+        assert!(!outcome.is_correct);
+        assert_eq!(outcome.lapses, 1);
+        assert_eq!(outcome.interval_days, 0.0);
+
+        let progress = store
+            .get_progress(entity_key)
+            .expect("get progress")
+            .expect("progress 存在");
+        assert_eq!(progress.incorrect_count, 1);
+        assert_eq!(progress.correct_count, 0);
+        assert_eq!(progress.status, LearningStatus::Learning);
+        assert!(
+            progress.mastery_score < 60.0,
+            "只学过一次且答错，掌握度不应高，实际 {}",
+            progress.mastery_score
+        );
     }
 }

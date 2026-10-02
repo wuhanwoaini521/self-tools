@@ -206,8 +206,9 @@ pub async fn learning_record_event(
     state: State<'_, AppState>,
     event: LearningEvent,
 ) -> Result<LearningProgress, CommandError> {
+    let now = devtoolbox_infrastructure::now_unix();
     let service = LearningService::new(state.learning_store.clone());
-    service.record_event(&event).map_err(|e| CommandError {
+    service.record_event(&event, now).map_err(|e| CommandError {
         code: "learning_error",
         message: e.to_string(),
     })

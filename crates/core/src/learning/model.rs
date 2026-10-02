@@ -61,14 +61,25 @@ impl LearningAction {
 }
 
 /// 学习事件。跨模块记录用户在任何模块发生的可沉淀行为。
+///
+/// 反序列化契约：前端只负责描述**发生了什么**（模块 / 实体 / 动作 / 标题），
+/// `id` 与 `timestamp` 由 [`LearningService`](../../application/learning/struct.LearningService.html)
+/// 补齐。因此二者 `default` 为空，由应用层归一化，而不是让 8 个前端调用点各自
+/// 编造事件 id 与本地时钟（那会写入互相冲突的 `id`，且与应用内其它时间源不一致）。
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct LearningEvent {
+    /// 空串表示"尚未分配"，由应用层生成。
+    #[serde(default)]
     pub id: String,
     pub module: String,
     pub entity_type: String,
     pub entity_id: String,
+    /// 前端常用 `title`；此处接受两种拼写。
+    #[serde(alias = "title")]
     pub entity_title: Option<String>,
     pub action: LearningAction,
+    /// 0 表示"尚未打点"，由应用层取当前时间。
+    #[serde(default)]
     pub timestamp: i64,
     pub duration_ms: Option<u64>,
     #[serde(default)]
