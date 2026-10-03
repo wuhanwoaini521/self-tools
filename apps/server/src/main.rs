@@ -10,6 +10,7 @@ mod language_api;
 mod language_course_api;
 mod learning_api;
 mod news_api;
+mod readiness_api;
 mod routes;
 
 use std::net::SocketAddr;
@@ -300,6 +301,7 @@ async fn main() -> ExitCode {
         dictionary,
         content,
         course,
+        config.data_dir.clone(),
         settings,
         learning_os,
         geography,

@@ -90,7 +90,17 @@ export function registerPwa(handlers: PwaHandlers = {}): () => void {
 
   let reloading = false;
   // §82：新 SW 接管 → 刷新，避免长期旧前端 + 新后端。
+  //
+  // 但必须只在「**确实换了控制器**」时刷新：首次安装 SW 时也会触发
+  // controllerchange（从 undefined 变成一个 controller），此时**旧页面并没有失效**，
+  // 无条件 reload() 会让首屏在 ~3 秒后整页重载一次，丢掉这段时间里的任何状态
+  // （打开的文档、正在输入的内容、滚动位置）。
+  //
+  // 判据：`controllerchange` 触发前的 controller 为 null = 首次接管，不需要刷新；
+  // 非 null = 真的被新 SW 替换，需要刷新。
+  const hadController = navigator.serviceWorker.controller !== null;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (!hadController) return; // 首次接管：页面仍完全可用，不打扰用户
     if (reloading) return;
     reloading = true;
     window.location.reload();

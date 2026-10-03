@@ -29,6 +29,8 @@ use devtoolbox_infrastructure::{
 mod knowledge;
 // NCE 英语课程学习子域（Tauri 命令）。
 pub mod language_course;
+// 系统就绪度（真实探测）。
+pub mod readiness;
 // V7：Home Server 组合根（平台适配器 + 注册表 + 安全动作层）。
 mod server;
 mod server_adapters;
@@ -2651,6 +2653,8 @@ pub fn run() {
             language_course::language_course_progress,
             language_course::language_course_search,
             language_course::language_lesson_audio,
+            readiness::readiness_report,
+            readiness::readiness_diagnostics,
             language_course::language_data_status,
             language_course::language_nce_scan,
             language_course::language_nce_import,

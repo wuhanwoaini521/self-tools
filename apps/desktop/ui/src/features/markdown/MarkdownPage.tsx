@@ -216,7 +216,24 @@ export function MarkdownPage({ settings, onSettingsChange, setNotice, active, in
 
   const persist = useCallback(async (target = path, content = text) => {
     if (!target) {
-      const selected = await save({ defaultPath: "untitled.md", filters: [{ name: "Markdown", extensions: ["md", "markdown"] }] });
+      // 没有已打开的文档 → 先弹「另存为」。
+      // 守卫不能漏：`save()` 内部直接打 `__TAURI_INTERNALS__.invoke`，
+      // 非桌面运行时会在此抛 TypeError（此前只给 `open()` 加了守卫，`save()` 被漏掉，
+      // 导致网页端点「Save」直接崩溃）。
+      if (!isTauriRuntime()) {
+        setNotice("网页端无法保存到本地文件系统，请在桌面应用中使用。");
+        return;
+      }
+      let selected: string | null = null;
+      try {
+        selected = await save({
+          defaultPath: "untitled.md",
+          filters: [{ name: "Markdown", extensions: ["md", "markdown"] }],
+        });
+      } catch (error) {
+        setNotice(errorMessage(error));
+        return;
+      }
       if (!selected) return;
       setPath(selected);
       await persist(selected, content);

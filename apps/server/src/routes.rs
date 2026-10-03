@@ -47,6 +47,8 @@ pub fn router(
     content: Arc<dyn devtoolbox_application::language::LanguageStorePort>,
     // 英语课程（NCE）只读接口（写操作属桌面端）。
     course: Arc<devtoolbox_application::language::course::CourseService>,
+    // 数据目录（readiness 探测用；与桌面端同一目录）。
+    data_dir: std::path::PathBuf,
     settings: Arc<dyn crate::ai_api::SettingsAccess>,
     // 平台 LearningService（Collections / Graph / Review Center / Home 今日面板）
     learning_os: Arc<devtoolbox_application::learning::LearningService>,
@@ -56,6 +58,14 @@ pub fn router(
 ) -> Router {
     Router::new()
         .route("/health", get(health))
+        .route(
+            "/api/v1/readiness",
+            get(crate::readiness_api::readiness_report),
+        )
+        .route(
+            "/api/v1/readiness/diagnostics",
+            get(crate::readiness_api::readiness_diagnostics),
+        )
         .route("/api/v1/history/home", get(home))
         .route("/api/v1/history/search", get(search))
         .route("/api/v1/history/periods/{id}", get(period))
@@ -263,6 +273,7 @@ pub fn router(
         .layer(axum::Extension(Arc::clone(&geography)))
         .layer(axum::Extension(Arc::clone(&news)))
         .layer(axum::Extension(Arc::clone(&course)))
+        .layer(axum::Extension(Arc::new(data_dir)))
         .layer(axum::Extension(Arc::clone(&news_ingest)))
         .layer(axum::Extension(
             None::<Arc<dyn crate::ai_api::AiChatRunner>>,
@@ -708,6 +719,8 @@ mod tests {
             )),
             content,
             course,
+            // readiness 探测用的数据目录（测试里指向系统临时目录）。
+            std::env::temp_dir(),
             Arc::new(TestSettings),
             learning_os,
             geography,

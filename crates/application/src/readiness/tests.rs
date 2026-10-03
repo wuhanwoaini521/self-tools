@@ -348,3 +348,61 @@ fn checks_are_emitted_in_contract_order() {
     assert_eq!(ids[..10], expected[..]);
     assert_ne!(ids, reversed);
 }
+
+/// 回归：`default_probes` 曾把 `home/data` 当数据目录，而真实布局里数据库就在
+/// `home` 下（`<project>/config/*.db`），于是 `database` 永远报「不可访问」。
+/// 这里锁住「数据目录存在 → database 必须 ready」。
+#[test]
+fn default_probes_report_database_ready_for_real_layout() {
+    use crate::readiness::default_probes;
+    use devtoolbox_core::readiness::{ReadinessCheckId, ReadinessStatus};
+
+    let dir = tempfile::tempdir().expect("tempdir");
+    // 真实布局：数据库文件直接躺在数据目录下
+    std::fs::write(dir.path().join("language.db"), b"SQLite format 3\0").expect("write");
+
+    let probes = default_probes(
+        &devtoolbox_core::settings::AppSettings::default(),
+        dir.path(),
+        false,
+        false,
+        0,
+        false,
+    );
+    let report = ReadinessService::new(probes).report();
+    let database = report
+        .checks
+        .iter()
+        .find(|check| check.id == ReadinessCheckId::Database.as_str())
+        .expect("database check");
+    assert_eq!(
+        database.status,
+        ReadinessStatus::Ready,
+        "数据目录存在时 database 不应报降级：{}",
+        database.detail
+    );
+}
+
+/// 回归：只探测真实存在的数据目录；不存在时必须诚实降级，不能谎报就绪。
+#[test]
+fn default_probes_report_database_degraded_when_dir_missing() {
+    use crate::readiness::default_probes;
+    use devtoolbox_core::readiness::{ReadinessCheckId, ReadinessStatus};
+
+    let dir = tempfile::tempdir().expect("tempdir");
+    let probes = default_probes(
+        &devtoolbox_core::settings::AppSettings::default(),
+        &dir.path().join("does-not-exist"),
+        false,
+        false,
+        0,
+        false,
+    );
+    let report = ReadinessService::new(probes).report();
+    let database = report
+        .checks
+        .iter()
+        .find(|check| check.id == ReadinessCheckId::Database.as_str())
+        .expect("database check");
+    assert_eq!(database.status, ReadinessStatus::Degraded);
+}

@@ -11,7 +11,7 @@
  * 组件不自己调 LLM、不持有 provider；Personal 侧由 App 的 AIPanel 承接。
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowSquareOut,
   ArrowsClockwise,
@@ -57,6 +57,9 @@ export interface NewsPageProps {
   setNotice: (message: string) => void;
 }
 
+/** 封面图加载上限：超时按失败处理（源站图床挂起时 onError 永不触发）。 */
+const IMAGE_LOAD_TIMEOUT_MS = 6000;
+
 export function NewsPage({
   active,
   onContextChange,
@@ -78,12 +81,69 @@ export function NewsPage({
   /** 添加新闻源（自定义 URL）—— 订阅第一个源后也必须能继续加。 */
   const [newSourceUrl, setNewSourceUrl] = useState("");
   const [addingSource, setAddingSource] = useState(false);
+  /** 封面图加载上限（毫秒）：超时按失败处理，避免 <img> 永久 pending。 */
   /** 加载失败的图片 id 集合：源站图床常用防盗链，失败即隐藏而非留破图。 */
   const [brokenImages, setBrokenImages] = useState<ReadonlySet<number>>(new Set());
+  /**
+   * 已经开始加载、但还没成功/失败的图片 id。
+   *
+   * `onError` 只在请求**失败**时触发；源站图床被墙/连接挂起时请求会一直 pending，
+   * 既不 success 也不 error —— `<img>` 就永远卡在 DOM 里（既占资源，又随时可能在
+   * 样式变化后露出破图）。这里给每张图一个上限时间，超时即按「失败」处理。
+   */
+  const [loadedImages, setLoadedImages] = useState<ReadonlySet<number>>(new Set());
+  const markImageBroken = useCallback((id: number) => {
+    setBrokenImages((current) => {
+      if (current.has(id)) return current;
+      const next = new Set(current);
+      next.add(id);
+      return next;
+    });
+  }, []);
   const refreshNonce = useRef(0);
 
   const sources = overview?.sources ?? [];
   const hasSubscriptions = sources.length > 0;
+
+  // --- 封面图加载超时 -----------------------------------------------------
+  //
+  // `onError` 只在请求**失败**时触发；源站图床被墙 / 连接挂起时请求会一直 pending，
+  // 既不 success 也不 error —— `<img>` 就永久卡在 DOM 里（占资源，且样式一变就露破图）。
+  // 这里给每张图一个上限时间，超时按「失败」处理，与 onError 走同一条路径。
+  const visibleCovers = useMemo(
+    () =>
+      stories
+        .map((story) => ({ id: story.id, url: story.image_url }))
+        .filter((item): item is { id: number; url: string } => Boolean(item.url))
+        .map((item) => item.id),
+    [stories],
+  );
+  const selectedCoverId = selected?.image_url ? selected.id : null;
+
+  useEffect(() => {
+    const watched = [...visibleCovers, ...(selectedCoverId !== null ? [selectedCoverId] : [])];
+    const pending = watched.filter(
+      (id) => !brokenImages.has(id) && !loadedImages.has(id),
+    );
+    if (pending.length === 0) return;
+    const timer = window.setTimeout(() => {
+      setBrokenImages((current) => {
+        const next = new Set(current);
+        pending.forEach((id) => next.add(id));
+        return next;
+      });
+    }, IMAGE_LOAD_TIMEOUT_MS);
+    return () => window.clearTimeout(timer);
+  }, [visibleCovers, selectedCoverId, brokenImages, loadedImages]);
+
+  const markImageLoaded = useCallback((id: number) => {
+    setLoadedImages((current) => {
+      if (current.has(id)) return current;
+      const next = new Set(current);
+      next.add(id);
+      return next;
+    });
+  }, []);
 
   // --- 数据加载 -----------------------------------------------------------
 
@@ -535,9 +595,8 @@ export function NewsPage({
                           src={cover}
                           alt=""
                           loading="lazy"
-                          onError={() =>
-                            setBrokenImages((current) => new Set(current).add(story.id))
-                          }
+                          onLoad={() => markImageLoaded(story.id)}
+                          onError={() => markImageBroken(story.id)}
                         />
                       ) : null}
                       <span className="news-story-main">
@@ -577,9 +636,8 @@ export function NewsPage({
                   src={selected.image_url}
                   alt=""
                   loading="lazy"
-                  onError={() =>
-                    setBrokenImages((current) => new Set(current).add(selected.id))
-                  }
+                  onLoad={() => markImageLoaded(selected.id)}
+                  onError={() => markImageBroken(selected.id)}
                 />
               ) : null}
               <div className="news-reading-actions">

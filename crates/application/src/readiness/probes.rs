@@ -444,6 +444,11 @@ fn writable_dir(dir: &Path) -> bool {
 }
 
 /// 组装默认探测器集合（组合根用）。
+///
+/// `home` 是**数据目录本身**（如 `<project>/config`，库里直接躺着 *.db）。
+/// 历史遗留：本函数曾传 `home.join("data")`，而真实布局里没有 `data/` 子目录，
+/// 导致 `database` 永远报「数据目录不可访问」——即使数据库正常读写。
+/// 保留对旧布局的兼容：先认 `home`，没有再退回 `home/data`。
 #[must_use]
 pub fn default_probes(
     settings: &devtoolbox_core::settings::AppSettings,
@@ -453,9 +458,15 @@ pub fn default_probes(
     search_sources: usize,
     vision: bool,
 ) -> Vec<Arc<dyn ReadinessProbe>> {
+    // 真实数据目录：优先 `home` 本身，其次兼容旧布局的 `home/data`。
+    let data_dir = if home.is_dir() {
+        home.to_path_buf()
+    } else {
+        home.join("data")
+    };
     let mut probes: Vec<Arc<dyn ReadinessProbe>> = vec![
         Arc::new(BackendProbe),
-        Arc::new(DatabaseProbe::new(home.join("data"))),
+        Arc::new(DatabaseProbe::new(data_dir.clone())),
         Arc::new(AiProviderProbe::new(settings.ai.clone())),
         Arc::new(VisionProbe::new(vision)),
         Arc::new(DecisionProbe::new(settings.decision.clone())),
@@ -470,7 +481,7 @@ pub fn default_probes(
             settings.server.services.len(),
             settings.server.applications.len(),
         )),
-        Arc::new(BackupProbe::new(home.join("backup"))),
+        Arc::new(BackupProbe::new(data_dir.join("backup"))),
         Arc::new(PwaSecureContextProbe::new(secure_context)),
         Arc::new(DeviceSessionProbe::new(identity_configured)),
     ];
