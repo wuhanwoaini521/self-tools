@@ -2,8 +2,8 @@
  * 前端命令传输层（Gate 3 Boundary）。
  *
  * 唯一职责：把「命令名 + 参数 → Promise<T>」的调用与具体运行时隔离开。
- * 当前唯一实现是 TauriTransport；未来 Home Server / Web 场景增加 HTTP 实现时，
- * feature Client 不需要改动。
+ * 两个实现：桌面端 TauriTransport、网页端 httpTransport，由 defaultTransport
+ * 自动选择 —— feature Client 不需要改动，也不需要自己判断运行环境。
  *
  * 注意：不要在这里引入 RPC 框架 / 事件总线 / 中间件 —— 保持薄接口。
  */
@@ -49,4 +49,106 @@ export const tauriTransport: CommandTransport = {
       unlisten?.();
     };
   },
+};
+// ============================================================================
+// HTTP 实现（浏览器 / 网页端）
+// ============================================================================
+
+/**
+ * 已映射到只读 HTTP 服务的命令：键是 Tauri 命令名，值是把参数渲染成路径。
+ *
+ * 与 `apps/server` 的 `/api/v1/history/*` 一一对应，返回的是**同一批 Rust 结构体**
+ * （`HistorySemanticHome` 等）——服务端与桌面端复用 `HistoryService`，所以网页端
+ * 拿到的就是同一份数据、同一套字段。
+ *
+ * 只列真正有 HTTP 实现的命令。未列出的（geography / travel / language 等）会明确
+ * 抛错而非静默返回空：静默会让页面显示「没有数据」，把配置问题伪装成数据缺失。
+ */
+const HTTP_ENDPOINTS: Record<string, (args: Record<string, unknown>) => string> = {
+  history_semantic_home: () => "/api/v1/history/home",
+  history_semantic_period: (a) =>
+    `/api/v1/history/periods/${encodeURIComponent(String(a.periodId ?? ""))}`,
+  history_semantic_story: (a) =>
+    `/api/v1/history/stories/${encodeURIComponent(String(a.storyId ?? ""))}`,
+  history_semantic_event: (a) =>
+    `/api/v1/history/events/${encodeURIComponent(String(a.eventId ?? ""))}`,
+  history_semantic_person: (a) =>
+    `/api/v1/history/people/${encodeURIComponent(String(a.personId ?? ""))}`,
+  history_semantic_work: (a) =>
+    `/api/v1/history/works/${encodeURIComponent(String(a.workId ?? ""))}`,
+  history_semantic_search: (a) =>
+    `/api/v1/history/search?q=${encodeURIComponent(String(a.query ?? ""))}`,
+};
+
+/** 服务端错误体的可能形状（与 `apps/server` 的错误契约一致）。 */
+function readErrorMessage(payload: unknown, fallback: string): string {
+  if (typeof payload === "string" && payload.trim()) return payload;
+  if (payload && typeof payload === "object") {
+    const record = payload as Record<string, unknown>;
+    for (const key of ["message", "error", "detail"]) {
+      const value = record[key];
+      if (typeof value === "string" && value.trim()) return value;
+    }
+  }
+  return fallback;
+}
+
+/** HTTP 实现：把命令映射到本地只读服务的 REST 端点。 */
+export const httpTransport: CommandTransport = {
+  invoke: async <T,>(command: string, args: Record<string, unknown> = {}): Promise<T> => {
+    const endpoint = HTTP_ENDPOINTS[command];
+    if (!endpoint) {
+      throw new Error(`「${command}」尚无网页端接口，请启动桌面应用使用该功能。`);
+    }
+    const url = endpoint(args);
+    let response: Response;
+    try {
+      response = await fetch(url, { headers: { Accept: "application/json" } });
+    } catch (error) {
+      throw new Error(
+        `无法连接本地数据服务（${url}）：${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
+    // 与桌面端「查不到返回 null」保持一致，而不是报错。
+    if (response.status === 404) return null as T;
+    if (!response.ok) {
+      let payload: unknown = null;
+      let isJson = true;
+      try {
+        payload = await response.json();
+      } catch {
+        isJson = false;
+      }
+      // 非 JSON 错误体（开发期 Vite 代理在上游未启动时就是这样）几乎都意味着
+      // 「服务没起来」，直接说 500 只会让人以为是数据坏了。
+      if (!isJson) {
+        throw new Error(
+          `无法连接本地数据服务（${response.status}）——请确认它已启动。`,
+        );
+      }
+      throw new Error(readErrorMessage(payload, `本地数据服务返回 ${response.status}`));
+    }
+    return (await response.json()) as T;
+  },
+  isTauriRuntime: () => false,
+  subscribe: () => () => {},
+};
+
+/**
+ * 自动选择传输层：有 Tauri 宿主走 IPC，否则走 HTTP。
+ *
+ * feature Client 只依赖这一个，桌面与网页共用同一份代码，无需各自判断运行环境。
+ */
+export const defaultTransport: CommandTransport = {
+  invoke: <T,>(command: string, args?: Record<string, unknown>): Promise<T> =>
+    inTauriRuntime()
+      ? tauriTransport.invoke<T>(command, args)
+      : httpTransport.invoke<T>(command, args),
+  isTauriRuntime: inTauriRuntime,
+  subscribe: (event, handler) =>
+    inTauriRuntime()
+      ? tauriTransport.subscribe(event, handler)
+      : httpTransport.subscribe(event, handler),
 };

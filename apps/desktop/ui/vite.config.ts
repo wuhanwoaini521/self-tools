@@ -15,8 +15,15 @@ export default defineConfig({
   },
   server: {
     strictPort: true,
-    // Visual QA 代理：/__qa/** → 本地只读 History HTTP 服务（真实 DuckDB）。
     proxy: {
+      // 网页端数据服务：/api/** → 本地只读 History HTTP 服务（真实 DuckDB）。
+      // 走同源代理而不是直连 127.0.0.1:8080，就不必给服务端开 CORS；
+      // 生产构建由同一台服务器同源提供 /api，行为一致。
+      "/api": {
+        target: "http://127.0.0.1:8080",
+        changeOrigin: true,
+      },
+      // Visual QA 代理：/__qa/** → 同一服务。
       "/__qa": {
         target: "http://127.0.0.1:8080",
         changeOrigin: true,

@@ -1,11 +1,14 @@
 /**
  * History 模块的前端命令客户端（Gate 3 Reference Implementation）。
  *
- * 每个方法对应一个真实 Tauri 命令（命令名 / 参数 / 返回类型与后端契约冻结一致），
- * page 只调用本 client，不直接接触 transport 或 `@tauri-apps/api/core`。
+ * 每个方法对应一个真实命令（命令名 / 参数 / 返回类型与后端契约冻结一致），
+ * page 只调用本 client，不直接接触 transport。
+ *
+ * 桌面端走 Tauri IPC，网页端走本地只读 HTTP 服务（同一批 Rust 结构体，
+ * 见 `transport.ts` 的 `defaultTransport`），因此两端数据完全一致。
  */
 import type { CommandTransport } from "../../transport";
-import { tauriTransport } from "../../transport";
+import { defaultTransport } from "../../transport";
 import type {
   SemanticEventDetail,
   SemanticHome,
@@ -26,7 +29,7 @@ export interface HistoryClient {
   search(query: string): Promise<SemanticSearchGroup[]>;
 }
 
-export function createHistoryClient(transport: CommandTransport = tauriTransport): HistoryClient {
+export function createHistoryClient(transport: CommandTransport = defaultTransport): HistoryClient {
   return {
     home: () => transport.invoke<SemanticHome>("history_semantic_home"),
     periodDetail: (periodId) =>

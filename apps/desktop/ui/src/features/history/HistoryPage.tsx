@@ -17,7 +17,7 @@ import {
 } from "@phosphor-icons/react";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import type { AppContextPayload } from "../ai/aiTypes";
-import { errorMessage, isTauriRuntime } from "../../utils";
+import { errorMessage } from "../../utils";
 import { historyClient } from "./historyClient";
 import { learningClient } from "../learning/learningClient";
 import { EnrichmentPanel } from "./EnrichmentPanel";
@@ -164,7 +164,6 @@ export function HistoryPage({
   const [searching, setSearching] = useState(false);
 
   const loadHome = useCallback(async () => {
-    if (!isTauriRuntime()) return;
     setLoading(true);
     setError("");
     try {
@@ -180,7 +179,6 @@ export function HistoryPage({
   }, [setNotice]);
   const loadPeriod = useCallback(
     async (periodId: string) => {
-      if (!isTauriRuntime()) return;
       setPeriodDetail(null);
       try {
         setPeriodDetail(
@@ -194,7 +192,6 @@ export function HistoryPage({
   );
   const loadStory = useCallback(
     async (storyId: string) => {
-      if (!isTauriRuntime()) return;
       try {
         const story = await historyClient.storyDetail(storyId);
         if (story) {
@@ -219,7 +216,6 @@ export function HistoryPage({
   );
   const loadEvent = useCallback(
     async (eventId: string) => {
-      if (!isTauriRuntime()) return;
       setDrawerLoading(true);
       try {
         const event = await historyClient.eventDetail(eventId);
@@ -243,7 +239,6 @@ export function HistoryPage({
   );
   const loadPerson = useCallback(
     async (personId: string) => {
-      if (!isTauriRuntime()) return;
       setDrawerLoading(true);
       try {
         const person = await historyClient.personDetail(personId);
@@ -269,7 +264,6 @@ export function HistoryPage({
   );
   const loadWork = useCallback(
     async (workId: string) => {
-      if (!isTauriRuntime()) return;
       setDrawerLoading(true);
       try {
         const work = await historyClient.workDetail(workId);
@@ -377,7 +371,7 @@ export function HistoryPage({
   }, [drawer, onContextChange]);
   useEffect(() => {
     const text = query.trim();
-    if (!text || !isTauriRuntime()) {
+    if (!text) {
       setSearchGroups([]);
       setSearching(false);
       return;
@@ -426,14 +420,6 @@ export function HistoryPage({
     [entityRouteMap],
   );
 
-  if (!isTauriRuntime())
-    return (
-      <div className="history-v2-empty">
-        <Scroll size={28} />
-        <h1>History Explorer</h1>
-        <p>历史探索需要通过桌面应用启动，以访问真实的离线语义资料库。</p>
-      </div>
-    );
   if (loading)
     return (
       <div className="history-v2-state">
