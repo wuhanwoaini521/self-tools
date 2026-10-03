@@ -58,6 +58,9 @@
  --motion-base: 150ms;
  --motion-ease: cubic-bezier(0.2, 0, 0.2, 1);
 
+ /* 图标按钮统一边长：所有"只有图标"的按钮共用，避免各页面各写尺寸。 */
+ --size-icon-btn: 32px;
+
  /* 版心：主内容不无限拉伸。 */
  --content-max: 1320px;
  --content-measure: 72ch;
@@ -18164,13 +18167,20 @@ main.history-v2-period {
   box-shadow var(--motion-fast) var(--motion-ease);
 }
 /* 默认按钮：白底 + 极轻边框，不做位移也不叠硬阴影。
-   导航项是列表项不是控件（默认无边框无背景），必须排除。 */
-.app-shell button:not([class*="lang-primary"]):not([class*="primary"]):not(.app-nav-item):not(.app-bottom-nav-item):not(.travel-submit-btn):not(.travel-research-again) {
+   导航项是列表项不是控件（默认无边框无背景），必须排除。
+
+   特异度说明（重要）：排除项一律包在 `:where()` 里。
+   `:not([class*="primary"])` 自身带 (0,1,0) 特异度，六层叠加会让这条规则变成
+   (0,7,1) —— **压过所有组件级样式**，导致任何页面都无法覆盖它（真实症状：
+   分段控件的子按钮被强加上边框，出现"双层盒子"）。
+   `:where()` 把这些排除项特异度归零，本规则降到 (0,1,1)，
+   于是 `.app-shell .xxx-btn { ... }` 之类的组件样式可以正常覆盖。 */
+.app-shell :where(button:not([class*="lang-primary"]):not([class*="primary"]):not(.app-nav-item):not(.app-bottom-nav-item):not(.travel-submit-btn):not(.travel-research-again)) {
  border: 1px solid var(--line);
  background: var(--surface-control);
  color: var(--text);
 }
-.app-shell button:not([class*="lang-primary"]):not([class*="primary"]):not(.app-nav-item):not(.app-bottom-nav-item):not(.travel-submit-btn):not(.travel-research-again):hover:not(:disabled) {
+.app-shell :where(button:not([class*="lang-primary"]):not([class*="primary"]):not(.app-nav-item):not(.app-bottom-nav-item):not(.travel-submit-btn):not(.travel-research-again)):hover:not(:disabled) {
  border-color: var(--line-strong);
  background: var(--panel-hover);
 }
@@ -18676,6 +18686,68 @@ main.history-v2-period {
   color: var(--text-secondary);
   min-width: 84px;
 }
+
+/* ==========================================================================
+ * 全局守卫：图标尺寸不被布局挤压（Gate：视觉缺陷修复）
+ *
+ * 症状：flex 容器空间不足时，SVG 图标被压成细长条（按钮变成"垃圾"外观）。
+ * 原因：SVG 作为 flex item 默认可收缩（flex-shrink: 1），而图标没有内在最小宽度，
+ *       于是横向被压扁、纵向不变 —— 宽高比失衡。
+ *
+ * 处理：所有 SVG 禁止收缩（仍然允许被父级显式放大，只是不被"挤瘦"）。
+ *       历史上是逐个组件加 flex-shrink: 0 补丁，这里改成全局兜底，
+ *       避免新页面再次出现同样的畸形图标。
+ * ========================================================================== */
+.app-shell svg,
+.app-shell svg * {
+  flex-shrink: 0;
+}
+
+
+/* 图标按钮的统一样式：正方形 + 居中。
+   适用语义类名（而不是猜 DOM 结构）：`.icon-btn` / `.en-icon-btn` / `.ai-icon-button`。
+   之前 `.en-icon-btn` 靠 padding 撑出 32x26 的扁矩形，和旁边的方形按钮并排时很显眼。 */
+.app-shell .en-icon-btn,
+.app-shell .icon-btn {
+  width: var(--size-icon-btn);
+  height: var(--size-icon-btn);
+  min-width: var(--size-icon-btn);
+  padding: 0;
+  gap: 0;
+}
+.app-shell .ai-icon-button {
+  width: var(--size-icon-btn);
+  height: var(--size-icon-btn);
+  min-width: var(--size-icon-btn);
+}
+
+/* 分段控件（倍速 / 视图切换）：外层给唯一轮廓，内层按钮不再各画一个盒子。 */
+.app-shell .en-rate-group {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-control);
+}
+.app-shell .en-rate-group > button {
+  border: none;
+  background: none;
+  padding: 3px 8px;
+  border-radius: var(--radius-xs);
+  color: var(--muted);
+  cursor: pointer;
+}
+.app-shell .en-rate-group > button.is-on {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+/* 说明：**不要**用 `button:has(> svg:only-child)` 来识别"纯图标按钮"——
+   文本节点不参与 element child 计数，"图标 + 文字"的按钮同样会命中，
+   会被误设成 aspect-ratio:1 而压成方块（真实踩过：Continue 按钮点不到）。
+   图标按钮统一走语义化类名（.en-icon-btn / .ai-icon-button / .icon-btn），
+   在各自规则里显式设定正方形尺寸。 */
 
 /* ==========================================================================
  * English · 新概念学习系统（Language → English）
