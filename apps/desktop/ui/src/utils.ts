@@ -2,6 +2,22 @@
 
 export function isTauriRuntime() { return "__TAURI_INTERNALS__" in window; }
 
+/**
+ * 事件目标是否是「正在输入」的元素。
+ *
+ * 键盘快捷键（Space 揭示答案、1-4 打分、Esc 关闭）必须在这里让路，
+ * 否则用户在填空题里敲空格就会被当成「揭示答案」，正在输入的内容直接丢失。
+ */
+export function isTypingTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  return (
+    target.isContentEditable ||
+    target.tagName === "INPUT" ||
+    target.tagName === "TEXTAREA" ||
+    target.tagName === "SELECT"
+  );
+}
+
 export function errorMessage(error: unknown) {
   return typeof error === "string" ? error : error && typeof error === "object" && "message" in error ? String(error.message) : "操作失败，请查看开发者日志。";
 }

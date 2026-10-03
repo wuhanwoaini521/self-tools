@@ -1,135 +1,212 @@
+/**
+ * 搜索 / 探索。
+ *
+ * 输入防抖 250ms，按 `item_type` 分组展示 `search()` 的结果。
+ * 语言选择器传 `null` 表示跨全部语言搜索。
+ */
+import { useEffect, useMemo, useRef, useState } from "react";
 import { MagnifyingGlass } from "@phosphor-icons/react";
-import { useCallback, useEffect, useRef, useState } from "react";
-import type {
-  LanguageCode,
-  LanguageItem,
-  LanguageSearchHit,
-} from "../../types";
-import { errorMessage, isTauriRuntime } from "../../utils";
+import type { LanguageCode, LanguageItemType, LanguageSearchHit } from "../../types";
 import { languageClient } from "./languageClient";
+import { Panel, PanelBody, Skeleton } from "./LanguagePrimitives";
+import { EMPTY_COPY, ITEM_TYPE_LABELS, useAsyncPanel } from "./languageUi";
 
-export type OpenDetail = (id: string | null, reset: boolean) => void;
+/** 搜索结果分组。`item_type` 是后端枚举，未知值归到「其它」。 */
+const GROUP_ORDER: LanguageItemType[] = [
+  "WORD",
+  "PHRASE",
+  "SENTENCE",
+  "DIALOGUE",
+  "PASSAGE",
+  "GRAMMAR",
+  "PRONUNCIATION",
+];
 
-interface ExplorePanelProps {
-  language: LanguageCode;
-  onOpen: OpenDetail;
-  setNotice: (message: string) => void;
+const GROUP_LABELS: Record<LanguageItemType, string> = {
+  WORD: "单词",
+  PHRASE: "短语",
+  SENTENCE: "句子",
+  DIALOGUE: "对话",
+  PASSAGE: "段落",
+  GRAMMAR: "语法",
+  PRONUNCIATION: "发音",
+};
+
+export interface ExplorePanelProps {
+  language: LanguageCode | null;
+  /** 由语言选择器变化触发搜索的依赖。 */
+  searchNonce: number;
+  onOpenItem: (itemId: string) => void;
+  onAddToLesson: (itemId: string, content: string) => void;
 }
 
-const EMPTY_RESULTS: LanguageSearchHit[] = [];
-
-/** Explore：统一搜索（text/reading/romanization/meaning + 英语索引，#49），全部离线。 */
 export function ExplorePanel({
   language,
-  onOpen,
-  setNotice,
+  searchNonce,
+  onOpenItem,
+  onAddToLesson,
 }: ExplorePanelProps) {
   const [query, setQuery] = useState("");
-  const [hits, setHits] = useState<LanguageSearchHit[]>(EMPTY_RESULTS);
-  const [searched, setSearched] = useState(false);
-  const [searching, setSearching] = useState(false);
-  const searchSeq = useRef(0);
+  const [debounced, setDebounced] = useState("");
+  const [limit, setLimit] = useState(40);
+  const inputRef = useRef<HTMLInputElement | null>(null);
 
-  const runSearch = useCallback(
-    async (q: string) => {
-      if (!isTauriRuntime()) return;
-      const trimmed = q.trim();
-      if (!trimmed) {
-        setHits(EMPTY_RESULTS);
-        setSearched(false);
-        return;
-      }
-      const seq = ++searchSeq.current;
-      setSearching(true);
-      try {
-        const result = await languageClient.search(language, trimmed, 40);
-        if (seq === searchSeq.current) {
-          setHits(result);
-          setSearched(true);
-        }
-      } catch (error) {
-        if (seq === searchSeq.current) setNotice(errorMessage(error));
-      } finally {
-        if (seq === searchSeq.current) setSearching(false);
-      }
-    },
-    [language, setNotice],
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebounced(query.trim()), 250);
+    return () => window.clearTimeout(timer);
+  }, [query]);
+
+  const active = debounced.length > 0;
+  const results = useAsyncPanel<LanguageSearchHit[]>(
+    () => languageClient.search(language, debounced, limit),
+    [debounced, language, limit, searchNonce],
+    active,
   );
 
-  // 语言切换时清空
-  useEffect(() => {
-    setHits(EMPTY_RESULTS);
-    setSearched(false);
-  }, [language]);
+  const groups = useMemo(() => {
+    const buckets = new Map<LanguageItemType, LanguageSearchHit[]>();
+    for (const hit of results.data ?? []) {
+      const type = hit.item.item_type;
+      const bucket = buckets.get(type);
+      if (bucket) bucket.push(hit);
+      else buckets.set(type, [hit]);
+    }
+    const known = GROUP_ORDER.filter((type) => buckets.has(type)).map(
+      (type) => [type, buckets.get(type) ?? []] as const,
+    );
+    const rest = [...buckets.entries()].filter(
+      ([type]) => !GROUP_ORDER.includes(type),
+    );
+    return [...known, ...rest];
+  }, [results.data]);
+
+  const hitCount = results.data?.length ?? 0;
 
   return (
-    <div className="lang-panel">
+    <div className="lang-explore">
       <div className="lang-search">
-        <MagnifyingGlass size={17} />
+        <MagnifyingGlass size={15} />
         <input
-          autoFocus={!isTauriRuntime()}
+          ref={inputRef}
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") void runSearch(query);
-          }}
-          placeholder="搜索词汇 / 读音 / 罗马字 / 释义 — 如 taberu・たべる・旅行・sik6 faan6・food"
-          aria-label="搜索语言词条"
+          placeholder="搜索单词、句子或短语…"
+          type="search"
+          aria-label="搜索语言词库"
         />
         <button
-          onClick={() => void runSearch(query)}
-          disabled={searching || !query.trim()}
+          type="button"
+          onClick={() => setLimit((value) => (value >= 100 ? 20 : value + 20))}
+          title="调整结果数量"
         >
-          搜索
+          {limit} 条
         </button>
+        {query ? (
+          <button type="button" onClick={() => setQuery("")}>
+            清空
+          </button>
+        ) : null}
       </div>
 
-      {searched && hits.length === 0 ? (
-        <p className="lang-empty">
-          没有找到「{query}」的结果（安装完整数据包后可获得更大词库）。
-        </p>
-      ) : null}
-
-      {hits.length > 0 ? (
-        <ul className="lang-hit-list">
-          {hits.map((hit) => (
-            <li key={hit.item.id}>
-              <button
-                className="lang-hit"
-                onClick={() => onOpen(hit.item.id, false)}
-              >
-                <span className="lang-hit-text">{hit.item.text}</span>
-                {hit.item.reading ? <i>{hit.item.reading}</i> : null}
-                {hit.item.romanization ? <i>{hit.item.romanization}</i> : null}
-                <small>
-                  {matchLabel(hit.matched)} · {hit.item.item_type}
-                </small>
-              </button>
-            </li>
-          ))}
-        </ul>
-      ) : null}
+      <Panel
+        title="搜索结果"
+        hint={
+          active && !results.loading
+            ? `${hitCount} 条结果${language ? "" : " · 全部语言"}`
+            : undefined
+        }
+      >
+        {!active ? (
+          <p className="lang-empty">{EMPTY_COPY.search}</p>
+        ) : (
+          <PanelBody
+            loading={results.loading}
+            error={results.error}
+            reload={results.reload}
+            empty={!results.loading && hitCount === 0 ? EMPTY_COPY.searchNone : null}
+            skeletonRows={6}
+          >
+            <div className="lang-search-groups">
+              {groups.map(([type, hits]) => (
+                <section key={type}>
+                  <h4>
+                    {GROUP_LABELS[type] ?? type}
+                    <small>{hits.length}</small>
+                  </h4>
+                  <ul className="lang-hit-list">
+                    {hits.map((hit) => (
+                      <li key={hit.item.id} className="lang-hit">
+                        <button
+                          type="button"
+                          className="lang-hit-text"
+                          onClick={() => onOpenItem(hit.item.id)}
+                        >
+                          <b>{hit.item.text}</b>
+                          <i>{hit.matched}</i>
+                          {hit.item.reading ? <small>{hit.item.reading}</small> : null}
+                          {hit.item.romanization ? (
+                            <small>{hit.item.romanization}</small>
+                          ) : null}
+                        </button>
+                        <button
+                          type="button"
+                          className="lang-link"
+                          onClick={() => onAddToLesson(hit.item.id, hit.item.text)}
+                          title="加入课程草稿"
+                        >
+                          加入课程
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ))}
+            </div>
+          </PanelBody>
+        )}
+      </Panel>
+      {active && results.loading ? <Skeleton rows={2} /> : null}
     </div>
   );
 }
 
-function matchLabel(matched: string): string {
-  switch (matched) {
-    case "exact":
-      return "精确";
-    case "reading":
-      return "读音";
-    case "romanization":
-      return "罗马字";
-    case "meaning":
-      return "释义";
-    case "text-like":
-      return "包含";
-    case "english-index":
-      return "英粤索引";
-    default:
-      return matched;
-  }
+/** 句库浏览（`sentences(language, limit)`）：搜索之外的第二种内容来源。 */
+export function SentenceLibrary({
+  language,
+  limit = 30,
+  onOpenSentence,
+}: {
+  language: LanguageCode;
+  limit?: number;
+  onOpenSentence: (sentenceId: string) => void;
+}) {
+  const panel = useAsyncPanel(
+    () => languageClient.sentences(language, limit),
+    [language, limit],
+  );
+  return (
+    <PanelBody
+      loading={panel.loading}
+      error={panel.error}
+      reload={panel.reload}
+      empty={panel.data?.length === 0 ? EMPTY_COPY.sentences : null}
+      skeletonRows={5}
+    >
+      <ul className="lang-hit-list">
+        {(panel.data ?? []).map((record) => (
+          <li key={record.sentence_id} className="lang-hit">
+            <button
+              type="button"
+              className="lang-hit-text"
+              onClick={() => onOpenSentence(record.sentence_id)}
+            >
+              <b>{record.text}</b>
+              {record.author ? <small>{record.author}</small> : null}
+              <small>{record.license}</small>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </PanelBody>
+  );
 }
-
-export type { LanguageItem };

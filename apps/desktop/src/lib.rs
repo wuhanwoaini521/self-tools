@@ -6,10 +6,6 @@
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
-use devtoolbox_application::language::{
-    LanguageInfo, LanguageSearchHit, LanguageService, ProgressView, ReviewCard, SourceInfo,
-    TodayView, WordDetail,
-};
 use devtoolbox_application::travel::session::TravelSessionRegistry;
 use devtoolbox_application::{
     ApplicationError, ArticleDto, DocumentDto, FeedDto, GeoEntityDetail, GeoSearchGroup,
@@ -22,10 +18,8 @@ use devtoolbox_application::{
 use devtoolbox_core::{
     AppSettings, ChatModelProvider, WorkspaceFile,
     geography::GeoEntityType as CoreGeoEntityType,
-    language::{LearningStateKind, ReviewRating, SpeakingScore},
     travel::{CityGuide, GuideSummary, TravelDateRange, TravelResearchEvent},
 };
-use devtoolbox_infrastructure::language::starter::{self, StarterReport};
 use devtoolbox_infrastructure::{
     FeedRepository, GeographyStore, HistoryDuckDbRepository, LanguageStore, SettingsStore,
     TravelDataProvider, TravelDataRequest, TravelStore, feed_client,
@@ -862,185 +856,21 @@ fn travel_load_guide(
     Ok(guide)
 }
 
-// ---------- Language 模块（离线优先；数据包安装不联网） ----------
-
-fn language_service(state: &State<'_, AppState>) -> LanguageService {
-    LanguageService::new(Arc::new(composition::LanguageStoreAdapter::new(
-        Arc::clone(&state.language_store),
-    )))
-}
-
-#[tauri::command]
-fn language_languages(state: State<'_, AppState>) -> Result<Vec<LanguageInfo>, CommandError> {
-    language_service(&state)
-        .languages()
-        .map_err(CommandError::from)
-}
-
-#[tauri::command]
-fn language_search(
-    state: State<'_, AppState>,
-    language: Option<String>,
-    query: String,
-    limit: Option<usize>,
-) -> Result<Vec<LanguageSearchHit>, CommandError> {
-    language_service(&state)
-        .search(language.as_deref(), &query, limit.unwrap_or(30))
-        .map_err(CommandError::from)
-}
-
-#[tauri::command]
-fn language_item(
-    state: State<'_, AppState>,
-    id: String,
-) -> Result<Option<WordDetail>, CommandError> {
-    language_service(&state)
-        .detail(&id)
-        .map_err(CommandError::from)
-}
-
-#[tauri::command]
-fn language_sentences(
-    state: State<'_, AppState>,
-    language: String,
-    limit: Option<usize>,
-) -> Result<Vec<devtoolbox_core::language::SentenceRecord>, CommandError> {
-    language_service(&state)
-        .sentences(&language, limit.unwrap_or(20))
-        .map_err(CommandError::from)
-}
-
-#[tauri::command]
-fn language_today(state: State<'_, AppState>, language: String) -> Result<TodayView, CommandError> {
-    language_service(&state)
-        .today(&language)
-        .map_err(CommandError::from)
-}
-
-#[tauri::command]
-fn language_review_next(
-    state: State<'_, AppState>,
-    language: String,
-) -> Result<Option<ReviewCard>, CommandError> {
-    language_service(&state)
-        .review_next(&language)
-        .map_err(CommandError::from)
-}
-
-#[derive(Debug, serde::Deserialize)]
-#[serde(rename_all = "snake_case")]
-struct RateRequest {
-    item_id: String,
-    rating: ReviewRating,
-}
-
-#[tauri::command]
-fn language_review_rate(
-    state: State<'_, AppState>,
-    request: RateRequest,
-) -> Result<devtoolbox_core::language::ReviewOutcome, CommandError> {
-    language_service(&state)
-        .rate(&request.item_id, request.rating)
-        .map_err(CommandError::from)
-}
-
-#[tauri::command]
-fn language_toggle_favorite(
-    state: State<'_, AppState>,
-    item_id: String,
-) -> Result<bool, CommandError> {
-    language_service(&state)
-        .toggle_favorite(&item_id)
-        .map_err(CommandError::from)
-}
-
-#[tauri::command]
-fn language_favorites(
-    state: State<'_, AppState>,
-    limit: Option<usize>,
-) -> Result<Vec<devtoolbox_core::language::LanguageItem>, CommandError> {
-    language_service(&state)
-        .favorites(limit.unwrap_or(200))
-        .map_err(CommandError::from)
-}
-
-#[derive(Debug, serde::Deserialize)]
-#[serde(rename_all = "snake_case")]
-struct SetStateRequest {
-    item_id: String,
-    state: LearningStateKind,
-}
-
-#[tauri::command]
-fn language_set_state(
-    state: State<'_, AppState>,
-    request: SetStateRequest,
-) -> Result<(), CommandError> {
-    language_service(&state)
-        .set_state(&request.item_id, request.state)
-        .map_err(CommandError::from)
-}
-
-#[tauri::command]
-fn language_progress(state: State<'_, AppState>) -> Result<ProgressView, CommandError> {
-    language_service(&state)
-        .progress()
-        .map_err(CommandError::from)
-}
-
-#[tauri::command]
-fn language_sources(state: State<'_, AppState>) -> Result<Vec<SourceInfo>, CommandError> {
-    language_service(&state)
-        .sources()
-        .map_err(CommandError::from)
-}
-
-/// 安装内置 Starter Pack（离线；真实数据子集 + attribution）。
-#[tauri::command]
-fn language_install_starter(
-    state: State<'_, AppState>,
-    only: Option<String>,
-) -> Result<StarterReport, CommandError> {
-    let mut store = state
-        .language_store
-        .lock()
-        .expect("language store poisoned");
-    starter::install_starter(&mut store, only.as_deref()).map_err(|error| match error {
-        starter::StarterError::License(_) => CommandError {
-            code: "language_license",
-            message: "language license error: starter pack data source not permitted".into(),
-        },
-        starter::StarterError::Store(_) => CommandError {
-            code: "language_error",
-            message: "language error: starter pack installation failed".into(),
-        },
-    })
-}
-
+/// 口语反馈请求（Tauri 命令入参；驼峰键名）。
 #[derive(Debug, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct SpeakingScoreRequest {
-    target: String,
-    transcript: String,
-    duration_ms: u64,
-    target_ms: u64,
-    long_pauses_ms: Vec<u64>,
+pub struct SpeakingScoreRequest {
+    pub target: String,
+    pub transcript: String,
+    pub duration_ms: u64,
+    pub target_ms: u64,
+    pub long_pauses_ms: Vec<u64>,
 }
 
-#[tauri::command]
-fn language_speaking_feedback(
-    state: State<'_, AppState>,
-    request: SpeakingScoreRequest,
-) -> Result<SpeakingScore, CommandError> {
-    let service = language_service(&state);
-    Ok(service.speaking_feedback(
-        &request.target,
-        &request.transcript,
-        request.duration_ms,
-        request.target_ms,
-        &request.long_pauses_ms,
-    ))
-}
+// ---------- Language 模块 ----------
+// 词典侧 + 学习侧命令都在 `language.rs`：本文件只做模块声明与命令注册。
+
+pub mod language;
 
 // ---------- History 模块（V2：唯一事实源 history-data-pipeline/dist） ----------
 // 用例逻辑在 crates/application/src/history/（HistoryService + HistoryQueryPort）；
@@ -2531,6 +2361,9 @@ pub fn run() {
                 &config_directory,
                 Arc::clone(&enrichment_settings),
                 devtoolbox_core::knowledge::KnowledgeBudget::default(),
+                Arc::new(devtoolbox_application::language::LanguageService::new(
+                    Arc::clone(&language_port),
+                )),
             )
             .map_err(std::io::Error::other)?;
             // 启动轻量同步（§89）：未配置允许根 → 空操作；失败只记录，不阻塞启动。
@@ -2764,20 +2597,30 @@ pub fn run() {
             history_enrichment_ensure,
             history_enrichment_refresh,
             history_enrichment_review,
-            language_languages,
-            language_search,
-            language_item,
-            language_today,
-            language_sentences,
-            language_review_next,
-            language_review_rate,
-            language_toggle_favorite,
-            language_favorites,
-            language_set_state,
-            language_progress,
-            language_sources,
-            language_install_starter,
-            language_speaking_feedback,
+            language::language_languages,
+            language::language_study_queue,
+            language::language_search,
+            language::language_item,
+            language::language_sentences,
+            language::language_sources,
+            language::language_install_starter,
+            language::language_speaking_feedback,
+            language::language_learning_item,
+            language::language_record_study,
+            language::language_add_to_review,
+            language::language_add_collection_item,
+            language::language_review_queue,
+            language::language_submit_review,
+            language::language_mistakes,
+            language::language_create_lesson,
+            language::language_lessons,
+            language::language_lesson,
+            language::language_delete_lesson,
+            language::language_save_lesson_position,
+            language::language_continue_lessons,
+            language::language_sentence_study,
+            language::language_progress,
+            language::language_weak_items,
             learning::learning_record_event,
             learning::learning_get_progress,
             learning::learning_list_progress,

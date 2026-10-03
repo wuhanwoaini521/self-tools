@@ -29,7 +29,7 @@ import {
 import { RssPage, type RssIntent } from "./features/rss/RssPage";
 import { rssClient } from "./features/rss/rssClient";
 import { NewsPage } from "./features/news/NewsPage";
-import { languageClient } from "./features/language/languageClient";
+import { learningClient } from "./features/learning/learningClient";
 import { settingsClient } from "./settingsClient";
 import { HistoryPage } from "./features/history/HistoryPage";
 import { historyClient } from "./features/history/historyClient";
@@ -77,8 +77,7 @@ import type {
   FeedDto,
   GeographyHome,
   SemanticHistoryHome,
-  ReviewCard,
-  TodayView,
+  TodayDashboardData,
 } from "./types";
 import { errorMessage, isTauriRuntime } from "./utils";
 
@@ -350,8 +349,10 @@ export default function App() {
   const [historyHome, setHistoryHome] = useState<SemanticHistoryHome | null>(
     null,
   );
-  const [todayView, setTodayView] = useState<TodayView | null>(null);
-  const [reviewCard, setReviewCard] = useState<ReviewCard | null>(null);
+  // Language 在首页只贡献「待复习条数」这一个数字，而那是**平台** Today 的职责
+  // （`TodayDashboardData.pending_reviews_count` / `review_stats`）。
+  // 此前这里调的是 Language 私有的 `today_plan` / `review_next`——第二套复习队列。
+  const [platformToday, setPlatformToday] = useState<TodayDashboardData | null>(null);
   const [markdownIntent, setMarkdownIntent] = useState<MarkdownIntent | null>(
     null,
   );
@@ -424,16 +425,14 @@ export default function App() {
 
   const reloadHomeKnowledge = useCallback(async () => {
     if (!isTauriRuntime()) return;
-    const [geography, history, today, review] = await Promise.allSettled([
+    const [geography, history, today] = await Promise.allSettled([
       geographyClient.home(0),
       historyClient.home(),
-      languageClient.today("jpn"),
-      languageClient.reviewNext("jpn"),
+      learningClient.getToday(),
     ]);
     if (geography.status === "fulfilled") setGeographyHome(geography.value);
     if (history.status === "fulfilled") setHistoryHome(history.value);
-    if (today.status === "fulfilled") setTodayView(today.value);
-    if (review.status === "fulfilled") setReviewCard(review.value);
+    if (today.status === "fulfilled") setPlatformToday(today.value);
   }, []);
 
   useEffect(() => {
@@ -790,8 +789,7 @@ export default function App() {
               latestArticles={latestArticles}
               geographyHome={geographyHome}
               historyHome={historyHome}
-              todayView={todayView}
-              reviewCard={reviewCard}
+              platformToday={platformToday}
               rssRefreshing={rssRefreshing}
               onOpenNote={openNote}
               onOpenArticle={openArticle}
@@ -1002,6 +1000,7 @@ export default function App() {
               setNotice={setNotice}
               intent={languageIntent}
               onContextChange={setAiContext}
+              onAskAi={(prompt) => deliverToAi(prompt)}
             />
           </section>
           <section
