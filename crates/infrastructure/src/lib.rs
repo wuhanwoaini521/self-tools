@@ -58,7 +58,8 @@ pub use personal_ai::{
     encode_tool_name, parse_chat_response,
 };
 pub use ports::{
-    FeedFetcherAdapter, LanguageStoreAdapter, LearningStoreAdapter, NewsRepositoryAdapter,
+    FeedFetcherAdapter, GeographyQueryAdapter, LanguageStoreAdapter, LearningStoreAdapter,
+    NewsRepositoryAdapter,
 };
 pub use rss_store::{ArticleRow, FeedRepository, FeedRow, now_unix};
 pub use server::ServerActionAuditSqlite;

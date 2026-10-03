@@ -44,6 +44,7 @@ pub fn router(
     settings: Arc<dyn crate::ai_api::SettingsAccess>,
     // 平台 LearningService（Collections / Graph / Review Center / Home 今日面板）
     learning_os: Arc<devtoolbox_application::learning::LearningService>,
+    geography: Arc<devtoolbox_application::geography::GeographyService>,
     news: Arc<devtoolbox_application::news::NewsService>,
     news_ingest: Arc<dyn devtoolbox_application::news::NewsIngestPort>,
 ) -> Router {
@@ -180,6 +181,20 @@ pub fn router(
             "/api/v1/learning/collection-items/remove",
             post(crate::learning_api::remove_collection_item),
         )
+        // ---- Geography：此前网页端搜索走前端 12 条硬编码示例，不查真实库 ----
+        .route("/api/v1/geography/home", get(crate::geography_api::home))
+        .route(
+            "/api/v1/geography/search",
+            get(crate::geography_api::search),
+        )
+        .route(
+            "/api/v1/geography/entities/{id}",
+            get(crate::geography_api::detail),
+        )
+        .route(
+            "/api/v1/geography/favorite",
+            post(crate::geography_api::toggle_favorite),
+        )
         // ---- News：推荐源目录是 core 里的纯函数，网页端同样要能读到 ----
         .route(
             "/api/v1/news/recommended",
@@ -207,6 +222,7 @@ pub fn router(
         .layer(axum::Extension(Arc::clone(&learning)))
         .layer(axum::Extension(Arc::clone(&settings)))
         .layer(axum::Extension(Arc::clone(&learning_os)))
+        .layer(axum::Extension(Arc::clone(&geography)))
         .layer(axum::Extension(Arc::clone(&news)))
         .layer(axum::Extension(Arc::clone(&news_ingest)))
         .layer(axum::Extension(
@@ -616,7 +632,16 @@ mod tests {
             )))
             .expect("learning store"),
         ));
-        // 与生产一致：平台 LearningService 只建一个，Language 与 learning 路由共用。
+        let geography = Arc::new(devtoolbox_application::geography::GeographyService::new(
+            Arc::new(devtoolbox_infrastructure::GeographyQueryAdapter::new(
+                Arc::new(parking_lot::Mutex::new(
+                    devtoolbox_infrastructure::GeographyStore::open(std::env::temp_dir().join(
+                        format!("self-tools-test-geography-{}.db", std::process::id()),
+                    ))
+                    .expect("geography store"),
+                )),
+            )),
+        ));
         let learning_os = Arc::new(devtoolbox_application::learning::LearningService::new(
             Arc::new(devtoolbox_infrastructure::LearningStoreAdapter::new(
                 learning_store,
@@ -637,6 +662,7 @@ mod tests {
             content,
             Arc::new(TestSettings),
             learning_os,
+            geography,
             news_service(),
             // 泛型参数直传具体类型：FeedFetcherPort 用 `-> impl Future` 声明，
             // 不是 dyn 兼容的。
@@ -821,6 +847,53 @@ mod tests {
         .await;
         assert_eq!(status, StatusCode::BAD_REQUEST);
         assert_eq!(body["code"], "invalid");
+    }
+
+    #[tokio::test]
+    async fn geography_search_reads_real_database() {
+        let app = test_router(false);
+        // 搜一个真实库里存在的实体名：命中即证明走的是 geography.db，
+        // 而不是前端那份 12 条硬编码示例。
+        let (status, body) = request(
+            &app,
+            "/api/v1/geography/search?query=%E4%B8%8A%E6%B5%B7&limit=5",
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK);
+        let groups = body.as_array().expect("groups array");
+        assert!(!groups.is_empty(), "上海应当能搜到");
+        assert!(
+            groups
+                .iter()
+                .any(|g| g["items"].as_array().is_some_and(|items| !items.is_empty())),
+            "至少要有一个分组带条目"
+        );
+    }
+
+    #[tokio::test]
+    async fn geography_search_empty_query_returns_empty_not_error() {
+        let app = test_router(false);
+        // 空白 query 不该 400 —— 前端在用户清空输入框时会正常发请求。
+        let (status, body) = request(&app, "/api/v1/geography/search?query=%20%20").await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(body.as_array().map_or(0, Vec::len), 0);
+    }
+
+    #[tokio::test]
+    async fn geography_search_unknown_type_is_rejected() {
+        let app = test_router(false);
+        // 静默忽略未知类型会让「筛选没生效」伪装成「搜不到」，必须 400。
+        let (status, body) =
+            request(&app, "/api/v1/geography/search?query=x&entity_type=banana").await;
+        assert_eq!(status, StatusCode::BAD_REQUEST);
+        assert_eq!(body["code"], "invalid");
+    }
+
+    #[tokio::test]
+    async fn geography_detail_unknown_id_is_404() {
+        let app = test_router(false);
+        let (status, _) = request(&app, "/api/v1/geography/entities/definitely-not-a-place").await;
+        assert_eq!(status, StatusCode::NOT_FOUND);
     }
 
     /// 请求体键必须是驼峰（与前端 transport 的参数约定一致），

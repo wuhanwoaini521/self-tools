@@ -285,7 +285,7 @@ mod tests {
             devtoolbox_infrastructure::TravelStore::open(directory.path().join("travel.db"))
                 .expect("travel store"),
         ));
-        let geography_store = Arc::new(Mutex::new(
+        let geography_store = Arc::new(parking_lot::Mutex::new(
             devtoolbox_infrastructure::GeographyStore::open(directory.path().join("geography.db"))
                 .expect("geography store"),
         ));
@@ -300,7 +300,7 @@ mod tests {
         );
         let geography_port: Arc<
             dyn devtoolbox_application::geography::GeographyQueryPort + Send + Sync,
-        > = Arc::new(crate::geography_query::GeographyQueryAdapter::new(
+        > = Arc::new(crate::composition::GeographyQueryAdapter::new(
             geography_store,
         ));
         let language_port: Arc<dyn devtoolbox_application::language::LanguageStorePort> = Arc::new(

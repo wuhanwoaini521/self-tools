@@ -134,7 +134,7 @@ pub struct AppState {
     pub travel_registry: TravelSessionRegistry,
     pub history_duckdb: Arc<HistoryDuckDbRepository>,
     pub language_store: Arc<parking_lot::Mutex<LanguageStore>>,
-    pub geography_store: Arc<Mutex<GeographyStore>>,
+    pub geography_store: Arc<parking_lot::Mutex<GeographyStore>>,
     pub client: reqwest::Client,
     /// Personal AI 注册中心（Gates 2/5：History 标准模块已注册）。
     pub ai: Arc<PersonalHub>,
@@ -965,11 +965,9 @@ fn history_semantic_search(
 
 // ---------- Geography Explorer 模块（离线优先） ----------
 
-mod geography_query;
-
 fn geography_service(state: &State<'_, AppState>) -> devtoolbox_application::GeographyService {
-    devtoolbox_application::GeographyService::new(Box::new(
-        geography_query::GeographyQueryAdapter::new(Arc::clone(&state.geography_store)),
+    devtoolbox_application::GeographyService::new(Arc::new(
+        composition::GeographyQueryAdapter::new(Arc::clone(&state.geography_store)),
     ))
 }
 
@@ -2315,7 +2313,7 @@ pub fn run() {
             let geography_store = GeographyStore::open(config_directory.join("geography.db"))
                 .expect("open geography database");
             let language_store_shared = Arc::new(parking_lot::Mutex::new(language_store));
-            let geography_store_shared = Arc::new(Mutex::new(geography_store));
+            let geography_store_shared = Arc::new(parking_lot::Mutex::new(geography_store));
             let client = feed_client().expect("build http client");
             let rss_repository: Arc<dyn RssRepositoryPort> = Arc::new(
                 composition::RssRepositoryAdapter::new(Arc::new(Mutex::new(store))),
@@ -2349,7 +2347,7 @@ pub fn run() {
             // Geography / Language 模块端口（V5 Gate 6/7）：复用既有 store 适配器。
             let geography_port: Arc<
                 dyn devtoolbox_application::geography::GeographyQueryPort + Send + Sync,
-            > = Arc::new(geography_query::GeographyQueryAdapter::new(Arc::clone(
+            > = Arc::new(composition::GeographyQueryAdapter::new(Arc::clone(
                 &geography_store_shared,
             )));
             let language_port: Arc<dyn devtoolbox_application::language::LanguageStorePort> =

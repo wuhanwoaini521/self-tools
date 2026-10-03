@@ -154,6 +154,21 @@ const HTTP_ENDPOINTS: Record<string, (args: Record<string, unknown>) => string> 
     parts.push(`limit=${encodeURIComponent(String(a.limit ?? 30))}`);
     return `/api/v1/news/headlines?${parts.join("&")}`;
   },
+  geography_home: (a) =>
+    `/api/v1/geography/home?cursor=${encodeURIComponent(String(a.cursor ?? 0))}`,
+  geography_search: (a) => {
+    // 注意：`String(null)` 会得到字符串 "null"。前端用 null 表示「不筛选」，
+    // 直接插值会发 entity_type=null，服务端解析成非法类型直接 400。
+    const parts = [`query=${encodeURIComponent(String(a.query ?? ""))}`];
+    if (a.entityType) {
+      parts.push(`entity_type=${encodeURIComponent(String(a.entityType))}`);
+    }
+    parts.push(`limit=${encodeURIComponent(String(a.limit ?? 30))}`);
+    return `/api/v1/geography/search?${parts.join("&")}`;
+  },
+  geography_detail: (a) =>
+    `/api/v1/geography/entities/${encodeURIComponent(String(a.id ?? ""))}`,
+
 };
 
 /** 写操作：POST + JSON body。 */
@@ -182,6 +197,7 @@ const HTTP_POST_ENDPOINTS: Record<
     `/api/v1/news/articles/${encodeURIComponent(String(a.storyId))}/star`,
   news_mark_read: (a) =>
     `/api/v1/news/articles/${encodeURIComponent(String(a.storyId))}/read`,
+  geography_toggle_favorite: () => "/api/v1/geography/favorite",
   news_remove_source: (a) =>
     `/api/v1/news/sources/${encodeURIComponent(String(a.sourceId))}/remove`,
 };

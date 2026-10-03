@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use devtoolbox_core::geography::{
     GeoEntityDetail, GeoEntityType, GeoRecommendationService, GeoRelationView, GeoSearchGroup,
     GeographyHome,
@@ -7,12 +9,12 @@ use super::ports::{GeographyPortError, GeographyQueryPort};
 use crate::ApplicationError;
 
 pub struct GeographyService {
-    port: Box<dyn GeographyQueryPort>,
+    port: Arc<dyn GeographyQueryPort>,
 }
 
 impl GeographyService {
     #[must_use]
-    pub fn new(port: Box<dyn GeographyQueryPort>) -> Self {
+    pub fn new(port: Arc<dyn GeographyQueryPort>) -> Self {
         Self { port }
     }
 
@@ -143,8 +145,7 @@ fn geo_error(source: GeographyPortError) -> ApplicationError {
 
 #[cfg(test)]
 mod tests {
-    use std::cell::RefCell;
-    use std::rc::Rc;
+    use std::sync::Mutex;
 
     use devtoolbox_core::geography::{
         CoordinateSystem, GeoCoordinate, GeoEntity, GeoEntityType, GeoMapLine, GeoMapPoint,
@@ -195,9 +196,9 @@ mod tests {
         .collect()
     }
 
-    impl GeographyQueryPort for Rc<RefCell<FakePortData>> {
+    impl GeographyQueryPort for Mutex<FakePortData> {
         fn all_entities(&self) -> Result<Vec<GeoEntity>, GeographyPortError> {
-            let data = self.borrow();
+            let data = self.lock().expect("fake port");
             if data.fail {
                 return Err(GeographyPortError("boom".into()));
             }
@@ -207,14 +208,14 @@ mod tests {
             Ok(Vec::new())
         }
         fn favorite_ids(&self) -> Result<Vec<String>, GeographyPortError> {
-            let data = self.borrow();
+            let data = self.lock().expect("fake port");
             if data.fail {
                 return Err(GeographyPortError("boom".into()));
             }
             Ok(data.favorite_ids.clone())
         }
         fn map_snapshot(&self) -> Result<(Vec<GeoMapPoint>, Vec<GeoMapLine>), GeographyPortError> {
-            let data = self.borrow();
+            let data = self.lock().expect("fake port");
             if data.fail {
                 return Err(GeographyPortError("boom".into()));
             }
@@ -226,7 +227,7 @@ mod tests {
             entity_type: Option<GeoEntityType>,
             limit: usize,
         ) -> Result<Vec<GeoEntity>, GeographyPortError> {
-            let data = self.borrow();
+            let data = self.lock().expect("fake port");
             if data.fail {
                 return Err(GeographyPortError("boom".into()));
             }
@@ -242,7 +243,7 @@ mod tests {
                 .collect())
         }
         fn entity(&self, id: &str) -> Result<Option<GeoEntity>, GeographyPortError> {
-            let data = self.borrow();
+            let data = self.lock().expect("fake port");
             if data.fail {
                 return Err(GeographyPortError("boom".into()));
             }
@@ -252,21 +253,21 @@ mod tests {
             Ok(())
         }
         fn relations_for(&self, _id: &str) -> Result<Vec<GeoRelation>, GeographyPortError> {
-            let data = self.borrow();
+            let data = self.lock().expect("fake port");
             if data.fail {
                 return Err(GeographyPortError("boom".into()));
             }
             Ok(data.relations.clone())
         }
         fn sources(&self, _ids: &[String]) -> Result<Vec<GeoSource>, GeographyPortError> {
-            let data = self.borrow();
+            let data = self.lock().expect("fake port");
             if data.fail {
                 return Err(GeographyPortError("boom".into()));
             }
             Ok(data.sources.clone())
         }
         fn toggle_favorite(&self, _id: &str) -> Result<bool, GeographyPortError> {
-            let data = self.borrow();
+            let data = self.lock().expect("fake port");
             if data.fail {
                 return Err(GeographyPortError("boom".into()));
             }
@@ -274,13 +275,13 @@ mod tests {
         }
     }
 
-    fn service(fake: Rc<RefCell<FakePortData>>) -> GeographyService {
-        GeographyService::new(Box::new(fake))
+    fn service(fake: Arc<Mutex<FakePortData>>) -> GeographyService {
+        GeographyService::new(fake)
     }
 
     #[test]
     fn home_has_question_map_and_featured_content() {
-        let fake = Rc::new(RefCell::new(FakePortData {
+        let fake = Arc::new(Mutex::new(FakePortData {
             entities: fake_entities(),
             map_points: vec![GeoMapPoint {
                 entity_id: "yangtze".into(),
@@ -294,7 +295,7 @@ mod tests {
             }],
             ..Default::default()
         }));
-        let service = service(Rc::clone(&fake));
+        let service = service(Arc::clone(&fake));
         let home = service.home(0).expect("home");
         assert!(!home.recommendation.question.is_empty());
         assert!(!home.featured.is_empty());
@@ -303,7 +304,7 @@ mod tests {
 
     #[test]
     fn detail_is_composed_from_relations() {
-        let fake = Rc::new(RefCell::new(FakePortData {
+        let fake = Arc::new(Mutex::new(FakePortData {
             entities: fake_entities(),
             relations: vec![GeoRelation {
                 from_id: "yangtze".into(),
@@ -314,7 +315,7 @@ mod tests {
             }],
             ..Default::default()
         }));
-        let service = service(Rc::clone(&fake));
+        let service = service(Arc::clone(&fake));
         let detail = service.detail("yangtze").expect("detail").expect("found");
         assert!(
             detail
@@ -326,11 +327,11 @@ mod tests {
 
     #[test]
     fn port_failure_maps_to_geography_application_error() {
-        let fake = Rc::new(RefCell::new(FakePortData {
+        let fake = Arc::new(Mutex::new(FakePortData {
             fail: true,
             ..Default::default()
         }));
-        let service = service(Rc::clone(&fake));
+        let service = service(Arc::clone(&fake));
         let error = service.home(0).expect_err("port failure propagates");
         match error {
             ApplicationError::Geography { message } => assert_eq!(message, "boom"),

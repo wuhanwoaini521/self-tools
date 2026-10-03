@@ -27,7 +27,7 @@ import type {
   GeoSearchGroup,
   GeographyHome,
 } from "../../types";
-import { errorMessage, isTauriRuntime } from "../../utils";
+import { errorMessage } from "../../utils";
 import { geographyClient } from "./geographyClient";
 import { learningClient } from "../learning/learningClient";
 import type { AppContextPayload } from "../ai/aiTypes";
@@ -321,85 +321,8 @@ const FALLBACK_POINTS: GeoMapPoint[] = FALLBACK_ENTITIES.map((item) => ({
   entity_type: item.entity_type,
   coordinate: item.coordinates!,
 }));
-const FALLBACK_HOME: GeographyHome = {
-  recommendation: {
-    kind: "question",
-    title: "青藏高原",
-    question: "为什么青藏高原会拥有如此极端的海拔？",
-    entity_id: "tibetan-plateau",
-    tags: ["板块碰撞", "喜马拉雅山", "亚洲季风"],
-  },
-  featured: FALLBACK_ENTITIES.filter((item) =>
-    [
-      "tibetan-plateau",
-      "yangtze",
-      "sichuan-basin",
-      "japan",
-      "chengdu",
-    ].includes(item.id),
-  ),
-  recent: [],
-  favorite_ids: [],
-  map_points: FALLBACK_POINTS,
-  map_lines: FALLBACK_LINES,
-};
 
-function fallbackGroups(query: string): GeoSearchGroup[] {
-  const needle = query.trim().toLowerCase();
-  const groups = new Map<GeoEntityType, GeoEntity[]>();
-  FALLBACK_ENTITIES.filter((item) =>
-    `${item.name} ${item.name_en} ${item.aliases.join(" ")} ${item.summary}`
-      .toLowerCase()
-      .includes(needle),
-  ).forEach((item) =>
-    groups.set(item.entity_type, [
-      ...(groups.get(item.entity_type) ?? []),
-      item,
-    ]),
-  );
-  return [...groups.entries()].map(([entityType, items]) => ({
-    entity_type: entityType,
-    items,
-  }));
-}
 
-function fallbackDetail(id: string, favorite = false): GeoEntityDetail | null {
-  const item = FALLBACK_ENTITIES.find((candidate) => candidate.id === id);
-  if (!item) return null;
-  return {
-    entity: item,
-    favorite,
-    relations: FALLBACK_LINES.filter(
-      (line) => line.from_id === id || line.to_id === id,
-    ).map((line) => {
-      const relatedId = line.from_id === id ? line.to_id : line.from_id;
-      const related = FALLBACK_ENTITIES.find(
-        (candidate) => candidate.id === relatedId,
-      )!;
-      return {
-        relation: {
-          from_id: line.from_id,
-          to_id: line.to_id,
-          kind: line.kind,
-          note: null,
-          source_ids: ["geography-seed"],
-        },
-        entity: related,
-      };
-    }),
-    sources: [
-      {
-        id: "geography-seed",
-        dataset: "Geography Explorer embedded seed",
-        version: "geography-seed-v1",
-        url: "https://github.com/wuhanwoaini521/self-tools",
-        license: "Project license; source links in data-source record",
-        updated_at: "2026-09-01",
-        fields: ["curated summaries", "exploration relations"],
-      },
-    ],
-  };
-}
 
 function propertyValue(item: GeoEntity, key: string) {
   return (
@@ -886,10 +809,6 @@ export function GeographyPage({
   const [view, setView] = useState<"explore" | "knowledge">("explore");
 
   const loadHome = useCallback(async () => {
-    if (!isTauriRuntime()) {
-      setHome(FALLBACK_HOME);
-      return;
-    }
     try {
       setHome(await geographyClient.home(0));
     } catch (error) {
@@ -902,10 +821,6 @@ export function GeographyPage({
 
   const openEntity = useCallback(
     async (id: string) => {
-      if (!isTauriRuntime()) {
-        setDetail(fallbackDetail(id, Boolean(home?.favorite_ids?.includes(id))));
-        return;
-      }
       try {
         const res = await geographyClient.detail(id);
         setDetail(res);
@@ -958,10 +873,6 @@ export function GeographyPage({
       setSearchGroups([]);
       return;
     }
-    if (!isTauriRuntime()) {
-      setSearchGroups(fallbackGroups(query));
-      return;
-    }
     try {
       setSearchGroups(await geographyClient.search(query, null, 30));
     } catch (error) {
@@ -971,20 +882,6 @@ export function GeographyPage({
 
   const toggleFavorite = useCallback(async () => {
     if (!detail) return;
-    if (!isTauriRuntime()) {
-      setDetail({ ...detail, favorite: !detail.favorite });
-      setHome((current) =>
-        current
-          ? {
-              ...current,
-              favorite_ids: detail.favorite
-                ? current.favorite_ids.filter((id) => id !== detail.entity.id)
-                : [...current.favorite_ids, detail.entity.id],
-            }
-          : current,
-      );
-      return;
-    }
     try {
       const favorite = await geographyClient.toggleFavorite(detail.entity.id);
       setDetail({ ...detail, favorite });
@@ -1003,7 +900,25 @@ export function GeographyPage({
     }
   }, [detail, setNotice]);
 
-  const displayedHome = home ?? FALLBACK_HOME;
+  // 加载完之前渲染骨架。之前的做法是用一份硬编码的 FALLBACK_HOME 顶着——
+  // 那让「真实数据」和「假数据」在界面上无法区分。
+  if (!home) {
+    return (
+      <div className="page-scroll geography-page">
+        <div className="geo-explore-grid" aria-busy="true">
+          <section className="geo-discovery-card">
+            <div className="geo-section-label">
+              <Question size={15} /> DAILY DISCOVERY · 今日探索
+            </div>
+            <h2>正在载入今日探索…</h2>
+            <p className="geo-discovery-question">正在读取地理知识库。</p>
+          </section>
+          <div className="geo-discovery-card" />
+        </div>
+      </div>
+    );
+  }
+  const displayedHome = home;
   return (
     <div className="page-scroll geography-page">
       <header className="geo-hero">

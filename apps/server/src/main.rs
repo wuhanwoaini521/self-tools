@@ -4,6 +4,7 @@
 //! 用例服务）→ 路由（`routes`）→ 监听与优雅退出。不包含鉴权、CORS、写入端点。
 
 mod ai_api;
+mod geography_api;
 mod history_query;
 mod language_api;
 mod learning_api;
@@ -222,6 +223,26 @@ async fn main() -> ExitCode {
         std::path::Path::new(&config.data_dir),
     ));
 
+    // Geography：与桌面端同一个 geography.db
+    // Geography：`open` 会建目录、建库、seed，所以失败是真 fatal（不是「文件缺失」）。
+    let geography_store_path = config.data_dir.join("geography.db");
+    let geography_store = Arc::new(parking_lot::Mutex::new(
+        match devtoolbox_infrastructure::GeographyStore::open(&geography_store_path) {
+            Ok(store) => store,
+            Err(error) => {
+                error!(
+                    "geography database unusable at {}: {error}",
+                    geography_store_path.display()
+                );
+                return ExitCode::from(3);
+            }
+        },
+    ));
+    let geography: Arc<devtoolbox_application::geography::GeographyService> =
+        Arc::new(devtoolbox_application::GeographyService::new(Arc::new(
+            devtoolbox_infrastructure::GeographyQueryAdapter::new(geography_store),
+        )));
+
     // News：读本地 news.db；抓取器用真实 HTTP（只有订阅时才联网）。
     // news.db 缺失不阻断启动：News 端点逐请求返回可读错误，其余模块照常。
     let news_store_path = config.data_dir.join("news.db");
@@ -270,6 +291,7 @@ async fn main() -> ExitCode {
         content,
         settings,
         learning_os,
+        geography,
         news,
         news_ingest,
     );

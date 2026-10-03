@@ -24,7 +24,11 @@ impl fmt::Display for GeographyPortError {
 impl std::error::Error for GeographyPortError {}
 
 /// Geography 知识库（只读查询面 + 收藏写入）的端口契约。
-pub trait GeographyQueryPort {
+///
+/// 与  /  保持一致：要求 。
+/// 缺这两个 bound 时  只能在每次调用里新建，HTTP server
+/// 就无法把它当共享状态注入 —— 网页端的 Geography 因此接不上真实库。
+pub trait GeographyQueryPort: Send + Sync {
     fn all_entities(&self) -> Result<Vec<GeoEntity>, GeographyPortError>;
     fn recent_ids(&self, limit: i64) -> Result<Vec<String>, GeographyPortError>;
     fn favorite_ids(&self) -> Result<Vec<String>, GeographyPortError>;
