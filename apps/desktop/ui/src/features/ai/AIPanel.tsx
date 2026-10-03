@@ -258,10 +258,12 @@ export function AIPanel({
         if (cancelled) return;
         setCapabilities(state.modules.map((module) => module.id));
         setStatus(state.configured ? "ready" : "unconfigured");
-      } catch (cause) {
+      } catch {
+        // 探测失败 = 服务不可达。此时「未配置」文案已经说明了该做什么，
+        // 再叠加一句 "Not in Tauri runtime" 之类的内部错误只会让人困惑。
         if (cancelled) return;
         setStatus("unconfigured");
-        setErrorText(errorMessage(cause));
+        setErrorText("");
       }
     })();
     return () => {

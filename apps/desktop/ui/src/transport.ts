@@ -112,6 +112,9 @@ const HTTP_ENDPOINTS: Record<string, (args: Record<string, unknown>) => string> 
     `/api/v1/language/lessons/${encodeURIComponent(String(a.lessonId ?? ""))}`,
   language_continue_lessons: (a) =>
     `/api/v1/language/continue?limit=${encodeURIComponent(String(a.limit ?? 5))}`,
+  // ---- 设置与 AI（与桌面端共用同一个 settings.json）----
+  get_settings: () => "/api/v1/settings",
+  personal_ai_status: () => "/api/v1/ai/status",
 };
 
 /** 写操作：POST + JSON body。 */
@@ -125,6 +128,8 @@ const HTTP_POST_ENDPOINTS: Record<
   language_create_lesson: () => "/api/v1/language/lessons",
   language_save_lesson_position: (a) =>
     `/api/v1/language/lessons/${encodeURIComponent(String(a.lessonId ?? ""))}/position`,
+  save_settings: () => "/api/v1/settings",
+  personal_ai_chat: () => "/api/v1/ai/chat",
 };
 
 /** 服务端错误体的可能形状（与 `apps/server` 的错误契约一致）。 */

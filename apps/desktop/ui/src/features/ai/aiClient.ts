@@ -3,11 +3,14 @@
  *
  * Frontend 只知道 AgentRequest / AgentResponse / Actions / UI Blocks；
  * 不组 Prompt、不选模型、不调 Provider、不管 Tool schema（V4 §56）。
+ *
+ * 桌面端走 Tauri IPC，网页端走本地只读 HTTP 服务（同一份 settings.json 与
+ * provider 配置），两端能力一致。
  */
 import { useEffect, useState } from "react";
 import { isTauriRuntime } from "../../utils";
 import type { CommandTransport } from "../../transport";
-import { tauriTransport } from "../../transport";
+import { defaultTransport } from "../../transport";
 import type {
  AgentProgressEvent,
  AgentRequest,
@@ -25,13 +28,13 @@ export interface AiClient {
 }
 
 export function createAiClient(
- transport: CommandTransport = tauriTransport,
+ transport: CommandTransport = defaultTransport,
 ): AiClient {
  return {
   status: () => transport.invoke<AiStatus>("personal_ai_status"),
   chat: (request) =>
    transport.invoke<AgentResponse>("personal_ai_chat", { request }),
-  onProgress: (handler) => tauriTransport.subscribe<AgentProgressEvent>("agent-progress", handler),
+  onProgress: (handler) => transport.subscribe<AgentProgressEvent>("agent-progress", handler),
  };
 }
 

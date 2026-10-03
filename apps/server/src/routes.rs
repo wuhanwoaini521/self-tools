@@ -41,6 +41,7 @@ pub fn router(
     learning: Arc<devtoolbox_application::language::LanguageLearningService>,
     dictionary: Arc<devtoolbox_application::language::LanguageService>,
     content: Arc<dyn devtoolbox_application::language::LanguageStorePort>,
+    settings: Arc<dyn crate::ai_api::SettingsAccess>,
 ) -> Router {
     Router::new()
         .route("/health", get(health))
@@ -124,9 +125,20 @@ pub fn router(
             "/api/v1/language/weak-items",
             get(crate::language_api::weak_items),
         )
+        // ---- 设置与 AI：网页端没有 Tauri IPC，但两端共用同一个 settings.json ----
+        .route(
+            "/api/v1/settings",
+            get(crate::ai_api::get_settings).post(crate::ai_api::save_settings),
+        )
+        .route("/api/v1/ai/status", get(crate::ai_api::ai_status))
+        .route("/api/v1/ai/chat", post(crate::ai_api::ai_chat))
         .layer(axum::Extension(Arc::clone(&content)))
         .layer(axum::Extension(Arc::clone(&dictionary)))
         .layer(axum::Extension(Arc::clone(&learning)))
+        .layer(axum::Extension(Arc::clone(&settings)))
+        .layer(axum::Extension(
+            None::<Arc<dyn crate::ai_api::AiChatRunner>>,
+        ))
         .with_state(AppState { service })
         // 显式擦除成 `Arc<dyn Fn()>`：`Extension<T>` 按具体类型匹配，
         // `Arc<fn() -> i64>` 与 `Arc<dyn Fn() -> i64 + Send + Sync>` 不是同一个类型。
@@ -548,10 +560,23 @@ mod tests {
                 Arc::clone(&content),
             )),
             content,
+            Arc::new(TestSettings),
         )
     }
 
-    /// 契约护栏：前端 `transport.ts` 的 GET 映射必须与服务端路由一一对应。
+    /// 设置测试替身（不碰磁盘）。
+    struct TestSettings;
+
+    impl crate::ai_api::SettingsAccess for TestSettings {
+        fn load(&self) -> devtoolbox_core::settings::AppSettings {
+            devtoolbox_core::settings::AppSettings::default()
+        }
+        fn save(&self, _: &devtoolbox_core::settings::AppSettings) -> Result<(), String> {
+            Ok(())
+        }
+    }
+
+    /// 契约护栏：前端 `transport.ts` 的映射必须与服务端路由一一对应。
     /// 少注册一个，网页端对应功能就是「静默 404」。
     #[test]
     fn language_endpoints_are_registered() {
@@ -578,6 +603,42 @@ mod tests {
             assert!(source.contains(path), "路由未注册：{path}");
         }
         let _ = router;
+    }
+
+    /// 未配置 provider 时必须**明确拒绝**，不得返回任何编造内容。
+    #[tokio::test]
+    async fn ai_chat_without_provider_refuses_clearly() {
+        let app = test_router(false);
+        let (status, body) = post_json(
+            &app,
+            "/api/v1/ai/chat",
+            &serde_json::json!({ "message": "你好" }),
+        )
+        .await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "body={body}");
+        assert_eq!(body["code"], "ai_not_configured");
+        assert!(
+            body["message"]
+                .as_str()
+                .is_some_and(|m| m.contains("未配置")),
+            "错误信息应说明未配置：{body}"
+        );
+    }
+
+    #[tokio::test]
+    async fn ai_status_reports_unconfigured() {
+        let app = test_router(false);
+        let (status, body) = request(&app, "/api/v1/ai/status").await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(body["configured"], false);
+    }
+
+    #[tokio::test]
+    async fn settings_round_trips_through_http() {
+        let app = test_router(false);
+        let (status, body) = request(&app, "/api/v1/settings").await;
+        assert_eq!(status, StatusCode::OK);
+        assert!(body.get("ai").is_some(), "设置应包含 ai 段");
     }
 
     /// 请求体键必须是驼峰（与前端 transport 的参数约定一致），

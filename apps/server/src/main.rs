@@ -3,6 +3,7 @@
 //! 本二进制只做：配置（env + CLI）→ 日志 → 组合根（只读 DuckDB 仓库 +
 //! 用例服务）→ 路由（`routes`）→ 监听与优雅退出。不包含鉴权、CORS、写入端点。
 
+mod ai_api;
 mod history_query;
 mod language_api;
 mod routes;
@@ -24,9 +25,10 @@ const DEFAULT_BIND: &str = "127.0.0.1:8080";
 const DEFAULT_HISTORY_DB: &str = "history-data-pipeline/dist/history.duckdb";
 const ENV_BIND: &str = "SELF_TOOLS_BIND";
 const ENV_HISTORY_DB: &str = "SELF_TOOLS_HISTORY_DB";
-/// Language / 学习库目录（与桌面端默认一致：`config/`）。
+/// Language / 学习库 / 设置目录。默认指向**桌面端同一个目录**，
+/// 这样网页端配好的 AI provider 与学习进度，桌面端立刻可见，反之亦然。
 const ENV_DATA_DIR: &str = "SELF_TOOLS_DATA_DIR";
-const DEFAULT_DATA_DIR: &str = "config";
+const DEFAULT_DATA_DIR: &str = "apps/desktop/config";
 
 #[derive(Debug)]
 struct Config {
@@ -209,11 +211,18 @@ async fn main() -> ExitCode {
         Arc::clone(&content),
     ));
 
+    // Settings / AI：读写同一个 settings.json —— 网页端配好的 provider，
+    // 桌面端立即可用；反之亦然。
+    let settings: Arc<dyn ai_api::SettingsAccess> = Arc::new(ai_api::FileSettingsAccess::new(
+        std::path::Path::new(&config.data_dir),
+    ));
+
     let app = routes::router(
         Arc::new(service),
         Arc::clone(&learning),
         dictionary,
         content,
+        settings,
     );
     info!(
         bind = %config.bind,
