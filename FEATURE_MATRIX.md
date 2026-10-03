@@ -10,7 +10,7 @@
 | 1 | Home | `#home` | 今日概览 / 快捷入口 / Continue | platform today | ⚠️ 部分 | — | 依赖 learning_*（已修） |
 | 2 | Review Center | `#review` | 跨模块 SRS 复习 | platform review_cards | ✅ 已修 | — | 无卡片时仅空态 |
 | 3 | History | `#history` | 时间轴 / 时期 / 人物 / 事件 | duckdb | ✅ | 7 个 Rust | — |
-| 4 | Geography | `#geography` | 地图 / 地形 / 3D | geography.db | ❌ | 无 | **14 条示例数据；搜索结果不渲染** |
+| 4 | Geography | `#geography` | 地图 / 地形 / 3D | geography.db | ❌ | 无 | 数据仅 14 条示例；Web 端搜索走 12 条 fallback |
 | 5 | Language | `#language` | 学习卡片 / 课程 / 复习 / 错题 | language.db + learning.db | ✅ | 8 个 E2E | — |
 | 6 | Study Board | `#study-board` | 手写板 | **localStorage** | ❌ | 无 | **后端存在但未接通** |
 | 7 | News | `#news` | 今日 / 分类 / 搜索 | news.db | ✅ | 14 个 server | 推荐源恒空（11 条用尽） |
@@ -54,5 +54,5 @@
    RSS / Server / Conversation(6) / History enrichment(5) 在 Web 端是空壳
 2. `SystemReadinessPage` 无后端、假报告
 3. `StudyBoardPage` 用 localStorage
-4. Geography 搜索结果不渲染 + 仅 14 条数据
+4. Geography 数据仅 14 条示例（Web 端搜索走 fallback，非真实库）
 5. 未在真实 Tauri 宿主中验证

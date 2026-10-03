@@ -78,11 +78,12 @@
    server(4) / language(3) / news(2) / knowledge(1)
 2. `SystemReadinessPage` 假报告
 3. `StudyBoardPage` 用 localStorage 而非后端
-4. Geography 仅 14 条示例数据；搜索结果在网页端不渲染（**已定位，未修**）
+4. Geography 数据仅 14 条示例；Web 端搜索走 12 条硬编码 fallback（非真实库）
 5. News 推荐源目录仅 11 条且已用尽
 
 ## 5. 未验证 / 已知盲区
 
+- **一次测试结论被我自己推翻**：Geography「搜索结果不渲染」经复测为假阳性——合成 input 事件未等 React 状态更新所致；实际渲染正常。测试方法本身需要修正。
 - **未在真实 Tauri 桌面壳中运行过**（本环境只能起 Web 预览 + HTTP 服务）。
   因此 IPC 路径的正确性仅由 Rust 单测与类型检查保证，未做运行时验证。
 - **未配置任何 LLM provider**，AI 的真实调用链（模型返回、tool 调用、超时）
