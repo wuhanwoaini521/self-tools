@@ -6,7 +6,7 @@
  * `geography_compare` 命令已于 Gate 4 删除（无任何前端消费者）。
  */
 import type { CommandTransport } from "../../transport";
-import { tauriTransport } from "../../transport";
+import { defaultTransport } from "../../transport";
 import type { GeoEntityDetail, GeoSearchGroup, GeographyHome } from "../../types";
 
 export interface GeographyClient {
@@ -17,7 +17,7 @@ export interface GeographyClient {
 }
 
 export function createGeographyClient(
-  transport: CommandTransport = tauriTransport,
+  transport: CommandTransport = defaultTransport,
 ): GeographyClient {
   return {
     home: (cursor) => transport.invoke<GeographyHome>("geography_home", { cursor }),

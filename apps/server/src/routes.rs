@@ -42,6 +42,8 @@ pub fn router(
     dictionary: Arc<devtoolbox_application::language::LanguageService>,
     content: Arc<dyn devtoolbox_application::language::LanguageStorePort>,
     settings: Arc<dyn crate::ai_api::SettingsAccess>,
+    // 平台 LearningService（Collections / Graph / Review Center / Home 今日面板）
+    learning_os: Arc<devtoolbox_application::learning::LearningService>,
     news: Arc<devtoolbox_application::news::NewsService>,
     news_ingest: Arc<dyn devtoolbox_application::news::NewsIngestPort>,
 ) -> Router {
@@ -134,6 +136,50 @@ pub fn router(
         )
         .route("/api/v1/ai/status", get(crate::ai_api::ai_status))
         .route("/api/v1/ai/chat", post(crate::ai_api::ai_chat))
+        // ---- Learning OS：Collections / Graph / Review Center / Home 今日面板 ----
+        .route(
+            "/api/v1/learning/progress",
+            get(crate::learning_api::list_progress).post(crate::learning_api::record_event),
+        )
+        .route(
+            "/api/v1/learning/progress/key",
+            get(crate::learning_api::get_progress),
+        )
+        .route(
+            "/api/v1/learning/review/queue",
+            get(crate::learning_api::review_queue),
+        )
+        .route(
+            "/api/v1/learning/review/stats",
+            get(crate::learning_api::review_stats),
+        )
+        .route(
+            "/api/v1/learning/review",
+            post(crate::learning_api::submit_review),
+        )
+        .route("/api/v1/learning/today", get(crate::learning_api::today))
+        .route("/api/v1/learning/graph", get(crate::learning_api::graph))
+        .route(
+            "/api/v1/learning/explore",
+            get(crate::learning_api::explore),
+        )
+        .route(
+            "/api/v1/learning/collections",
+            get(crate::learning_api::list_collections).post(crate::learning_api::create_collection),
+        )
+        .route(
+            "/api/v1/learning/collections/{id}",
+            axum::routing::delete(crate::learning_api::delete_collection),
+        )
+        .route(
+            "/api/v1/learning/collections/{id}/items",
+            get(crate::learning_api::list_collection_items)
+                .post(crate::learning_api::add_collection_item),
+        )
+        .route(
+            "/api/v1/learning/collection-items/remove",
+            post(crate::learning_api::remove_collection_item),
+        )
         // ---- News：推荐源目录是 core 里的纯函数，网页端同样要能读到 ----
         .route(
             "/api/v1/news/recommended",
@@ -160,6 +206,7 @@ pub fn router(
         .layer(axum::Extension(Arc::clone(&dictionary)))
         .layer(axum::Extension(Arc::clone(&learning)))
         .layer(axum::Extension(Arc::clone(&settings)))
+        .layer(axum::Extension(Arc::clone(&learning_os)))
         .layer(axum::Extension(Arc::clone(&news)))
         .layer(axum::Extension(Arc::clone(&news_ingest)))
         .layer(axum::Extension(
@@ -569,14 +616,16 @@ mod tests {
             )))
             .expect("learning store"),
         ));
+        // 与生产一致：平台 LearningService 只建一个，Language 与 learning 路由共用。
+        let learning_os = Arc::new(devtoolbox_application::learning::LearningService::new(
+            Arc::new(devtoolbox_infrastructure::LearningStoreAdapter::new(
+                learning_store,
+            )),
+        ));
         let learning = Arc::new(
             devtoolbox_application::language::LanguageLearningService::new(
                 Arc::clone(&content),
-                Arc::new(devtoolbox_application::learning::LearningService::new(
-                    Arc::new(devtoolbox_infrastructure::LearningStoreAdapter::new(
-                        learning_store,
-                    )),
-                )),
+                Arc::clone(&learning_os),
             ),
         );
         router(
@@ -587,6 +636,7 @@ mod tests {
             )),
             content,
             Arc::new(TestSettings),
+            learning_os,
             news_service(),
             // 泛型参数直传具体类型：FeedFetcherPort 用 `-> impl Future` 声明，
             // 不是 dyn 兼容的。
@@ -689,6 +739,88 @@ mod tests {
         let (status, body) = request(&app, "/api/v1/settings").await;
         assert_eq!(status, StatusCode::OK);
         assert!(body.get("ai").is_some(), "设置应包含 ai 段");
+    }
+
+    /// 契约护栏：Learning OS 的端点必须全部注册。
+    /// 少注册一个，网页端 Collections / Graph / Review Center / Home 今日面板就是空的。
+    #[test]
+    fn learning_endpoints_are_registered() {
+        let router = test_router(false);
+        let source = include_str!("routes.rs");
+        for path in [
+            "/api/v1/learning/progress",
+            "/api/v1/learning/review/queue",
+            "/api/v1/learning/review/stats",
+            "/api/v1/learning/review",
+            "/api/v1/learning/today",
+            "/api/v1/learning/graph",
+            "/api/v1/learning/explore",
+            "/api/v1/learning/collections",
+        ] {
+            assert!(source.contains(path), "Learning 路由未注册：{path}");
+        }
+        let _ = router;
+    }
+
+    #[tokio::test]
+    async fn collections_round_trip_over_http() {
+        let app = test_router(false);
+
+        let (status, before) = request(&app, "/api/v1/learning/collections").await;
+        assert_eq!(status, StatusCode::OK);
+        let start = before.as_array().map_or(0, Vec::len);
+
+        let (status, created) = post_json(
+            &app,
+            "/api/v1/learning/collections",
+            &serde_json::json!({ "title": "验收合集", "tags": ["测试"] }),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "创建失败：{created}");
+        let id = created["id"].as_str().expect("id").to_string();
+
+        // 重新读回：验证真的落库，而不是只回显请求
+        let (_, after) = request(&app, "/api/v1/learning/collections").await;
+        let items = after.as_array().expect("array");
+        assert_eq!(items.len(), start + 1);
+        assert!(
+            items.iter().any(|c| c["id"] == id),
+            "新建的合集应出现在列表里"
+        );
+
+        // 删除
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("DELETE")
+                    .uri(format!("/api/v1/learning/collections/{id}"))
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let (_, final_state) = request(&app, "/api/v1/learning/collections").await;
+        assert_eq!(
+            final_state.as_array().map_or(0, Vec::len),
+            start,
+            "删除后应恢复原状"
+        );
+    }
+
+    #[tokio::test]
+    async fn empty_collection_title_is_rejected() {
+        let app = test_router(false);
+        let (status, body) = post_json(
+            &app,
+            "/api/v1/learning/collections",
+            &serde_json::json!({ "title": "   " }),
+        )
+        .await;
+        assert_eq!(status, StatusCode::BAD_REQUEST);
+        assert_eq!(body["code"], "invalid");
     }
 
     /// 请求体键必须是驼峰（与前端 transport 的参数约定一致），

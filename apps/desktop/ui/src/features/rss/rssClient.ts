@@ -5,7 +5,7 @@
  * RssPage 与外壳（App）只调用本 client，不直接接触 transport 或 `@tauri-apps/api/core`。
  */
 import type { CommandTransport } from "../../transport";
-import { tauriTransport } from "../../transport";
+import { defaultTransport } from "../../transport";
 import type { ArticleDto, FeedDto, RefreshReport } from "../../types";
 
 export interface RssClient {
@@ -22,7 +22,7 @@ export interface RssClient {
 }
 
 export function createRssClient(
-  transport: CommandTransport = tauriTransport,
+  transport: CommandTransport = defaultTransport,
 ): RssClient {
   return {
     listFeeds: () => transport.invoke<FeedDto[]>("list_rss_feeds"),

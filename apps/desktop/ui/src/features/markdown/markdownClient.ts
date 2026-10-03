@@ -5,7 +5,7 @@
  * 工作区文件树扫描（`list_workspace`）属 workspace 能力，见 `../../workspaceClient`。
  */
 import type { CommandTransport } from "../../transport";
-import { tauriTransport } from "../../transport";
+import { defaultTransport } from "../../transport";
 import type { DocumentDto } from "../../types";
 
 export interface MarkdownClient {
@@ -15,7 +15,7 @@ export interface MarkdownClient {
 }
 
 export function createMarkdownClient(
-  transport: CommandTransport = tauriTransport,
+  transport: CommandTransport = defaultTransport,
 ): MarkdownClient {
   return {
     read: (path) => transport.invoke<DocumentDto>("read_document", { path }),

@@ -6,6 +6,7 @@
 mod ai_api;
 mod history_query;
 mod language_api;
+mod learning_api;
 mod news_api;
 mod routes;
 
@@ -198,14 +199,17 @@ async fn main() -> ExitCode {
     let content: Arc<dyn devtoolbox_application::language::LanguageStorePort> = Arc::new(
         devtoolbox_infrastructure::LanguageStoreAdapter::new(Arc::clone(&language_store)),
     );
+    // 平台 LearningService 只有一个实例：Language 学习闭环与 /api/v1/learning/* 共用，
+    // 避免两份进度互不同步。
+    let learning_os: Arc<devtoolbox_application::learning::LearningService> = Arc::new(
+        devtoolbox_application::learning::LearningService::new(Arc::new(
+            devtoolbox_infrastructure::LearningStoreAdapter::new(learning_store),
+        )),
+    );
     let learning = Arc::new(
         devtoolbox_application::language::LanguageLearningService::new(
             Arc::clone(&content),
-            Arc::new(devtoolbox_application::learning::LearningService::new(
-                Arc::new(devtoolbox_infrastructure::LearningStoreAdapter::new(
-                    learning_store,
-                )),
-            )),
+            Arc::clone(&learning_os),
         ),
     );
     let dictionary = Arc::new(devtoolbox_application::language::LanguageService::new(
@@ -265,6 +269,7 @@ async fn main() -> ExitCode {
         dictionary,
         content,
         settings,
+        learning_os,
         news,
         news_ingest,
     );

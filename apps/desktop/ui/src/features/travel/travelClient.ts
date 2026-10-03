@@ -6,7 +6,7 @@
  * Gate 7 Application Boundary 范围，本 Client 不改变任何后端行为。
  */
 import type { CommandTransport } from "../../transport";
-import { tauriTransport } from "../../transport";
+import { defaultTransport } from "../../transport";
 import type {
   CityGuide,
   GuideSummary,
@@ -40,7 +40,7 @@ export interface TravelClient {
 }
 
 export function createTravelClient(
-  transport: CommandTransport = tauriTransport,
+  transport: CommandTransport = defaultTransport,
 ): TravelClient {
   return {
     recentGuides: () =>

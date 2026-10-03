@@ -9,7 +9,7 @@
  * 由页面捕获后展示「未配置 / 无数据」空态，写操作一律失败（绝不假装成功）。
  */
 import type { CommandTransport } from "../../transport";
-import { tauriTransport } from "../../transport";
+import { defaultTransport } from "../../transport";
 import type {
   DocumentHitDto,
   DocumentMetaDto,
@@ -83,7 +83,7 @@ export interface KnowledgeClient {
 }
 
 export function createKnowledgeClient(
-  transport: CommandTransport = tauriTransport,
+  transport: CommandTransport = defaultTransport,
 ): KnowledgeClient {
   const guard = () => {
     if (!transport.isTauriRuntime()) throw new Error(BROWSER_PREVIEW_MESSAGE);

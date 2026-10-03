@@ -10,7 +10,7 @@
  * - 全局跨模块 ⌘K 搜索
  */
 import type { CommandTransport } from "../../transport";
-import { tauriTransport } from "../../transport";
+import { defaultTransport } from "../../transport";
 import type {
   Collection,
   CollectionItem,
@@ -73,7 +73,7 @@ export interface LearningClient {
  * "已保存"，数据却不存在。假数据已全部移除。
  */
 export function createLearningClient(
-  transport: CommandTransport = tauriTransport
+  transport: CommandTransport = defaultTransport
 ): LearningClient {
   return {
     recordEvent: (event) =>

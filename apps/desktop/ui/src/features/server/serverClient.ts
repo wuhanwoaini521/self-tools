@@ -6,7 +6,7 @@
  * `confirmAction` 才真正执行（V7 §68/§69）。
  */
 import type { CommandTransport } from "../../transport";
-import { tauriTransport } from "../../transport";
+import { defaultTransport } from "../../transport";
 import type {
   ActionResultDto,
   AppListItemDto,
@@ -37,7 +37,7 @@ export interface ServerClient {
 }
 
 export function createServerClient(
-  transport: CommandTransport = tauriTransport,
+  transport: CommandTransport = defaultTransport,
 ): ServerClient {
   const guard = () => {
     if (!transport.isTauriRuntime()) {

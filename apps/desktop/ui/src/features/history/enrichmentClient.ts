@@ -4,7 +4,7 @@
  * 只读状态查询不触发生成；ensure/refresh 触发按需管线（后端单飞）。
  */
 import type { CommandTransport } from "../../transport";
-import { tauriTransport } from "../../transport";
+import { defaultTransport } from "../../transport";
 import type { EnrichmentSectionInfo, EnrichmentViewDto } from "../ai/aiTypes";
 
 export interface EnrichmentClient {
@@ -45,7 +45,7 @@ export interface EnrichmentClient {
 }
 
 export function createEnrichmentClient(
-  transport: CommandTransport = tauriTransport,
+  transport: CommandTransport = defaultTransport,
 ): EnrichmentClient {
   return {
     state: (entityType, entityId, locale) =>

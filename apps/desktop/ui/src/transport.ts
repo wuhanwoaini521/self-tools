@@ -116,6 +116,24 @@ const HTTP_ENDPOINTS: Record<string, (args: Record<string, unknown>) => string> 
   get_settings: () => "/api/v1/settings",
   personal_ai_status: () => "/api/v1/ai/status",
 
+  // ---- Learning OS：Collections / Graph / Review Center / Home 今日面板 ----
+  learning_list_progress: (a) =>
+    `/api/v1/learning/progress?module=${encodeURIComponent(String(a.moduleFilter ?? ""))}` +
+    `&status=${encodeURIComponent(String(a.statusFilter ?? ""))}` +
+    `&limit=${encodeURIComponent(String(a.limit ?? 50))}`,
+  learning_get_review_queue: (a) =>
+    `/api/v1/learning/review/queue?module=${encodeURIComponent(String(a.moduleFilter ?? ""))}` +
+    `&limit=${encodeURIComponent(String(a.limit ?? 30))}`,
+  learning_get_review_stats: () => "/api/v1/learning/review/stats",
+  learning_get_today: () => "/api/v1/learning/today",
+  learning_get_graph: (a) =>
+    `/api/v1/learning/graph?rootId=${encodeURIComponent(String(a.rootId ?? ""))}` +
+    `&hops=${encodeURIComponent(String(a.hops ?? 1))}`,
+  learning_get_explore: (a) =>
+    `/api/v1/learning/explore?limit=${encodeURIComponent(String(a.limit ?? 6))}`,
+  learning_list_collections: () => "/api/v1/learning/collections",
+  learning_list_collection_items: (a) =>
+    `/api/v1/learning/collections/${encodeURIComponent(String(a.collectionId))}/items`,
   // ---- News：推荐源目录在 core 里（纯函数），两端都读得到 ----
   news_recommended: () => "/api/v1/news/recommended",
   news_sources: () => "/api/v1/news/sources",
@@ -151,6 +169,14 @@ const HTTP_POST_ENDPOINTS: Record<
     `/api/v1/language/lessons/${encodeURIComponent(String(a.lessonId ?? ""))}/position`,
   save_settings: () => "/api/v1/settings",
   personal_ai_chat: () => "/api/v1/ai/chat",
+  learning_record_event: () => "/api/v1/learning/progress",
+  learning_create_collection: () => "/api/v1/learning/collections",
+  learning_add_collection_item: (a) =>
+    `/api/v1/learning/collections/${encodeURIComponent(String(a.collectionId))}/items`,
+  learning_remove_collection_item: () => "/api/v1/learning/collection-items/remove",
+  learning_submit_review: () => "/api/v1/learning/review",
+  language_add_collection_item: (a) =>
+    `/api/v1/learning/collections/${encodeURIComponent(String(a.collectionId))}/items`,
   news_add_source: () => "/api/v1/news/sources",
   news_toggle_star: (a) =>
     `/api/v1/news/articles/${encodeURIComponent(String(a.storyId))}/star`,
