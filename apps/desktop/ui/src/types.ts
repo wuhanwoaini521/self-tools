@@ -1276,6 +1276,8 @@ export interface LearningPlan {
   book_id: string | null;
   daily_minutes: number;
   new_words_per_day: number;
+  /** 用户导入教材时选择的源目录（界面据此显示「你的数据在哪」）。 */
+  nce_source_dir?: string | null;
   updated_at: number;
 }
 
@@ -1441,4 +1443,14 @@ export interface DictImportReport {
 export interface DictStatus {
   ready: boolean;
   count: number;
+}
+
+/** 学习资料现状（桌面端）：教材在哪、词典有多少、还缺什么。 */
+export interface DataStatus {
+  data_dir: string;
+  nce_source: string | null;
+  nce_books: number;
+  nce_lessons: number;
+  nce_lessons_with_audio: number;
+  dict_entries: number;
 }

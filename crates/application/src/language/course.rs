@@ -36,6 +36,56 @@ fn platform(error: LearningPortError) -> ApplicationError {
     err(error.to_string())
 }
 
+/// 数据现状：用户打开「导入」时最想知道的三个问题——
+/// 教材在哪、词典在哪、缺什么。
+#[derive(Clone, Debug, Serialize)]
+pub struct DataStatus {
+    /// 用户数据目录（教材/音频落地位置）。
+    pub data_dir: String,
+    /// 已导入教材的**来源目录**（首次导入时记下，之后界面直接显示）。
+    pub nce_source: Option<String>,
+    /// 已导入课程概览（册数 / 课时数 / 音频数）。
+    pub nce_books: usize,
+    pub nce_lessons: usize,
+    pub nce_lessons_with_audio: usize,
+    /// 已导入词典词条数。
+    pub dict_entries: i64,
+}
+
+/// 返回数据现状（只读，不改任何数据）。
+///
+/// 泛型接受任何 [`CourseStorePort`] 实现——应用层不依赖 infrastructure 的具体 store。
+pub fn data_status(store: &dyn CourseStorePort, data_dir: &std::path::Path) -> DataStatus {
+    let books = store.courses().unwrap_or_default();
+    let nce_books = books.iter().filter(|course| course.code == "nce").count();
+    let mut nce_lessons = 0usize;
+    let mut with_audio = 0usize;
+    for course in books.iter().filter(|course| course.code == "nce") {
+        for book in store.course_books(&course.id).unwrap_or_default() {
+            for entry in store.book_lessons(&book.id).unwrap_or_default() {
+                nce_lessons += 1;
+                if entry.lesson.audio_path.is_some() {
+                    with_audio += 1;
+                }
+            }
+        }
+    }
+    // 源目录在导入时记进计划（只用于界面显示「你的教材在哪」）。
+    let source = store
+        .learning_plan("eng")
+        .ok()
+        .flatten()
+        .and_then(|plan| plan.nce_source_dir);
+    DataStatus {
+        data_dir: data_dir.display().to_string(),
+        nce_source: source,
+        nce_books,
+        nce_lessons,
+        nce_lessons_with_audio: with_audio,
+        dict_entries: store.dict_count().unwrap_or(0),
+    }
+}
+
 // ============================================================================
 // 端口
 // ============================================================================

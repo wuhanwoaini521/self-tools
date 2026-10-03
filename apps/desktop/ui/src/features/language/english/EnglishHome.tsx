@@ -13,11 +13,11 @@ import {
   Clock,
   Fire,
   GearSix,
-  Lightning,
 } from "@phosphor-icons/react";
 import type {
   BookView,
   CourseBook,
+  DataStatus,
   LessonListEntry,
   TodayDashboard,
 } from "../../../types";
@@ -54,6 +54,21 @@ export function EnglishHome({
   onOpenPlan,
 }: EnglishHomeProps) {
   const [recentLessons, setRecentLessons] = useState<LessonListEntry[] | null>(null);
+  const [dataStatus, setDataStatus] = useState<DataStatus | null>(null);
+
+  // 资料现状只用于「提醒补齐数据」，失败不打扰学习。
+  useEffect(() => {
+    let alive = true;
+    englishClient
+      .dataStatus()
+      .then((value) => {
+        if (alive) setDataStatus(value);
+      })
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [dashboard]);
 
   // 「最近学习」从课程列表兜底（dashboard 已带 recent_lessons；这里仅在缺失时补）。
   useEffect(() => {
@@ -355,10 +370,32 @@ export function EnglishHome({
         </section>
       ) : null}
 
+      {dataStatus && dataStatus.nce_lessons > 0 && dataStatus.nce_lessons < 60 ? (
+        <section className="en-card en-data-nudge">
+          <div>
+            <h3>教材只有 {dataStatus.nce_lessons} 课（样本）</h3>
+            <p className="en-muted">
+              完整的新概念 1–4 一共 276 课。要学完，请在「学习资料」里导入完整教材文件夹。
+            </p>
+          </div>
+          <button type="button" className="en-ghost-btn" onClick={onOpenImport}>
+            打开学习资料
+          </button>
+        </section>
+      ) : null}
+
       {dashboard && !dashboard.dict_ready ? (
-        <p className="en-hint">
-          <Lightning size={14} /> 还没导入词典：生词现在只有英文，没有音标和中文释义。
-        </p>
+        <section className="en-card en-data-nudge">
+          <div>
+            <h3>还没有词典</h3>
+            <p className="en-muted">
+              导入 ECDICT 后，生词卡会有音标、中文释义与词频（现在只有英文单词）。
+            </p>
+          </div>
+          <button type="button" className="en-ghost-btn" onClick={onOpenImport}>
+            导入词典
+          </button>
+        </section>
       ) : null}
     </div>
   );

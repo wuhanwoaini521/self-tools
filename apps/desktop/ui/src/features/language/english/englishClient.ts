@@ -14,6 +14,7 @@ import { defaultTransport } from "../../../transport";
 import type {
   BookView,
   CourseBook,
+  DataStatus,
   DictImportReport,
   DictStatus,
   DictStatus as DictStatusType,
@@ -56,6 +57,8 @@ export interface EnglishClient {
   ): Promise<WordLookup>;
   dictLookup(word: string): Promise<WordEntry | null>;
   dictStatus(): Promise<DictStatusType>;
+  /** 学习资料现状（教材/词典在哪、缺什么）。 */
+  dataStatus(): Promise<DataStatus>;
 
   quiz(lessonId: string): Promise<QuizItem[]>;
   submitQuiz(lessonId: string, answers: QuizAnswer[]): Promise<QuizResult>;
@@ -110,6 +113,7 @@ export function createEnglishClient(
       }),
     dictLookup: (word) => transport.invoke<WordEntry | null>("language_dict_lookup", { word }),
     dictStatus: () => transport.invoke<DictStatus>("language_dict_status"),
+    dataStatus: () => transport.invoke<DataStatus>("language_data_status"),
 
     quiz: (lessonId) => transport.invoke<QuizItem[]>("language_course_quiz", { lessonId }),
     submitQuiz: (lessonId, answers) =>

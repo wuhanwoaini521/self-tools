@@ -13,8 +13,8 @@ use serde::Serialize;
 use tauri::{AppHandle, Emitter, State};
 
 use devtoolbox_application::language::course::{
-    BookView, CourseService, EnglishProgress, EnglishSearchResult, LessonDetail, ProgressPatch,
-    TodayDashboard, WordLookup,
+    BookView, CourseService, DataStatus, EnglishProgress, EnglishSearchResult, LessonDetail,
+    ProgressPatch, TodayDashboard, WordLookup,
 };
 use devtoolbox_application::language::{CourseStorePort, DictionaryService};
 use devtoolbox_application::learning::LearningService as PlatformLearningService;
@@ -315,6 +315,47 @@ pub fn language_lesson_audio(
 // 导入：NCE
 // ============================================================================
 
+/// 学习资料现状：教材在哪、词典有多少、还缺什么（只读，不改数据）。
+#[tauri::command]
+pub fn language_data_status(app: AppHandle) -> Result<DataStatus, CommandError> {
+    use tauri::Manager as _;
+    let data_dir = crate::project_config_directory_public(&app)?;
+    let state = app.state::<AppState>();
+    let store: Arc<dyn devtoolbox_application::language::CourseStorePort> = Arc::new(
+        composition::CourseStoreAdapter::new(Arc::clone(&state.language_store)),
+    );
+    Ok(devtoolbox_application::language::course::data_status(
+        store.as_ref(),
+        &data_dir,
+    ))
+}
+
+/// 读取英语学习计划（含教材源目录）；未设置时返回默认值。
+fn language_plan_read(
+    app: &AppHandle,
+) -> Result<devtoolbox_core::language::LearningPlan, CommandError> {
+    use tauri::Manager as _;
+    let state = app.state::<AppState>();
+    let store = state.language_store.lock();
+    Ok(store
+        .learning_plan("eng")
+        .map_err(|error| language_err("language_error", error.to_string()))?
+        .unwrap_or_default())
+}
+
+/// 写回英语学习计划。
+fn plan_write(
+    app: &AppHandle,
+    plan: devtoolbox_core::language::LearningPlan,
+) -> Result<(), CommandError> {
+    use tauri::Manager as _;
+    let state = app.state::<AppState>();
+    let store = state.language_store.lock();
+    store
+        .save_learning_plan(&plan)
+        .map_err(|error| language_err("language_error", error.to_string()))
+}
+
 /// 扫描 NCE 源文件夹（只读预览：找到几册几课、哪些缺音频/字幕）。
 #[tauri::command]
 pub fn language_nce_scan(
@@ -337,13 +378,14 @@ pub async fn language_nce_import(
     state: State<'_, AppState>,
     source_dir: String,
 ) -> Result<devtoolbox_infrastructure::language::NceImportReport, CommandError> {
-    let source = PathBuf::from(source_dir);
+    let source = PathBuf::from(source_dir.clone());
     if !source.is_dir() {
         return Err(language_err(
             "language_nce_bad_dir",
             format!("{} is not a directory", source.display()),
         ));
     }
+    let source_display = source_dir;
     let media_dir = crate::language_media_dir(&app)?;
     let cancel = Arc::clone(nce_cancel());
     cancel.store(false, Ordering::Relaxed);
@@ -365,7 +407,20 @@ pub async fn language_nce_import(
     .await
     .map_err(|error| language_err("language_nce_panic", error.to_string()))?
     .map_err(|error| language_err("language_nce_import", error))?;
+    // 记住用户选的目录：下次打开界面直接告诉他「你的教材在这里」。
+    if !report.cancelled {
+        remember_nce_source(&app, &source_display);
+    }
     Ok(report)
+}
+
+/// 把教材源目录写进英语学习计划（仅用于界面显示，不影响学习逻辑）。
+fn remember_nce_source(app: &AppHandle, source_dir: &str) {
+    if let Ok(mut plan) = language_plan_read(app) {
+        plan.nce_source_dir = Some(source_dir.to_string());
+        plan.updated_at = devtoolbox_infrastructure::now_unix();
+        let _ = plan_write(app, plan);
+    }
 }
 
 /// 取消正在进行的 NCE 导入。

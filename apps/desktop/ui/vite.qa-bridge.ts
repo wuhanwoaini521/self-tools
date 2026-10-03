@@ -30,6 +30,7 @@ const ENDPOINT_TEMPLATES: Record<string, string> = {
   language_course_lesson: "/__qa/api/v1/language/course/lesson/${lessonId}",
   language_course_progress: "/__qa/api/v1/language/course/progress",
   language_course_plan_get: "/__qa/api/v1/language/course/plan",
+
 };
 
 /**
@@ -142,13 +143,38 @@ const WRITE_STUBS: Record<string, unknown> = {
     finished_at: 0,
   },
   language_lesson_audio: null,
+  language_data_status: {
+    data_dir: "/Users/you/self-tools/config",
+    nce_source: "/Users/you/NCE",
+    nce_books: 2,
+    nce_lessons: 6,
+    nce_lessons_with_audio: 6,
+    dict_entries: 770611,
+  },
 };
 
-const BRIDGE_SOURCE = `window.__TAURI_INTERNALS__ = {
+const BRIDGE_SOURCE = `
+// 事件插件内部（Tauri API 的 listen/unlisten 依赖）：桥里没有真实事件源，记下即可。
+window.__TAURI_EVENT_PLUGIN_INTERNALS__ = {
+  unregisterListener: () => undefined,
+};
+window.__TAURI_INTERNALS__ = {
+  // Tauri API 内部依赖：把回调挂到 window 上并返回 id（真实运行时由 Rust 侧实现）。
+  transformCallback: (callback, once) => {
+    const id = Math.floor(Math.random() * 1e9);
+    Object.defineProperty(window, "_" + id, { value: callback, configurable: true });
+    if (once) {
+      window.addEventListener("unload", () => { delete window["_" + id]; }, { once: true });
+    }
+    return id;
+  },
+  unregisterCallback: (id) => { delete window["_" + id]; },
   invoke: async (cmd, args) => {
     const templates = ${JSON.stringify(ENDPOINT_TEMPLATES)};
     const stubs = ${JSON.stringify(WRITE_STUBS)};
     if (cmd in stubs) return stubs[cmd];
+    // 事件订阅/退订（agent 进度等）：桥里没有事件源，返回一个空句柄即可。
+    if (typeof cmd === "string" && cmd.startsWith("plugin:event|")) return 0;
     const template = templates[cmd];
     if (!template) throw new Error("qa-bridge: unsupported command " + cmd);
     const render = (source, params) => {

@@ -280,6 +280,8 @@ pub struct LearningPlan {
     pub daily_minutes: u32,
     /// 每日新词数。
     pub new_words_per_day: u32,
+    /// 用户导入教材时选择的**源目录**（只用于界面显示「你的数据在哪」）。
+    pub nce_source_dir: Option<String>,
     pub updated_at: i64,
 }
 
@@ -291,6 +293,7 @@ impl Default for LearningPlan {
             book_id: None,
             daily_minutes: 30,
             new_words_per_day: 10,
+            nce_source_dir: None,
             updated_at: 0,
         }
     }

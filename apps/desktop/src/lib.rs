@@ -189,6 +189,11 @@ pub(crate) fn language_media_dir(app: &AppHandle) -> Result<PathBuf, CommandErro
     Ok(project_config_directory(app)?.join("language").join("nce"))
 }
 
+/// 数据目录（导入界面要把它显示给用户）。
+pub(crate) fn project_config_directory_public(app: &AppHandle) -> Result<PathBuf, CommandError> {
+    project_config_directory(app)
+}
+
 fn project_config_directory(app: &AppHandle) -> Result<PathBuf, CommandError> {
     // Isolate native E2E runs from the developer's ignored project config/ databases.
     // This override is compiled only into the explicit E2E feature build.
@@ -2646,6 +2651,7 @@ pub fn run() {
             language_course::language_course_progress,
             language_course::language_course_search,
             language_course::language_lesson_audio,
+            language_course::language_data_status,
             language_course::language_nce_scan,
             language_course::language_nce_import,
             language_course::language_nce_cancel,

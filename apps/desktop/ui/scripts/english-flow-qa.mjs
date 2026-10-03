@@ -206,6 +206,40 @@ async function main() {
   );
   await shot(page, "12-ai-unavailable");
 
+  // ---- 11.5) 学习资料弹窗：必须回答「我的数据在哪」----
+  await goHome(page);
+  const importBtn = page.locator("button", { hasText: "学习资料" }).first();
+  const importCount = await importBtn.count();
+  if (importCount === 0) {
+    // 首页有「导入学习资料」引导时也接受
+    await page.locator(".en-primary-btn", { hasText: "导入新概念英语" }).first().click();
+  } else {
+    await importBtn.click();
+  }
+  await page.waitForSelector(".en-modal", { timeout: 10000 });
+  await page.waitForTimeout(1200);
+  const modalText = await page.locator(".en-modal").innerText();
+  record(
+    "资料弹窗显示「当前数据」现状",
+    modalText.includes("教材") && modalText.includes("词典"),
+  );
+  record(
+    "资料弹窗说明音频存放位置",
+    modalText.includes("音频存放位置") || modalText.includes("音频"),
+  );
+  record(
+    "资料弹窗给出目录结构示例",
+    modalText.includes("NCE1") && (modalText.includes(".lrc") || modalText.includes("lrc")),
+  );
+  record(
+    "资料弹窗说明数据怎么拿",
+    modalText.includes("怎么拿到教材和词典"),
+  );
+  await shot(page, "14-import-dialog");
+  await page.keyboard.press("Escape");
+  await page.locator(".en-modal-layer").click({ position: { x: 5, y: 5 } }).catch(() => undefined);
+  await page.waitForTimeout(400);
+
   // ---- 12) 窄屏布局 ----
   await page.setViewportSize({ width: 900, height: 800 });
   await page.waitForTimeout(500);

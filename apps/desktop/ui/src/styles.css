@@ -20244,3 +20244,108 @@ main.history-v2-period {
   font: var(--text-card-title);
   color: var(--text);
 }
+
+/* --- 学习资料弹窗：现状 / 路径 / 指引 ------------------------------------- */
+.en-import {
+  width: min(720px, 100%);
+}
+.en-import-section.is-status {
+  border-color: var(--line);
+}
+.en-data-rows {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.en-data-row {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-2);
+}
+.en-data-row dt {
+  font: var(--text-caption);
+  color: var(--muted);
+}
+.en-data-row dd {
+  margin: 0;
+  font: var(--text-body);
+  color: var(--text);
+}
+.en-data-row.is-missing dd {
+  color: var(--muted);
+}
+.en-data-row dd.is-path {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.en-data-row code,
+.en-import code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  background: var(--surface-sunken);
+  padding: 1px 5px;
+  border-radius: var(--radius-xs);
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+.en-import code.is-selected {
+  color: var(--accent);
+}
+.en-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: var(--space-2) 0 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  background: var(--surface-sunken);
+  font: var(--text-secondary);
+  color: var(--text);
+}
+.en-folder-shape {
+  margin: 0;
+  padding: var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+  border: 1px solid var(--line-soft);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  overflow-x: auto;
+}
+.en-import-section.is-help .en-help-list {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font: var(--text-secondary);
+  color: var(--muted);
+}
+.en-help-list b {
+  color: var(--text);
+}
+.en-help-list code {
+  color: var(--text);
+}
+
+/* 首页：数据未就绪时的引导 */
+.en-data-nudge {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  border-style: dashed;
+}
+.en-data-nudge h3 {
+  margin: 0 0 2px;
+  font: var(--text-card-title);
+  color: var(--text);
+}

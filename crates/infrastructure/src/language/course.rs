@@ -78,6 +78,7 @@ impl LanguageStore {
                     language TEXT PRIMARY KEY, course_id TEXT, book_id TEXT,
                     daily_minutes INTEGER NOT NULL DEFAULT 30,
                     new_words_per_day INTEGER NOT NULL DEFAULT 10,
+                    nce_source_dir TEXT,
                     updated_at INTEGER NOT NULL
                 );
                 CREATE TABLE IF NOT EXISTS dict_entries (
@@ -89,7 +90,29 @@ impl LanguageStore {
                 );
                 CREATE INDEX IF NOT EXISTS idx_dict_frq ON dict_entries(frq) WHERE frq > 0;",
             )
-            .map_err(sqlite)
+            .map_err(sqlite)?;
+        self.migrate_plan_source_dir()
+    }
+
+    /// 旧版 `language_plan` 没有 `nce_source_dir` 列：补上（幂等）。
+    fn migrate_plan_source_dir(&self) -> Result<(), InfrastructureError> {
+        let has_column = self
+            .conn()
+            .query_row(
+                "SELECT COUNT(*) FROM pragma_table_info('language_plan') WHERE name = 'nce_source_dir'",
+                [],
+                |row| row.get::<_, i64>(0),
+            )
+            .map_err(sqlite)?;
+        if has_column == 0 {
+            self.conn()
+                .execute(
+                    "ALTER TABLE language_plan ADD COLUMN nce_source_dir TEXT",
+                    [],
+                )
+                .map_err(sqlite)?;
+        }
+        Ok(())
     }
 
     // ====================================================================
@@ -722,7 +745,8 @@ impl LanguageStore {
     ) -> Result<Option<LearningPlan>, InfrastructureError> {
         self.conn()
             .query_row(
-                "SELECT language, course_id, book_id, daily_minutes, new_words_per_day, updated_at
+                "SELECT language, course_id, book_id, daily_minutes, new_words_per_day,
+                        nce_source_dir, updated_at
                  FROM language_plan WHERE language = ?1",
                 params![language],
                 |row| {
@@ -735,7 +759,8 @@ impl LanguageStore {
                         book_id: row.get(2)?,
                         daily_minutes: row.get(3)?,
                         new_words_per_day: row.get(4)?,
-                        updated_at: row.get(5)?,
+                        nce_source_dir: row.get(5)?,
+                        updated_at: row.get(6)?,
                     })
                 },
             )
@@ -747,12 +772,14 @@ impl LanguageStore {
         self.conn()
             .execute(
                 "INSERT INTO language_plan
-                    (language, course_id, book_id, daily_minutes, new_words_per_day, updated_at)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+                    (language, course_id, book_id, daily_minutes, new_words_per_day,
+                     nce_source_dir, updated_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
                  ON CONFLICT(language) DO UPDATE SET
                     course_id = excluded.course_id, book_id = excluded.book_id,
                     daily_minutes = excluded.daily_minutes,
                     new_words_per_day = excluded.new_words_per_day,
+                    nce_source_dir = excluded.nce_source_dir,
                     updated_at = excluded.updated_at",
                 params![
                     plan.language.code(),
@@ -760,6 +787,7 @@ impl LanguageStore {
                     plan.book_id,
                     plan.daily_minutes,
                     plan.new_words_per_day,
+                    plan.nce_source_dir,
                     plan.updated_at
                 ],
             )
@@ -1223,6 +1251,7 @@ mod tests {
                 book_id: Some("nce:2".into()),
                 daily_minutes: 45,
                 new_words_per_day: 15,
+                nce_source_dir: None,
                 updated_at: 42,
             })
             .expect("save");
