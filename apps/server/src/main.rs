@@ -6,6 +6,7 @@
 mod ai_api;
 mod history_query;
 mod language_api;
+mod news_api;
 mod routes;
 
 use std::net::SocketAddr;
@@ -217,12 +218,55 @@ async fn main() -> ExitCode {
         std::path::Path::new(&config.data_dir),
     ));
 
+    // News：读本地 news.db；抓取器用真实 HTTP（只有订阅时才联网）。
+    // news.db 缺失不阻断启动：News 端点逐请求返回可读错误，其余模块照常。
+    let news_store_path = config.data_dir.join("news.db");
+    let news_store = Arc::new(parking_lot::Mutex::new(
+        match devtoolbox_infrastructure::NewsRepository::open(&news_store_path) {
+            Ok(repository) => repository,
+            Err(error) => {
+                error!(
+                    "news database unavailable: {error} \
+                     (set {ENV_DATA_DIR} to the directory holding news.db)"
+                );
+                match devtoolbox_infrastructure::NewsRepository::open(&news_store_path) {
+                    Ok(repository) => repository,
+                    Err(fatal) => {
+                        error!("news database unusable: {fatal}");
+                        return ExitCode::from(3);
+                    }
+                }
+            }
+        },
+    ));
+    let news: Arc<devtoolbox_application::news::NewsService> =
+        Arc::new(devtoolbox_application::news::NewsService::new(Arc::new(
+            devtoolbox_infrastructure::NewsRepositoryAdapter::new(news_store),
+        )));
+    let feed_client = match devtoolbox_infrastructure::feed_fetcher::feed_client() {
+        Ok(client) => client,
+        Err(error) => {
+            // HTTP 客户端构造失败只影响「订阅时抓取」；推荐源目录与已入库文章照常可读。
+            error!("http client unavailable: {error}");
+            return ExitCode::from(3);
+        }
+    };
+    let news_ingest: Arc<dyn devtoolbox_application::news::NewsIngestPort> =
+        Arc::new(devtoolbox_application::news::NewsIngestService::new(
+            Arc::clone(&news),
+            // FeedFetcherPort 用 `-> impl Future` 声明，不是 dyn 兼容的；
+            // 与桌面端一致，泛型参数直接传具体类型。
+            devtoolbox_infrastructure::FeedFetcherAdapter::new(feed_client),
+        ));
+
     let app = routes::router(
         Arc::new(service),
         Arc::clone(&learning),
         dictionary,
         content,
         settings,
+        news,
+        news_ingest,
     );
     info!(
         bind = %config.bind,

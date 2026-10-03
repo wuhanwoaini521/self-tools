@@ -10,7 +10,7 @@
  * 不属于任一领域的用例。
  */
 import type { CommandTransport } from "../../transport";
-import { tauriTransport } from "../../transport";
+import { defaultTransport } from "../../transport";
 import type { NewsArticle, NewsOverview, NewsSource, RecommendedSource } from "../../types";
 
 export interface NewsClient {
@@ -53,7 +53,7 @@ export interface NewsClient {
 }
 
 export function createNewsClient(
-  transport: CommandTransport = tauriTransport,
+  transport: CommandTransport = defaultTransport,
 ): NewsClient {
   return {
     sources: () => transport.invoke<NewsOverview>("news_sources"),

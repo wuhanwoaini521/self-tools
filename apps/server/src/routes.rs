@@ -42,6 +42,8 @@ pub fn router(
     dictionary: Arc<devtoolbox_application::language::LanguageService>,
     content: Arc<dyn devtoolbox_application::language::LanguageStorePort>,
     settings: Arc<dyn crate::ai_api::SettingsAccess>,
+    news: Arc<devtoolbox_application::news::NewsService>,
+    news_ingest: Arc<dyn devtoolbox_application::news::NewsIngestPort>,
 ) -> Router {
     Router::new()
         .route("/health", get(health))
@@ -132,10 +134,34 @@ pub fn router(
         )
         .route("/api/v1/ai/status", get(crate::ai_api::ai_status))
         .route("/api/v1/ai/chat", post(crate::ai_api::ai_chat))
+        // ---- News：推荐源目录是 core 里的纯函数，网页端同样要能读到 ----
+        .route(
+            "/api/v1/news/recommended",
+            get(crate::news_api::recommended),
+        )
+        .route("/api/v1/news/sources", get(crate::news_api::sources))
+        .route("/api/v1/news/headlines", get(crate::news_api::headlines))
+        .route("/api/v1/news/search", get(crate::news_api::search))
+        .route("/api/v1/news/starred", get(crate::news_api::starred))
+        .route("/api/v1/news/sources", post(crate::news_api::add_source))
+        .route(
+            "/api/v1/news/sources/{id}/remove",
+            post(crate::news_api::remove_source),
+        )
+        .route(
+            "/api/v1/news/articles/{id}/star",
+            post(crate::news_api::toggle_star),
+        )
+        .route(
+            "/api/v1/news/articles/{id}/read",
+            post(crate::news_api::mark_read),
+        )
         .layer(axum::Extension(Arc::clone(&content)))
         .layer(axum::Extension(Arc::clone(&dictionary)))
         .layer(axum::Extension(Arc::clone(&learning)))
         .layer(axum::Extension(Arc::clone(&settings)))
+        .layer(axum::Extension(Arc::clone(&news)))
+        .layer(axum::Extension(Arc::clone(&news_ingest)))
         .layer(axum::Extension(
             None::<Arc<dyn crate::ai_api::AiChatRunner>>,
         ))
@@ -561,7 +587,31 @@ mod tests {
             )),
             content,
             Arc::new(TestSettings),
+            news_service(),
+            // 泛型参数直传具体类型：FeedFetcherPort 用 `-> impl Future` 声明，
+            // 不是 dyn 兼容的。
+            Arc::new(devtoolbox_application::news::NewsIngestService::new(
+                news_service(),
+                devtoolbox_infrastructure::FeedFetcherAdapter::new(
+                    devtoolbox_infrastructure::feed_fetcher::feed_client().expect("http client"),
+                ),
+            )) as Arc<dyn devtoolbox_application::news::NewsIngestPort>,
         )
+    }
+
+    /// News 测试装配：内存 news 库 + 不联网的抓取器。
+    fn news_service() -> Arc<devtoolbox_application::news::NewsService> {
+        Arc::new(devtoolbox_application::news::NewsService::new(Arc::new(
+            devtoolbox_infrastructure::NewsRepositoryAdapter::new(Arc::new(
+                parking_lot::Mutex::new(
+                    devtoolbox_infrastructure::NewsRepository::open(
+                        std::env::temp_dir()
+                            .join(format!("self-tools-test-news-{}.db", std::process::id())),
+                    )
+                    .expect("news store"),
+                ),
+            )),
+        )))
     }
 
     /// 设置测试替身（不碰磁盘）。

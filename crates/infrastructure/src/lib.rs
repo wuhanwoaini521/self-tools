@@ -57,7 +57,9 @@ pub use personal_ai::{
     AiModelConfig, ConversationSqliteStore, OpenAiCompatibleChatModelProvider, decode_tool_name,
     encode_tool_name, parse_chat_response,
 };
-pub use ports::{LanguageStoreAdapter, LearningStoreAdapter};
+pub use ports::{
+    FeedFetcherAdapter, LanguageStoreAdapter, LearningStoreAdapter, NewsRepositoryAdapter,
+};
 pub use rss_store::{ArticleRow, FeedRepository, FeedRow, now_unix};
 pub use server::ServerActionAuditSqlite;
 pub use settings_store::SettingsStore;

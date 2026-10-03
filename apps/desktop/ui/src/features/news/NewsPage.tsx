@@ -29,7 +29,7 @@ import type {
   NewsSource,
   RecommendedSource,
 } from "../../types";
-import { errorMessage, formatDateTime, formatRelativeTime, isTauriRuntime } from "../../utils";
+import { errorMessage, formatDateTime, formatRelativeTime } from "../../utils";
 import { newsClient } from "./newsClient";
 import { learningClient } from "../learning/learningClient";
 import { prepareRssContent, stripRssHtml } from "./newsContent";
@@ -88,7 +88,6 @@ export function NewsPage({
   // --- 数据加载 -----------------------------------------------------------
 
   const loadOverview = useCallback(async () => {
-    if (!isTauriRuntime()) return;
     try {
       const next = await newsClient.sources();
       setOverview(next);
@@ -101,7 +100,6 @@ export function NewsPage({
   }, [onUnreadChanged, setNotice]);
 
   const loadStories = useCallback(async () => {
-    if (!isTauriRuntime()) return;
     try {
       if (tab === "starred") {
         setStories(await newsClient.starred(100));
@@ -121,7 +119,6 @@ export function NewsPage({
 
   /** 触发一次抓取（news_refresh_now → RSS 摄取管道；本页不复制刷新逻辑）。 */
   const refresh = useCallback(async () => {
-    if (!isTauriRuntime()) return;
     setRefreshing(true);
     try {
       const report = await newsClient.refreshNow();
@@ -306,7 +303,6 @@ export function NewsPage({
   /** 推荐源只从后端目录取（URL 单一来源；不订阅 = 不抓取）。 */
   useEffect(() => {
     if (!active) return;
-    if (!isTauriRuntime()) return;
     let cancelled = false;
     void (async () => {
       try {
@@ -324,7 +320,6 @@ export function NewsPage({
   /** 订阅一个推荐源（走 RSS 摄取层；用户显式动作才写库）。 */
   const subscribe = useCallback(
     async (recommendation: RecommendedSource) => {
-      if (!isTauriRuntime()) return;
       try {
         await newsClient.addSource(recommendation.url, recommendation.category);
         setNotice(`已订阅 ${recommendation.name}`);
@@ -343,7 +338,6 @@ export function NewsPage({
   const addCustomSource = useCallback(async () => {
     const url = newSourceUrl.trim();
     if (!url) return;
-    if (!isTauriRuntime()) return;
     setAddingSource(true);
     try {
       const source = await newsClient.addSource(newSourceUrl.trim(), "general");

@@ -115,6 +115,27 @@ const HTTP_ENDPOINTS: Record<string, (args: Record<string, unknown>) => string> 
   // ---- 设置与 AI（与桌面端共用同一个 settings.json）----
   get_settings: () => "/api/v1/settings",
   personal_ai_status: () => "/api/v1/ai/status",
+
+  // ---- News：推荐源目录在 core 里（纯函数），两端都读得到 ----
+  news_recommended: () => "/api/v1/news/recommended",
+  news_sources: () => "/api/v1/news/sources",
+  news_starred: (a) =>
+    `/api/v1/news/starred?limit=${encodeURIComponent(String(a.limit ?? 20))}`,
+  news_search: (a) =>
+    `/api/v1/news/search?q=${encodeURIComponent(String(a.query ?? ""))}` +
+    `&limit=${encodeURIComponent(String(a.limit ?? 20))}`,
+  news_headlines: (a) => {
+    const scope = a.scope ?? "all";
+    const parts = [`scope=${encodeURIComponent(String(scope))}`];
+    if (a.sourceId !== undefined && a.sourceId !== null) {
+      parts.push(`source_id=${encodeURIComponent(String(a.sourceId))}`);
+    }
+    if (a.category !== undefined && a.category !== null) {
+      parts.push(`category=${encodeURIComponent(String(a.category))}`);
+    }
+    parts.push(`limit=${encodeURIComponent(String(a.limit ?? 30))}`);
+    return `/api/v1/news/headlines?${parts.join("&")}`;
+  },
 };
 
 /** 写操作：POST + JSON body。 */
@@ -130,6 +151,13 @@ const HTTP_POST_ENDPOINTS: Record<
     `/api/v1/language/lessons/${encodeURIComponent(String(a.lessonId ?? ""))}/position`,
   save_settings: () => "/api/v1/settings",
   personal_ai_chat: () => "/api/v1/ai/chat",
+  news_add_source: () => "/api/v1/news/sources",
+  news_toggle_star: (a) =>
+    `/api/v1/news/articles/${encodeURIComponent(String(a.storyId))}/star`,
+  news_mark_read: (a) =>
+    `/api/v1/news/articles/${encodeURIComponent(String(a.storyId))}/read`,
+  news_remove_source: (a) =>
+    `/api/v1/news/sources/${encodeURIComponent(String(a.sourceId))}/remove`,
 };
 
 /** 服务端错误体的可能形状（与 `apps/server` 的错误契约一致）。 */
