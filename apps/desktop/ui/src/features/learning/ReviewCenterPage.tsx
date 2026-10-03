@@ -117,7 +117,7 @@ export function ReviewCenterPage({ onNavigate, onAskAi }: ReviewCenterPageProps)
   }, [currentCard, isAnswerRevealed, submitting]);
 
   return (
-    <div className="review-center-page" style={{ padding: "24px 32px", maxWidth: 960, margin: "0 auto", minHeight: "100vh" }}>
+    <div className="review-center-page" style={{ padding: "24px 32px", maxWidth: 960, margin: "0 auto", minHeight: "100%" }}>
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
         <div>

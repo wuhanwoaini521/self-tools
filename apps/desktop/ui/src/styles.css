@@ -11955,7 +11955,9 @@ main.history-v2-period {
 }
 .geo-knowledge-index {
  align-self: start;
- max-height: calc(100vh - 156px);
+ /* 跟随容器可用高度；写死 calc(100vh - …) 会在工具栏高度变化时算错，
+    导致面板底部被裁。 */
+ max-height: 100%;
  padding: 10px;
  overflow: auto;
  border: 1px solid var(--line-soft);
@@ -18558,4 +18560,25 @@ main.history-v2-period {
  font-size: var(--text-card-title);
  font-weight: 600;
  color: var(--text-primary);
+}
+
+/* ==========================================================================
+ * 滚动边界修复（app-body）
+ *
+ * `.app-body` 是 grid 容器，只声明了列、没声明行 —— 那唯一一行是**隐式 auto 行**。
+ * auto 行按内容撑开，于是 `.app-content` / `.page-pane` 会长到比容器高；
+ * 而 `.app-shell` 是 `overflow: hidden`，多出来的那截被裁掉，
+ * 结果是**滚动容器的盒子伸到了可视区之外**，页面底部永远划不到
+ * （内容越长的页面越明显）。
+ *
+ * 显式声明 `minmax(0, 1fr)` 把行夹在容器高度内，`min-height: 0` 允许子元素
+ * 收缩，真正的滚动交给 `.page-pane > .page-scroll` 自己的 `overflow-y: auto`。
+ * ========================================================================== */
+.app-body {
+ grid-template-rows: minmax(0, 1fr);
+}
+.app-body > .app-nav,
+.app-body > .app-content {
+ min-height: 0;
+ max-height: 100%;
 }
