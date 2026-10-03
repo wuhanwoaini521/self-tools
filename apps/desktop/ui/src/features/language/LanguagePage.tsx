@@ -24,7 +24,7 @@ import type {
   StarterReport,
 } from "../../types";
 import type { AppContextPayload } from "../ai/aiTypes";
-import { errorMessage, isTauriRuntime } from "../../utils";
+import { errorMessage } from "../../utils";
 import { languageClient } from "./languageClient";
 import { Action, Chip, Panel, PanelBody, Skeleton } from "./LanguagePrimitives";
 import { ExplorePanel } from "./ExplorePanel";
@@ -104,14 +104,10 @@ export function LanguagePage({
   const [creatingLesson, setCreatingLesson] = useState(false);
 
   const bump = useCallback(() => setRefreshToken((n) => n + 1), []);
-  const runtime = isTauriRuntime();
 
   // ---------------------------------------------------------------- 语言列表
   const languages = useAsyncPanel<LanguageInfo[]>(
-    () =>
-      runtime
-        ? languageClient.languages()
-        : Promise.reject(new Error("语言词库需要桌面应用才能读取。")),
+    () => languageClient.languages(),
     [],
   );
 
@@ -305,14 +301,11 @@ export function LanguagePage({
   };
 
   const sentences = useAsyncPanel<SentenceRecord[]>(
-    () =>
-      runtime
-        ? languageClient.sentences(language, 30)
-        : Promise.resolve<SentenceRecord[]>([]),
+    () => languageClient.sentences(language, 30),
     [language, refreshToken],
   );
   const sources = useAsyncPanel<SourceInfo[]>(
-    () => (runtime ? languageClient.sources() : Promise.resolve<SourceInfo[]>([])),
+    () => languageClient.sources(),
     [refreshToken],
   );
 
@@ -472,15 +465,6 @@ export function LanguagePage({
           ))}
         </div>
       </header>
-
-      {!runtime ? (
-        <Panel title="需要桌面应用">
-          <p className="lang-empty">
-            语言词库来自本地 SQLite，只有桌面端能读。浏览器预览下所有数据面板都会显示各自的错误与重试，
-            界面本身仍可浏览。
-          </p>
-        </Panel>
-      ) : null}
 
       <div className="lang-panel">
         {tab === "study" ? (

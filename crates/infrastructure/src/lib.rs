@@ -26,6 +26,7 @@ pub mod study_board;
 pub mod travel;
 pub mod workspace_scanner;
 
+pub mod ports;
 pub use agents::{
     DEFAULT_BASE_URL, DEFAULT_MODEL, FakeJevTransport, JevConfig, JevDecisionProvider,
     JevHttpTransport, JevQuestion, JevRequestBody, JevResponseBody, JevTransport, JevUsage,
@@ -56,6 +57,7 @@ pub use personal_ai::{
     AiModelConfig, ConversationSqliteStore, OpenAiCompatibleChatModelProvider, decode_tool_name,
     encode_tool_name, parse_chat_response,
 };
+pub use ports::{LanguageStoreAdapter, LearningStoreAdapter};
 pub use rss_store::{ArticleRow, FeedRepository, FeedRow, now_unix};
 pub use server::ServerActionAuditSqlite;
 pub use settings_store::SettingsStore;

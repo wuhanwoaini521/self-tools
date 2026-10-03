@@ -1,14 +1,17 @@
 /**
  * Language 模块的前端命令客户端。
  *
- * 每个方法对应一个真实 Tauri 命令，参数键使用 Tauri v2 的顶层驼峰约定
- * （`entityId` / `cardId` / `stepIndex` …），与 `learningClient` 保持一致。
+ * 每个方法对应一个真实命令，参数键使用顶层驼峰约定
+ * （`entityId` / `cardId` / `stepIndex` …）。
+ *
+ * 桌面端走 Tauri IPC，网页端走本地只读 HTTP 服务（同一批 Rust 结构体，
+ * 见 `transport.ts` 的 `defaultTransport`），两端数据完全一致。
  *
  * 学习状态（掌握度 / 复习排期 / 事件流）**不在**这里：它由平台的
  * `learningClient` 提供，Language 只提供内容与「加入复习 / 答错记错题」的编排。
  */
 import type { CommandTransport } from "../../transport";
-import { tauriTransport } from "../../transport";
+import { defaultTransport } from "../../transport";
 import type {
   LanguageCode,
   LanguageInfo,
@@ -107,7 +110,7 @@ export interface LanguageClient {
 }
 
 export function createLanguageClient(
-  transport: CommandTransport = tauriTransport,
+  transport: CommandTransport = defaultTransport,
 ): LanguageClient {
   return {
     languages: () => transport.invoke<LanguageInfo[]>("language_languages"),

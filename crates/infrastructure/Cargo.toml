@@ -10,6 +10,7 @@ description = "DevToolbox local filesystem and settings adapters."
 [dependencies]
 async-trait = "0.1"
 duckdb = { version = "1.4", features = ["bundled"] }
+devtoolbox-application = { path = "../application" }
 devtoolbox-core = { path = "../core" }
 encoding_rs = "0.8"
 feed-rs.workspace = true
@@ -31,6 +32,4 @@ zip.workspace = true
 workspace = true
 
 [dev-dependencies]
-devtoolbox-application = { path = "../application" }
 tokio = { version = "1", features = ["macros", "rt", "rt-multi-thread", "time"] }
-

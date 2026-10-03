@@ -133,7 +133,7 @@ pub struct AppState {
     pub travel_store: Arc<Mutex<TravelStore>>,
     pub travel_registry: TravelSessionRegistry,
     pub history_duckdb: Arc<HistoryDuckDbRepository>,
-    pub language_store: Arc<Mutex<LanguageStore>>,
+    pub language_store: Arc<parking_lot::Mutex<LanguageStore>>,
     pub geography_store: Arc<Mutex<GeographyStore>>,
     pub client: reqwest::Client,
     /// Personal AI 注册中心（Gates 2/5：History 标准模块已注册）。
@@ -2314,7 +2314,7 @@ pub fn run() {
                 .expect("open language database");
             let geography_store = GeographyStore::open(config_directory.join("geography.db"))
                 .expect("open geography database");
-            let language_store_shared = Arc::new(Mutex::new(language_store));
+            let language_store_shared = Arc::new(parking_lot::Mutex::new(language_store));
             let geography_store_shared = Arc::new(Mutex::new(geography_store));
             let client = feed_client().expect("build http client");
             let rss_repository: Arc<dyn RssRepositoryPort> = Arc::new(
@@ -2461,7 +2461,7 @@ pub fn run() {
                     Arc::clone(&rss_service),
                     composition::FeedFetcherAdapter::new(client.clone()),
                 ));
-            let learning_store_raw = Arc::new(Mutex::new(
+            let learning_store_raw = Arc::new(parking_lot::Mutex::new(
                 devtoolbox_infrastructure::LearningStore::open(
                     config_directory.join("learning.db"),
                 )

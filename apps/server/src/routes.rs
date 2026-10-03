@@ -12,7 +12,7 @@ use std::sync::Arc;
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
-use axum::routing::get;
+use axum::routing::{get, post};
 use axum::{Json, Router};
 use serde::Serialize;
 use serde_json::json;
@@ -34,9 +34,14 @@ pub struct ErrorBody {
     pub message: String,
 }
 
-/// 组装全部路由（服务由组合根注入，测试可替换为假实现）。
+/// 组装全部路由：History + Language（由组合根注入服务与存储）。
 #[must_use = "router must be served"]
-pub fn router(service: Arc<HistoryService>) -> Router {
+pub fn router(
+    service: Arc<HistoryService>,
+    learning: Arc<devtoolbox_application::language::LanguageLearningService>,
+    dictionary: Arc<devtoolbox_application::language::LanguageService>,
+    content: Arc<dyn devtoolbox_application::language::LanguageStorePort>,
+) -> Router {
     Router::new()
         .route("/health", get(health))
         .route("/api/v1/history/home", get(home))
@@ -46,7 +51,89 @@ pub fn router(service: Arc<HistoryService>) -> Router {
         .route("/api/v1/history/people/{id}", get(person))
         .route("/api/v1/history/works/{id}", get(work))
         .route("/api/v1/history/stories/{id}", get(story))
+        .route(
+            "/api/v1/language/languages",
+            get(crate::language_api::languages),
+        )
+        .route(
+            "/api/v1/language/sources",
+            get(crate::language_api::sources),
+        )
+        .route("/api/v1/language/search", get(crate::language_api::search))
+        .route(
+            "/api/v1/language/sentences",
+            get(crate::language_api::sentences),
+        )
+        .route(
+            "/api/v1/language/sentences/{id}/study",
+            get(crate::language_api::sentence_study),
+        )
+        .route(
+            "/api/v1/language/items/{id}",
+            get(crate::language_api::learning_item),
+        )
+        .route(
+            "/api/v1/language/detail/{id}",
+            get(crate::language_api::item_detail),
+        )
+        .route(
+            "/api/v1/language/study-queue",
+            get(crate::language_api::study_queue),
+        )
+        .route(
+            "/api/v1/language/study",
+            post(crate::language_api::record_study),
+        )
+        .route(
+            "/api/v1/language/add-to-review",
+            post(crate::language_api::add_to_review),
+        )
+        .route(
+            "/api/v1/language/review-queue",
+            get(crate::language_api::review_queue),
+        )
+        .route(
+            "/api/v1/language/review",
+            post(crate::language_api::submit_review),
+        )
+        .route(
+            "/api/v1/language/mistakes",
+            get(crate::language_api::mistakes),
+        )
+        .route(
+            "/api/v1/language/lessons",
+            get(crate::language_api::lessons).post(crate::language_api::create_lesson),
+        )
+        .route(
+            "/api/v1/language/lessons/{id}",
+            get(crate::language_api::lesson),
+        )
+        .route(
+            "/api/v1/language/lessons/{id}/position",
+            post(crate::language_api::save_lesson_position),
+        )
+        .route(
+            "/api/v1/language/continue",
+            get(crate::language_api::continue_lessons),
+        )
+        .route(
+            "/api/v1/language/progress",
+            get(crate::language_api::progress),
+        )
+        .route(
+            "/api/v1/language/weak-items",
+            get(crate::language_api::weak_items),
+        )
+        .layer(axum::Extension(Arc::clone(&content)))
+        .layer(axum::Extension(Arc::clone(&dictionary)))
+        .layer(axum::Extension(Arc::clone(&learning)))
         .with_state(AppState { service })
+        // 显式擦除成 `Arc<dyn Fn()>`：`Extension<T>` 按具体类型匹配，
+        // `Arc<fn() -> i64>` 与 `Arc<dyn Fn() -> i64 + Send + Sync>` 不是同一个类型。
+        .layer(axum::Extension(
+            Arc::new(devtoolbox_infrastructure::now_unix as fn() -> i64)
+                as Arc<dyn Fn() -> i64 + Send + Sync>,
+        ))
 }
 
 async fn health() -> Json<serde_json::Value> {
@@ -425,10 +512,125 @@ mod tests {
         }
     }
 
+    /// 历史路由测试用的装配：Language 侧给内存库（这些用例只断言 history）。
     fn test_router(fail_all: bool) -> axum::Router {
-        router(Arc::new(HistoryService::new(Box::new(FakeHistory {
-            fail_all,
-        }))))
+        let language_store = Arc::new(parking_lot::Mutex::new(
+            devtoolbox_infrastructure::LanguageStore::open(std::env::temp_dir().join(format!(
+                "self-tools-test-language-{}.db",
+                std::process::id()
+            )))
+            .expect("language store"),
+        ));
+        let content: Arc<dyn devtoolbox_application::language::LanguageStorePort> = Arc::new(
+            devtoolbox_infrastructure::LanguageStoreAdapter::new(language_store),
+        );
+        let learning_store = Arc::new(parking_lot::Mutex::new(
+            devtoolbox_infrastructure::LearningStore::open(std::env::temp_dir().join(format!(
+                "self-tools-test-learning-{}.db",
+                std::process::id()
+            )))
+            .expect("learning store"),
+        ));
+        let learning = Arc::new(
+            devtoolbox_application::language::LanguageLearningService::new(
+                Arc::clone(&content),
+                Arc::new(devtoolbox_application::learning::LearningService::new(
+                    Arc::new(devtoolbox_infrastructure::LearningStoreAdapter::new(
+                        learning_store,
+                    )),
+                )),
+            ),
+        );
+        router(
+            Arc::new(HistoryService::new(Box::new(FakeHistory { fail_all }))),
+            learning,
+            Arc::new(devtoolbox_application::language::LanguageService::new(
+                Arc::clone(&content),
+            )),
+            content,
+        )
+    }
+
+    /// 契约护栏：前端 `transport.ts` 的 GET 映射必须与服务端路由一一对应。
+    /// 少注册一个，网页端对应功能就是「静默 404」。
+    #[test]
+    fn language_endpoints_are_registered() {
+        let router = test_router(false);
+        let source = include_str!("routes.rs");
+        for path in [
+            "/api/v1/language/languages",
+            "/api/v1/language/sources",
+            "/api/v1/language/search",
+            "/api/v1/language/sentences",
+            "/api/v1/language/items/{id}",
+            "/api/v1/language/detail/{id}",
+            "/api/v1/language/study-queue",
+            "/api/v1/language/study",
+            "/api/v1/language/add-to-review",
+            "/api/v1/language/review-queue",
+            "/api/v1/language/review",
+            "/api/v1/language/mistakes",
+            "/api/v1/language/lessons",
+            "/api/v1/language/continue",
+            "/api/v1/language/progress",
+            "/api/v1/language/weak-items",
+        ] {
+            assert!(source.contains(path), "路由未注册：{path}");
+        }
+        let _ = router;
+    }
+
+    /// 请求体键必须是驼峰（与前端 transport 的参数约定一致），
+    /// 否则每个写操作都会 422。
+    #[tokio::test]
+    async fn study_accepts_camel_case_body() {
+        let app = test_router(false);
+        let (status, body) = post_json(
+            &app,
+            "/api/v1/language/study",
+            &serde_json::json!({ "entityId": "jmdict:nope", "action": "study" }),
+        )
+        .await;
+        // id 不存在 → 404（说明**成功反序列化**了请求体，否则会是 422）
+        assert_eq!(status, StatusCode::NOT_FOUND, "body={body}");
+        assert_eq!(body["code"], "not_found");
+    }
+
+    #[tokio::test]
+    async fn study_rejects_unknown_language_code() {
+        let app = test_router(false);
+        let (status, _) = get_query(&app, "/api/v1/language/study-queue?language=klingon").await;
+        assert_eq!(status, StatusCode::BAD_REQUEST);
+    }
+
+    #[tokio::test]
+    async fn language_item_unknown_id_returns_not_found() {
+        let app = test_router(false);
+        let (status, body) = request(&app, "/api/v1/language/items/nope").await;
+        assert_eq!(status, StatusCode::NOT_FOUND);
+        assert_eq!(body["code"], "not_found");
+    }
+
+    async fn post_json(app: &axum::Router, uri: &str, payload: &Value) -> (StatusCode, Value) {
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri(uri)
+                    .header("content-type", "application/json")
+                    .body(axum::body::Body::from(payload.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let status = response.status();
+        let body = to_bytes(response.into_body(), 1 << 20).await.unwrap();
+        (status, serde_json::from_slice(&body).unwrap_or(Value::Null))
+    }
+
+    async fn get_query(app: &axum::Router, uri: &str) -> (StatusCode, Value) {
+        request(app, uri).await
     }
 
     async fn request(app: &axum::Router, uri: &str) -> (StatusCode, Value) {

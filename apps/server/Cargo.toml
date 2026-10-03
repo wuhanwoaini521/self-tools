@@ -9,7 +9,8 @@ rust-version.workspace = true
 devtoolbox-application = { path = "../../crates/application" }
 devtoolbox-core = { path = "../../crates/core" }
 devtoolbox-infrastructure = { path = "../../crates/infrastructure" }
-axum = "0.8"
+axum = { version = "0.8", features = ["macros"] }
+parking_lot.workspace = true
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal", "net"] }
 serde = { workspace = true }
 serde_json = { workspace = true }

@@ -437,7 +437,7 @@ mod tests {
                 .expect("open language database");
         let language = Arc::new(devtoolbox_application::language::LanguageService::new(
             Arc::new(crate::composition::LanguageStoreAdapter::new(Arc::new(
-                std::sync::Mutex::new(language_store),
+                parking_lot::Mutex::new(language_store),
             ))),
         ));
         KnowledgeRuntime::build(directory, loader, KnowledgeBudget::default(), language)

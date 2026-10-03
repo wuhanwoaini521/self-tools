@@ -54,10 +54,7 @@ pub fn language_install_starter(
     state: State<'_, AppState>,
     only: Option<String>,
 ) -> Result<StarterReport, CommandError> {
-    let mut store = state
-        .language_store
-        .lock()
-        .expect("language store poisoned");
+    let mut store = state.language_store.lock();
     devtoolbox_infrastructure::language::starter::install_starter(&mut store, only.as_deref())
         .map_err(|error| CommandError {
             code: "language_error",

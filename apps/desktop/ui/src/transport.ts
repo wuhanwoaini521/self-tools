@@ -78,6 +78,53 @@ const HTTP_ENDPOINTS: Record<string, (args: Record<string, unknown>) => string> 
     `/api/v1/history/works/${encodeURIComponent(String(a.workId ?? ""))}`,
   history_semantic_search: (a) =>
     `/api/v1/history/search?q=${encodeURIComponent(String(a.query ?? ""))}`,
+
+  // ---- Language：与桌面端同一个 LanguageService / LanguageLearningService ----
+  language_languages: () => "/api/v1/language/languages",
+  language_sources: () => "/api/v1/language/sources",
+  language_search: (a) =>
+    `/api/v1/language/search?language=${encodeURIComponent(String(a.language ?? "jpn"))}` +
+    `&q=${encodeURIComponent(String(a.query ?? ""))}` +
+    `&limit=${encodeURIComponent(String(a.limit ?? 30))}`,
+  language_item: (a) => `/api/v1/language/detail/${encodeURIComponent(String(a.id ?? ""))}`,
+  language_sentences: (a) =>
+    `/api/v1/language/sentences?language=${encodeURIComponent(String(a.language ?? "jpn"))}` +
+    `&limit=${encodeURIComponent(String(a.limit ?? 20))}`,
+  language_learning_item: (a) =>
+    `/api/v1/language/items/${encodeURIComponent(String(a.entityId ?? ""))}`,
+  language_sentence_study: (a) =>
+    `/api/v1/language/sentences/${encodeURIComponent(String(a.sentenceId ?? ""))}/study`,
+  language_study_queue: (a) =>
+    `/api/v1/language/study-queue?language=${encodeURIComponent(String(a.language ?? "jpn"))}` +
+    `&limit=${encodeURIComponent(String(a.limit ?? 20))}`,
+  language_review_queue: (a) =>
+    `/api/v1/language/review-queue?limit=${encodeURIComponent(String(a.limit ?? 20))}`,
+  language_mistakes: (a) =>
+    `/api/v1/language/mistakes?limit=${encodeURIComponent(String(a.limit ?? 50))}`,
+  language_progress: (a) =>
+    `/api/v1/language/progress?limit=${encodeURIComponent(String(a.limit ?? 100))}`,
+  language_weak_items: (a) =>
+    `/api/v1/language/weak-items?limit=${encodeURIComponent(String(a.limit ?? 8))}`,
+  language_lessons: (a) =>
+    `/api/v1/language/lessons?language=${encodeURIComponent(String(a.language ?? "jpn"))}` +
+    `&limit=${encodeURIComponent(String(a.limit ?? 20))}`,
+  language_lesson: (a) =>
+    `/api/v1/language/lessons/${encodeURIComponent(String(a.lessonId ?? ""))}`,
+  language_continue_lessons: (a) =>
+    `/api/v1/language/continue?limit=${encodeURIComponent(String(a.limit ?? 5))}`,
+};
+
+/** 写操作：POST + JSON body。 */
+const HTTP_POST_ENDPOINTS: Record<
+  string,
+  (args: Record<string, unknown>) => string
+> = {
+  language_record_study: () => "/api/v1/language/study",
+  language_add_to_review: () => "/api/v1/language/add-to-review",
+  language_submit_review: () => "/api/v1/language/review",
+  language_create_lesson: () => "/api/v1/language/lessons",
+  language_save_lesson_position: (a) =>
+    `/api/v1/language/lessons/${encodeURIComponent(String(a.lessonId ?? ""))}/position`,
 };
 
 /** 服务端错误体的可能形状（与 `apps/server` 的错误契约一致）。 */
@@ -96,14 +143,21 @@ function readErrorMessage(payload: unknown, fallback: string): string {
 /** HTTP 实现：把命令映射到本地只读服务的 REST 端点。 */
 export const httpTransport: CommandTransport = {
   invoke: async <T,>(command: string, args: Record<string, unknown> = {}): Promise<T> => {
+    const post = HTTP_POST_ENDPOINTS[command];
     const endpoint = HTTP_ENDPOINTS[command];
-    if (!endpoint) {
+    if (!post && !endpoint) {
       throw new Error(`「${command}」尚无网页端接口，请启动桌面应用使用该功能。`);
     }
-    const url = endpoint(args);
+    const url = (post ?? endpoint)(args);
     let response: Response;
     try {
-      response = await fetch(url, { headers: { Accept: "application/json" } });
+      response = post !== undefined
+        ? await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Accept: "application/json" },
+            body: JSON.stringify(args),
+          })
+        : await fetch(url, { headers: { Accept: "application/json" } });
     } catch (error) {
       throw new Error(
         `无法连接本地数据服务（${url}）：${

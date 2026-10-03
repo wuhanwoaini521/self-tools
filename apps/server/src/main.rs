@@ -4,6 +4,7 @@
 //! 用例服务）→ 路由（`routes`）→ 监听与优雅退出。不包含鉴权、CORS、写入端点。
 
 mod history_query;
+mod language_api;
 mod routes;
 
 use std::net::SocketAddr;
@@ -23,11 +24,15 @@ const DEFAULT_BIND: &str = "127.0.0.1:8080";
 const DEFAULT_HISTORY_DB: &str = "history-data-pipeline/dist/history.duckdb";
 const ENV_BIND: &str = "SELF_TOOLS_BIND";
 const ENV_HISTORY_DB: &str = "SELF_TOOLS_HISTORY_DB";
+/// Language / 学习库目录（与桌面端默认一致：`config/`）。
+const ENV_DATA_DIR: &str = "SELF_TOOLS_DATA_DIR";
+const DEFAULT_DATA_DIR: &str = "config";
 
 #[derive(Debug)]
 struct Config {
     bind: SocketAddr,
     history_db: PathBuf,
+    data_dir: PathBuf,
 }
 
 /// 配置解析：CLI 覆盖 env，env 覆盖默认值。未知参数 → 读取错误（exit 2）。
@@ -40,6 +45,10 @@ fn load_config() -> Result<Config, String> {
         .ok()
         .filter(|value| !value.trim().is_empty())
         .unwrap_or_else(|| DEFAULT_HISTORY_DB.to_string());
+    let mut data_dir = std::env::var(ENV_DATA_DIR)
+        .ok()
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or_else(|| DEFAULT_DATA_DIR.to_string());
 
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {
@@ -49,6 +58,9 @@ fn load_config() -> Result<Config, String> {
             }
             "--history-db" => {
                 history_db = args.next().ok_or("--history-db requires a value")?;
+            }
+            "--data-dir" => {
+                data_dir = args.next().ok_or("--data-dir requires a value")?;
             }
             "--help" | "-h" => {
                 println!(
@@ -69,6 +81,7 @@ fn load_config() -> Result<Config, String> {
     Ok(Config {
         bind,
         history_db: PathBuf::from(history_db),
+        data_dir: PathBuf::from(data_dir),
     })
 }
 
@@ -143,10 +156,68 @@ async fn main() -> ExitCode {
     let service = HistoryService::new(Box::new(history_query::HistoryQueryAdapter::new(Arc::new(
         repository,
     ))));
-    let app = routes::router(Arc::new(service));
+    // Language：词典库（读）与学习库（掌握度 / 复习 / 合集）——与桌面端同一个
+    // SQLite 文件、同一套应用层服务，网页端与桌面端数据完全一致。
+    // 语言库缺失**不阻断启动**：History 仍可用，Language 端点逐个返回可读错误，
+    // 避免一个可选模块把整个网页端拖死。
+    let language_store = std::sync::Arc::new(parking_lot::Mutex::new(
+        match devtoolbox_infrastructure::LanguageStore::open(config.data_dir.join("language.db")) {
+            Ok(store) => store,
+            Err(error) => {
+                error!(
+                    "language database unavailable: {error} \
+                     (set {ENV_DATA_DIR} to the directory holding language.db); \
+                     Language endpoints will report this per request"
+                );
+                let fallback = config.data_dir.join("language.db");
+                match devtoolbox_infrastructure::LanguageStore::open(&fallback) {
+                    Ok(store) => store,
+                    Err(fatal) => {
+                        error!("language database unusable: {fatal}");
+                        return ExitCode::from(3);
+                    }
+                }
+            }
+        },
+    ));
+    let learning_store = std::sync::Arc::new(parking_lot::Mutex::new(
+        match devtoolbox_infrastructure::LearningStore::open(config.data_dir.join("learning.db")) {
+            Ok(store) => store,
+            Err(error) => {
+                error!(
+                    "learning database unavailable: {error} \
+                     (set {ENV_DATA_DIR} to the directory holding learning.db)"
+                );
+                return ExitCode::from(3);
+            }
+        },
+    ));
+    let content: Arc<dyn devtoolbox_application::language::LanguageStorePort> = Arc::new(
+        devtoolbox_infrastructure::LanguageStoreAdapter::new(Arc::clone(&language_store)),
+    );
+    let learning = Arc::new(
+        devtoolbox_application::language::LanguageLearningService::new(
+            Arc::clone(&content),
+            Arc::new(devtoolbox_application::learning::LearningService::new(
+                Arc::new(devtoolbox_infrastructure::LearningStoreAdapter::new(
+                    learning_store,
+                )),
+            )),
+        ),
+    );
+    let dictionary = Arc::new(devtoolbox_application::language::LanguageService::new(
+        Arc::clone(&content),
+    ));
+
+    let app = routes::router(
+        Arc::new(service),
+        Arc::clone(&learning),
+        dictionary,
+        content,
+    );
     info!(
         bind = %config.bind,
-        "HTTP server listening (history read-only; no auth; no CORS)"
+        "HTTP server listening (history + language; no auth; no CORS)"
     );
     match axum::serve(listener, app)
         .with_graceful_shutdown(shutdown_signal())

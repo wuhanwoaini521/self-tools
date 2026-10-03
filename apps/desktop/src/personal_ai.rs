@@ -243,7 +243,7 @@ mod tests {
         .expect("open language database");
         let language = Arc::new(devtoolbox_application::language::LanguageService::new(
             Arc::new(crate::composition::LanguageStoreAdapter::new(Arc::new(
-                std::sync::Mutex::new(language_store),
+                parking_lot::Mutex::new(language_store),
             ))),
         ));
         let knowledge = crate::knowledge::KnowledgeRuntime::build(
@@ -289,7 +289,7 @@ mod tests {
             devtoolbox_infrastructure::GeographyStore::open(directory.path().join("geography.db"))
                 .expect("geography store"),
         ));
-        let language_store = Arc::new(Mutex::new(
+        let language_store = Arc::new(parking_lot::Mutex::new(
             devtoolbox_infrastructure::LanguageStore::open(directory.path().join("language.db"))
                 .expect("language store"),
         ));
