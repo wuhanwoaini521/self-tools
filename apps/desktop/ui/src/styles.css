@@ -1690,26 +1690,17 @@ button {
   border-radius: var(--radius-control);
 }
 
-/* ===== 阅读卡：点阵底纹 + 悬浮（News / RSS 共用一套）=====
+/* ===== 阅读卡（News / RSS 共用一套）=====
    整篇一个框，标题区与正文同处其中。
-   点阵沿用 Pixel-Lift 的像素语汇（4px/1px 硬点），但阅读面是常驻大面积，
-   比卡片 hover 纹更疏（8px 网格）、更淡（22%）：只做质感，不与正文争视线。
-   投影同样是硬边像素风（零模糊），与全站 lift 层同一种语言。 */
+   白底 + 极轻边框 + 极轻阴影；去掉此前的点阵底纹与两层硬边投影
+   （`--pixel-depth-1` 已随 Pixel-Lift 一并移除，这里是最后一处残留）。 */
 .news-reading,
 .rss-reading {
-  padding: 24px;
+  padding: var(--space-6);
   border: 1px solid var(--line);
-  border-radius: var(--radius-overlay);
-  background-color: var(--panel);
-  background-image: radial-gradient(
-    color-mix(in srgb, var(--line-hover) 22%, transparent) 1px,
-    transparent 1px
-  );
-  background-size: 8px 8px;
-  background-repeat: repeat;
-  box-shadow:
-    4px 4px 0 color-mix(in srgb, var(--pixel-depth-1) 45%, transparent),
-    8px 8px 0 color-mix(in srgb, var(--accent) 12%, transparent);
+  border-radius: var(--radius-lg);
+  background-color: var(--panel-raised);
+  box-shadow: var(--shadow-xs);
 }
 
 /* ===== 阅读排版（News / RSS 共用一套）=====
@@ -2140,24 +2131,21 @@ button {
   gap: 8px;
   height: 42px;
   padding: 0 20px;
-  border: 1px solid var(--accent-selected-border);
-  border-radius: var(--radius-control);
-  background: linear-gradient(
-    180deg,
-    var(--accent-grad-a),
-    var(--accent-grad-b)
-  );
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  /* 实心强调色，不用渐变（参考图：不做大面积渐变）。 */
+  background: var(--accent);
   color: var(--text-on-accent);
   font-size: 14px;
-  font-weight: 750;
+  font-weight: 600;
   white-space: nowrap;
   cursor: pointer;
   transition: opacity 0.15s ease, transform 0.15s ease;
 }
 
 .travel-submit-btn:hover:not(:disabled) {
-  opacity: 0.92;
-  transform: translateY(-1px);
+  border-color: var(--accent-hover);
+  background: var(--accent-hover);
 }
 
 .travel-submit-btn:disabled {
@@ -2394,15 +2382,18 @@ button {
 }
 
 .travel-feature-card .feature-icon {
-  font-size: 24px;
-  margin-bottom: 8px;
+  /* icon 是 <svg>：用 width/height 固定，不能靠 font-size（会被继承放大）。 */
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+  color: var(--icon-muted);
 }
 
 .travel-feature-card h3 {
   margin: 0 0 6px;
-  color: var(--text-heading);
-  font-size: 14px;
-  font-weight: 750;
+  color: var(--text-primary);
+  font-size: 15px;
+  font-weight: 600;
 }
 
 .travel-feature-card p {
@@ -4643,14 +4634,9 @@ button {
  min-width: 0;
 }
 .view-actions button.active {
- border-color: var(--accent-border-active);
- background: linear-gradient(
-  180deg,
-  var(--accent-grad-a),
-  var(--accent-grad-b)
- );
+ border-color: var(--accent);
+ background: var(--accent);
  color: var(--text-on-accent);
- box-shadow: inset 0 1px 0 var(--inset-highlight);
 }
 .view-actions button.active svg {
  color: var(--text-on-accent);
@@ -18179,12 +18165,12 @@ main.history-v2-period {
 }
 /* 默认按钮：白底 + 极轻边框，不做位移也不叠硬阴影。
    导航项是列表项不是控件（默认无边框无背景），必须排除。 */
-.app-shell button:not([class*="lang-primary"]):not([class*="primary"]):not(.app-nav-item):not(.app-bottom-nav-item) {
+.app-shell button:not([class*="lang-primary"]):not([class*="primary"]):not(.app-nav-item):not(.app-bottom-nav-item):not(.travel-submit-btn):not(.travel-research-again) {
  border: 1px solid var(--line);
  background: var(--surface-control);
  color: var(--text);
 }
-.app-shell button:not([class*="lang-primary"]):not([class*="primary"]):not(.app-nav-item):not(.app-bottom-nav-item):hover:not(:disabled) {
+.app-shell button:not([class*="lang-primary"]):not([class*="primary"]):not(.app-nav-item):not(.app-bottom-nav-item):not(.travel-submit-btn):not(.travel-research-again):hover:not(:disabled) {
  border-color: var(--line-strong);
  background: var(--panel-hover);
 }
@@ -18581,4 +18567,112 @@ main.history-v2-period {
 .app-body > .app-content {
  min-height: 0;
  max-height: 100%;
+}
+
+/* ==========================================================================
+ * Travel 探索页（Soft Minimal）
+ *
+ * 修正三处与设计语言冲突的地方：
+ * 1) 主按钮原用 `linear-gradient(--accent-grad-a/b)` —— 这两个 token 在新配色里
+ *    已不存在，`background` 落空成透明，按钮看起来和普通输入框没区别；
+ * 2) hero 用了大号彩色标题，与「层级 > 颜色」相悖；
+ * 3) 能力卡片挤成一排、信息密度过高，缺少呼吸感。
+ * ========================================================================== */
+.travel-hero-badge {
+  color: var(--muted);
+  font-weight: 600;
+}
+.travel-hero h1 {
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+  margin: 6px 0 0;
+}
+.travel-hero > p {
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--text-secondary);
+  max-width: var(--content-measure);
+  margin: 6px 0 0;
+}
+.travel-popular-label {
+  font-size: 12px;
+  color: var(--muted);
+}
+.travel-popular-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.travel-popular-tags button {
+  padding: 5px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-control);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition:
+    background-color var(--motion-fast) var(--motion-ease),
+    border-color var(--motion-fast) var(--motion-ease);
+}
+.travel-popular-tags button:hover {
+  background: var(--panel-hover);
+  border-color: var(--line-strong);
+}
+
+/* 能力卡片：给足间距，卡片只承载一层信息 */
+.travel-feature-intro {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--space-4);
+  margin-top: var(--space-5);
+}
+.travel-feature-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: var(--space-5);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--panel-raised);
+  box-shadow: var(--shadow-xs);
+  transition:
+    border-color var(--motion-fast) var(--motion-ease),
+    box-shadow var(--motion-fast) var(--motion-ease);
+}
+.travel-feature-card:hover {
+  border-color: var(--line-strong);
+  box-shadow: var(--shadow-sm);
+}
+/* 统一 outline 图标，不使用彩色 emoji */
+.travel-feature-card .feature-icon {
+  display: inline-flex;
+}
+.travel-feature-card h3 {
+  margin: 0;
+  font-size: var(--text-card-title);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.travel-feature-card p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--text-secondary);
+}
+
+/* 表单：标签与控件成组，行距统一 */
+.travel-form-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+.travel-form-row > label {
+  font-size: 13px;
+  color: var(--text-secondary);
+  min-width: 84px;
 }

@@ -1,7 +1,10 @@
 import {
   ArrowsClockwise,
   CalendarBlank,
+  CarProfile,
+  CloudSun,
   Compass,
+  ForkKnife,
   MapPin,
   Sparkle,
   Star,
@@ -610,22 +613,22 @@ export function TravelPage({
       {state === "idle" ? (
         <div className="travel-feature-intro">
           <div className="travel-feature-card">
-            <div className="feature-icon">🌦</div>
+            <CloudSun className="feature-icon" size={18} />
             <h3>真实天气与穿衣建议</h3>
             <p>获取目的地未来逐日天气、温差与降水预警，提供体贴的穿衣携带指南。</p>
           </div>
           <div className="travel-feature-card">
-            <div className="feature-icon">📍</div>
+            <MapPin className="feature-icon" size={18} />
             <h3>景点硬核信息与避坑</h3>
             <p>多源交叉核验门票、开放时间与预约通道，标注多版本冲突事实。</p>
           </div>
           <div className="travel-feature-card">
-            <div className="feature-icon">🚗</div>
+            <CarProfile className="feature-icon" size={18} />
             <h3>距离测算与交通耗时</h3>
             <p>自动计算各景点间公里数、驾车打车与地铁耗时，合理编排游览节奏。</p>
           </div>
           <div className="travel-feature-card">
-            <div className="feature-icon">🍜</div>
+            <ForkKnife className="feature-icon" size={18} />
             <h3>地道风味与路线周边</h3>
             <p>精选城市代表性美食，并匹配每日路线上最近的特色餐厅。</p>
           </div>
