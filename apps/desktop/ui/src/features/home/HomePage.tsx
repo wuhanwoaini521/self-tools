@@ -224,31 +224,18 @@ export function HomePage({
               style={{
                 display: "flex",
                 alignItems: "center",
-                gap: 12,
-                background: "var(--surface-primary, #ffffff)",
-                padding: "8px 16px",
-                borderRadius: 12,
-                border: "1px solid var(--border-color, #e5e7eb)",
+                gap: "var(--space-4)",
+                flexWrap: "wrap",
               }}
             >
-              <span
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 4,
-                  fontSize: 13,
-                  fontWeight: 700,
-                  color: "#ea580c",
-                }}
-              >
-                <Flame size={16} weight="fill" /> 连续 {todayData.recent_streak_days ?? 0} 天
+              {/* 状态用「圆点 + 文字」而不是彩色徽章；颜色一律走 Design Token。 */}
+              <span className="dsn-status is-warning">
+                <Flame size={13} /> 连续 {todayData.recent_streak_days ?? 0} 天
               </span>
-              <span style={{ color: "var(--border-subtle, #e5e7eb)" }}>|</span>
-              <span style={{ fontSize: 13, color: "var(--text-secondary, #4b5563)", fontWeight: 500 }}>
+              <span className="dsn-status">
                 今日已学 {todayData.studied_topics_today ?? 0} 项
               </span>
-              <span style={{ color: "var(--border-subtle, #e5e7eb)" }}>|</span>
-              <span style={{ fontSize: 13, color: "#10b981", fontWeight: 700 }}>
+              <span className="dsn-status is-success">
                 平均掌握度 {Math.round(todayData.average_mastery ?? 0)}%
               </span>
             </div>
