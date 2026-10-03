@@ -90,6 +90,17 @@ const HTTP_ENDPOINTS: Record<string, (args: Record<string, unknown>) => string> 
   language_sentences: (a) =>
     `/api/v1/language/sentences?language=${encodeURIComponent(String(a.language ?? "jpn"))}` +
     `&limit=${encodeURIComponent(String(a.limit ?? 20))}`,
+  language_course_today: () => "/api/v1/language/course/today",
+  language_course_books: () => "/api/v1/language/course/books",
+  language_course_book: (a) =>
+    `/api/v1/language/course/book/${encodeURIComponent(String(a.bookId ?? ""))}`,
+  language_course_lesson: (a) =>
+    `/api/v1/language/course/lesson/${encodeURIComponent(String(a.lessonId ?? ""))}`,
+  language_course_progress: () => "/api/v1/language/course/progress",
+  language_course_plan_get: () => "/api/v1/language/course/plan",
+  language_course_search: (a) =>
+    `/api/v1/language/course/search?q=${encodeURIComponent(String(a.query ?? ""))}` +
+    `&limit=${encodeURIComponent(String(a.limit ?? 10))}`,
   language_learning_item: (a) =>
     `/api/v1/language/items/${encodeURIComponent(String(a.entityId ?? ""))}`,
   language_sentence_study: (a) =>

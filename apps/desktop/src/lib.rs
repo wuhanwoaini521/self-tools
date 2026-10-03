@@ -27,6 +27,8 @@ use devtoolbox_infrastructure::{
 
 // V6：Personal Knowledge 组合根（适配器 + 服务装配 + 启动同步）。
 mod knowledge;
+// NCE 英语课程学习子域（Tauri 命令）。
+pub mod language_course;
 // V7：Home Server 组合根（平台适配器 + 注册表 + 安全动作层）。
 mod server;
 mod server_adapters;
@@ -177,6 +179,14 @@ fn project_root_from(start: PathBuf) -> Option<PathBuf> {
             return None;
         }
     }
+}
+
+/// NCE 导入后的媒体落地目录（`config/language/nce/`）。
+///
+/// 教材音频属**用户本地学习资料**：不随仓库分发（`config/` 已在 .gitignore），
+/// 导入时从源文件夹拷贝进来，因此导入后可离线使用且不依赖源目录。
+pub(crate) fn language_media_dir(app: &AppHandle) -> Result<PathBuf, CommandError> {
+    Ok(project_config_directory(app)?.join("language").join("nce"))
 }
 
 fn project_config_directory(app: &AppHandle) -> Result<PathBuf, CommandError> {
@@ -2619,6 +2629,28 @@ pub fn run() {
             language::language_sentence_study,
             language::language_progress,
             language::language_weak_items,
+            language_course::language_course_today,
+            language_course::language_course_books,
+            language_course::language_course_book,
+            language_course::language_course_lesson,
+            language_course::language_course_update_progress,
+            language_course::language_course_complete_lesson,
+            language_course::language_course_mark_word,
+            language_course::language_course_lookup_word,
+            language_course::language_dict_lookup,
+            language_course::language_dict_status,
+            language_course::language_course_quiz,
+            language_course::language_course_submit_quiz,
+            language_course::language_course_plan_get,
+            language_course::language_course_plan_save,
+            language_course::language_course_progress,
+            language_course::language_course_search,
+            language_course::language_lesson_audio,
+            language_course::language_nce_scan,
+            language_course::language_nce_import,
+            language_course::language_nce_cancel,
+            language_course::language_dict_import,
+            language_course::language_dict_cancel,
             learning::learning_record_event,
             learning::learning_get_progress,
             learning::learning_list_progress,

@@ -7,6 +7,7 @@ mod ai_api;
 mod geography_api;
 mod history_query;
 mod language_api;
+mod language_course_api;
 mod learning_api;
 mod news_api;
 mod routes;
@@ -216,6 +217,15 @@ async fn main() -> ExitCode {
     let dictionary = Arc::new(devtoolbox_application::language::LanguageService::new(
         Arc::clone(&content),
     ));
+    // 英语课程（NCE）子域：与桌面端同一个 CourseService / 同一份 language.db。
+    let course: Arc<devtoolbox_application::language::course::CourseService> = Arc::new(
+        devtoolbox_application::language::course::CourseService::new(
+            Arc::new(devtoolbox_infrastructure::ports::CourseStoreAdapter::new(
+                Arc::clone(&language_store),
+            )),
+            Arc::clone(&learning_os),
+        ),
+    );
 
     // Settings / AI：读写同一个 settings.json —— 网页端配好的 provider，
     // 桌面端立即可用；反之亦然。
@@ -289,6 +299,7 @@ async fn main() -> ExitCode {
         Arc::clone(&learning),
         dictionary,
         content,
+        course,
         settings,
         learning_os,
         geography,

@@ -34,13 +34,19 @@ pub struct ErrorBody {
     pub message: String,
 }
 
-/// 组装全部路由：History + Language（由组合根注入服务与存储）。
+/// 组装全部路由：History + Language + English 课程（由组合根注入服务与存储）。
+///
+/// 参数多是**组合根的固有形状**（每个 bounded context 一个已装配好的服务），
+/// 与 `personal_ai::build_hub` 等同一类；拆成 struct 只会把装配步骤挪个地方。
+#[allow(clippy::too_many_arguments)]
 #[must_use = "router must be served"]
 pub fn router(
     service: Arc<HistoryService>,
     learning: Arc<devtoolbox_application::language::LanguageLearningService>,
     dictionary: Arc<devtoolbox_application::language::LanguageService>,
     content: Arc<dyn devtoolbox_application::language::LanguageStorePort>,
+    // 英语课程（NCE）只读接口（写操作属桌面端）。
+    course: Arc<devtoolbox_application::language::course::CourseService>,
     settings: Arc<dyn crate::ai_api::SettingsAccess>,
     // 平台 LearningService（Collections / Graph / Review Center / Home 今日面板）
     learning_os: Arc<devtoolbox_application::learning::LearningService>,
@@ -64,6 +70,38 @@ pub fn router(
         .route(
             "/api/v1/language/sources",
             get(crate::language_api::sources),
+        )
+        .route(
+            "/api/v1/language/course/today",
+            get(crate::language_course_api::today),
+        )
+        .route(
+            "/api/v1/language/course/books",
+            get(crate::language_course_api::books),
+        )
+        .route(
+            "/api/v1/language/course/book/{id}",
+            get(crate::language_course_api::book),
+        )
+        .route(
+            "/api/v1/language/course/lesson/{id}",
+            get(crate::language_course_api::lesson),
+        )
+        .route(
+            "/api/v1/language/course/progress",
+            get(crate::language_course_api::progress),
+        )
+        .route(
+            "/api/v1/language/course/plan",
+            get(crate::language_course_api::plan),
+        )
+        .route(
+            "/api/v1/language/course/dict/{word}",
+            get(crate::language_course_api::dict_lookup),
+        )
+        .route(
+            "/api/v1/language/course/search",
+            get(crate::language_course_api::search),
         )
         .route("/api/v1/language/search", get(crate::language_api::search))
         .route(
@@ -224,6 +262,7 @@ pub fn router(
         .layer(axum::Extension(Arc::clone(&learning_os)))
         .layer(axum::Extension(Arc::clone(&geography)))
         .layer(axum::Extension(Arc::clone(&news)))
+        .layer(axum::Extension(Arc::clone(&course)))
         .layer(axum::Extension(Arc::clone(&news_ingest)))
         .layer(axum::Extension(
             None::<Arc<dyn crate::ai_api::AiChatRunner>>,
@@ -623,7 +662,7 @@ mod tests {
             .expect("language store"),
         ));
         let content: Arc<dyn devtoolbox_application::language::LanguageStorePort> = Arc::new(
-            devtoolbox_infrastructure::LanguageStoreAdapter::new(language_store),
+            devtoolbox_infrastructure::LanguageStoreAdapter::new(Arc::clone(&language_store)),
         );
         let learning_store = Arc::new(parking_lot::Mutex::new(
             devtoolbox_infrastructure::LearningStore::open(std::env::temp_dir().join(format!(
@@ -653,6 +692,14 @@ mod tests {
                 Arc::clone(&learning_os),
             ),
         );
+        let course = Arc::new(
+            devtoolbox_application::language::course::CourseService::new(
+                Arc::new(devtoolbox_infrastructure::ports::CourseStoreAdapter::new(
+                    Arc::clone(&language_store),
+                )),
+                Arc::clone(&learning_os),
+            ),
+        );
         router(
             Arc::new(HistoryService::new(Box::new(FakeHistory { fail_all }))),
             learning,
@@ -660,6 +707,7 @@ mod tests {
                 Arc::clone(&content),
             )),
             content,
+            course,
             Arc::new(TestSettings),
             learning_os,
             geography,

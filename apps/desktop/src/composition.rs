@@ -68,6 +68,7 @@ impl SettingsStorePort for SettingsStoreAdapter {
 
 use std::sync::{Arc, Mutex};
 
+pub use devtoolbox_infrastructure::ports::CourseStoreAdapter;
 pub use devtoolbox_infrastructure::ports::GeographyQueryAdapter;
 pub use devtoolbox_infrastructure::ports::LanguageStoreAdapter;
 

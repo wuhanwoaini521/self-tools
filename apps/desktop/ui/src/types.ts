@@ -1154,3 +1154,291 @@ export interface TodayDashboardData {
   recent_bookmarks: ContinueItem[];
 }
 
+
+// ---------- 英语课程（NCE 主课程） ----------
+//
+// 对应 `crates/core/src/language/course.rs`。命名保持与 Rust 侧一致（snake_case
+// 序列化），前端只补 UI 需要的联合类型，不在此处派生领域规则。
+
+export type LessonStatus = "not_started" | "learning" | "completed" | "review";
+
+export type LessonStage =
+  | "vocabulary"
+  | "listen"
+  | "read"
+  | "sentence"
+  | "shadow"
+  | "quiz"
+  | "done";
+
+export interface CourseBook {
+  id: string;
+  course_id: string;
+  book_no: number;
+  title: string;
+  subtitle: string | null;
+  total_lessons: number;
+}
+
+export interface CourseLesson {
+  id: string;
+  book_id: string;
+  lesson_no: number;
+  title: string;
+  audio_path: string | null;
+  duration_ms: number | null;
+  sentence_count: number;
+  vocab_count: number;
+}
+
+export interface LessonListEntry {
+  id: string;
+  book_id: string;
+  lesson_no: number;
+  title: string;
+  audio_path: string | null;
+  duration_ms: number | null;
+  sentence_count: number;
+  vocab_count: number;
+  status: LessonStatus;
+  percent: number;
+}
+
+export interface BookSummary {
+  total_lessons: number;
+  completed_lessons: number;
+  learning_lessons: number;
+  study_seconds: number;
+  vocab_total: number;
+}
+
+export interface BookView {
+  book: CourseBook;
+  summary: BookSummary;
+  lessons: LessonListEntry[];
+}
+
+export interface LessonSentence {
+  id: string;
+  lesson_id: string;
+  sequence: number;
+  start_ms: number;
+  end_ms: number;
+  english: string;
+  chinese: string | null;
+}
+
+export interface LessonVocab {
+  lesson_id: string;
+  word: string;
+  surface: string | null;
+  sentence_id: string | null;
+  context: string | null;
+  phonetic: string | null;
+  pos: string | null;
+  translation_zh: string | null;
+  definition_en: string | null;
+  frequency: number;
+  tags: string[];
+  importance: number;
+}
+
+/** 生词 + 用户状态（平台进度推导：new / learning / known）。 */
+export interface VocabWithState extends LessonVocab {
+  state: "new" | "learning" | "known";
+  seen_count: number;
+}
+
+export interface LessonProgress {
+  lesson_id: string;
+  stage: LessonStage;
+  position_ms: number;
+  sentence_seq: number;
+  vocab_index: number;
+  shadow_seq: number;
+  quiz_score: number | null;
+  completed_at: number | null;
+  study_seconds: number;
+  updated_at: number;
+}
+
+export interface LessonDetail {
+  lesson: CourseLesson;
+  book: CourseBook | null;
+  sentences: LessonSentence[];
+  vocab: VocabWithState[];
+  progress: LessonProgress;
+}
+
+export interface LearningPlan {
+  language: LanguageCode;
+  course_id: string | null;
+  book_id: string | null;
+  daily_minutes: number;
+  new_words_per_day: number;
+  updated_at: number;
+}
+
+export interface TodayDashboard {
+  imported: boolean;
+  dict_ready: boolean;
+  plan: LearningPlan | null;
+  continue_lesson: LessonListEntry | null;
+  next_lesson: LessonListEntry | null;
+  current_book: CourseBook | null;
+  book_summary: BookSummary | null;
+  due_reviews: number;
+  study_seconds_today: number;
+  streak_days: number;
+  words_learned: number;
+  recent_lessons: LessonListEntry[];
+}
+
+export interface WordEntry {
+  word: string;
+  lemma: string;
+  phonetic: string | null;
+  pos: string | null;
+  translation_zh: string | null;
+  definition_en: string | null;
+  frequency: number;
+  bnc: number;
+  tags: string[];
+  collins: number;
+  forms: Array<[string, string]>;
+}
+
+export interface WordOccurrence {
+  word: string;
+  source_type: string;
+  source_id: string;
+  sentence: string | null;
+  occurred_at: number;
+}
+
+export interface WordLookup {
+  entry: WordEntry | null;
+  seen_count: number;
+  occurrences: WordOccurrence[];
+  learning: LearningProgress | null;
+}
+
+export type WordMark = "know" | "fuzzy" | "unknown";
+
+export type QuizItem =
+  | {
+      kind: "vocabulary";
+      word: string;
+      phonetic: string | null;
+      options: string[];
+      answer: number;
+    }
+  | {
+      kind: "fill_blank";
+      sentence: string;
+      chinese: string | null;
+      answer: string;
+    }
+  | {
+      kind: "dictation";
+      lesson_id: string;
+      sentence_seq: number;
+      start_ms: number;
+      end_ms: number;
+      answer: string;
+    }
+  | { kind: "translate"; chinese: string; reference: string };
+
+export interface QuizAnswer {
+  item_index: number;
+  correct: boolean;
+  user_answer: string | null;
+}
+
+export interface QuizResult {
+  lesson_id: string;
+  total: number;
+  correct: number;
+  score: number;
+  wrong_words: string[];
+  finished_at: number;
+}
+
+export interface ProgressPatch {
+  stage?: LessonStage | null;
+  position_ms?: number | null;
+  sentence_seq?: number | null;
+  vocab_index?: number | null;
+  shadow_seq?: number | null;
+  study_seconds_delta?: number | null;
+}
+
+export interface EnglishProgress {
+  lessons_completed: number;
+  lessons_learning: number;
+  study_seconds_total: number;
+  words_learned: number;
+  words_mastered: number;
+  review_mastery: number;
+  due_reviews: number;
+  streak_days: number;
+  books: Array<{ book: CourseBook; summary: BookSummary }>;
+}
+
+export interface EnglishSearchResult {
+  words: WordEntry[];
+  lessons: CourseLesson[];
+}
+
+// ---------- 导入 ----------
+
+export interface NceLessonScan {
+  lesson_no: number;
+  title: string;
+  has_lrc: boolean;
+  has_audio: boolean;
+}
+
+export interface NceBookScan {
+  book_no: number;
+  folder: string;
+  lessons: NceLessonScan[];
+}
+
+export interface NceScanReport {
+  books: NceBookScan[];
+  total_lessons: number;
+  issues: string[];
+}
+
+export interface NceImportProgress {
+  stage: string;
+  book_no: number;
+  lesson_no: number;
+  done: number;
+  total: number;
+  message: string;
+}
+
+export interface NceImportReport {
+  books: number;
+  lessons: number;
+  sentences: number;
+  vocab: number;
+  media_files: number;
+  media_bytes: number;
+  skipped: number;
+  cancelled: boolean;
+  issues: string[];
+}
+
+export interface DictImportReport {
+  entries: number;
+  skipped: number;
+  cancelled: boolean;
+}
+
+export interface DictStatus {
+  ready: boolean;
+  count: number;
+}

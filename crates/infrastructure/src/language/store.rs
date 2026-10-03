@@ -187,7 +187,13 @@ impl LanguageStore {
             FROM language_items i LEFT JOIN item_extra e ON e.item_id = i.id
             WHERE i.item_type = 'SENTENCE';",
         ).map_err(sqlite)?;
-        self.migrate_dropped_learning_tables()
+        self.migrate_dropped_learning_tables()?;
+        self.ensure_course_schema()
+    }
+
+    /// crate 内共享连接（course / nce / dict 子模块的 `impl LanguageStore` 用）。
+    pub(crate) fn conn(&self) -> &Connection {
+        &self.connection
     }
 
     /// 删除已被平台 `learning.db` 取代的重复学习表。

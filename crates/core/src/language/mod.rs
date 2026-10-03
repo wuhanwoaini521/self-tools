@@ -3,18 +3,26 @@
 //! 分层约定与 `crates/core/src/travel/` 一致：领域模型与纯规则在此，
 //! 解析/存储/网络在 infrastructure，用例编排在 application。
 
+pub mod course;
 pub mod learning;
 pub mod license;
+pub mod lrc;
 pub mod metadata;
 pub mod model;
 pub mod romaji;
 pub mod speaking;
 
+pub use course::{
+    BookSummary, Course, CourseBook, CourseLesson, LearningPlan, LessonListEntry, LessonProgress,
+    LessonSentence, LessonStage, LessonStatus, LessonVocab, QuizAnswer, QuizItem, QuizResult,
+    WordEntry, WordMark, WordOccurrence, importance_from_frequency, is_stopword, tokenize_english,
+};
 pub use learning::{
     Difficulty, LanguageLearningItem, LearningItemType, Lesson, LessonPosition, LessonStep,
     Mistake, SentenceChunk, SentenceStudy,
 };
 pub use license::{DatasetManifest, LanguageSource, LicenseKind, SourceLicense};
+pub use lrc::{LrcParse, TimedLine, parse_lrc};
 pub use metadata::{
     CantoneseMetadata, EnglishMetadata, JapaneseMetadata, LanguageMetadata, MandarinMetadata,
 };

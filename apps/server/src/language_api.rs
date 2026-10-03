@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 use devtoolbox_application::language::{LanguageLearningService, LanguageService};
 
 /// 从扩展里的时钟取当前时间（所有写路径共用一个时间源，便于测试）。
-fn now_from(clock: &Arc<dyn Fn() -> i64 + Send + Sync>) -> i64 {
+pub(crate) fn now_from(clock: &Arc<dyn Fn() -> i64 + Send + Sync>) -> i64 {
     clock()
 }
 

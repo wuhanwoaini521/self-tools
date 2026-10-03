@@ -5,10 +5,15 @@
 //! Starter 与原始文件导入工作流已迁入 infrastructure 的 `language` 模块
 //! （`starter` / `importing`），应用层不再持有导入功能。
 
+pub mod course;
 pub mod learning;
 pub mod ports;
 pub mod service;
 
+pub use course::{
+    BookProgressView, BookView, CourseService, CourseStorePort, DictionaryService, EnglishProgress,
+    EnglishSearchResult, LessonDetail, ProgressPatch, TodayDashboard, VocabWithState, WordLookup,
+};
 pub use learning::{ContinueLesson, LanguageLearningService, StudyAction, StudyCard, WeakItem};
 pub use ports::{
     LanguageCount, LanguageDetailRows, LanguageExample, LanguageStorePort, SearchHitModel,

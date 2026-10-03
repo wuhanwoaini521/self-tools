@@ -29,6 +29,7 @@ import { languageClient } from "./languageClient";
 import { Action, Chip, Panel, PanelBody, Skeleton } from "./LanguagePrimitives";
 import { ExplorePanel } from "./ExplorePanel";
 import { FocusMode } from "./FocusMode";
+import { EnglishSection } from "./english/EnglishSection";
 import { LanguageHome } from "./LanguageHome";
 import { LessonPlayer } from "./LessonPlayer";
 import { StudyCardSession } from "./StudyCardSession";
@@ -84,7 +85,8 @@ export function LanguagePage({
   onContextChange?: (ctx: AppContextPayload | null) => void;
 }) {
   const [tab, setTab] = useState<LanguageTab>("study");
-  const [language, setLanguage] = useState<LanguageCode>("jpn");
+  // English 是 Language 的主语言（新概念课程），默认就落在它上面。
+  const [language, setLanguage] = useState<LanguageCode>("eng");
   // 栈顶即当前显示的覆盖层；`null` 栈表示没有覆盖层。
   const [overlays, setOverlays] = useState<Overlay[]>([]);
   const overlay = overlays.length > 0 ? overlays[overlays.length - 1] : null;
@@ -411,6 +413,41 @@ export function LanguagePage({
           ? "词典里没有找到这句话的记录，无法拆解。原文仍可在句库里查看。"
           : null)
       : null);
+
+  // English 走新概念主线（今日驾驶舱 + Lesson 工作台），不与其它语言共用 8 个 Tab；
+  // 其它语言继续用原有的学习卡片 / 搜索 / 复习界面（重构不动它们）。
+  const aiAvailable = Boolean(onAskAi);
+
+  if (language === "eng") {
+    return (
+      <div className="lang-page is-english">
+        <header className="lang-header">
+          <div className="lang-title">
+            <Translate size={18} />
+            <h1>Language</h1>
+            <select
+              className="lang-select"
+              value={language}
+              onChange={(event) => {
+                setLanguage(event.target.value as LanguageCode);
+                setTab("home");
+              }}
+              aria-label="选择语言"
+            >
+              {LANGUAGE_CODES.map((code) => (
+                <option key={code} value={code}>
+                  {LANGUAGE_LABELS[code]}
+                </option>
+              ))}
+            </select>
+          </div>
+        </header>
+        <div className="lang-panel">
+          <EnglishSection onAskAi={onAskAi} aiAvailable={aiAvailable} />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="lang-page">

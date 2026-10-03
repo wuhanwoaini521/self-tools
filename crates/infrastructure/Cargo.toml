@@ -13,6 +13,7 @@ duckdb = { version = "1.4", features = ["bundled"] }
 devtoolbox-application = { path = "../application" }
 devtoolbox-core = { path = "../core" }
 encoding_rs = "0.8"
+csv = "1.3"
 feed-rs.workspace = true
 flate2.workspace = true
 parking_lot.workspace = true
