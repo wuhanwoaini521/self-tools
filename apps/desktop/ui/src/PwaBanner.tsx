@@ -18,29 +18,15 @@ const INITIAL: PwaState = {
 
 export function PwaBanner() {
   const [state, setState] = useState<PwaState>(INITIAL);
-  const [backendVersion, setBackendVersion] = useState<string | null>(null);
+  // 后端版本：本项目的真实后端只有 `/health`（apps/server），且**不返回版本号**。
+  // 此前的 `/api/health` 探测在两种运行时都不存在——Tauri 无 HTTP 服务端，
+  // web 端也没有该路由——于是每次打开任何页面都留下一条 404，且永远拿不到版本。
+  // 前后端在桌面端是同一个包发布，不存在版本错配场景，故不再做无意义探测。
+  const backendVersion: string | null = null;
 
   useEffect(() => {
     const unregister = registerPwa({ onStateChange: setState });
     return unregister;
-  }, []);
-
-  // 后端版本：从 /api/health 之类拿（失败不影响本条）；只做兼容判断。
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      try {
-        const response = await fetch("/api/health", { headers: { Accept: "application/json" } });
-        if (!response.ok) return;
-        const body = (await response.json()) as { version?: string };
-        if (!cancelled) setBackendVersion(body.version ?? null);
-      } catch {
-        // 离线 / 无后端：保留 null（不做兼容判断）。
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
   }, []);
 
   const notice = versionNotice(backendVersion);

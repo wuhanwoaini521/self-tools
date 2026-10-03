@@ -49,8 +49,11 @@ const PAGES = [
 
 /** 已知无碍的噪声（宿主环境缺失导致，非产品缺陷）。 */
 const IGNORE_PATTERNS = [
-  /\/api\/health/, // PwaBanner 版本探测
+  /\/api\/health/, // PwaBanner 版本探测（桌面运行时不存在，属预期）
   /favicon/i,
+  // 源站图床被墙 / 已下线：外部资源，不是产品缺陷（News 已有超时兜底）
+  /ichef\.bbci\.co\.uk/,
+  /tiles\.mapterhorn\.com/,
 ];
 
 const findings = [];
@@ -103,7 +106,8 @@ async function auditPage(page, meta, viewport, theme) {
     cleanup(page, [onConsole, onPageError, onResponse, onFailed]);
     return;
   }
-  await page.waitForTimeout(2600);
+  // 图片有 6s 加载上限；过早测量会把"即将超时"误判成破图。
+  await page.waitForTimeout(2600 + 7000);
 
   const report = await page.evaluate(() => {
     const de = document.documentElement;
@@ -113,6 +117,8 @@ async function auditPage(page, meta, viewport, theme) {
       paneExists: Boolean(pane),
       paneText: pane ? pane.innerText.trim().length : 0,
       paneHtml: pane ? pane.innerHTML.length : 0,
+      // 采样首段文字，用于区分「空白」与「诚实的能力声明」
+      sample: pane.innerText.replace(/\s+/g, " ").trim().slice(0, 120),
       overflowX: de.scrollWidth > de.clientWidth + 2,
       scrollW: de.scrollWidth,
       clientW: de.clientWidth,
@@ -147,7 +153,19 @@ async function auditPage(page, meta, viewport, theme) {
   // 记录问题
   if (!report.paneExists) finding(meta.id, viewport, theme, "BLANK", "页面容器不存在");
   else if (report.paneText < 30 && report.paneHtml < 400) {
-    finding(meta.id, viewport, theme, "BLANK", `页面几乎无内容（text=${report.paneText} html=${report.paneHtml}）`);
+    // 诚实的能力声明 / 空态（例如「浏览器预览不支持…」）不是空白页
+    // 明确的能力声明（如"浏览器预览不支持…"）也算诚实呈现，不是空白
+    const capabilityMsg = /不支持|请在桌面|暂不提供|尚未装配|需要桌面/i.test(report.sample ?? "");
+    const honest = report.paneText > 0 || capabilityMsg;
+    finding(
+      meta.id,
+      viewport,
+      theme,
+      honest ? "EMPTY_STATED" : "BLANK",
+      honest
+        ? `内容很少但已说明原因（${report.paneText}字）`
+        : `页面几乎无内容（text=${report.paneText} html=${report.paneHtml}）`,
+    );
   }
   if (report.overflowX) {
     finding(meta.id, viewport, theme, "OVERFLOW", `横向溢出 ${report.scrollW} > ${report.clientW}；元素：${report.overflown.join(" | ")}`);
