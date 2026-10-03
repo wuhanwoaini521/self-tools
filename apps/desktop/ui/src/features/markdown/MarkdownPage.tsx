@@ -2,7 +2,8 @@ import "@fontsource/manrope/400.css";
 import "@fontsource/manrope/500.css";
 import "@fontsource/manrope/600.css";
 import "@fontsource/manrope/700.css";
-import { open, save } from "@tauri-apps/plugin-dialog";
+// `open` 与 DOM 全局的 `window.open` 同名会撞车，别名导入避免误用。
+import { open as openNativeDialogApi, save } from "@tauri-apps/plugin-dialog";
 import CodeMirror, { type ReactCodeMirrorRef } from "@uiw/react-codemirror";
 import { markdown } from "@codemirror/lang-markdown";
 import { devtoolboxMarkdown } from "../../markdown-decorations";
@@ -13,7 +14,7 @@ import {
 } from "@phosphor-icons/react";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import type { AppSettings, DocumentDto, WorkspaceFile } from "../../types";
-import { errorMessage, fileName } from "../../utils";
+import { errorMessage, fileName, isTauriRuntime } from "../../utils";
 import { useLayout } from "../../layout";
 import { workspaceClient } from "../../workspaceClient";
 import { markdownClient } from "./markdownClient";
@@ -243,6 +244,34 @@ export function MarkdownPage({ settings, onSettingsChange, setNotice, active, in
     } catch (error) { setNotice(errorMessage(error)); }
   }, [dirty, setNotice]);
 
+  /**
+   * 打开原生文件/文件夹对话框。
+   *
+   * `plugin-dialog` 是 Tauri 原生能力，浏览器里不存在。此前 `open()` 的失败
+   * （`window.__TAURI_INTERNALS__` 缺失导致 TypeError）既没有 try/catch 也没有
+   * 任何反馈 —— 点「打开文件夹」**毫无反应**，用户无从判断是坏了还是自己操作错了。
+   *
+   * 这里统一兜住：非桌面运行时直接返回可读原因，由调用方展示。
+   */
+  const openNativeDialog = async (options: {
+    directory: boolean;
+    filters?: { name: string; extensions: string[] }[];
+  }): Promise<{ path?: string; reason?: string }> => {
+    if (!isTauriRuntime()) {
+      return { reason: "网页端无法访问本地文件系统" };
+    }
+    try {
+      const selected = await openNativeDialogApi({
+        multiple: false,
+        directory: options.directory,
+        ...(options.filters ? { filters: options.filters } : {}),
+      });
+      return typeof selected === "string" ? { path: selected } : {};
+    } catch (error) {
+      return { reason: errorMessage(error) };
+    }
+  };
+
   const chooseDocument = async () => {
     const testDocument = import.meta.env.VITE_TAURI_E2E === "1"
       ? window.__DEVTOOLBOX_E2E_OPEN_DOCUMENT__
@@ -254,10 +283,29 @@ export function MarkdownPage({ settings, onSettingsChange, setNotice, active, in
       setDirty(false);
       return;
     }
-    const selected = await open({ multiple: false, directory: false, filters: [{ name: "Markdown", extensions: ["md", "markdown", "txt"] }] });
-    if (typeof selected === "string") await loadPath(selected);
+    const { path: selected, reason } = await openNativeDialog({
+      directory: false,
+      filters: [{ name: "Markdown", extensions: ["md", "markdown", "txt"] }],
+    });
+    if (reason) {
+      setNotice(`${reason}：打开本地文件需要使用桌面应用`);
+      return;
+    }
+    if (selected) await loadPath(selected);
   };
-  const chooseWorkspace = async () => { const selected = await open({ multiple: false, directory: true }); if (typeof selected !== "string") return; await refreshWorkspace(selected); setWorkspace(selected); const next = { ...settings, workspace_path: selected }; onSettingsChange(next); setNotice("已切换工作区"); };
+  const chooseWorkspace = async () => {
+    const { path: selected, reason } = await openNativeDialog({ directory: true });
+    if (reason) {
+      setNotice(`${reason}：打开本地文件夹需要使用桌面应用`);
+      return;
+    }
+    if (!selected) return;
+    await refreshWorkspace(selected);
+    setWorkspace(selected);
+    const next = { ...settings, workspace_path: selected };
+    onSettingsChange(next);
+    setNotice("已切换工作区");
+  };
   const newDocument = () => { setPath(null); setText(""); setDirty(false); };
   /** 关闭当前标签：回到未命名空文档，未保存的修改先确认。 */
   const closeDocument = () => {
