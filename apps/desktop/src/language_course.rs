@@ -22,7 +22,7 @@ use devtoolbox_core::language::{
     CourseBook, LearningPlan, LessonProgress, QuizAnswer, QuizItem, QuizResult, WordMark,
 };
 
-use crate::{AppState, CommandError, composition};
+use crate::{AppState, CommandError};
 
 /// NCE 导入取消 flag（全局单例：同一时间只允许一个导入任务）。
 static NCE_CANCEL: std::sync::OnceLock<Arc<AtomicBool>> = std::sync::OnceLock::new();
@@ -39,9 +39,9 @@ fn dict_cancel() -> &'static Arc<AtomicBool> {
 
 /// 组合根装配：课程端口 → CourseService（+ DictionaryService）。
 pub fn course_service(state: &State<'_, AppState>) -> CourseService {
-    let store: Arc<dyn CourseStorePort> = Arc::new(composition::CourseStoreAdapter::new(
-        Arc::clone(&state.language_store),
-    ));
+    let store: Arc<dyn CourseStorePort> = Arc::new(
+        devtoolbox_runtime::composition::CourseStoreAdapter::new(Arc::clone(&state.language_store)),
+    );
     let platform = Arc::new(PlatformLearningService::new(Arc::clone(
         &state.learning_store,
     )));
@@ -49,9 +49,9 @@ pub fn course_service(state: &State<'_, AppState>) -> CourseService {
 }
 
 fn dictionary_service(state: &State<'_, AppState>) -> DictionaryService {
-    let store: Arc<dyn CourseStorePort> = Arc::new(composition::CourseStoreAdapter::new(
-        Arc::clone(&state.language_store),
-    ));
+    let store: Arc<dyn CourseStorePort> = Arc::new(
+        devtoolbox_runtime::composition::CourseStoreAdapter::new(Arc::clone(&state.language_store)),
+    );
     DictionaryService::new(store)
 }
 
@@ -187,9 +187,9 @@ pub struct DictStatus {
 #[tauri::command]
 pub fn language_dict_status(state: State<'_, AppState>) -> Result<DictStatus, CommandError> {
     // 直接问端口词条数；空串 search 恒空，不能当计数用。
-    let store: Arc<dyn CourseStorePort> = Arc::new(composition::CourseStoreAdapter::new(
-        Arc::clone(&state.language_store),
-    ));
+    let store: Arc<dyn CourseStorePort> = Arc::new(
+        devtoolbox_runtime::composition::CourseStoreAdapter::new(Arc::clone(&state.language_store)),
+    );
     let total = store
         .dict_count()
         .map_err(|error| language_err("language_error", error))?;
@@ -322,7 +322,7 @@ pub fn language_data_status(app: AppHandle) -> Result<DataStatus, CommandError> 
     let data_dir = crate::project_config_directory_public(&app)?;
     let state = app.state::<AppState>();
     let store: Arc<dyn devtoolbox_application::language::CourseStorePort> = Arc::new(
-        composition::CourseStoreAdapter::new(Arc::clone(&state.language_store)),
+        devtoolbox_runtime::composition::CourseStoreAdapter::new(Arc::clone(&state.language_store)),
     );
     Ok(devtoolbox_application::language::course::data_status(
         store.as_ref(),

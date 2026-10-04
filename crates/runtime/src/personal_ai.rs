@@ -69,7 +69,7 @@ pub fn build_hub(
     geography: Arc<dyn devtoolbox_application::geography::GeographyQueryPort + Send + Sync>,
     language_store: Arc<dyn devtoolbox_application::language::LanguageStorePort>,
     language_llm: Option<Arc<dyn ChatModelProvider>>,
-    knowledge: &crate::knowledge::KnowledgeRuntime,
+    knowledge: &devtoolbox_infrastructure::knowledge_runtime::KnowledgeRuntime,
     server: &crate::server::ServerRuntime,
     study_board_store: Arc<dyn devtoolbox_application::StudyBoardStorePort>,
     news: Arc<dyn devtoolbox_application::news::NewsPort>,
@@ -224,7 +224,7 @@ pub fn build_agent(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Mutex;
+    use parking_lot::Mutex;
 
     /// 装配铁律（V7 Gate 7 / 审查 V7-SEC-001）：每个域模块都必须真正注册进 hub。
     ///
@@ -235,7 +235,7 @@ mod tests {
     /// 用真实 store（tempdir）+ 真实适配器构建，与 `setup` 平行到 hub 为止。
     fn build_test_hub() -> Option<Arc<PersonalHub>> {
         let directory = tempfile::tempdir().unwrap();
-        let settings: crate::knowledge::SettingsLoader =
+        let settings: devtoolbox_infrastructure::knowledge_runtime::SettingsLoader =
             Arc::new(|| Ok(devtoolbox_core::settings::AppSettings::default()));
         let language_store = devtoolbox_infrastructure::language::LanguageStore::open(
             directory.path().join("language.db"),
@@ -246,7 +246,7 @@ mod tests {
                 parking_lot::Mutex::new(language_store),
             ))),
         ));
-        let knowledge = crate::knowledge::KnowledgeRuntime::build(
+        let knowledge = devtoolbox_infrastructure::knowledge_runtime::KnowledgeRuntime::build(
             directory.path(),
             Arc::clone(&settings),
             devtoolbox_core::knowledge::KnowledgeBudget::default(),

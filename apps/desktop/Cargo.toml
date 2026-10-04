@@ -8,10 +8,10 @@ authors.workspace = true
 description = "DevToolbox Tauri desktop adapter."
 
 [dependencies]
-async-trait = "0.1"
 devtoolbox-application = { path = "../../crates/application" }
 devtoolbox-core = { path = "../../crates/core" }
 devtoolbox-infrastructure = { path = "../../crates/infrastructure" }
+devtoolbox-runtime = { path = "../../crates/runtime" }
 reqwest.workspace = true
 serde.workspace = true
 serde_json.workspace = true

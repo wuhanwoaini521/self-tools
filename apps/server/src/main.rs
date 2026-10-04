@@ -5,7 +5,6 @@
 
 mod ai_api;
 mod geography_api;
-mod history_query;
 mod knowledge_api;
 mod language_api;
 mod language_course_api;
@@ -26,7 +25,6 @@ use tracing::{error, info};
 use tracing_subscriber::EnvFilter;
 
 use devtoolbox_application::history::HistoryService;
-use devtoolbox_infrastructure::HistoryDuckDbRepository;
 
 /// 默认只监听本机；要暴露到局域网时显式设置 `SELF_TOOLS_BIND`（Gate 9：默认 127.0.0.1）。
 const DEFAULT_BIND: &str = "127.0.0.1:8080";
@@ -140,20 +138,28 @@ async fn main() -> ExitCode {
     };
     init_logging();
 
-    // Gate 9：duckdb 路径可配置且**缺失即启动失败**，绝不静默降级。
-    let repository = match HistoryDuckDbRepository::open(&config.history_db) {
-        Ok(repository) => repository,
+    // ------------------------------------------------------------------
+    // 共享组合根（Gate 9）
+    //
+    // 桌面端与网页端现在共用 `devtoolbox_runtime::AppCore`：同一份 settings、
+    // 同一批 SQLite、同一套 provider。此前 server 在这里**另写了一套装配**，
+    // 只覆盖一部分模块，于是 AI / Travel / 知识库 / 语言导入长期缺接口——
+    // 每次补一个仍会漏，因为根因是「两套装配必然漂移」。
+    // ------------------------------------------------------------------
+    let core = match devtoolbox_runtime::AppCore::build(
+        &config.data_dir,
+        config.history_db.clone(),
+        devtoolbox_runtime::server::web_trust(),
+    ) {
+        Ok(core) => Arc::new(core),
         Err(error) => {
-            error!(
-                "history database unavailable: {error} \
-                 (set {ENV_HISTORY_DB} or pass --history-db)",
-            );
-            return ExitCode::from(1);
+            error!("runtime unavailable: {error}");
+            return ExitCode::from(3);
         }
     };
     info!(
         db = %config.history_db.display(),
-        "history knowledge base ready (read-only)"
+        "runtime ready (shared with desktop)"
     );
 
     let listener = match tokio::net::TcpListener::bind(config.bind).await {
@@ -164,55 +170,13 @@ async fn main() -> ExitCode {
         }
     };
 
-    let service = HistoryService::new(Box::new(history_query::HistoryQueryAdapter::new(Arc::new(
-        repository,
-    ))));
-    // Language：词典库（读）与学习库（掌握度 / 复习 / 合集）——与桌面端同一个
-    // SQLite 文件、同一套应用层服务，网页端与桌面端数据完全一致。
-    // 语言库缺失**不阻断启动**：History 仍可用，Language 端点逐个返回可读错误，
-    // 避免一个可选模块把整个网页端拖死。
-    let language_store = std::sync::Arc::new(parking_lot::Mutex::new(
-        match devtoolbox_infrastructure::LanguageStore::open(config.data_dir.join("language.db")) {
-            Ok(store) => store,
-            Err(error) => {
-                error!(
-                    "language database unavailable: {error} \
-                     (set {ENV_DATA_DIR} to the directory holding language.db); \
-                     Language endpoints will report this per request"
-                );
-                let fallback = config.data_dir.join("language.db");
-                match devtoolbox_infrastructure::LanguageStore::open(&fallback) {
-                    Ok(store) => store,
-                    Err(fatal) => {
-                        error!("language database unusable: {fatal}");
-                        return ExitCode::from(3);
-                    }
-                }
-            }
-        },
+    let service = HistoryService::new(Box::new(
+        devtoolbox_runtime::history_query::HistoryQueryAdapter::new(Arc::clone(&core.history_repo)),
     ));
-    let learning_store = std::sync::Arc::new(parking_lot::Mutex::new(
-        match devtoolbox_infrastructure::LearningStore::open(config.data_dir.join("learning.db")) {
-            Ok(store) => store,
-            Err(error) => {
-                error!(
-                    "learning database unavailable: {error} \
-                     (set {ENV_DATA_DIR} to the directory holding learning.db)"
-                );
-                return ExitCode::from(3);
-            }
-        },
-    ));
-    let content: Arc<dyn devtoolbox_application::language::LanguageStorePort> = Arc::new(
-        devtoolbox_infrastructure::LanguageStoreAdapter::new(Arc::clone(&language_store)),
-    );
-    // 平台 LearningService 只有一个实例：Language 学习闭环与 /api/v1/learning/* 共用，
-    // 避免两份进度互不同步。
-    let learning_os: Arc<devtoolbox_application::learning::LearningService> = Arc::new(
-        devtoolbox_application::learning::LearningService::new(Arc::new(
-            devtoolbox_infrastructure::LearningStoreAdapter::new(learning_store),
-        )),
-    );
+    let language_store = Arc::clone(&core.language_store);
+    let content: Arc<dyn devtoolbox_application::language::LanguageStorePort> =
+        Arc::clone(&core.language_port);
+    let learning_os = Arc::clone(&core.learning);
     let learning = Arc::new(
         devtoolbox_application::language::LanguageLearningService::new(
             Arc::clone(&content),
@@ -222,132 +186,29 @@ async fn main() -> ExitCode {
     let dictionary = Arc::new(devtoolbox_application::language::LanguageService::new(
         Arc::clone(&content),
     ));
-    // 英语课程（NCE）子域：与桌面端同一个 CourseService / 同一份 language.db。
-    // Personal Knowledge：两端共用同一份运行时与同一批索引库。
-    let knowledge = knowledge_api::build(&knowledge_api::KnowledgeDeps {
-        config_dir: config.data_dir.clone(),
-        settings_loader: Arc::new({
-            let data_dir = config.data_dir.clone();
-            move || {
-                devtoolbox_infrastructure::SettingsStore::new(data_dir.clone())
-                    .load()
-                    .map_err(|error| error.to_string())
-            }
-        }),
-        language: Arc::clone(&dictionary),
-    })
-    // 知识库装配失败不拖垮整个服务：其余模块照常，只把知识库端点标记为不可用。
-    .unwrap_or_else(|error| {
-        eprintln!("[knowledge] 装配失败，知识库端点不可用：{error}");
-        knowledge_api::unavailable_runtime(&config.data_dir)
-    });
-    // 启动轻量同步（与桌面端一致：未配置允许根 → 空操作，不阻塞启动）。
-    for note in knowledge.startup_sync() {
-        eprintln!("[knowledge] startup sync: {note}");
-    }
-
-    // Travel：SQLite 缓存 + provider 装配与桌面端共用（同一份 travel.db）。
-    let travel_store = Arc::new(parking_lot::Mutex::new(
-        match devtoolbox_infrastructure::TravelStore::open(config.data_dir.join("travel.db")) {
-            Ok(store) => store,
-            Err(error) => {
-                eprintln!("travel database unavailable: {error}");
-                return std::process::ExitCode::from(3);
-            }
-        },
-    ));
-    let travel = Arc::new(travel_api::TravelDeps {
-        client: reqwest::Client::builder()
-            .user_agent("self-tools/0.1")
-            .build()
-            .unwrap_or_default(),
-        store: Arc::clone(&travel_store),
-        registry: Arc::new(devtoolbox_application::travel::session::TravelSessionRegistry::new()),
-        settings_loader: Arc::new({
-            let data_dir = config.data_dir.clone();
-            move || {
-                devtoolbox_infrastructure::SettingsStore::new(data_dir.clone())
-                    .load()
-                    .map_err(|error| error.to_string())
-            }
-        }),
-    });
-
     let course: Arc<devtoolbox_application::language::course::CourseService> = Arc::new(
         devtoolbox_application::language::course::CourseService::new(
-            Arc::new(devtoolbox_infrastructure::ports::CourseStoreAdapter::new(
-                Arc::clone(&language_store),
-            )),
-            Arc::clone(&learning_os),
+            Arc::clone(&core.course_store)
+                as Arc<dyn devtoolbox_application::language::course::CourseStorePort>,
+            Arc::clone(&core.learning),
         ),
     );
-
-    // Settings / AI：读写同一个 settings.json —— 网页端配好的 provider，
-    // 桌面端立即可用；反之亦然。
+    let knowledge = Arc::clone(&core.knowledge);
+    let geography: Arc<devtoolbox_application::geography::GeographyService> = Arc::new(
+        devtoolbox_application::geography::GeographyService::new(Arc::clone(&core.geography_port)),
+    );
+    // router 需要具体的 NewsService（History 侧同理）：AppCore 保留一份。
+    let news = Arc::clone(&core.news_service);
+    let news_ingest = Arc::clone(&core.news_ingest);
     let settings: Arc<dyn ai_api::SettingsAccess> = Arc::new(ai_api::FileSettingsAccess::new(
         std::path::Path::new(&config.data_dir),
     ));
-
-    // Geography：与桌面端同一个 geography.db
-    // Geography：`open` 会建目录、建库、seed，所以失败是真 fatal（不是「文件缺失」）。
-    let geography_store_path = config.data_dir.join("geography.db");
-    let geography_store = Arc::new(parking_lot::Mutex::new(
-        match devtoolbox_infrastructure::GeographyStore::open(&geography_store_path) {
-            Ok(store) => store,
-            Err(error) => {
-                error!(
-                    "geography database unusable at {}: {error}",
-                    geography_store_path.display()
-                );
-                return ExitCode::from(3);
-            }
-        },
-    ));
-    let geography: Arc<devtoolbox_application::geography::GeographyService> =
-        Arc::new(devtoolbox_application::GeographyService::new(Arc::new(
-            devtoolbox_infrastructure::GeographyQueryAdapter::new(geography_store),
-        )));
-
-    // News：读本地 news.db；抓取器用真实 HTTP（只有订阅时才联网）。
-    // news.db 缺失不阻断启动：News 端点逐请求返回可读错误，其余模块照常。
-    let news_store_path = config.data_dir.join("news.db");
-    let news_store = Arc::new(parking_lot::Mutex::new(
-        match devtoolbox_infrastructure::NewsRepository::open(&news_store_path) {
-            Ok(repository) => repository,
-            Err(error) => {
-                error!(
-                    "news database unavailable: {error} \
-                     (set {ENV_DATA_DIR} to the directory holding news.db)"
-                );
-                match devtoolbox_infrastructure::NewsRepository::open(&news_store_path) {
-                    Ok(repository) => repository,
-                    Err(fatal) => {
-                        error!("news database unusable: {fatal}");
-                        return ExitCode::from(3);
-                    }
-                }
-            }
-        },
-    ));
-    let news: Arc<devtoolbox_application::news::NewsService> =
-        Arc::new(devtoolbox_application::news::NewsService::new(Arc::new(
-            devtoolbox_infrastructure::NewsRepositoryAdapter::new(news_store),
-        )));
-    let feed_client = match devtoolbox_infrastructure::feed_fetcher::feed_client() {
-        Ok(client) => client,
-        Err(error) => {
-            // HTTP 客户端构造失败只影响「订阅时抓取」；推荐源目录与已入库文章照常可读。
-            error!("http client unavailable: {error}");
-            return ExitCode::from(3);
-        }
-    };
-    let news_ingest: Arc<dyn devtoolbox_application::news::NewsIngestPort> =
-        Arc::new(devtoolbox_application::news::NewsIngestService::new(
-            Arc::clone(&news),
-            // FeedFetcherPort 用 `-> impl Future` 声明，不是 dyn 兼容的；
-            // 与桌面端一致，泛型参数直接传具体类型。
-            devtoolbox_infrastructure::FeedFetcherAdapter::new(feed_client),
-        ));
+    let travel = Arc::new(travel_api::TravelDeps {
+        client: core.client.clone(),
+        store: Arc::clone(&core.travel_store),
+        registry: Arc::clone(&core.travel_registry),
+        settings_loader: Arc::clone(&core.settings_loader),
+    });
 
     let app = routes::router(
         Arc::new(service),

@@ -10,6 +10,7 @@ reqwest.workspace = true
 devtoolbox-application = { path = "../../crates/application" }
 devtoolbox-core = { path = "../../crates/core" }
 devtoolbox-infrastructure = { path = "../../crates/infrastructure" }
+devtoolbox-runtime = { path = "../../crates/runtime" }
 axum = { version = "0.8", features = ["macros"] }
 parking_lot.workspace = true
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal", "net"] }

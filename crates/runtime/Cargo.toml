@@ -1,0 +1,22 @@
+[package]
+name = "devtoolbox-runtime"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Shared application composition layer (desktop Tauri + web HTTP server)."
+
+[dependencies]
+async-trait = "0.1"
+devtoolbox-application = { path = "../application" }
+devtoolbox-core = { path = "../core" }
+devtoolbox-infrastructure = { path = "../infrastructure" }
+parking_lot.workspace = true
+reqwest = { workspace = true, features = ["blocking"] }
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

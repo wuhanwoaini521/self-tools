@@ -24,7 +24,8 @@ use devtoolbox_core::learning::{
 };
 use devtoolbox_infrastructure::language::starter::StarterReport;
 
-use crate::{AppState, CommandError, SpeakingScoreRequest, composition};
+use crate::{AppState, CommandError, SpeakingScoreRequest};
+use devtoolbox_runtime::composition;
 
 /// 词典侧服务。
 pub fn language_service(state: &State<'_, AppState>) -> LanguageService {

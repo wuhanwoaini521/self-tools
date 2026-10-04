@@ -6,6 +6,7 @@ members = [
     "crates/application",
     "crates/core",
     "crates/infrastructure",
+    "crates/runtime",
 ]
 default-members = [
     "apps/desktop",
@@ -14,6 +15,7 @@ default-members = [
     "crates/application",
     "crates/core",
     "crates/infrastructure",
+    "crates/runtime",
 ]
 resolver = "3"
 

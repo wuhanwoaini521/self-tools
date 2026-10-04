@@ -26,11 +26,11 @@ use devtoolbox_core::server::{
 };
 use devtoolbox_core::settings::AppSettings;
 
-use crate::knowledge::SettingsLoader;
 use crate::server_adapters::{
     HttpAppProbeAdapter, LaunchdControlAdapter, LaunchdProbeAdapter, LogTailAdapter,
     SystemMetricsAdapter,
 };
+use devtoolbox_infrastructure::knowledge_runtime::SettingsLoader;
 
 /// SQLite 审计存储（`config/server_actions.db`；复用 infra SQLite 模式）。
 pub struct SqliteAuditStore {
@@ -325,6 +325,15 @@ fn registered_from(
 #[must_use]
 pub fn desktop_trust() -> SessionTrust {
     SessionTrust::LocalDesktop
+}
+
+/// 网页端会话的信任级别。
+///
+/// 网页端是**远程**访问（浏览器 → HTTP），没有桌面那样的「本机窗口 + 用户在场」保证，
+/// 因此按 fail-closed 走 `RemoteUntrusted`：写操作默认 disabled，读操作正常。
+/// 这不是功能阉割，而是安全默认值——桌面端仍是完整能力的主场。
+pub fn web_trust() -> SessionTrust {
+    SessionTrust::RemoteUntrusted
 }
 
 fn unix_now() -> i64 {

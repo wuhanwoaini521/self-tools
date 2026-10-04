@@ -12,7 +12,6 @@
 //! 与桌面端共用 `KnowledgeRuntime::build`，因此两端行为一致，
 //! 数据也落在同一个 `<config>/` 目录（memory.db / documents.db / files.db）。
 
-use std::path::PathBuf;
 use std::sync::Arc;
 
 use axum::extract::Query;
@@ -20,27 +19,6 @@ use axum::{Extension, Json};
 use devtoolbox_core::memory::MemoryQuery;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-
-/// 运行时装配依赖。
-pub struct KnowledgeDeps {
-    pub config_dir: PathBuf,
-    pub settings_loader: devtoolbox_infrastructure::knowledge_runtime::SettingsLoader,
-    pub language: Arc<devtoolbox_application::language::LanguageService>,
-}
-
-/// 惰性构建 KnowledgeRuntime：server 启动时不因知识库失败而起不来。
-pub fn build(
-    deps: &KnowledgeDeps,
-) -> Result<Arc<devtoolbox_infrastructure::knowledge_runtime::KnowledgeRuntime>, String> {
-    devtoolbox_infrastructure::knowledge_runtime::KnowledgeRuntime::build(
-        &deps.config_dir,
-        Arc::clone(&deps.settings_loader),
-        devtoolbox_core::knowledge::KnowledgeBudget::default(),
-        Arc::clone(&deps.language),
-    )
-    .map(Arc::new)
-    .map_err(|error| error.to_string())
-}
 
 // ============================================================================
 // DTO
@@ -339,31 +317,4 @@ pub async fn global_search(
             sources: Vec::new(),
         });
     to_json(result, "global_search_encode_failed")
-}
-/// 装配失败时的占位运行时：三个库仍然打开（保证进程可用），
-/// 只是没有任何数据。**不静默**——调用 `startup_sync()` 时会在日志里说明。
-#[must_use]
-pub fn unavailable_runtime(
-    config_dir: &std::path::Path,
-) -> Arc<devtoolbox_infrastructure::knowledge_runtime::KnowledgeRuntime> {
-    let loader: devtoolbox_infrastructure::knowledge_runtime::SettingsLoader =
-        Arc::new(|| Err("知识库未成功装配".to_string()));
-    match build(&KnowledgeDeps {
-        config_dir: config_dir.to_path_buf(),
-        settings_loader: loader,
-        language: Arc::new(devtoolbox_application::language::LanguageService::new(
-            Arc::new(devtoolbox_infrastructure::ports::LanguageStoreAdapter::new(
-                Arc::new(parking_lot::Mutex::new(
-                    devtoolbox_infrastructure::language::LanguageStore::open(
-                        config_dir.join("language.db"),
-                    )
-                    .expect("语言库始终可用（它是 server 的硬依赖）"),
-                )),
-            )),
-        )),
-    }) {
-        Ok(runtime) => runtime,
-        // 连兜底都失败时 panic：此时 server 本来也起不来，留在启动阶段暴露更诚实。
-        Err(error) => panic!("知识库兜底装配失败：{error}"),
-    }
 }

@@ -46,6 +46,14 @@ impl SettingsStoreAdapter {
     pub fn new(store: SettingsStore) -> Self {
         Self { store }
     }
+
+    /// 克隆一份适配器（SettingsStore 内部可共享底层路径与写锁）。
+    #[must_use]
+    pub fn shared(&self) -> Self {
+        Self {
+            store: self.store.clone(),
+        }
+    }
 }
 
 impl SettingsStorePort for SettingsStoreAdapter {
@@ -66,7 +74,9 @@ impl SettingsStorePort for SettingsStoreAdapter {
 
 // ---------- Language（SQLite 适配器，Gate 7.5） ----------
 
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+
+use parking_lot::Mutex;
 
 pub use devtoolbox_infrastructure::ports::CourseStoreAdapter;
 pub use devtoolbox_infrastructure::ports::GeographyQueryAdapter;
@@ -257,86 +267,71 @@ impl RssRepositoryAdapter {
 
 impl RssRepositoryPort for RssRepositoryAdapter {
     fn list_feeds(&self) -> Result<Vec<FeedRow>, String> {
-        self.store
-            .lock()
-            .expect("rss store poisoned")
-            .list_feeds()
-            .map_err(|e| e.to_string())
+        self.store.lock().list_feeds().map_err(|e| e.to_string())
     }
     fn find_feed_id_by_url(&self, url: &str) -> Result<Option<i64>, String> {
         self.store
             .lock()
-            .expect("rss store poisoned")
             .find_feed_id_by_url(url)
             .map_err(|e| e.to_string())
     }
     fn insert_feed(&self, title: &str, url: &str, site_url: Option<&str>) -> Result<i64, String> {
         self.store
             .lock()
-            .expect("rss store poisoned")
             .insert_feed(title, url, site_url)
             .map_err(|e| e.to_string())
     }
     fn insert_articles(&self, feed_id: i64, entries: &[FetchedEntry]) -> Result<usize, String> {
         self.store
             .lock()
-            .expect("rss store poisoned")
             .insert_articles(feed_id, entries)
             .map_err(|e| e.to_string())
     }
     fn set_feed_success(&self, feed_id: i64) -> Result<(), String> {
         self.store
             .lock()
-            .expect("rss store poisoned")
             .set_feed_success(feed_id)
             .map_err(|e| e.to_string())
     }
     fn set_feed_error(&self, feed_id: i64, message: &str) -> Result<(), String> {
         self.store
             .lock()
-            .expect("rss store poisoned")
             .set_feed_error(feed_id, message)
             .map_err(|e| e.to_string())
     }
     fn feed_title(&self, feed_id: i64) -> Result<Option<String>, String> {
         self.store
             .lock()
-            .expect("rss store poisoned")
             .feed_title(feed_id)
             .map_err(|e| e.to_string())
     }
     fn list_articles(&self, feed_id: i64, limit: i64) -> Result<Vec<ArticleRow>, String> {
         self.store
             .lock()
-            .expect("rss store poisoned")
             .list_articles(feed_id, limit)
             .map_err(|e| e.to_string())
     }
     fn latest_articles(&self, limit: i64) -> Result<Vec<ArticleRow>, String> {
         self.store
             .lock()
-            .expect("rss store poisoned")
             .latest_articles(limit)
             .map_err(|e| e.to_string())
     }
     fn entry_by_id(&self, entry_id: i64) -> Result<Option<ArticleRow>, String> {
         self.store
             .lock()
-            .expect("rss store poisoned")
             .entry_by_id(entry_id)
             .map_err(|e| e.to_string())
     }
     fn mark_article_read(&self, article_id: i64) -> Result<(), String> {
         self.store
             .lock()
-            .expect("rss store poisoned")
             .mark_article_read(article_id)
             .map_err(|e| e.to_string())
     }
     fn delete_feed(&self, feed_id: i64) -> Result<(), String> {
         self.store
             .lock()
-            .expect("rss store poisoned")
             .delete_feed(feed_id)
             .map_err(|e| e.to_string())
     }
@@ -348,21 +343,18 @@ impl RssRepositoryPort for RssRepositoryAdapter {
     ) -> Result<Vec<ArticleRow>, String> {
         self.store
             .lock()
-            .expect("rss store poisoned")
             .query_articles(keyword, feed_id, limit)
             .map_err(|e| e.to_string())
     }
     fn starred_articles(&self, limit: i64) -> Result<Vec<ArticleRow>, String> {
         self.store
             .lock()
-            .expect("rss store poisoned")
             .starred_articles(limit)
             .map_err(|e| e.to_string())
     }
     fn toggle_article_star(&self, article_id: i64) -> Result<bool, String> {
         self.store
             .lock()
-            .expect("rss store poisoned")
             .toggle_article_star(article_id)
             .map_err(|e| e.to_string())
     }
@@ -419,8 +411,8 @@ impl NewsRepositoryAdapter {
         Self { store }
     }
 
-    fn lock(&self) -> std::sync::MutexGuard<'_, NewsRepository> {
-        self.store.lock().unwrap_or_else(|error| error.into_inner())
+    fn lock(&self) -> parking_lot::MutexGuard<'_, NewsRepository> {
+        self.store.lock()
     }
 }
 

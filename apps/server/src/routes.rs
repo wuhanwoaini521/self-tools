@@ -142,8 +142,7 @@ pub fn router(
         )
         .route(
             "/api/v1/language/course/lesson/{id}",
-            get(crate::language_course_api::lesson)
-                .delete(crate::language_data_api::delete_lesson),
+            get(crate::language_course_api::lesson).delete(crate::language_data_api::delete_lesson),
         )
         .route(
             "/api/v1/language/course/progress",
@@ -806,6 +805,30 @@ mod tests {
     }
 
     /// 历史路由测试用的装配：Language 侧给内存库（这些用例只断言 history）。
+    /// 测试用共享运行时：走 AppCore 一次装配（与真实启动同一路径）。
+    fn test_core() -> Arc<devtoolbox_runtime::AppCore> {
+        static CORE: std::sync::OnceLock<Arc<devtoolbox_runtime::AppCore>> =
+            std::sync::OnceLock::new();
+        CORE.get_or_init(|| {
+            let dir =
+                std::env::temp_dir().join(format!("self-tools-test-core-{}", std::process::id()));
+            let _ = std::fs::create_dir_all(&dir);
+            // History 用仓库里那份真实 duckdb（与开发/生产一致）；
+            // 其余库落临时目录，不污染开发者的 config/。
+            let history_db = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../history-data-pipeline/dist/history.duckdb");
+            Arc::new(
+                devtoolbox_runtime::AppCore::build(
+                    &dir,
+                    history_db,
+                    devtoolbox_runtime::server::web_trust(),
+                )
+                .expect("app core"),
+            )
+        })
+        .clone()
+    }
+
     fn test_router(fail_all: bool) -> axum::Router {
         let language_store = Arc::new(parking_lot::Mutex::new(
             devtoolbox_infrastructure::LanguageStore::open(std::env::temp_dir().join(format!(
@@ -863,7 +886,7 @@ mod tests {
             course,
             // readiness 探测用的数据目录（测试里指向系统临时目录）。
             std::env::temp_dir(),
-            crate::knowledge_api::unavailable_runtime(&std::env::temp_dir()),
+            test_core().knowledge.clone(),
             Arc::clone(&language_store),
             Arc::new(crate::travel_api::test_deps(&std::env::temp_dir())),
             Arc::new(crate::language_data_api::DataPaths {

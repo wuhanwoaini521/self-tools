@@ -3,8 +3,9 @@
 //! 全局 `AppState` 持有各模块的 SQLite 存储器、Travel 会话注册表与共享 HTTP
 //! 客户端；每个功能模块(文档 / RSS / Travel)的命令各自独立，互不依赖。
 
+use parking_lot::Mutex;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use devtoolbox_application::travel::session::TravelSessionRegistry;
 use devtoolbox_application::{
@@ -25,15 +26,12 @@ use devtoolbox_infrastructure::{
     TravelDataProvider, TravelDataRequest, TravelStore, feed_client,
 };
 
-// V6：Personal Knowledge 组合根（适配器 + 服务装配 + 启动同步）。
-mod knowledge;
+// 组合根（store/服务/provider 装配）已下沉到 `devtoolbox_runtime`，桌面与网页共用。
 // NCE 英语课程学习子域（Tauri 命令）。
 pub mod language_course;
 // 系统就绪度（真实探测）。
 pub mod readiness;
 // V7：Home Server 组合根（平台适配器 + 注册表 + 安全动作层）。
-mod server;
-mod server_adapters;
 // V11：Personal Learning OS 适配器与命令
 pub mod learning;
 
@@ -133,7 +131,7 @@ fn store_command_error(source: devtoolbox_infrastructure::InfrastructureError) -
 pub struct AppState {
     /// RSS：应用层端口（adapters 在组合根装配；不直接暴露 SQLite/reqwest）。
     pub rss_repository: Arc<dyn RssRepositoryPort>,
-    pub rss_fetcher: composition::FeedFetcherAdapter,
+    pub rss_fetcher: devtoolbox_runtime::composition::FeedFetcherAdapter,
     pub travel_store: Arc<parking_lot::Mutex<TravelStore>>,
     pub travel_registry: TravelSessionRegistry,
     pub history_duckdb: Arc<HistoryDuckDbRepository>,
@@ -149,9 +147,9 @@ pub struct AppState {
     /// History Enrichment 运行器（V5 Gate 4；命令与 agent 工具共用）。
     pub history_enrichment: Arc<dyn EnrichmentRunnerPort>,
     /// Personal Knowledge 运行时（V6：memory / documents / files + 统一检索）。
-    pub knowledge: Arc<knowledge::KnowledgeRuntime>,
+    pub knowledge: Arc<devtoolbox_infrastructure::knowledge_runtime::KnowledgeRuntime>,
     /// Home Server 运行时（V7：指标 / 注册表 / 安全动作 + 审计）。
-    pub server: Arc<server::ServerRuntime>,
+    pub server: Arc<devtoolbox_runtime::server::ServerRuntime>,
     /// V12 News 模块（ADR-010：独立 bounded context，`config/news.db`）。
     pub news: Arc<dyn devtoolbox_application::news::NewsPort>,
     /// News 联网摄取（`news_refresh_now` / `news_add_source` / AI `news.refresh`）。
@@ -312,22 +310,32 @@ fn history_repository(app: &AppHandle) -> Result<HistoryDuckDbRepository, Comman
 
 // ---------- 文档 / Markdown 模块 ----------
 
-mod composition;
-mod travel_providers;
-
 #[tauri::command]
 fn read_document(path: String) -> Result<DocumentDto, CommandError> {
-    load_document(&composition::DocumentStoreAdapter, &path).map_err(CommandError::from)
+    load_document(
+        &devtoolbox_runtime::composition::DocumentStoreAdapter,
+        &path,
+    )
+    .map_err(CommandError::from)
 }
 
 #[tauri::command]
 fn write_document(path: String, text: String) -> Result<(), CommandError> {
-    save_document(&composition::DocumentStoreAdapter, &path, &text).map_err(CommandError::from)
+    save_document(
+        &devtoolbox_runtime::composition::DocumentStoreAdapter,
+        &path,
+        &text,
+    )
+    .map_err(CommandError::from)
 }
 
 #[tauri::command]
 fn list_workspace(path: String) -> Result<Vec<WorkspaceFile>, CommandError> {
-    scan_workspace(&composition::DocumentStoreAdapter, &path).map_err(CommandError::from)
+    scan_workspace(
+        &devtoolbox_runtime::composition::DocumentStoreAdapter,
+        &path,
+    )
+    .map_err(CommandError::from)
 }
 
 #[tauri::command]
@@ -338,14 +346,20 @@ fn cycle_task_lines(lines: Vec<String>, step: isize) -> Vec<String> {
 #[tauri::command]
 fn get_settings(app: AppHandle) -> Result<AppSettings, CommandError> {
     let store = settings_store(&app)?;
-    load_settings(&composition::SettingsStoreAdapter::new(store)).map_err(CommandError::from)
+    load_settings(&devtoolbox_runtime::composition::SettingsStoreAdapter::new(
+        store,
+    ))
+    .map_err(CommandError::from)
 }
 
 #[tauri::command]
 fn put_settings(app: AppHandle, settings: AppSettings) -> Result<(), CommandError> {
     let store = settings_store(&app)?;
-    save_settings(&composition::SettingsStoreAdapter::new(store), &settings)
-        .map_err(CommandError::from)
+    save_settings(
+        &devtoolbox_runtime::composition::SettingsStoreAdapter::new(store),
+        &settings,
+    )
+    .map_err(CommandError::from)
 }
 
 // ---------- News 模块（V12 / ADR-010：独立 bounded context） ----------
@@ -701,11 +715,15 @@ fn travel_research_start(
         let travel = settings_store(&app)
             .ok()
             .and_then(|settings_store| {
-                load_settings(&composition::SettingsStoreAdapter::new(settings_store)).ok()
+                load_settings(&devtoolbox_runtime::composition::SettingsStoreAdapter::new(
+                    settings_store,
+                ))
+                .ok()
             })
             .map(|settings| settings.travel)
             .unwrap_or_default();
-        let service = travel_providers::travel_research_service(&client, &travel, store);
+        let service =
+            devtoolbox_runtime::travel_providers::travel_research_service(&client, &travel, store);
 
         let session_handle = Arc::clone(&session);
         let progress = move |event: TravelResearchEvent| {
@@ -756,7 +774,7 @@ async fn test_travel_llm(
     state: State<'_, AppState>,
     request: TravelLlmTestRequest,
 ) -> Result<String, CommandError> {
-    let provider = travel_providers::llm_test_provider(
+    let provider = devtoolbox_runtime::travel_providers::llm_test_provider(
         &state.client,
         request.base_url,
         request.api_key,
@@ -789,7 +807,8 @@ async fn test_travel_amap(
     state: State<'_, AppState>,
     request: TravelKeyTestRequest,
 ) -> Result<String, CommandError> {
-    let provider = travel_providers::amap_test_provider(&state.client, request.api_key);
+    let provider =
+        devtoolbox_runtime::travel_providers::amap_test_provider(&state.client, request.api_key);
     let facts = provider
         .fetch(TravelDataRequest {
             city: "北京".to_string(),
@@ -813,7 +832,11 @@ async fn test_travel_qweather(
             code: "travel_qweather_test_failed",
             message: "请先填写和风天气 API Host".to_string(),
         })?;
-    let provider = travel_providers::qweather_test_provider(&state.client, request.api_key, host);
+    let provider = devtoolbox_runtime::travel_providers::qweather_test_provider(
+        &state.client,
+        request.api_key,
+        host,
+    );
     let facts = provider
         .fetch(TravelDataRequest {
             city: "北京".to_string(),
@@ -893,11 +916,6 @@ pub mod language;
 // 用例逻辑在 crates/application/src/history/（HistoryService + HistoryQueryPort）；
 // 本文件只做 Tauri 命令转发，不做聚合决策。
 
-mod history_enrichment;
-mod history_query;
-mod personal_ai;
-mod travel_ai;
-
 use devtoolbox_application::history::enrichment::EnrichmentRunnerPort;
 use devtoolbox_application::history::{EnrichmentKey, EnrichmentSection, EnrichmentView};
 use devtoolbox_application::history::{
@@ -910,9 +928,11 @@ use devtoolbox_core::ToolSpec;
 use devtoolbox_core::personal_ai::{AgentRequest, AgentResponse, ModuleDescriptor};
 
 fn history_service(state: &State<'_, AppState>) -> HistoryService {
-    HistoryService::new(Box::new(history_query::HistoryQueryAdapter::new(
-        Arc::clone(&state.history_duckdb),
-    )))
+    HistoryService::new(Box::new(
+        devtoolbox_runtime::history_query::HistoryQueryAdapter::new(Arc::clone(
+            &state.history_duckdb,
+        )),
+    ))
 }
 
 #[tauri::command]
@@ -984,7 +1004,9 @@ fn history_semantic_search(
 
 fn geography_service(state: &State<'_, AppState>) -> devtoolbox_application::GeographyService {
     devtoolbox_application::GeographyService::new(Arc::new(
-        composition::GeographyQueryAdapter::new(Arc::clone(&state.geography_store)),
+        devtoolbox_runtime::composition::GeographyQueryAdapter::new(Arc::clone(
+            &state.geography_store,
+        )),
     ))
 }
 
@@ -1045,9 +1067,11 @@ fn load_ai_settings(
     app: &AppHandle,
 ) -> Result<devtoolbox_core::settings::AiSettings, CommandError> {
     let store = settings_store(app)?;
-    load_settings(&composition::SettingsStoreAdapter::new(store))
-        .map(|settings| settings.ai)
-        .map_err(CommandError::from)
+    load_settings(&devtoolbox_runtime::composition::SettingsStoreAdapter::new(
+        store,
+    ))
+    .map(|settings| settings.ai)
+    .map_err(CommandError::from)
 }
 
 #[tauri::command]
@@ -1095,8 +1119,8 @@ async fn personal_ai_chat(
         });
     }
     let ai = load_ai_settings(&app)?;
-    let provider = personal_ai::build_provider(state.client.clone(), &ai);
-    let agent = personal_ai::build_agent(
+    let provider = devtoolbox_runtime::personal_ai::build_provider(state.client.clone(), &ai);
+    let agent = devtoolbox_runtime::personal_ai::build_agent(
         provider,
         Arc::clone(&state.ai),
         Arc::clone(&state.ai_session),
@@ -2332,23 +2356,27 @@ pub fn run() {
             let language_store_shared = Arc::new(parking_lot::Mutex::new(language_store));
             let geography_store_shared = Arc::new(parking_lot::Mutex::new(geography_store));
             let client = feed_client().expect("build http client");
-            let rss_repository: Arc<dyn RssRepositoryPort> = Arc::new(
-                composition::RssRepositoryAdapter::new(Arc::new(Mutex::new(store))),
-            );
+            let rss_repository: Arc<dyn RssRepositoryPort> =
+                Arc::new(devtoolbox_runtime::composition::RssRepositoryAdapter::new(
+                    Arc::new(Mutex::new(store)),
+                ));
             let history_repo = Arc::new(history_duckdb);
-            let history_port: Arc<dyn devtoolbox_application::history::HistoryQueryPort> = Arc::new(
-                history_query::HistoryQueryAdapter::new(Arc::clone(&history_repo)),
-            );
+            let history_port: Arc<dyn devtoolbox_application::history::HistoryQueryPort> =
+                Arc::new(devtoolbox_runtime::history_query::HistoryQueryAdapter::new(
+                    Arc::clone(&history_repo),
+                ));
             // 富化设置读取器：每次调用读最新 settings.json（同 travel 模式）。
-            let enrichment_settings: history_enrichment::SettingsLoader = {
+            let enrichment_settings: devtoolbox_runtime::history_enrichment::SettingsLoader = {
                 let handle = app.handle().clone();
                 Arc::new(move || -> Result<AppSettings, String> {
                     let store = settings_store(&handle).map_err(|error| error.message.clone())?;
-                    load_settings(&composition::SettingsStoreAdapter::new(store))
-                        .map_err(|error| error.to_string())
+                    load_settings(&devtoolbox_runtime::composition::SettingsStoreAdapter::new(
+                        store,
+                    ))
+                    .map_err(|error| error.to_string())
                 })
             };
-            let history_enrichment = history_enrichment::build_runner(
+            let history_enrichment = devtoolbox_runtime::history_enrichment::build_runner(
                 client.clone(),
                 enrichment_settings.clone(),
                 &config_directory,
@@ -2356,7 +2384,7 @@ pub fn run() {
             )
             .map_err(|error| std::io::Error::other(error.to_string()))?;
             let travel_ai: Arc<dyn devtoolbox_application::travel::TravelAiPort> =
-                Arc::new(travel_ai::TravelAiAdapter::new(
+                Arc::new(devtoolbox_runtime::travel_ai::TravelAiAdapter::new(
                     client.clone(),
                     enrichment_settings.clone(),
                     Arc::clone(&travel_store_shared),
@@ -2364,15 +2392,15 @@ pub fn run() {
             // Geography / Language 模块端口（V5 Gate 6/7）：复用既有 store 适配器。
             let geography_port: Arc<
                 dyn devtoolbox_application::geography::GeographyQueryPort + Send + Sync,
-            > = Arc::new(composition::GeographyQueryAdapter::new(Arc::clone(
-                &geography_store_shared,
-            )));
+            > = Arc::new(devtoolbox_runtime::composition::GeographyQueryAdapter::new(
+                Arc::clone(&geography_store_shared),
+            ));
             let language_port: Arc<dyn devtoolbox_application::language::LanguageStorePort> =
-                Arc::new(composition::LanguageStoreAdapter::new(Arc::clone(
-                    &language_store_shared,
-                )));
+                Arc::new(devtoolbox_runtime::composition::LanguageStoreAdapter::new(
+                    Arc::clone(&language_store_shared),
+                ));
             // V6 Personal Knowledge：三个索引库 + 三个域服务 + 统一检索服务。
-            let knowledge = knowledge::KnowledgeRuntime::build(
+            let knowledge = devtoolbox_infrastructure::knowledge_runtime::KnowledgeRuntime::build(
                 &config_directory,
                 Arc::clone(&enrichment_settings),
                 devtoolbox_core::knowledge::KnowledgeBudget::default(),
@@ -2390,20 +2418,20 @@ pub fn run() {
 
             // V7 Home Server：注册表来自 settings（空 = 无能力，fail-closed）；
             // 桌面会话 = LocalDesktop（§76）。
-            let server_runtime = server::ServerRuntime::build(
+            let server_runtime = devtoolbox_runtime::server::ServerRuntime::build(
                 &config_directory,
                 Arc::clone(&enrichment_settings),
-                server::desktop_trust(),
+                devtoolbox_runtime::server::desktop_trust(),
             )
             .unwrap_or_else(|error| {
                 eprintln!("[server] runtime unavailable: {error}");
-                server::ServerRuntime::assemble(
+                devtoolbox_runtime::server::ServerRuntime::assemble(
                     &config_directory,
                     Arc::clone(&enrichment_settings),
-                    server::desktop_trust(),
+                    devtoolbox_runtime::server::desktop_trust(),
                     Vec::new(),
                     Vec::new(),
-                    Arc::new(server::DisabledServiceControl),
+                    Arc::new(devtoolbox_runtime::server::DisabledServiceControl),
                 )
                 .expect("empty server runtime")
             });
@@ -2416,7 +2444,7 @@ pub fn run() {
                 .ok()
                 .map(|settings| settings.ai)
                 .filter(|ai| ai.is_configured())
-                .map(|ai| personal_ai::build_provider(client.clone(), &ai));
+                .map(|ai| devtoolbox_runtime::personal_ai::build_provider(client.clone(), &ai));
             // V10：hub 装配读取一次当前 settings（决策模式 + Jev key + AI 配置）。
             let hub_settings: AppSettings = (enrichment_settings)().unwrap_or_default();
             let client_for_hub = client.clone();
@@ -2433,11 +2461,13 @@ pub fn run() {
             );
             let conversation_service = Arc::new(
                 devtoolbox_application::personal_ai::ConversationService::new(Arc::new(
-                    composition::ConversationStoreAdapter::new(conversation_store),
+                    devtoolbox_runtime::composition::ConversationStoreAdapter::new(
+                        conversation_store,
+                    ),
                 )),
             );
-            let study_board_store: Arc<dyn devtoolbox_application::StudyBoardStorePort> =
-                Arc::new(composition::StudyBoardStoreAdapter::new(Arc::new(
+            let study_board_store: Arc<dyn devtoolbox_application::StudyBoardStorePort> = Arc::new(
+                devtoolbox_runtime::composition::StudyBoardStoreAdapter::new(Arc::new(
                     devtoolbox_infrastructure::StudyBoardSqliteStore::open(
                         config_directory.join("study_boards.db"),
                     )
@@ -2446,25 +2476,28 @@ pub fn run() {
                         devtoolbox_infrastructure::StudyBoardSqliteStore::open_in_memory()
                             .expect("in-memory study board store")
                     }),
-                )));
+                )),
+            );
             // V12 News（ADR-010：独立 bounded context）：
             // - NewsRepository → `config/news.db`（系统 seed + 抓取落地）；
             // - NewsService / NewsIngestService 分别供读写命令与联网命令；
             // - RSS 的 RssService / RssIngestService 只服务 `rss.*` AI 工具
             //   （RSS 页的既有命令继续走 `rss::workflows`，契约不变）。
-            let news_store = Arc::new(Mutex::new(
+            let news_store = Arc::new(parking_lot::Mutex::new(
                 devtoolbox_infrastructure::NewsRepository::open(config_directory.join("news.db"))
                     .expect("open news database"),
             ));
             let news_service = Arc::new(devtoolbox_application::news::NewsService::new(Arc::new(
-                composition::NewsRepositoryAdapter::new(Arc::clone(&news_store)),
+                devtoolbox_runtime::composition::NewsRepositoryAdapter::new(Arc::clone(
+                    &news_store,
+                )),
             )));
             let news: Arc<dyn devtoolbox_application::news::NewsPort> =
                 Arc::clone(&news_service) as Arc<dyn devtoolbox_application::news::NewsPort>;
             let news_ingest: Arc<dyn devtoolbox_application::news::NewsIngestPort> =
                 Arc::new(devtoolbox_application::news::NewsIngestService::new(
                     Arc::clone(&news_service),
-                    composition::FeedFetcherAdapter::new(client.clone()),
+                    devtoolbox_runtime::composition::FeedFetcherAdapter::new(client.clone()),
                 ));
             let rss_service = Arc::new(devtoolbox_application::rss::RssService::new(Arc::clone(
                 &rss_repository,
@@ -2474,7 +2507,7 @@ pub fn run() {
             let rss_ingest: Arc<dyn devtoolbox_application::rss::RssIngestPort> =
                 Arc::new(devtoolbox_application::rss::RssIngestService::new(
                     Arc::clone(&rss_service),
-                    composition::FeedFetcherAdapter::new(client.clone()),
+                    devtoolbox_runtime::composition::FeedFetcherAdapter::new(client.clone()),
                 ));
             let learning_store_raw = Arc::new(parking_lot::Mutex::new(
                 devtoolbox_infrastructure::LearningStore::open(
@@ -2488,14 +2521,16 @@ pub fn run() {
                 )));
             app.manage(AppState {
                 rss_repository,
-                rss_fetcher: composition::FeedFetcherAdapter::new(client.clone()),
+                rss_fetcher: devtoolbox_runtime::composition::FeedFetcherAdapter::new(
+                    client.clone(),
+                ),
                 travel_store: Arc::clone(&travel_store_shared),
                 travel_registry: TravelSessionRegistry::new(),
                 history_duckdb: Arc::clone(&history_repo),
                 language_store: Arc::clone(&language_store_shared),
                 geography_store: Arc::clone(&geography_store_shared),
                 client,
-                ai: personal_ai::build_hub(
+                ai: devtoolbox_runtime::personal_ai::build_hub(
                     history_repo,
                     Some(Arc::clone(&history_enrichment)),
                     travel_ai,

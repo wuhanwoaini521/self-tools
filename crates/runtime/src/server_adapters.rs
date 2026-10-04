@@ -135,6 +135,8 @@ impl LogTailPort for LogTailAdapter {
 /// 应用探活适配器：只访问注册表内的 URL（§49/§50 SSRF 边界）。
 #[derive(Debug, Default)]
 pub struct HttpAppProbeAdapter {
+    /// 保留字段：探测超时策略与共享 client 对齐（当前 probe_http 自建阻塞客户端）。
+    #[allow(dead_code)]
     client: reqwest::Client,
 }
 
@@ -169,9 +171,9 @@ impl ApplicationProbePort for HttpAppProbeAdapter {
                 checked_at,
             };
         }
-        // 同步探活：桌面端一次一个，超时由 client 控制（§115 失败隔离）。
-        // 复用 Tauri 的 async runtime，不为探活再引入 tokio 依赖。
-        let outcome = tauri::async_runtime::block_on(self.client.get(&url).send()).ok();
+        // 同步探活：一次一个，超时由 client 控制（§115 失败隔离）。
+        // 不依赖任何宿主的 async runtime —— 这一层两端共用，绑到 Tauri 会让网页端整块不可用。
+        let outcome = probe_http(&url);
         match outcome {
             Some(response) if response.status().is_success() => ApplicationStatus {
                 app_id: app.id.clone(),
@@ -200,6 +202,20 @@ fn unix_now() -> i64 {
         .duration_since(std::time::UNIX_EPOCH)
         .map(|elapsed| elapsed.as_secs() as i64)
         .unwrap_or_default()
+}
+
+/// 同步探活（复用 client 的超时设置）。
+///
+/// 不用宿主的 async runtime：这一层两端共用，绑到 Tauri 会让网页端整块不可用。
+/// 探活是「一次一个」的短请求，用独立阻塞客户端即可。
+fn probe_http(url: &str) -> Option<reqwest::blocking::Response> {
+    reqwest::blocking::Client::builder()
+        .timeout(std::time::Duration::from_secs(5))
+        .build()
+        .ok()?
+        .get(url)
+        .send()
+        .ok()
 }
 
 #[cfg(test)]
