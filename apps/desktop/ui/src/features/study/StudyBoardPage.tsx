@@ -19,6 +19,16 @@ import {
 } from "@phosphor-icons/react";
 import type { AppContextPayload } from "../ai/aiTypes";
 import { learningClient } from "../learning/learningClient";
+import {
+  BRUSH_PROFILES,
+  BRUSHES,
+  PALETTE_GROUPS,
+  type BrushKind,
+  clamp01,
+  readPressure,
+  renderStroke,
+  type BrushPoint,
+} from "./brush";
 
 export interface StudyBoardSummary {
   id: string;
@@ -40,6 +50,10 @@ interface Stroke {
   points: number[];
   /** 擦除操作在重绘时使用 destination-out，只影响笔迹图层。 */
   eraser?: boolean;
+  /** 笔型（缺省按圆珠笔渲染，老学习板视觉不变）。 */
+  brush?: BrushKind;
+  /** 每点压力 0..1，与 points 一一对应；缺省视为恒定。 */
+  pressures?: number[];
 }
 
 const STROKE_COLORS = ["#1688ff", "#f5f5f5", "#ffb020", "#22c55e"] as const;
@@ -83,24 +97,37 @@ function drawBoardBackground(
 }
 
 
+/** 旧数据（无 pressures）→ 按恒定压力还原，压感笔也能正确重绘。 */
+function toBrushPoints(stroke: Stroke): BrushPoint[] {
+  const points: BrushPoint[] = [];
+  const count = stroke.points.length / 2;
+  for (let i = 0; i < count; i++) {
+    points.push({
+      x: stroke.points[i * 2],
+      y: stroke.points[i * 2 + 1],
+      pressure: stroke.pressures?.[i] ?? 0.6,
+    });
+  }
+  return points;
+}
+
 function drawStrokes(ctx: CanvasRenderingContext2D, strokes: Stroke[]) {
   for (const stroke of strokes) {
     if (stroke.points.length < 2) continue;
-    // 이전 버전은 지우개를 불투명 배경색으로 저장했으므로 읽을 때 복원한다.
-    const isEraser = stroke.eraser ?? (stroke.color === LEGACY_CANVAS_BACKGROUND && stroke.width === 24);
-    ctx.globalCompositeOperation = isEraser ? "destination-out" : "source-over";
-    ctx.strokeStyle = stroke.color;
-    ctx.lineWidth = stroke.width;
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-    ctx.beginPath();
-    ctx.moveTo(stroke.points[0], stroke.points[1]);
-    for (let index = 2; index < stroke.points.length; index += 2) {
-      ctx.lineTo(stroke.points[index], stroke.points[index + 1]);
-    }
-    ctx.stroke();
+    // 旧版本把橡皮擦存成「不透明背景色」的一笔，读回时恢复。
+    const isEraser =
+      stroke.eraser ??
+      (stroke.color === LEGACY_CANVAS_BACKGROUND && stroke.width === 24);
+    renderStroke(ctx, toBrushPoints(stroke), {
+      color: stroke.color,
+      brush: stroke.brush ?? "ballpoint",
+      width: stroke.width,
+      eraser: isEraser,
+      seed: stroke.points[0] * 31 + stroke.points[1] * 17,
+    });
   }
   ctx.globalCompositeOperation = "source-over";
+  ctx.globalAlpha = 1;
 }
 
 function newBoardId(): string {
@@ -115,6 +142,12 @@ export function StudyBoardPage({ active, onContextChange, onAskAi }: StudyBoardP
   const [redoStack, setRedoStack] = useState<Stroke[]>([]);
   const [tool, setTool] = useState<"pen" | "eraser">("pen");
   const [color, setColor] = useState<string>(STROKE_COLORS[0]);
+  /** 当前笔型（圆珠/马克/荧光/铅笔）。 */
+  const [brush, setBrush] = useState<BrushKind>("ballpoint");
+  /** 当前基础线宽（px）；切换笔型时给出该笔型的默认值。 */
+  const [width, setWidth] = useState<number>(BRUSH_PROFILES.ballpoint.baseWidth);
+  /** 最近一笔的采样点与时间戳，用于速度反推压感。 */
+  const lastPointRef = useRef<{ x: number; y: number; at: number } | null>(null);
   const [drawing, setDrawing] = useState(false);
   const [status, setStatus] = useState("");
   const [boards, setBoards] = useState<StudyBoardSummary[]>([]);
@@ -191,12 +224,17 @@ export function StudyBoardPage({ active, onContextChange, onAskAi }: StudyBoardP
     if (!position) return;
     event.currentTarget.setPointerCapture(event.pointerId);
     setDrawing(true);
+    // 落笔速度记为 0；readPressure 在无压感设备上据此反推粗细。
+    lastPointRef.current = { x: position[0], y: position[1], at: performance.now() };
+    const profile = BRUSH_PROFILES[brush];
     setStrokes((current) => [
       ...current,
       {
         color: tool === "eraser" ? LEGACY_CANVAS_BACKGROUND : color,
-        width: tool === "eraser" ? 24 : 3,
+        width: tool === "eraser" ? 24 : width || profile.baseWidth,
         points: [position[0], position[1]],
+        pressures: [readPressure(event)],
+        brush: tool === "eraser" ? brush : brush,
         eraser: tool === "eraser",
       },
     ]);
@@ -207,12 +245,23 @@ export function StudyBoardPage({ active, onContextChange, onAskAi }: StudyBoardP
     if (!drawing) return;
     const position = pointerPosition(event);
     if (!position) return;
+    // 事件间隔用于速度 → 压感反推（触控笔走真实 pressure）。
+    const now = performance.now();
+    const prev = lastPointRef.current;
+    const dt = prev ? Math.max(1, now - prev.at) : 16;
+    const dist = prev
+      ? Math.hypot(position[0] - prev.x, position[1] - prev.y)
+      : 0;
+    const velocity = dist / dt; // px/ms
+    lastPointRef.current = { x: position[0], y: position[1], at: now };
+    const pressure = readPressure({ ...event, velocity });
     setStrokes((current) => {
       if (current.length === 0) return current;
       const last = current[current.length - 1];
       const updated: Stroke = {
         ...last,
         points: [...last.points, position[0], position[1]],
+        pressures: [...(last.pressures ?? []), clamp01(pressure)],
       };
       return [...current.slice(0, -1), updated];
     });
@@ -352,19 +401,56 @@ export function StudyBoardPage({ active, onContextChange, onAskAi }: StudyBoardP
             <Eraser size={18} />
           </button>
         </div>
-        <div className="study-toolbar-group" role="group" aria-label="颜色">
-          {STROKE_COLORS.map((value) => (
+        <div className="study-toolbar-group" role="group" aria-label="笔型">
+          {BRUSHES.map((entry) => (
             <button
-              key={value}
+              key={entry.id}
               type="button"
-              className={"study-swatch" + (color === value ? " active" : "")}
-              style={{ background: value }}
+              className={"study-brush" + (brush === entry.id && tool === "pen" ? " active" : "")}
               onClick={() => {
-                setColor(value);
+                setBrush(entry.id);
+                setWidth(BRUSH_PROFILES[entry.id].baseWidth);
                 setTool("pen");
               }}
-              title={`颜色 ${value}`}
-            />
+              title={`${entry.label} — ${entry.hint}`}
+              aria-label={entry.label}
+            >
+              {entry.label}
+            </button>
+          ))}
+        </div>
+        <div className="study-toolbar-group" role="group" aria-label="粗细">
+          <input
+            className="study-width"
+            type="range"
+            min={1}
+            max={32}
+            step={0.5}
+            value={width}
+            onChange={(event) => setWidth(Number(event.target.value))}
+            aria-label="笔触粗细"
+            title={`粗细 ${width}px`}
+          />
+          <span className="study-width-value">{width}px</span>
+        </div>
+        <div className="study-toolbar-group study-palette" role="group" aria-label="颜色">
+          {PALETTE_GROUPS.map((group) => (
+            <span key={group.label} className="study-palette-group" title={group.label}>
+              {group.colors.map((entry) => (
+                <button
+                  key={entry.value}
+                  type="button"
+                  className={"study-swatch" + (color === entry.value ? " active" : "")}
+                  style={{ background: entry.value }}
+                  onClick={() => {
+                    setColor(entry.value);
+                    setTool("pen");
+                  }}
+                  title={`${entry.label} ${entry.value}`}
+                  aria-label={entry.label}
+                />
+              ))}
+            </span>
           ))}
         </div>
         <div className="study-toolbar-group" role="group" aria-label="编辑">

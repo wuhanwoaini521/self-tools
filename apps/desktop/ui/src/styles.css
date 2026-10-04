@@ -16146,15 +16146,24 @@ main.history-v2-period {
 }
 .study-toolbar {
  display: flex;
- flex-wrap: wrap;
+ /* 笔型 + 调色板变多后仍要**一行放下**：工具栏换行会把「保存/问 AI」挤到第二行，
+    画画时视线来回跳。允许调色板自身横向滚动，工具栏本身不换行。 */
+ flex-wrap: nowrap;
  align-items: center;
  gap: 8px;
  padding: 6px 8px;
  border: 1px solid var(--line);
  border-radius: 10px;
  background: var(--panel, #10171a);
+ overflow-x: auto;
+ scrollbar-width: thin;
+}
+.study-toolbar-right {
+ margin-left: auto;
+ flex: none;
 }
 .study-toolbar-group {
+ flex: none;
  display: flex;
  align-items: center;
  gap: 4px;
@@ -20679,4 +20688,60 @@ main.history-v2-period {
 .en-link-btn.is-on {
   color: var(--text);
   font-weight: 600;
+}
+
+/* ==========================================================================
+ * Study Board 笔刷工具栏（压感 / 笔型 / 粗细 / 调色板）
+ * ========================================================================== */
+.study-brush {
+  padding: 5px 10px;
+  border-radius: var(--radius-xs, 6px);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-secondary, #4b5563);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.study-brush:hover {
+  background: var(--surface-hover, #f3f4f6);
+}
+.study-brush.active {
+  background: var(--accent-soft, #e8f0fe);
+  border-color: var(--accent, #2563eb);
+  color: var(--accent, #2563eb);
+}
+
+.study-width {
+  width: 88px;
+  accent-color: var(--accent, #2563eb);
+  cursor: pointer;
+}
+.study-width-value {
+  min-width: 34px;
+  font-size: 11px;
+  color: var(--text-tertiary, #9ca3af);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 调色板：三组语义色（常用/笔记/标记），组间留白而不是边框分隔 */
+.study-palette {
+  gap: 10px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.study-palette::-webkit-scrollbar {
+  display: none;
+}
+.study-palette-group {
+  display: inline-flex;
+  gap: 4px;
+}
+.study-palette-group + .study-palette-group {
+  padding-left: 10px;
+  border-left: 1px solid var(--border-subtle, #e5e7eb);
+}
+.study-palette .study-swatch.active {
+  box-shadow: 0 0 0 2px var(--surface-primary, #fff), 0 0 0 4px var(--accent, #2563eb);
 }
