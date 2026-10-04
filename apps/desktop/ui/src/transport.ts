@@ -90,6 +90,26 @@ const HTTP_ENDPOINTS: Record<string, (args: Record<string, unknown>) => string> 
   language_sentences: (a) =>
     `/api/v1/language/sentences?language=${encodeURIComponent(String(a.language ?? "jpn"))}` +
     `&limit=${encodeURIComponent(String(a.limit ?? 20))}`,
+  // Personal Knowledge（两端同一份索引库）：此前网页端全部缺接口 → 只能显示「不支持」。
+  memory_list: (a) =>
+    `/api/v1/memory/list?query=${encodeURIComponent(String(a.query ?? ""))}` +
+    `&category=${encodeURIComponent(String(a.category ?? ""))}` +
+    `&status=${encodeURIComponent(String(a.status ?? ""))}` +
+    `&limit=${encodeURIComponent(String(a.limit ?? 100))}`,
+  memory_stats: () => "/api/v1/memory/stats",
+  documents_status: () => "/api/v1/documents/status",
+  documents_recent: (a) => `/api/v1/documents/recent?limit=${encodeURIComponent(String(a.limit ?? 20))}`,
+  documents_search: (a) =>
+    `/api/v1/documents/search?query=${encodeURIComponent(String(a.query ?? ""))}` +
+    `&limit=${encodeURIComponent(String(a.limit ?? 20))}`,
+  files_status: () => "/api/v1/files/status",
+  files_recent: (a) => `/api/v1/files/recent?limit=${encodeURIComponent(String(a.limit ?? 20))}`,
+  files_search: (a) =>
+    `/api/v1/files/search?query=${encodeURIComponent(String(a.query ?? ""))}` +
+    `&limit=${encodeURIComponent(String(a.limit ?? 20))}`,
+  global_search: (a) =>
+    `/api/v1/search/global?query=${encodeURIComponent(String(a.query ?? ""))}` +
+    `&limit=${encodeURIComponent(String(a.limit ?? 8))}`,
   readiness_report: () => "/api/v1/readiness",
   readiness_diagnostics: () => "/api/v1/readiness/diagnostics",
   language_course_today: () => "/api/v1/language/course/today",

@@ -6,6 +6,7 @@
 mod ai_api;
 mod geography_api;
 mod history_query;
+mod knowledge_api;
 mod language_api;
 mod language_course_api;
 mod learning_api;
@@ -219,6 +220,29 @@ async fn main() -> ExitCode {
         Arc::clone(&content),
     ));
     // 英语课程（NCE）子域：与桌面端同一个 CourseService / 同一份 language.db。
+    // Personal Knowledge：两端共用同一份运行时与同一批索引库。
+    let knowledge = knowledge_api::build(&knowledge_api::KnowledgeDeps {
+        config_dir: config.data_dir.clone(),
+        settings_loader: Arc::new({
+            let data_dir = config.data_dir.clone();
+            move || {
+                devtoolbox_infrastructure::SettingsStore::new(data_dir.clone())
+                    .load()
+                    .map_err(|error| error.to_string())
+            }
+        }),
+        language: Arc::clone(&dictionary),
+    })
+    // 知识库装配失败不拖垮整个服务：其余模块照常，只把知识库端点标记为不可用。
+    .unwrap_or_else(|error| {
+        eprintln!("[knowledge] 装配失败，知识库端点不可用：{error}");
+        knowledge_api::unavailable_runtime(&config.data_dir)
+    });
+    // 启动轻量同步（与桌面端一致：未配置允许根 → 空操作，不阻塞启动）。
+    for note in knowledge.startup_sync() {
+        eprintln!("[knowledge] startup sync: {note}");
+    }
+
     let course: Arc<devtoolbox_application::language::course::CourseService> = Arc::new(
         devtoolbox_application::language::course::CourseService::new(
             Arc::new(devtoolbox_infrastructure::ports::CourseStoreAdapter::new(
@@ -302,6 +326,7 @@ async fn main() -> ExitCode {
         content,
         course,
         config.data_dir.clone(),
+        knowledge,
         settings,
         learning_os,
         geography,

@@ -106,9 +106,11 @@ describe("httpTransport：错误语义", () => {
 
   it("未映射的命令明确报错，而不是静默返回空", async () => {
     stubFetch();
-    // 用一个**确实还没接**的命令。这个测试原来拿 geography_home 举例，
-    // 但它已经有 HTTP 端点了 —— 用「已映射」的命令当反例会变成假阳性。
-    await expect(httpTransport.invoke("memory_list")).rejects.toThrow(/尚无网页端接口/);
+    // 用一个**确实还没接**的命令。
+    // 历史上这里先后用过 geography_home、memory_list：它们当时都没端点，
+    // 后来接上了，这个反例就变成了假阳性（断言命令未映射，但命令其实已映射）。
+    // 因此反例必须随接线进度更新——现在选一个仍然只存在于桌面端的命令。
+    await expect(httpTransport.invoke("server_services_list")).rejects.toThrow(/尚无网页端接口/);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });

@@ -10,6 +10,7 @@ pub mod files;
 pub mod geography;
 pub mod history;
 pub mod history_enrichment;
+pub mod knowledge_runtime;
 pub mod language;
 pub mod learning;
 pub mod memory;

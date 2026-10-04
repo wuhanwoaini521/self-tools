@@ -34,7 +34,11 @@ import type {
 } from "./knowledgeTypes";
 
 /** 浏览器预览下的统一错误文案（页面据此展示空态）。 */
-export const BROWSER_PREVIEW_MESSAGE = "浏览器预览不支持本地知识库，请在桌面端使用。";
+/**
+ * @deprecated 历史占位文案。知识库已支持网页端，保留导出仅为兼容旧引用；
+ * 新代码不要依赖它——「不支持」应当来自**真实后端错误**，而不是前端预设。
+ */
+export const BROWSER_PREVIEW_MESSAGE = "知识库暂不可用，请检查本地数据服务是否已启动。";
 
 export interface MemoryListParams {
   query?: string;
@@ -85,16 +89,16 @@ export interface KnowledgeClient {
 export function createKnowledgeClient(
   transport: CommandTransport = defaultTransport,
 ): KnowledgeClient {
-  const guard = () => {
-    if (!transport.isTauriRuntime()) throw new Error(BROWSER_PREVIEW_MESSAGE);
-  };
+  // 不再按运行时设卡：Memory / Documents / Files / 全局检索已由服务端
+  // （apps/server → knowledge_api）用**同一个** KnowledgeRuntime 提供，
+  // 浏览器与桌面读的是同一批索引库。此前这里对每个方法
+  // `if (!isTauriRuntime()) throw` —— 于是「这台机器就是服务器」，
+  // 浏览器打开却只能看到「不支持本地知识库」。
   return {
     memoryStatus: () => {
-      guard();
       return transport.invoke<MemoryStatsDto>("memory_status");
     },
     memoryList: (params) => {
-      guard();
       return transport.invoke<MemoryItemDto[]>("memory_list", {
         query: params?.query,
         category: params?.category,
@@ -103,39 +107,30 @@ export function createKnowledgeClient(
       });
     },
     memoryGet: (id) => {
-      guard();
       return transport.invoke<MemoryItemDto>("memory_get", { id });
     },
     memorySave: (request) => {
-      guard();
       return transport.invoke<MemoryItemDto>("memory_save", { request });
     },
     memoryConfirm: (id) => {
-      guard();
       return transport.invoke<MemoryItemDto>("memory_confirm", { id });
     },
     memoryUpdate: (request) => {
-      guard();
       return transport.invoke<MemoryItemDto>("memory_update", { request });
     },
     memoryArchive: (id) => {
-      guard();
       return transport.invoke<MemoryItemDto>("memory_archive", { id });
     },
     memoryReject: (id) => {
-      guard();
       return transport.invoke<MemoryItemDto>("memory_reject", { id });
     },
     documentsStatus: () => {
-      guard();
       return transport.invoke<DocumentStatusDto>("documents_status");
     },
     documentsScan: (rootId) => {
-      guard();
       return transport.invoke<IndexReportDto[]>("documents_scan", { rootId });
     },
     documentsSearch: (params) => {
-      guard();
       return transport.invoke<DocumentHitDto[]>("documents_search", {
         query: params.query,
         documentType: params.documentType,
@@ -143,29 +138,23 @@ export function createKnowledgeClient(
       });
     },
     documentsGet: (documentId) => {
-      guard();
       return transport.invoke<DocumentMetaDto>("documents_get", { documentId });
     },
     documentsRead: (request) => {
-      guard();
       return transport.invoke<DocumentReadResultDto>("documents_read", {
         request,
       });
     },
     documentsRecent: (limit) => {
-      guard();
       return transport.invoke<DocumentMetaDto[]>("documents_recent", { limit });
     },
     filesStatus: () => {
-      guard();
       return transport.invoke<FileStatusDto>("files_status");
     },
     filesScan: (rootId) => {
-      guard();
       return transport.invoke<FileIndexReportDto[]>("files_scan", { rootId });
     },
     filesSearch: (params) => {
-      guard();
       return transport.invoke<FileMetadataDto[]>("files_search", {
         query: params?.query,
         extension: params?.extension,
@@ -175,26 +164,21 @@ export function createKnowledgeClient(
       });
     },
     filesMetadata: (target) => {
-      guard();
       return transport.invoke<FileMetadataDto>("files_metadata", { target });
     },
     filesReadText: (target, maxChars) => {
-      guard();
       return transport.invoke<FileReadResultDto>("files_read_text", {
         target,
         maxChars,
       });
     },
     filesOpen: (target) => {
-      guard();
       return transport.invoke<FileOpenResultDto>("files_open", { target });
     },
     filesRecent: (limit) => {
-      guard();
       return transport.invoke<FileMetadataDto[]>("files_recent", { limit });
     },
     knowledgeStatus: () => {
-      guard();
       return transport.invoke<KnowledgeStatusDto>("knowledge_status");
     },
   };

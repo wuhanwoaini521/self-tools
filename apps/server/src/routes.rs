@@ -49,6 +49,8 @@ pub fn router(
     course: Arc<devtoolbox_application::language::course::CourseService>,
     // 数据目录（readiness 探测用；与桌面端同一目录）。
     data_dir: std::path::PathBuf,
+    // Personal Knowledge 运行时（两端共用同一份索引库）。
+    knowledge: Arc<devtoolbox_infrastructure::knowledge_runtime::KnowledgeRuntime>,
     settings: Arc<dyn crate::ai_api::SettingsAccess>,
     // 平台 LearningService（Collections / Graph / Review Center / Home 今日面板）
     learning_os: Arc<devtoolbox_application::learning::LearningService>,
@@ -65,6 +67,44 @@ pub fn router(
         .route(
             "/api/v1/readiness/diagnostics",
             get(crate::readiness_api::readiness_diagnostics),
+        )
+        // Personal Knowledge（Memory / Documents / Files / 全局检索）：
+        // 能力一直在 Rust 侧实现，但此前只有桌面装配，网页端只能显示「不支持」。
+        .route(
+            "/api/v1/memory/list",
+            get(crate::knowledge_api::memory_list),
+        )
+        .route(
+            "/api/v1/memory/stats",
+            get(crate::knowledge_api::memory_stats),
+        )
+        .route(
+            "/api/v1/documents/status",
+            get(crate::knowledge_api::documents_status),
+        )
+        .route(
+            "/api/v1/documents/recent",
+            get(crate::knowledge_api::documents_recent),
+        )
+        .route(
+            "/api/v1/documents/search",
+            get(crate::knowledge_api::documents_search),
+        )
+        .route(
+            "/api/v1/files/status",
+            get(crate::knowledge_api::files_status),
+        )
+        .route(
+            "/api/v1/files/recent",
+            get(crate::knowledge_api::files_recent),
+        )
+        .route(
+            "/api/v1/files/search",
+            get(crate::knowledge_api::files_search),
+        )
+        .route(
+            "/api/v1/search/global",
+            get(crate::knowledge_api::global_search),
         )
         .route("/api/v1/history/home", get(home))
         .route("/api/v1/history/search", get(search))
@@ -274,6 +314,7 @@ pub fn router(
         .layer(axum::Extension(Arc::clone(&news)))
         .layer(axum::Extension(Arc::clone(&course)))
         .layer(axum::Extension(Arc::new(data_dir)))
+        .layer(axum::Extension(knowledge))
         .layer(axum::Extension(Arc::clone(&news_ingest)))
         .layer(axum::Extension(
             None::<Arc<dyn crate::ai_api::AiChatRunner>>,
@@ -721,6 +762,7 @@ mod tests {
             course,
             // readiness 探测用的数据目录（测试里指向系统临时目录）。
             std::env::temp_dir(),
+            crate::knowledge_api::unavailable_runtime(&std::env::temp_dir()),
             Arc::new(TestSettings),
             learning_os,
             geography,
