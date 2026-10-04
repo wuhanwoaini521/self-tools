@@ -152,6 +152,33 @@ impl LearningStore {
                 CREATE INDEX IF NOT EXISTS idx_rel_tgt ON custom_relations(target_id);",
             )
             .map_err(sqlite_err)?;
+        self.purge_non_learning_progress()?;
+        Ok(())
+    }
+
+    /// 一次性清理：把 news/rss 写进 `learning_progress` 的条目删掉。
+    ///
+    /// ## 为什么需要
+    ///
+    /// `learning_progress` 是**学习进度**表，但新闻/RSS 条目也会被写进来
+    /// （曾经由自动化遍历批量写入）。后果不只是首页被新闻霸占，还会污染
+    /// 所有聚合指标：平均掌握度、今日已学数量、连续学习天数。
+    ///
+    /// ## 为什么可以安全删
+    ///
+    /// - 判定依据很窄：仅 `module IN ('news','rss')`；
+    /// - 这些条目**没有真实学习语义**：`review_count = 0`、没有复习卡、
+    ///   掌握度是打开时算出来的默认值，不是答题结果；
+    /// - 新闻本身的正文存在 `news.db`，删的是学习进度，**不影响文章数据**。
+    ///
+    /// 幂等：重复执行无副作用。
+    fn purge_non_learning_progress(&self) -> Result<(), InfrastructureError> {
+        self.connection
+            .execute(
+                "DELETE FROM learning_progress WHERE module IN ('news', 'rss')",
+                [],
+            )
+            .map_err(sqlite_err)?;
         Ok(())
     }
 
@@ -909,12 +936,23 @@ impl LearningStore {
         &self,
         limit: usize,
     ) -> Result<Vec<ContinueItem>, InfrastructureError> {
-        let mut stmt = self.connection.prepare(
-            "SELECT module, entity_type, entity_id, entity_title, MAX(last_studied_at) as recent_time, mastery_score
-             FROM learning_progress
-             GROUP BY module, entity_type, entity_id
-             ORDER BY recent_time DESC LIMIT ?1",
-        ).map_err(sqlite_err)?;
+        // 「继续学习」只列**真正的学习内容**。
+        //
+        // 排除 news/rss：打开一条新闻不等于「在学习」。此前新闻条目一旦进入
+        // learning_progress 就会按 last_studied_at 排到最前，把首页最重要的
+        // 位置占成随机新闻流（实测 100 条新闻霸屏，而真正的 history/language
+        // 学习记录被挤掉）。RSS 同理——它只是信息源，不是学习对象。
+        let mut stmt = self
+            .connection
+            .prepare(
+                "SELECT module, entity_type, entity_id, entity_title,
+                        MAX(last_studied_at) as recent_time, mastery_score
+                 FROM learning_progress
+                 WHERE module NOT IN ('news', 'rss')
+                 GROUP BY module, entity_type, entity_id
+                 ORDER BY recent_time DESC LIMIT ?1",
+            )
+            .map_err(sqlite_err)?;
 
         let mut rows = stmt.query(params![limit as i64]).map_err(sqlite_err)?;
         let mut list = Vec::new();
@@ -991,6 +1029,99 @@ impl LearningStore {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn record(
+        store: &LearningStore,
+        module: &str,
+        entity_type: &str,
+        entity_id: &str,
+        title: &str,
+        at: i64,
+    ) {
+        store
+            .record_event(&LearningEvent {
+                id: format!("evt_{module}_{entity_id}"),
+                module: module.to_string(),
+                entity_type: entity_type.to_string(),
+                entity_id: entity_id.to_string(),
+                entity_title: Some(title.to_string()),
+                action: LearningAction::Study,
+                timestamp: at,
+                duration_ms: None,
+                metadata: serde_json::json!({}),
+                source: Some("test".to_string()),
+            })
+            .expect("record event");
+    }
+
+    /// 回归：新闻/RSS **不是学习对象**，不得出现在「继续学习」里。
+    ///
+    /// 真实事故：新闻条目曾被批量写进 `learning_progress`，首页最重要的
+    /// 「继续学习」位置被 100 条随机新闻霸占，真正的 history/language
+    /// 学习记录被挤掉——而用户看到的是「侗族多耶节」这类与他学习无关的内容。
+    #[test]
+    fn continue_items_exclude_news_and_rss() {
+        let store = LearningStore::open_in_memory().expect("open store");
+        let now = 1_700_000_000;
+        record(&store, "history", "event", "e1", "夏朝建立", now);
+        record(&store, "language", "word", "w1", "食べる", now + 1);
+        // 新闻更「新」——如果不过滤，它会排在最前面霸屏。
+        record(&store, "news", "article", "n1", "侗族多耶节启幕", now + 2);
+        record(&store, "rss", "feed", "r1", "某订阅", now + 3);
+
+        let items = store.get_continue_items(10).expect("continue items");
+        let modules: Vec<&str> = items.iter().map(|item| item.module.as_str()).collect();
+        assert!(
+            !modules.contains(&"news") && !modules.contains(&"rss"),
+            "新闻/RSS 不应出现在继续学习：{modules:?}"
+        );
+        assert!(
+            modules.contains(&"history") && modules.contains(&"language"),
+            "真实学习内容必须保留：{modules:?}"
+        );
+    }
+
+    /// 回归：news/rss 写入的进度会在打开库时被清理，不污染聚合指标。
+    ///
+    /// 依据很窄（仅这两个 module），且不影响 `news.db` 里的文章本体。
+    #[test]
+    fn news_and_rss_progress_rows_are_purged_on_open() {
+        let directory = tempfile::tempdir().expect("tempdir");
+        let path = directory.path().join("learning.db");
+
+        {
+            let store = LearningStore::open(&path).expect("open");
+            record(&store, "news", "article", "n1", "某新闻", 1_700_000_000);
+            record(&store, "history", "event", "e1", "夏朝建立", 1_700_000_001);
+            assert_eq!(
+                store
+                    .list_progress(Some("news"), None, 10)
+                    .expect("list")
+                    .len(),
+                1,
+                "写入后应存在（此时尚未清理）"
+            );
+        }
+
+        // 重新打开 → 触发一次性清理。
+        let reopened = LearningStore::open(&path).expect("reopen");
+        assert_eq!(
+            reopened
+                .list_progress(Some("news"), None, 10)
+                .expect("list")
+                .len(),
+            0,
+            "重新打开后新闻进度应被清理"
+        );
+        assert_eq!(
+            reopened
+                .list_progress(Some("history"), None, 10)
+                .expect("list")
+                .len(),
+            1,
+            "真实学习进度不得被误删"
+        );
+    }
 
     #[test]
     fn learning_store_in_memory_flow() {
