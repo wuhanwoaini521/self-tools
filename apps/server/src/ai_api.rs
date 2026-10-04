@@ -13,6 +13,7 @@ use std::sync::Arc;
 
 // Rust 2024 起 `Future` 在 prelude 里，无需限定路径。
 
+use devtoolbox_core::personal_ai::types::AgentRequest;
 use devtoolbox_core::settings::AppSettings;
 use serde::{Deserialize, Serialize};
 
@@ -86,21 +87,29 @@ pub async fn ai_status(
 
 /// `POST /api/v1/ai/chat`
 ///
-/// 只在 provider 就绪时委派给真正的 agent 运行时；未配置时**明确拒绝**，
-/// 不返回任何编造内容。
+/// `/api/v1/ai/chat` 的请求体。
+///
+/// 直接用 core 的 [`AgentRequest`]：前端 `aiClient` 发来的就是它（外层包一个
+/// `request` 键）。此前 server 自造了一个只有 `{message, session_id}` 的
+/// `ChatRequest`，于是前端一发
+/// `{request:{message, app_context, capabilities, ...}}` 就 422——
+/// **网页端的 AI 从来没通过过**，只是错误信息被前端包装成
+/// 「无法连接本地数据服务（422）」，看起来像服务没启动。
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ChatRequest {
-    pub message: String,
-    #[serde(default)]
-    pub session_id: Option<String>,
+pub struct ChatBody {
+    pub request: AgentRequest,
 }
 
+/// 发起一次 agent 对话。
+///
+/// 只在 provider 就绪时委派给真正的 agent 运行时；未配置时**明确拒绝**，
+/// 不返回任何编造内容。
 pub async fn ai_chat(
     axum::Extension(store): axum::Extension<Arc<dyn SettingsAccess>>,
     axum::Extension(agent): axum::Extension<Option<Arc<dyn AiChatRunner>>>,
-    axum::Json(request): axum::Json<ChatRequest>,
+    axum::Json(body): axum::Json<ChatBody>,
 ) -> Result<axum::Json<serde_json::Value>, ApiError> {
+    let request = body.request;
     let settings = store.load();
     if !settings.ai.is_configured() {
         return Err(ApiError {

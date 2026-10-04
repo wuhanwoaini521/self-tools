@@ -872,18 +872,40 @@ mod tests {
         let _ = router;
     }
 
-    /// 未配置 provider 时必须**明确拒绝**，不得返回任何编造内容。
+    /// 请求体必须与前端 `aiClient` **实际发送的形状一致**（外层包 `request`）。
+    ///
+    /// 回归：server 曾自造 `{message, session_id}`，而前端发
+    /// `{request:{message, app_context, capabilities, ...}}`，于是网页端
+    /// 一点「问 AI」就 422，报错还被包装成「无法连接本地数据服务」——
+    /// 看起来像服务没起，实际是两端契约从未对齐。
+    /// 这个用例直接用前端真实形状，契约再改就会红。
     #[tokio::test]
-    async fn ai_chat_without_provider_refuses_clearly() {
+    async fn ai_chat_accepts_frontend_request_shape() {
         let app = test_router(false);
         let (status, body) = post_json(
             &app,
             "/api/v1/ai/chat",
-            &serde_json::json!({ "message": "你好" }),
+            &serde_json::json!({
+                "request": {
+                    "message": "你好",
+                    "session_id": null,
+                    "app_context": {
+                        "module": "language",
+                        "page": "home",
+                        "entity": null,
+                        "view_state": {}
+                    },
+                    "capabilities": [],
+                    "locale": "zh"
+                }
+            }),
         )
         .await;
         assert_eq!(status, StatusCode::BAD_REQUEST, "body={body}");
-        assert_eq!(body["code"], "ai_not_configured");
+        assert_eq!(
+            body["code"], "ai_not_configured",
+            "请求体应被接受并走到「未配置」分支，而不是 422：{body}"
+        );
         assert!(
             body["message"]
                 .as_str()
