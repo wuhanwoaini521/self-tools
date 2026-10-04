@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import {
   Folder,
+  FolderSimple,
   Plus,
   Trash,
   Sparkle,
@@ -179,6 +180,22 @@ export function CollectionsPage({ onNavigate, onAskAi }: CollectionsPageProps) {
         </div>
 
         <div style={{ flex: 1, overflowY: "auto", padding: 12 }}>
+          {collections.length === 0 ? (
+            /* 列表为空时不要留一块空白：给出与右侧一致的引导文案。 */
+            <div
+              style={{
+                padding: "28px 16px",
+                textAlign: "center",
+                color: "var(--text-tertiary, #9ca3af)",
+                fontSize: 12,
+                lineHeight: 1.7,
+              }}
+            >
+              列表为空
+              <br />
+              从右上角新建第一个合集
+            </div>
+          ) : null}
           {collections.map((col) => {
             const isSelected = selectedCollection?.id === col.id;
             return (
@@ -388,8 +405,77 @@ export function CollectionsPage({ onNavigate, onAskAi }: CollectionsPageProps) {
             )}
           </div>
         ) : (
-          <div style={{ textAlign: "center", padding: "100px 0", color: "var(--text-tertiary, #9ca3af)" }}>
-            选择或新建一个专题合集以开始
+          /* 未选中合集时，右侧不能是一整片空白——那看起来像坏了，
+             而不是「还没有内容」。这里给出占满内容区的空态与下一步。 */
+          <div
+            style={{
+              height: "100%",
+              minHeight: 420,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 12,
+              textAlign: "center",
+            }}
+          >
+            <div
+              aria-hidden="true"
+              style={{
+                width: 56,
+                height: 56,
+                borderRadius: "var(--radius-lg, 16px)",
+                display: "grid",
+                placeItems: "center",
+                background: "var(--surface-raised, #f7f7f8)",
+                border: "1px solid var(--border-subtle, #ececef)",
+                color: "var(--text-tertiary, #9ca3af)",
+              }}
+            >
+              <FolderSimple size={24} />
+            </div>
+            <p
+              style={{
+                margin: 0,
+                fontSize: 15,
+                fontWeight: 600,
+                color: "var(--text-primary, #111827)",
+              }}
+            >
+              还没有打开专题合集
+            </p>
+            <p
+              style={{
+                margin: 0,
+                maxWidth: 380,
+                fontSize: 13,
+                lineHeight: 1.7,
+                color: "var(--text-tertiary, #9ca3af)",
+              }}
+            >
+              专题合集把跨模块的内容放在一起——比如把一个历史事件、相关地点、
+              词典条目收进同一个主题，随时一起复习。
+            </p>
+            <button
+              type="button"
+              onClick={() => setShowCreateModal(true)}
+              style={{
+                marginTop: 4,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "8px 16px",
+                borderRadius: "var(--radius-control, 10px)",
+                border: "1px solid var(--accent-primary, #1688ff)",
+                background: "var(--accent-primary, #1688ff)",
+                color: "#fff",
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              <Plus size={14} /> 新建第一个专题合集
+            </button>
           </div>
         )}
       </div>
