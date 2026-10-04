@@ -55,6 +55,9 @@ pub fn router(
     language_store: Arc<parking_lot::Mutex<devtoolbox_infrastructure::language::LanguageStore>>,
     // Travel 运行时装配（与桌面端共用 provider 与 travel.db）。
     travel: Arc<crate::travel_api::TravelDeps>,
+    // 语言数据导入的目录与进度跟踪。
+    data_paths: Arc<crate::language_data_api::DataPaths>,
+    import_tracker: Arc<crate::language_data_api::ImportTracker>,
     settings: Arc<dyn crate::ai_api::SettingsAccess>,
     // 平台 LearningService（Collections / Graph / Review Center / Home 今日面板）
     learning_os: Arc<devtoolbox_application::learning::LearningService>,
@@ -139,7 +142,8 @@ pub fn router(
         )
         .route(
             "/api/v1/language/course/lesson/{id}",
-            get(crate::language_course_api::lesson),
+            get(crate::language_course_api::lesson)
+                .delete(crate::language_data_api::delete_lesson),
         )
         .route(
             "/api/v1/language/course/progress",
@@ -263,6 +267,32 @@ pub fn router(
         )
         .route("/api/v1/ai/status", get(crate::ai_api::ai_status))
         .route("/api/v1/ai/chat", post(crate::ai_api::ai_chat))
+        // 语言数据导入（NCE 教材 / ECDICT 词典）：网页端也要能导入，
+        // 否则「这台机器就是服务器」却只能靠人去点桌面应用导一次。
+        .route(
+            "/api/v1/language/data-status",
+            get(crate::language_data_api::data_status),
+        )
+        .route(
+            "/api/v1/language/nce/scan",
+            post(crate::language_data_api::nce_scan),
+        )
+        .route(
+            "/api/v1/language/nce/import",
+            post(crate::language_data_api::nce_import),
+        )
+        .route(
+            "/api/v1/language/dict/import",
+            post(crate::language_data_api::dict_import),
+        )
+        .route(
+            "/api/v1/language/dict/status",
+            get(crate::language_data_api::dict_status),
+        )
+        .route(
+            "/api/v1/language/import-status",
+            get(crate::language_data_api::import_status),
+        )
         // Travel（城市研究与攻略）：provider 装配已下沉，桌面与网页共用同一套。
         .route(
             "/api/v1/travel/research/start",
@@ -384,6 +414,8 @@ pub fn router(
         .layer(axum::Extension(knowledge))
         .layer(axum::Extension(language_store))
         .layer(axum::Extension(travel))
+        .layer(axum::Extension(data_paths))
+        .layer(axum::Extension(import_tracker))
         .layer(axum::Extension(Arc::clone(&news_ingest)))
         .layer(axum::Extension(
             None::<Arc<dyn crate::ai_api::AiChatRunner>>,
@@ -834,6 +866,10 @@ mod tests {
             crate::knowledge_api::unavailable_runtime(&std::env::temp_dir()),
             Arc::clone(&language_store),
             Arc::new(crate::travel_api::test_deps(&std::env::temp_dir())),
+            Arc::new(crate::language_data_api::DataPaths {
+                config_dir: std::env::temp_dir(),
+            }),
+            Arc::default(),
             Arc::new(TestSettings),
             learning_os,
             geography,

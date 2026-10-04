@@ -9,6 +9,7 @@ mod history_query;
 mod knowledge_api;
 mod language_api;
 mod language_course_api;
+mod language_data_api;
 mod language_write_api;
 mod learning_api;
 mod news_api;
@@ -358,6 +359,10 @@ async fn main() -> ExitCode {
         knowledge,
         Arc::clone(&language_store),
         travel,
+        Arc::new(language_data_api::DataPaths {
+            config_dir: config.data_dir.clone(),
+        }),
+        Arc::default(),
         settings,
         learning_os,
         geography,

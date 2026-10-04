@@ -111,6 +111,10 @@ const HTTP_ENDPOINTS: Record<string, (args: Record<string, unknown>) => string> 
     `/api/v1/search/global?query=${encodeURIComponent(String(a.query ?? ""))}` +
     `&limit=${encodeURIComponent(String(a.limit ?? 8))}`,
   readiness_report: () => "/api/v1/readiness",
+  // 语言数据导入（网页端也要能导入，别逼人切到桌面应用）
+  language_data_status: () => "/api/v1/language/data-status",
+  language_dict_status: () => "/api/v1/language/dict/status",
+  language_import_status: () => "/api/v1/language/import-status",
   readiness_diagnostics: () => "/api/v1/readiness/diagnostics",
   language_course_today: () => "/api/v1/language/course/today",
   language_course_books: () => "/api/v1/language/course/books",
@@ -232,6 +236,9 @@ const HTTP_POST_ENDPOINTS: Record<
   personal_ai_chat: () => "/api/v1/ai/chat",
   learning_record_event: () => "/api/v1/learning/progress",
   travel_research_start: () => "/api/v1/travel/research/start",
+  language_nce_scan: () => "/api/v1/language/nce/scan",
+  language_nce_import: () => "/api/v1/language/nce/import",
+  language_dict_import: () => "/api/v1/language/dict/import",
   test_travel_llm: () => "/api/v1/travel/test/llm",
   test_travel_amap: () => "/api/v1/travel/test/amap",
   test_travel_qweather: () => "/api/v1/travel/test/qweather",
