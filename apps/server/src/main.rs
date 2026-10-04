@@ -14,6 +14,7 @@ mod learning_api;
 mod news_api;
 mod readiness_api;
 mod routes;
+mod travel_api;
 
 use std::net::SocketAddr;
 use std::path::PathBuf;
@@ -244,6 +245,33 @@ async fn main() -> ExitCode {
         eprintln!("[knowledge] startup sync: {note}");
     }
 
+    // Travel：SQLite 缓存 + provider 装配与桌面端共用（同一份 travel.db）。
+    let travel_store = Arc::new(parking_lot::Mutex::new(
+        match devtoolbox_infrastructure::TravelStore::open(config.data_dir.join("travel.db")) {
+            Ok(store) => store,
+            Err(error) => {
+                eprintln!("travel database unavailable: {error}");
+                return std::process::ExitCode::from(3);
+            }
+        },
+    ));
+    let travel = Arc::new(travel_api::TravelDeps {
+        client: reqwest::Client::builder()
+            .user_agent("self-tools/0.1")
+            .build()
+            .unwrap_or_default(),
+        store: Arc::clone(&travel_store),
+        registry: Arc::new(devtoolbox_application::travel::session::TravelSessionRegistry::new()),
+        settings_loader: Arc::new({
+            let data_dir = config.data_dir.clone();
+            move || {
+                devtoolbox_infrastructure::SettingsStore::new(data_dir.clone())
+                    .load()
+                    .map_err(|error| error.to_string())
+            }
+        }),
+    });
+
     let course: Arc<devtoolbox_application::language::course::CourseService> = Arc::new(
         devtoolbox_application::language::course::CourseService::new(
             Arc::new(devtoolbox_infrastructure::ports::CourseStoreAdapter::new(
@@ -329,6 +357,7 @@ async fn main() -> ExitCode {
         config.data_dir.clone(),
         knowledge,
         Arc::clone(&language_store),
+        travel,
         settings,
         learning_os,
         geography,

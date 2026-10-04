@@ -134,7 +134,7 @@ pub struct AppState {
     /// RSS：应用层端口（adapters 在组合根装配；不直接暴露 SQLite/reqwest）。
     pub rss_repository: Arc<dyn RssRepositoryPort>,
     pub rss_fetcher: composition::FeedFetcherAdapter,
-    pub travel_store: Arc<Mutex<TravelStore>>,
+    pub travel_store: Arc<parking_lot::Mutex<TravelStore>>,
     pub travel_registry: TravelSessionRegistry,
     pub history_duckdb: Arc<HistoryDuckDbRepository>,
     pub language_store: Arc<parking_lot::Mutex<LanguageStore>>,
@@ -853,7 +853,7 @@ fn travel_research_progress(
 /// 最近生成的攻略列表（历史）。
 #[tauri::command]
 fn travel_recent_guides(state: State<'_, AppState>) -> Result<Vec<GuideSummary>, CommandError> {
-    let store = state.travel_store.lock().expect("travel store poisoned");
+    let store = state.travel_store.lock();
     let summaries = store.list_guides(20).map_err(store_command_error)?;
     Ok(summaries)
 }
@@ -866,7 +866,7 @@ fn travel_load_guide(
     days: u8,
     date_range: Option<TravelDateRange>,
 ) -> Result<Option<CityGuide>, CommandError> {
-    let store = state.travel_store.lock().expect("travel store poisoned");
+    let store = state.travel_store.lock();
     let guide = store
         .load_guide(&city, days, date_range.as_ref())
         .map_err(store_command_error)?;
@@ -2322,7 +2322,7 @@ pub fn run() {
                 .expect("open rss database");
             let travel_store = TravelStore::open(config_directory.join("travel.db"))
                 .expect("open travel database");
-            let travel_store_shared = Arc::new(Mutex::new(travel_store));
+            let travel_store_shared = Arc::new(parking_lot::Mutex::new(travel_store));
             let history_duckdb = history_repository(app.handle())
                 .map_err(|error| std::io::Error::other(error.message))?;
             let language_store = LanguageStore::open(config_directory.join("language.db"))

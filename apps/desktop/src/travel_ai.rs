@@ -4,7 +4,7 @@
 //! - trip_context / plan_preview：从 TravelStore 缓存读取（不触发生成、不写永久数据，
 //!   §43：AI 不偷偷修改 itinerary；保存走既有流程）。
 
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use async_trait::async_trait;
 use devtoolbox_application::travel::{TravelAiPort, TravelSearchHit, TripContext};
@@ -28,7 +28,7 @@ fn normalize_domain(url: &str) -> String {
 pub struct TravelAiAdapter {
     client: reqwest::Client,
     settings: SettingsLoader,
-    store: Arc<Mutex<TravelStore>>,
+    store: Arc<parking_lot::Mutex<TravelStore>>,
 }
 
 impl TravelAiAdapter {
@@ -36,7 +36,7 @@ impl TravelAiAdapter {
     pub fn new(
         client: reqwest::Client,
         settings: SettingsLoader,
-        store: Arc<Mutex<TravelStore>>,
+        store: Arc<parking_lot::Mutex<TravelStore>>,
     ) -> Self {
         Self {
             client,
@@ -47,7 +47,7 @@ impl TravelAiAdapter {
 
     fn find_guide(&self, city: &str) -> Option<devtoolbox_core::travel::CityGuide> {
         let now = devtoolbox_infrastructure::now_unix();
-        let store = self.store.lock().expect("travel store poisoned");
+        let store = self.store.lock();
         (1u8..=7).find_map(|days| store.get_guide(city, days, now).ok().flatten())
     }
 }

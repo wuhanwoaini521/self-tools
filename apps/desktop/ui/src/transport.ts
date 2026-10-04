@@ -124,6 +124,13 @@ const HTTP_ENDPOINTS: Record<string, (args: Record<string, unknown>) => string> 
     `/api/v1/language/course/quiz?lesson_id=${encodeURIComponent(String(a.lessonId ?? ""))}`,
   language_dict_lookup: (a) =>
     `/api/v1/language/course/dict/${encodeURIComponent(String(a.word ?? ""))}`,
+  // Travel：provider 装配已下沉，网页端与桌面端共用同一套 + 同一份 travel.db。
+  travel_research_progress: (a) =>
+    `/api/v1/travel/research/progress?session_id=${encodeURIComponent(String(a.sessionId ?? ""))}`,
+  travel_recent_guides: () => "/api/v1/travel/recent-guides",
+  travel_load_guide: (a) =>
+    `/api/v1/travel/guide?city=${encodeURIComponent(String(a.city ?? ""))}` +
+    `&days=${encodeURIComponent(String(a.days ?? 3))}`,
   language_lesson_audio: (a) =>
     `/api/v1/language/course/lesson/${encodeURIComponent(String(a.lessonId ?? ""))}/audio`,
   language_course_search: (a) =>
@@ -224,6 +231,10 @@ const HTTP_POST_ENDPOINTS: Record<
   save_settings: () => "/api/v1/settings",
   personal_ai_chat: () => "/api/v1/ai/chat",
   learning_record_event: () => "/api/v1/learning/progress",
+  travel_research_start: () => "/api/v1/travel/research/start",
+  test_travel_llm: () => "/api/v1/travel/test/llm",
+  test_travel_amap: () => "/api/v1/travel/test/amap",
+  test_travel_qweather: () => "/api/v1/travel/test/qweather",
   // 英语课程写路径：网页端要能真正「学」，不只是「看」。
   // 此前这些只有桌面端有，点「不认识」直接报「尚无网页端接口」。
   language_course_update_progress: (a) =>

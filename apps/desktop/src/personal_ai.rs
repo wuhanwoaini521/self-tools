@@ -281,7 +281,7 @@ mod tests {
             devtoolbox_infrastructure::HistoryDuckDbRepository::open(&history_target)
                 .expect("history repo"),
         );
-        let travel_store = Arc::new(Mutex::new(
+        let travel_store = Arc::new(parking_lot::Mutex::new(
             devtoolbox_infrastructure::TravelStore::open(directory.path().join("travel.db"))
                 .expect("travel store"),
         ));

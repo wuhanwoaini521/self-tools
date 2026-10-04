@@ -29,8 +29,11 @@ pub struct TravelResearchSession {
     from_cache: bool,
 }
 
-/// 轮询快照（应用层视图；序列化 DTO 由 runtime 层保持，命令契约不变）。
-#[derive(Clone, Debug)]
+/// 轮询快照（应用层视图）。
+///
+/// 桌面端由 runtime 层组装快照 DTO；网页端直接序列化本视图。
+/// 两端字段一致，前端轮询逻辑不必分叉。
+#[derive(Clone, Debug, serde::Serialize)]
 pub struct TravelSessionView {
     pub done: bool,
     pub error: Option<String>,

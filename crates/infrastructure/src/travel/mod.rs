@@ -2,8 +2,10 @@
 
 pub mod data_provider;
 pub mod fetcher;
+pub mod providers;
 pub mod search;
 pub mod store;
+pub mod store_adapter;
 
 // Provider 契约（接口 / 请求 / 错误）由 core 定义（Gate 8：infrastructure 只实现、不定义）。
 pub use data_provider::{

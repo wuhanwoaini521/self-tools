@@ -53,6 +53,8 @@ pub fn router(
     knowledge: Arc<devtoolbox_infrastructure::knowledge_runtime::KnowledgeRuntime>,
     // 语言库（课时音频端点要直接读文件；路径只取自数据库，不接受前端传参）。
     language_store: Arc<parking_lot::Mutex<devtoolbox_infrastructure::language::LanguageStore>>,
+    // Travel 运行时装配（与桌面端共用 provider 与 travel.db）。
+    travel: Arc<crate::travel_api::TravelDeps>,
     settings: Arc<dyn crate::ai_api::SettingsAccess>,
     // 平台 LearningService（Collections / Graph / Review Center / Home 今日面板）
     learning_os: Arc<devtoolbox_application::learning::LearningService>,
@@ -261,6 +263,35 @@ pub fn router(
         )
         .route("/api/v1/ai/status", get(crate::ai_api::ai_status))
         .route("/api/v1/ai/chat", post(crate::ai_api::ai_chat))
+        // Travel（城市研究与攻略）：provider 装配已下沉，桌面与网页共用同一套。
+        .route(
+            "/api/v1/travel/research/start",
+            post(crate::travel_api::travel_research_start),
+        )
+        .route(
+            "/api/v1/travel/research/progress",
+            get(crate::travel_api::travel_research_progress),
+        )
+        .route(
+            "/api/v1/travel/recent-guides",
+            get(crate::travel_api::travel_recent_guides),
+        )
+        .route(
+            "/api/v1/travel/guide",
+            get(crate::travel_api::travel_load_guide),
+        )
+        .route(
+            "/api/v1/travel/test/llm",
+            post(crate::travel_api::test_travel_llm),
+        )
+        .route(
+            "/api/v1/travel/test/amap",
+            post(crate::travel_api::test_travel_amap),
+        )
+        .route(
+            "/api/v1/travel/test/qweather",
+            post(crate::travel_api::test_travel_qweather),
+        )
         // ---- Learning OS：Collections / Graph / Review Center / Home 今日面板 ----
         .route(
             "/api/v1/learning/progress",
@@ -352,6 +383,7 @@ pub fn router(
         .layer(axum::Extension(Arc::new(data_dir)))
         .layer(axum::Extension(knowledge))
         .layer(axum::Extension(language_store))
+        .layer(axum::Extension(travel))
         .layer(axum::Extension(Arc::clone(&news_ingest)))
         .layer(axum::Extension(
             None::<Arc<dyn crate::ai_api::AiChatRunner>>,
@@ -801,6 +833,7 @@ mod tests {
             std::env::temp_dir(),
             crate::knowledge_api::unavailable_runtime(&std::env::temp_dir()),
             Arc::clone(&language_store),
+            Arc::new(crate::travel_api::test_deps(&std::env::temp_dir())),
             Arc::new(TestSettings),
             learning_os,
             geography,
