@@ -68,23 +68,30 @@ export function KnowledgePage({
   }, [intent]);
 
   return (
-    <div className="knowledge-page">
-      <header className="knowledge-head">
-        <div className="knowledge-tabs">
-          {TABS.map((entry) => (
-            <button
-              key={entry.id}
-              className={tab === entry.id ? "active" : ""}
-              onClick={() => setTab(entry.id)}
-            >
-              <entry.icon size={15} />
-              {entry.label}
-            </button>
-          ))}
+    <div className="knowledge-page page-shell">
+      {/* 统一页面骨架：此前本页完全没有标题，切换过来会「断掉」 */}
+      <header className="page-shell-head">
+        <div className="page-shell-title">
+          <span className="page-shell-eyebrow">knowledge</span>
+          <h1>个人知识库</h1>
+          <p className="page-shell-desc">
+            本地优先：记忆需要你确认才会生效；文件与文档只在你配置的允许目录内读取。
+          </p>
         </div>
-        <p className="knowledge-subtitle">
-          本地优先：记忆需要你确认才会生效；文件与文档只在你配置的允许目录内读取。
-        </p>
+        <div className="page-shell-actions">
+          <div className="knowledge-tabs">
+            {TABS.map((entry) => (
+              <button
+                key={entry.id}
+                className={tab === entry.id ? "active" : ""}
+                onClick={() => setTab(entry.id)}
+              >
+                <entry.icon size={15} />
+                {entry.label}
+              </button>
+            ))}
+          </div>
+        </div>
       </header>
 
       {tab === "memory" ? (

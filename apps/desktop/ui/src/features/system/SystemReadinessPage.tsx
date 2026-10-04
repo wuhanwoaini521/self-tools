@@ -262,15 +262,18 @@ export function SystemReadinessPage({ active }: SystemReadinessPageProps) {
   const overallClass = STATUS_CLASS[report.overall];
 
   return (
-    <div className="page-scroll readiness-page">
-      <header className="readiness-head">
-        <div>
+    <div className="page-scroll readiness-page page-shell">
+      <header className="page-shell-head">
+        <div className="page-shell-title">
+          <span className="page-shell-eyebrow">system</span>
           <h1>System Readiness</h1>
-          <p>系统状态一屏可见；只报告配置状态，不显示任何密钥。</p>
+          <p className="page-shell-desc">系统状态一屏可见；只报告配置状态，不显示任何密钥。</p>
         </div>
-        <span className={"readiness-overall " + overallClass}>
-          {STATUS_LABELS[report.overall]}
-        </span>
+        <div className="page-shell-actions">
+          <span className={"readiness-overall " + overallClass}>
+            {STATUS_LABELS[report.overall]}
+          </span>
+        </div>
       </header>
 
       <section className="readiness-actions">

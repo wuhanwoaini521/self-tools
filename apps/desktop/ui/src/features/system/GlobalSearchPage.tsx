@@ -251,14 +251,18 @@ export function GlobalSearchPage({
   }, []);
 
   return (
-    <div className="page-scroll search-page">
-      <header className="search-head">
-        <div className="search-badge-row">
-          <span className="search-kicker">COMMAND &amp; SEARCH</span>
+    <div className="page-scroll search-page page-shell">
+      <header className="page-shell-head">
+        <div className="page-shell-title">
+          <span className="page-shell-eyebrow">search</span>
+          <h1>Global Search &amp; Actions</h1>
+          <p className="page-shell-desc">
+            输入关键词检索全模块内容，或直接点击下方快捷动作以极速启动任务。
+          </p>
+        </div>
+        <div className="page-shell-actions">
           <span className="shortcut-chip">⌘K</span>
         </div>
-        <h1>Global Search &amp; Actions</h1>
-        <p>输入关键词检索全模块内容，或直接点击下方快捷动作以极速启动任务。</p>
       </header>
 
       <div className="search-box">

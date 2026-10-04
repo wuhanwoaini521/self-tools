@@ -20421,3 +20421,199 @@ main.history-v2-period {
   font: var(--text-card-title);
   color: var(--text);
 }
+
+/* ==========================================================================
+ * 统一页面骨架（PageShell）
+ *
+ * 改造前 14 个页面有 9 种标题方案（h1/h2/span/无标题混用），切换页面时
+ * 视觉锚点不断跳。这里给所有页面同一条基线：小写模块名 + 大标题 + 一句话说明
+ * + 统一操作位 + 统一正文起始位置。
+ * 全部走既有 token，不引入新配色，主题自动跟随。
+ * ========================================================================== */
+.page-shell {
+  padding: 28px 32px 48px;
+  box-sizing: border-box;
+}
+.page-shell-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-5);
+  flex-wrap: wrap;
+  padding-bottom: var(--space-4);
+  margin-bottom: var(--space-5);
+  border-bottom: 1px solid var(--line-soft);
+}
+.page-shell-title {
+  min-width: 0;
+}
+.page-shell-eyebrow {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: lowercase;
+  color: var(--faint);
+  margin-bottom: 2px;
+}
+.page-shell-title h1 {
+  margin: 0;
+  font: var(--text-page-title);
+  color: var(--text);
+}
+.page-shell-desc {
+  margin: 6px 0 0;
+  max-width: 62ch;
+  font: var(--text-secondary);
+  color: var(--muted);
+}
+.page-shell-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+.page-shell-body {
+  min-width: 0;
+}
+.page-shell-body > * + * {
+  margin-top: var(--space-4);
+}
+
+/* 页面内区块标题（区别于页面标题，字号更小、无线） */
+.page-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-3);
+}
+.page-section-head h2 {
+  margin: 0;
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  font: var(--text-card-title);
+  color: var(--text);
+}
+.page-section-head h2 small {
+  font: var(--text-caption);
+  color: var(--muted);
+  font-weight: 400;
+}
+.page-section-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+@media (max-width: 900px) {
+  .page-shell {
+    padding: 20px 18px 40px;
+  }
+}
+
+/* ==========================================================================
+ * 通用控件（跨模块共用）
+ *
+ * 原先按钮/徽标的唯一实现带 `en-` 前缀（来自 Language/English 模块），
+ * 导致别的页面要么各写一套内联样式（Collections 69 处硬编码色值），
+ * 要么被迫借用语义不对的类名。这里给出中性的通用层：
+ * `.ui-btn` / `.ui-chip`。`en-*` 系列保留为兼容别名。
+ * ========================================================================== */
+.ui-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: var(--radius-control);
+  border: 1px solid var(--line);
+  background: var(--surface-control);
+  color: var(--text);
+  font: var(--text-body);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background var(--motion-fast) var(--motion-ease),
+    border-color var(--motion-fast) var(--motion-ease);
+}
+.ui-btn:hover:not(:disabled) {
+  background: var(--panel-hover);
+  border-color: var(--line-strong);
+}
+.ui-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.ui-btn.is-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--text-on-accent);
+  font-weight: 600;
+}
+.ui-btn.is-primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+.ui-btn.is-danger {
+  background: var(--danger, #c0392b);
+  border-color: var(--danger, #c0392b);
+  color: #fff;
+}
+.ui-btn.is-ghost {
+  background: none;
+  border-color: transparent;
+  color: var(--accent);
+}
+.ui-btn.is-ghost:hover:not(:disabled) {
+  background: var(--panel-hover);
+}
+
+.ui-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--line-chip, var(--line));
+  background: var(--surface-chip);
+  color: var(--text-chip-label, var(--muted));
+  font: var(--text-caption);
+  white-space: nowrap;
+}
+.ui-chip.is-accent {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+/* News 在统一骨架里的操作位：栏目切换 + 搜索 + 刷新 */
+.news-shell-actions {
+  gap: var(--space-3);
+}
+.news-shell-actions .news-tabs {
+  flex: none;
+}
+
+/* ==========================================================================
+ * News：三行栅格（标题 / 工具条 / 内容）
+ *
+ * News 本来就是「列表 + 阅读区」的两栏工作区，套单栏 page-shell 会把
+ * 固定 52px 工具条行打乱（标题与工具条重叠）。这里把统一骨架的标题
+ * 作为独立的第一行，工具条退为第二行，视觉语言与其它页面对齐。
+ * ========================================================================== */
+.news-page-shell {
+  grid-template-rows: auto auto minmax(0, 1fr);
+}
+.news-shell-head {
+  padding: 18px 18px 12px;
+  margin: 0;
+  border-bottom: none;
+}
+.news-shell-head .page-shell-desc {
+  margin-top: 4px;
+}
+.news-page-shell .news-header {
+  border-bottom: 1px solid var(--line-soft);
+}

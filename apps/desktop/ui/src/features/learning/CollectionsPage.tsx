@@ -136,7 +136,7 @@ export function CollectionsPage({ onNavigate, onAskAi }: CollectionsPageProps) {
   };
 
   return (
-    <div style={{ display: "flex", height: "100%", overflow: "hidden" }}>
+    <div className="collections-shell page-shell" style={{ display: "flex", height: "100%", overflow: "hidden", padding: 0 }}>
       {/* Left Sidebar: Collection List */}
       <div
         style={{

@@ -413,42 +413,54 @@ export function NewsPage({
 
 
   return (
-    <div className="news-page">
-      <header className="news-header">
-        <nav className="news-tabs" aria-label="新闻栏目">
-          {(
-            [
-              ["today", "今日"],
-              ["starred", "稍后读"],
-              ["sources", "订阅源"],
-            ] as [NewsTab, string][]
-          ).map(([key, label]) => (
+    <div className="news-page news-page-shell">
+      {/* 统一页面骨架：位置感（模块名 + 标题 + 说明）+ 操作位（栏目切换 / 搜索 / 刷新）。
+          此前本页完全没有页面级标题，切换过来时视觉锚点会「断掉」。 */}
+      <header className="page-shell-head news-shell-head">
+        <div className="page-shell-title">
+          <span className="page-shell-eyebrow">news</span>
+          <h1>今日新闻</h1>
+          <p className="page-shell-desc">
+            从订阅源聚合的新闻流；点开任意条目进入阅读与 AI 追问。
+          </p>
+        </div>
+        <div className="page-shell-actions news-shell-actions">
+          <nav className="news-tabs" aria-label="新闻栏目">
+            {(
+              [
+                ["today", "今日"],
+                ["starred", "稍后读"],
+                ["sources", "订阅源"],
+              ] as [NewsTab, string][]
+            ).map(([key, label]) => (
+              <button
+                key={key}
+                className={tab === key ? "selected" : ""}
+                onClick={() => setTab(key)}
+              >
+                {label}
+              </button>
+            ))}
+          </nav>
+          <div className="news-header-actions">
+            <input
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") void loadStories();
+              }}
+              placeholder="搜索已缓存的新闻"
+              aria-label="搜索新闻"
+            />
             <button
-              key={key}
-              className={tab === key ? "selected" : ""}
-              onClick={() => setTab(key)}
+              type="button"
+              title="立即刷新全部订阅"
+              onClick={() => void refresh()}
+              disabled={refreshing || !hasSubscriptions}
             >
-              {label}
+              <ArrowsClockwise size={15} className={refreshing ? "spin" : undefined} />
             </button>
-          ))}
-        </nav>
-        <div className="news-header-actions">
-          <input
-            value={searchQuery}
-            onChange={(event) => setSearchQuery(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") void loadStories();
-            }}
-            placeholder="搜索已缓存的新闻"
-            aria-label="搜索新闻"
-          />
-          <button
-            title="立即刷新全部订阅"
-            onClick={() => void refresh()}
-            disabled={refreshing || !hasSubscriptions}
-          >
-            <ArrowsClockwise size={15} className={refreshing ? "spin" : undefined} />
-          </button>
+          </div>
         </div>
       </header>
 

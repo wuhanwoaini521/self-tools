@@ -534,8 +534,12 @@ export function KnowledgeGraphPage({
         }}
       >
         <div style={{ display: "flex", flexWrap: "wrap", rowGap: 8, alignItems: "center", gap: 12 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 700, fontSize: 15, whiteSpace: "nowrap", color: "var(--text)" }}>
-            <Brain size={18} color="var(--accent)" /> 跨模块知识图谱
+          {/* 统一页面骨架的「标题 + 操作位」：此前本页没有任何页面级标题 */}
+          <div className="page-shell-title" style={{ marginRight: "auto" }}>
+            <span className="page-shell-eyebrow">graph</span>
+            <h1 style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <Brain size={18} color="var(--accent)" /> 跨模块知识图谱
+            </h1>
           </div>
 
           {/* Hops selector */}

@@ -329,7 +329,7 @@ export function TravelPage({
   );
 
   return (
-    <div className="page-scroll travel-page">
+    <div className="page-scroll travel-page page-shell">
       <header className="travel-hero">
         <div className="travel-hero-badge">
           <Sparkle size={14} weight="fill" />

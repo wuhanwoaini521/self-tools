@@ -117,42 +117,29 @@ export function ReviewCenterPage({ onNavigate, onAskAi }: ReviewCenterPageProps)
   }, [currentCard, isAnswerRevealed, submitting]);
 
   return (
-    <div className="review-center-page" style={{ padding: "24px 32px", maxWidth: 960, margin: "0 auto", minHeight: "100%" }}>
-      {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
-        <div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <span style={{ fontSize: 24, fontWeight: 700, color: "var(--text-primary, #111827)" }}>
-              通用复习中心
-            </span>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "rgba(59, 130, 246, 0.1)", color: "#3b82f6", padding: "4px 10px", borderRadius: 16, fontSize: 12, fontWeight: 600 }}>
-              <Cards size={14} /> SRS 间隔重复
-            </span>
-          </div>
-          <p style={{ color: "var(--text-secondary, #6b7280)", fontSize: 14, marginTop: 4 }}>
-            跨历史、地理、语言、专题研习的全模块智能复习卡片
-          </p>
+    <div className="review-center-page page-shell">
+      {/* 统一页面骨架：位置感（模块名 + 标题 + 说明）与操作位与其他页面对齐 */}
+      <header className="page-shell-head">
+        <div className="page-shell-title">
+          <span className="page-shell-eyebrow">review</span>
+          <h1>通用复习中心</h1>
+          <p className="page-shell-desc">跨历史、地理、语言、专题研习的全模块智能复习卡片</p>
         </div>
-
-        <button
-          onClick={loadData}
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 6,
-            padding: "8px 16px",
-            borderRadius: 8,
-            border: "1px solid var(--border-color, #e5e7eb)",
-            background: "var(--surface-primary, #ffffff)",
-            cursor: "pointer",
-            fontSize: 13,
-            fontWeight: 500,
-          }}
-        >
-          <ArrowsCounterClockwise size={16} className={loading ? "spin" : ""} />
-          刷新队列
-        </button>
-      </div>
+        <div className="page-shell-actions">
+          <span className="ui-chip is-accent">
+            <Cards size={13} /> SRS 间隔重复
+          </span>
+          <button
+            type="button"
+            className="ui-btn"
+            onClick={loadData}
+            disabled={loading}
+          >
+            <ArrowsCounterClockwise size={15} className={loading ? "spin" : ""} />
+            刷新队列
+          </button>
+        </div>
+      </header>
 
       {/* Stats bar */}
       {stats && (
