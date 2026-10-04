@@ -51,6 +51,8 @@ pub fn router(
     data_dir: std::path::PathBuf,
     // Personal Knowledge 运行时（两端共用同一份索引库）。
     knowledge: Arc<devtoolbox_infrastructure::knowledge_runtime::KnowledgeRuntime>,
+    // 语言库（课时音频端点要直接读文件；路径只取自数据库，不接受前端传参）。
+    language_store: Arc<parking_lot::Mutex<devtoolbox_infrastructure::language::LanguageStore>>,
     settings: Arc<dyn crate::ai_api::SettingsAccess>,
     // 平台 LearningService（Collections / Graph / Review Center / Home 今日面板）
     learning_os: Arc<devtoolbox_application::learning::LearningService>,
@@ -148,6 +150,40 @@ pub fn router(
         .route(
             "/api/v1/language/course/dict/{word}",
             get(crate::language_course_api::dict_lookup),
+        )
+        // 写路径：网页端要能真正「学」，不只是「看」。
+        // 此前这里只有只读端点，点「不认识」直接报「尚无网页端接口」。
+        .route(
+            "/api/v1/language/course/lesson/{lesson_id}/progress",
+            post(crate::language_write_api::update_progress),
+        )
+        .route(
+            "/api/v1/language/course/lesson/{lesson_id}/complete",
+            post(crate::language_write_api::complete_lesson),
+        )
+        .route(
+            "/api/v1/language/course/lesson/{lesson_id}/mark-word",
+            post(crate::language_write_api::mark_word),
+        )
+        .route(
+            "/api/v1/language/course/lookup-word",
+            post(crate::language_write_api::lookup_word),
+        )
+        .route(
+            "/api/v1/language/course/quiz",
+            get(crate::language_write_api::quiz),
+        )
+        .route(
+            "/api/v1/language/course/quiz/submit",
+            post(crate::language_write_api::submit_quiz),
+        )
+        .route(
+            "/api/v1/language/course/plan",
+            post(crate::language_write_api::save_plan),
+        )
+        .route(
+            "/api/v1/language/course/lesson/{lesson_id}/audio",
+            get(crate::language_write_api::lesson_audio),
         )
         .route(
             "/api/v1/language/course/search",
@@ -315,6 +351,7 @@ pub fn router(
         .layer(axum::Extension(Arc::clone(&course)))
         .layer(axum::Extension(Arc::new(data_dir)))
         .layer(axum::Extension(knowledge))
+        .layer(axum::Extension(language_store))
         .layer(axum::Extension(Arc::clone(&news_ingest)))
         .layer(axum::Extension(
             None::<Arc<dyn crate::ai_api::AiChatRunner>>,
@@ -763,6 +800,7 @@ mod tests {
             // readiness 探测用的数据目录（测试里指向系统临时目录）。
             std::env::temp_dir(),
             crate::knowledge_api::unavailable_runtime(&std::env::temp_dir()),
+            Arc::clone(&language_store),
             Arc::new(TestSettings),
             learning_os,
             geography,

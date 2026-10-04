@@ -120,6 +120,12 @@ const HTTP_ENDPOINTS: Record<string, (args: Record<string, unknown>) => string> 
     `/api/v1/language/course/lesson/${encodeURIComponent(String(a.lessonId ?? ""))}`,
   language_course_progress: () => "/api/v1/language/course/progress",
   language_course_plan_get: () => "/api/v1/language/course/plan",
+  language_course_quiz: (a) =>
+    `/api/v1/language/course/quiz?lesson_id=${encodeURIComponent(String(a.lessonId ?? ""))}`,
+  language_dict_lookup: (a) =>
+    `/api/v1/language/course/dict/${encodeURIComponent(String(a.word ?? ""))}`,
+  language_lesson_audio: (a) =>
+    `/api/v1/language/course/lesson/${encodeURIComponent(String(a.lessonId ?? ""))}/audio`,
   language_course_search: (a) =>
     `/api/v1/language/course/search?q=${encodeURIComponent(String(a.query ?? ""))}` +
     `&limit=${encodeURIComponent(String(a.limit ?? 10))}`,
@@ -218,6 +224,17 @@ const HTTP_POST_ENDPOINTS: Record<
   save_settings: () => "/api/v1/settings",
   personal_ai_chat: () => "/api/v1/ai/chat",
   learning_record_event: () => "/api/v1/learning/progress",
+  // 英语课程写路径：网页端要能真正「学」，不只是「看」。
+  // 此前这些只有桌面端有，点「不认识」直接报「尚无网页端接口」。
+  language_course_update_progress: (a) =>
+    `/api/v1/language/course/lesson/${encodeURIComponent(String(a.lessonId ?? ""))}/progress`,
+  language_course_complete_lesson: (a) =>
+    `/api/v1/language/course/lesson/${encodeURIComponent(String(a.lessonId ?? ""))}/complete`,
+  language_course_mark_word: (a) =>
+    `/api/v1/language/course/lesson/${encodeURIComponent(String(a.lessonId ?? ""))}/mark-word`,
+  language_course_lookup_word: () => "/api/v1/language/course/lookup-word",
+  language_course_submit_quiz: () => "/api/v1/language/course/quiz/submit",
+  language_course_plan_save: () => "/api/v1/language/course/plan",
   learning_create_collection: () => "/api/v1/learning/collections",
   learning_add_collection_item: (a) =>
     `/api/v1/learning/collections/${encodeURIComponent(String(a.collectionId))}/items`,
@@ -291,6 +308,14 @@ export const httpTransport: CommandTransport = {
         );
       }
       throw new Error(readErrorMessage(payload, `本地数据服务返回 ${response.status}`));
+    }
+    // 二进制响应（课时音频）：按 Content-Type 判断，不能走 json()。
+    // Tauri 的 IPC 对同一命令返回 ArrayBuffer，这里保持一致，
+    // 否则前端的 lessonAudio 会拿到解析失败的结果。
+    // headers 可能缺失（测试 mock / 极简环境）——按 JSON 处理即可。
+    const contentType = response.headers?.get?.("content-type") ?? "";
+    if (contentType.startsWith("audio/") || contentType.startsWith("application/octet-stream")) {
+      return (await response.arrayBuffer()) as T;
     }
     return (await response.json()) as T;
   },
