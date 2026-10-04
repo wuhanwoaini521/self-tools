@@ -13,9 +13,9 @@ use std::sync::Arc;
 
 use devtoolbox_core::learning::{
     Collection, CollectionItem, CollectionItemRef, EntityType, ExploreRecommendation, GraphEdge,
-    GraphNeighborhood, GraphNode, LearningAction, LearningEvent, LearningProgress, LearningStatus,
-    RelationKind, ReviewCardType, ReviewQueueItem, ReviewQueueStats, ReviewRating,
-    ReviewScheduleOutcome, TodayDashboardData, UniversalReviewCard,
+    GraphNeighborhood, GraphNode, LearningEvent, LearningProgress, LearningStatus, RelationKind,
+    ReviewQueueItem, ReviewQueueStats, ReviewRating, ReviewScheduleOutcome, TodayDashboardData,
+    UniversalReviewCard,
 };
 
 use crate::learning::ports::{LearningPortError, LearningStorePort};
@@ -45,66 +45,18 @@ impl LearningService {
     ) -> Result<LearningProgress, LearningPortError> {
         let event = normalize_event(event, now);
         let progress = self.store.record_event(&event)?;
-        // 如果是首次深度学习或收藏，自动生成一份复习卡片
-        if progress.study_count == 1
-            && matches!(
-                event.action,
-                LearningAction::Study | LearningAction::Bookmark | LearningAction::Complete
-            )
-        {
-            let card_id = format!(
-                "card_{}_{}_{}",
-                event.module, event.entity_type, event.entity_id
-            );
-            let prompt = match event.module.as_str() {
-                "history" => format!(
-                    "历史回顾：{}",
-                    event.entity_title.as_deref().unwrap_or(&event.entity_id)
-                ),
-                "geography" => format!(
-                    "地理百科：{} 的地理特征与区位？",
-                    event.entity_title.as_deref().unwrap_or(&event.entity_id)
-                ),
-                "language" => format!(
-                    "词汇掌握：{} 的含义与用法？",
-                    event.entity_title.as_deref().unwrap_or(&event.entity_id)
-                ),
-                "study" => format!(
-                    "学习板要点回顾：{}",
-                    event.entity_title.as_deref().unwrap_or(&event.entity_id)
-                ),
-                _ => format!(
-                    "知识复习：{}",
-                    event.entity_title.as_deref().unwrap_or(&event.entity_id)
-                ),
-            };
 
-            let card = UniversalReviewCard {
-                id: card_id,
-                module: event.module.clone(),
-                entity_id: event.entity_id.clone(),
-                entity_type: event.entity_type.clone(),
-                card_type: ReviewCardType::Recall,
-                prompt,
-                answer: event
-                    .entity_title
-                    .clone()
-                    .unwrap_or_else(|| event.entity_id.clone()),
-                options: None,
-                hint: Some(format!("来自 {} 模块的学习记录", event.module)),
-                context: event.source.clone(),
-                due_at: event.timestamp + 86400, // 默认明天初次复习
-                interval_days: 1.0,
-                ease: 2.5,
-                mastery_score: progress.mastery_score,
-                repetition_count: 0,
-                lapses: 0,
-                last_reviewed_at: None,
-                created_at: event.timestamp,
-            };
-
-            let _ = self.store.upsert_review_card(&card);
-        }
+        // **不再**因为「学习过一次」就自动生成复习卡。
+        //
+        // 旧行为：题干由 `entity_title` 拼出来，答案也直接用 `entity_title`
+        // —— 于是产生 `问「历史回顾：夏朝建立」 答「夏朝建立」` 这种
+        // **同义反复**的卡：复习一遍等于没复习，还会挤占真正的待复习队列
+        // （用户在复习中心看到的就是这些废卡，于是「看不出有啥用」）。
+        //
+        // 现在只有**用户明确加入复习**（各模块的 `add_to_review`，那里有真实
+        // 的问答对：词 → 释义、事件 → 细节）才会建卡。
+        // 「我学过它」不等于「我要复习它」。
+        let _ = &event;
 
         Ok(progress)
     }

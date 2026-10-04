@@ -3,8 +3,9 @@ use std::sync::{Arc, Mutex};
 
 use devtoolbox_core::learning::{
     Collection, CollectionItem, CollectionItemRef, ContinueItem, LearningAction, LearningEvent,
-    LearningProgress, LearningStatus, MasteryCalculator, ReviewQueueItem, ReviewQueueStats,
-    ReviewRating, ReviewScheduleOutcome, SpacedRepetitionScheduler, UniversalReviewCard,
+    LearningProgress, LearningStatus, MasteryCalculator, ReviewCardType, ReviewQueueItem,
+    ReviewQueueStats, ReviewRating, ReviewScheduleOutcome, SpacedRepetitionScheduler,
+    UniversalReviewCard,
 };
 
 use crate::learning::ports::{LearningPortError, LearningStorePort};
@@ -350,12 +351,44 @@ fn test_learning_service_full_flow() {
     assert_eq!(progress.study_count, 1);
     assert_eq!(progress.status, LearningStatus::Learning);
 
-    // Initial review card auto-created (due at 1000 + 86400 = 87400)
+    // 学过一次**不会**自动生成复习卡：自动卡的题干与答案同义反复，复习无意义。
+    assert!(
+        service
+            .get_review_queue(Some("history"), 90_000, 10)
+            .expect("queue")
+            .is_empty(),
+        "仅学习过不应自动建卡（同义反复的卡会挤占真实复习队列）"
+    );
+
+    // 显式加入复习后才出现，且由调用方给出真实问答。
+    service
+        .upsert_review_card(&UniversalReviewCard {
+            id: "card_silk_road".into(),
+            module: "history".into(),
+            entity_id: "silk_road".into(),
+            entity_type: "story".into(),
+            card_type: ReviewCardType::Recall,
+            prompt: "丝绸之路连接了哪些地区？".into(),
+            answer: "长安 — 中亚 — 欧洲（地中海）".into(),
+            options: None,
+            hint: None,
+            context: None,
+            due_at: 86_401,
+            interval_days: 0.0,
+            ease: 2.5,
+            mastery_score: 0.0,
+            repetition_count: 0,
+            lapses: 0,
+            last_reviewed_at: None,
+            created_at: 1000,
+        })
+        .expect("add card");
+
     let queue = service
         .get_review_queue(Some("history"), 90_000, 10)
         .expect("queue");
     assert_eq!(queue.len(), 1);
-    assert_eq!(queue[0].card.prompt, "历史回顾：丝绸之路的历史变迁");
+    assert_eq!(queue[0].card.prompt, "丝绸之路连接了哪些地区？");
 
     // Submit review rating
     let outcome = service

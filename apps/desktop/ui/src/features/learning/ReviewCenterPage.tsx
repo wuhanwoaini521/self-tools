@@ -41,6 +41,8 @@ export function ReviewCenterPage({ onNavigate, onAskAi }: ReviewCenterPageProps)
   const [selectedModule, setSelectedModule] = useState<string>("all");
   const [currentIndex, setCurrentIndex] = useState<number>(0);
   const [isAnswerRevealed, setIsAnswerRevealed] = useState<boolean>(false);
+  /** 是否已展示提示（提示 ≠ 答案：给线索但保留答案）。 */
+  const [isHintRevealed, setIsHintRevealed] = useState<boolean>(false);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [submitting, setSubmitting] = useState<boolean>(false);
@@ -57,6 +59,7 @@ export function ReviewCenterPage({ onNavigate, onAskAi }: ReviewCenterPageProps)
       setQueue(newQueue);
       setCurrentIndex(0);
       setIsAnswerRevealed(false);
+      setIsHintRevealed(false);
       setSelectedOption(null);
     } catch (err) {
       console.error("Failed to load review center data:", err);
@@ -84,6 +87,8 @@ export function ReviewCenterPage({ onNavigate, onAskAi }: ReviewCenterPageProps)
       if (currentIndex + 1 < queue.length) {
         setCurrentIndex((i) => i + 1);
         setIsAnswerRevealed(false);
+        setIsHintRevealed(false);
+      setIsHintRevealed(false);
         setSelectedOption(null);
       } else {
         // Queue finished
@@ -360,23 +365,64 @@ export function ReviewCenterPage({ onNavigate, onAskAi }: ReviewCenterPageProps)
                 )}
               </div>
             ) : (
+              /* 两级揭示，各有各的用处（用户反馈「隐藏和提示是一样的，有啥用不知道」）：
+                 - 看提示：只给线索，答案仍然藏着 —— 想先自己想想时用；
+                 - 看答案：直接给答案 —— 提示也救不回来时用。
+                 两者分开，语义才清楚。 */
               <div style={{ textAlign: "center", margin: "32px 0" }}>
-                <button
-                  onClick={() => setIsAnswerRevealed(true)}
-                  style={{
-                    padding: "12px 28px",
-                    borderRadius: 10,
-                    border: "none",
-                    background: "var(--accent-primary, #2563eb)",
-                    color: "#ffffff",
-                    fontSize: 15,
-                    fontWeight: 600,
-                    cursor: "pointer",
-                    boxShadow: "0 4px 12px rgba(37, 99, 235, 0.25)",
-                  }}
-                >
-                  显示答案 (空格键 Space)
-                </button>
+                <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
+                  {currentCard.hint ? (
+                    <button
+                      onClick={() => setIsHintRevealed(true)}
+                      style={{
+                        padding: "10px 18px",
+                        borderRadius: 10,
+                        border: "1px solid var(--border-color, #e5e7eb)",
+                        background: "var(--surface-secondary, #f9fafb)",
+                        color: "var(--text-secondary, #4b5563)",
+                        fontSize: 14,
+                        fontWeight: 600,
+                        cursor: "pointer",
+                      }}
+                    >
+                      看提示（先自己想一下）
+                    </button>
+                  ) : null}
+                  <button
+                    onClick={() => setIsAnswerRevealed(true)}
+                    style={{
+                      padding: "12px 28px",
+                      borderRadius: 10,
+                      border: "none",
+                      background: "var(--accent-primary, #2563eb)",
+                      color: "#ffffff",
+                      fontSize: 15,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      boxShadow: "0 4px 12px rgba(37, 99, 235, 0.25)",
+                    }}
+                  >
+                    {isHintRevealed ? "看答案 (空格)" : "直接看答案 (空格)"}
+                  </button>
+                </div>
+                {isHintRevealed && currentCard.hint && !isAnswerRevealed ? (
+                  <p
+                    style={{
+                      marginTop: 14,
+                      margin: "14px auto 0",
+                      maxWidth: 460,
+                      padding: "10px 14px",
+                      borderRadius: 8,
+                      background: "rgba(245, 158, 11, 0.10)",
+                      border: "1px dashed rgba(217, 119, 6, 0.35)",
+                      color: "var(--text-secondary, #64748b)",
+                      fontSize: 13,
+                    }}
+                  >
+                    <b style={{ color: "#b45309" }}>提示：</b>
+                    {currentCard.hint}
+                  </p>
+                ) : null}
               </div>
             )}
           </div>

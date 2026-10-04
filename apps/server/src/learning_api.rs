@@ -53,6 +53,16 @@ pub struct EntityKeyQuery {
     pub entity_key: String,
 }
 
+/// 把 `?module=` 的**空字符串**归一成 `None`（= 不按模块过滤）。
+///
+/// 前端 transport 对可选参数统一发送 `module=${value ?? ""}`，于是「全部模块」
+/// 会变成 `module=`。若原样传给存储层，等于按空模块名过滤 → 队列为空，
+/// 而统计走的是另一条查询（不过滤）→ 出现
+/// **「统计说有 N 张要复习，界面却说已全部完成」**的自相矛盾。
+fn normalize_module(raw: Option<&str>) -> Option<&str> {
+    raw.map(str::trim).filter(|value| !value.is_empty())
+}
+
 /// `GET /api/v1/learning/progress?module=…&status=…&limit=…`
 pub async fn list_progress(
     axum::Extension(service): axum::Extension<Shared>,
@@ -62,7 +72,7 @@ pub async fn list_progress(
     let status = params.status.as_deref().map(LearningStatus::parse);
     let list = service
         .list_progress(
-            params.module.as_deref(),
+            normalize_module(params.module.as_deref()),
             status,
             params.limit.unwrap_or(50).clamp(1, 500),
         )
@@ -105,7 +115,7 @@ pub async fn review_queue(
 ) -> Result<axum::Json<serde_json::Value>, ApiError> {
     let queue = service
         .get_review_queue(
-            params.module.as_deref(),
+            normalize_module(params.module.as_deref()),
             now(&clock),
             params.limit.unwrap_or(30).clamp(1, 200),
         )
@@ -291,5 +301,22 @@ fn backend(error: devtoolbox_application::learning::LearningPortError) -> ApiErr
     ApiError {
         code: "learning_failed",
         message: error.to_string(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// 回归：前端 transport 对可选参数统一发 `module=${value ?? ""}`。
+    /// 「全部模块」因此是 `module=`（空串）。若不归一成 `None`，
+    /// 队列按空模块名过滤返回空，而统计不过滤 →
+    /// **「今日待复习 3 张」却显示「已全部完成」**。
+    #[test]
+    fn empty_module_means_all_modules() {
+        assert_eq!(normalize_module(Some("")), None);
+        assert_eq!(normalize_module(Some("   ")), None);
+        assert_eq!(normalize_module(None), None);
+        assert_eq!(normalize_module(Some("language")), Some("language"));
     }
 }

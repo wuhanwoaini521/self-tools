@@ -522,12 +522,17 @@ fn weak_items_rank_by_mastery_then_recency() {
     service
         .record_study(&weak, StudyAction::Study, NOW - 86_400)
         .expect("study weak");
+    // 复习卡必须**显式加入**：`record_study` 不再自动造卡
+    // （旧行为生成的卡题干与答案同义反复，复习等于没复习）。
+    service
+        .add_to_review(&weak, NOW - 86_400)
+        .expect("add to review");
     // 弱项连续答错 → 掌握度低、错误数高
     for _ in 0..2 {
         service
             .submit_review(
                 &UniversalReviewCard {
-                    id: "card_language_word_jmdict:2".into(),
+                    id: "langcard_language_word_jmdict:2".into(),
                     module: "language".into(),
                     entity_id: "jmdict:2".into(),
                     entity_type: "word".into(),

@@ -108,7 +108,12 @@ pub async fn search(
 ) -> Result<axum::Json<serde_json::Value>, LanguageErrorBody> {
     let hits = dictionary
         .search(
-            params.language.as_deref(),
+            // 空串 = 不按语言过滤（前端 transport 会把缺省值发成 `language=`）。
+            params
+                .language
+                .as_deref()
+                .map(str::trim)
+                .filter(|v| !v.is_empty()),
             &params.q,
             params.limit.unwrap_or(30),
         )
