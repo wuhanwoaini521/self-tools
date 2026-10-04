@@ -99,6 +99,18 @@ pub trait CourseStorePort: Send + Sync {
     fn course_lesson(&self, lesson_id: &str) -> Result<Option<CourseLesson>, String>;
     fn lesson_sentences(&self, lesson_id: &str) -> Result<Vec<LessonSentence>, String>;
     fn lesson_vocab(&self, lesson_id: &str) -> Result<Vec<LessonVocab>, String>;
+    /// 本课每个词的用户自评（word -> mark）。
+    fn lesson_vocab_marks(
+        &self,
+        lesson_id: &str,
+    ) -> Result<std::collections::HashMap<String, Option<String>>, String>;
+    /// 记录用户在本课的自评。
+    fn set_lesson_vocab_mark(
+        &self,
+        lesson_id: &str,
+        word: &str,
+        mark: Option<&str>,
+    ) -> Result<(), String>;
     fn book_summary(&self, book_id: &str) -> Result<BookSummary, String>;
     fn lesson_progress(&self, lesson_id: &str) -> Result<Option<LessonProgress>, String>;
     fn save_lesson_progress(&self, progress: &LessonProgress) -> Result<(), String>;
@@ -190,6 +202,10 @@ pub struct VocabWithState {
     pub vocab: LessonVocab,
     /// `new` / `learning` / `known`（平台进度推导）。
     pub state: String,
+    /// 用户在本课的自评：`Some("know" | "fuzzy" | "unknown")`，未标过为 `None`。
+    ///
+    /// 课前预习靠它决定谁还该出现——标过「认识」的词不再出现在队列里。
+    pub mark: Option<String>,
     /// 用户在其它地方见过它几次（occurrences 特色能力）。
     pub seen_count: i64,
 }
@@ -387,14 +403,18 @@ impl CourseService {
             .lesson_progress(lesson_id)
             .map_err(err)?
             .unwrap_or_else(|| LessonProgress::new(lesson_id, now));
+        // 本课每个词的用户自评（决定课前队列：标过「认识」的不再出现）。
+        let marks = self.store.lesson_vocab_marks(lesson_id).map_err(err)?;
         let vocab = vocab
             .into_iter()
             .map(|word| {
                 let state = self.word_state(&word.word);
+                let mark = marks.get(&word.word).cloned().flatten();
                 let seen_count = self.store.word_occurrence_count(&word.word).unwrap_or(0);
                 VocabWithState {
                     vocab: word,
                     state,
+                    mark,
                     seen_count,
                 }
             })
@@ -586,6 +606,12 @@ impl CourseService {
             created_at: now,
         };
         self.platform.upsert_review_card(&card).map_err(platform)?;
+
+        // 2.5) 记录「用户在本课怎么说的」——课前预习据此把「认识」的词移出队列，
+        //      重进课程时也能看到上次的判断。
+        self.store
+            .set_lesson_vocab_mark(lesson_id, &lemma, Some(mark.as_str()))
+            .map_err(err)?;
 
         // 3) 立即按自评排期：Know=Easy / Fuzzy=Hard / Unknown=Again（今天再见）。
         let rating = match mark {

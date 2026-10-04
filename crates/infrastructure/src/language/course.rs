@@ -55,6 +55,9 @@ impl LanguageStore {
                     translation_zh TEXT, definition_en TEXT,
                     frequency INTEGER NOT NULL DEFAULT 0, tags TEXT NOT NULL DEFAULT '',
                     importance INTEGER NOT NULL DEFAULT 0,
+                    -- 用户在本课的自评（know / fuzzy / unknown）。**必须持久化**：
+                    -- 否则重进课程时又变成全新的词表，用户不知道上次标过哪些。
+                    user_mark TEXT,
                     PRIMARY KEY (lesson_id, word)
                 );
                 CREATE TABLE IF NOT EXISTS language_lesson_progress (
@@ -91,7 +94,70 @@ impl LanguageStore {
                 CREATE INDEX IF NOT EXISTS idx_dict_frq ON dict_entries(frq) WHERE frq > 0;",
             )
             .map_err(sqlite)?;
-        self.migrate_plan_source_dir()
+        self.migrate_plan_source_dir()?;
+        self.migrate_lesson_vocab_user_mark()
+    }
+
+    /// 旧库 `language_lesson_vocab` 没有 `user_mark` 列：补上（幂等）。
+    fn migrate_lesson_vocab_user_mark(&self) -> Result<(), InfrastructureError> {
+        let has_column = self
+            .conn()
+            .query_row(
+                "SELECT COUNT(*) FROM pragma_table_info('language_lesson_vocab') WHERE name = 'user_mark'",
+                [],
+                |row| row.get::<_, i64>(0),
+            )
+            .map_err(sqlite)?;
+        if has_column == 0 {
+            self.conn()
+                .execute(
+                    "ALTER TABLE language_lesson_vocab ADD COLUMN user_mark TEXT",
+                    [],
+                )
+                .map_err(sqlite)?;
+        }
+        Ok(())
+    }
+
+    /// 本课每个词的用户自评（word -> mark）。
+    pub fn lesson_vocab_marks(
+        &self,
+        lesson_id: &str,
+    ) -> Result<std::collections::HashMap<String, Option<String>>, InfrastructureError> {
+        let mut stmt = self
+            .conn()
+            .prepare("SELECT word, user_mark FROM language_lesson_vocab WHERE lesson_id = ?1")
+            .map_err(sqlite)?;
+        let rows = stmt
+            .query_map(params![lesson_id], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, Option<String>>(1)?))
+            })
+            .map_err(sqlite)?;
+        let mut map = std::collections::HashMap::new();
+        for row in rows {
+            let (word, mark) = row.map_err(sqlite)?;
+            map.insert(word, mark);
+        }
+        Ok(map)
+    }
+
+    /// 记录用户在本课的自评（know / fuzzy / unknown）。
+    ///
+    /// 与 SRS 并存但语义不同：SRS 排的是**什么时候复习**，
+    /// 这里记的是**用户当时怎么说的**——课前预习要靠它把「认识」的词移出队列。
+    pub fn set_lesson_vocab_mark(
+        &self,
+        lesson_id: &str,
+        word: &str,
+        mark: Option<&str>,
+    ) -> Result<(), InfrastructureError> {
+        self.conn()
+            .execute(
+                "UPDATE language_lesson_vocab SET user_mark = ?3 WHERE lesson_id = ?1 AND word = ?2",
+                params![lesson_id, word, mark],
+            )
+            .map_err(sqlite)?;
+        Ok(())
     }
 
     /// 旧版 `language_plan` 没有 `nce_source_dir` 列：补上（幂等）。
@@ -484,6 +550,7 @@ impl LanguageStore {
                         .map(str::to_string)
                         .collect(),
                     importance: row.get(11)?,
+                    mark: None,
                 })
             })
             .map_err(sqlite)?;
@@ -1161,6 +1228,7 @@ mod tests {
             frequency: 4200,
             tags: vec!["cet4".into()],
             importance: 65,
+            mark: None,
         }];
         (lesson, sentences, vocab)
     }

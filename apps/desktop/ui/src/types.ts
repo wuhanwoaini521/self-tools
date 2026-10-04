@@ -1246,6 +1246,8 @@ export interface LessonVocab {
 /** 生词 + 用户状态（平台进度推导：new / learning / known）。 */
 export interface VocabWithState extends LessonVocab {
   state: "new" | "learning" | "known";
+  /** 用户在本课的自评（know / fuzzy / unknown）；未标过为 null。 */
+  mark: string | null;
   seen_count: number;
 }
 

@@ -56,6 +56,9 @@ pub struct CourseLesson {
     pub vocab_count: u32,
 }
 
+/// 单词在本课的用户自评（课前预习三态；持久化，重进课程可见）。
+pub type VocabMark = Option<String>;
+
 /// 列表页条目：课时 + 用户状态（无进度 = NotStarted）。
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct LessonListEntry {
@@ -143,6 +146,12 @@ pub struct LessonVocab {
     pub tags: Vec<String>,
     /// 0–100：稀有度越高越值得学（由词频推导）。
     pub importance: u32,
+    /// 用户在本课的自评：`Some("know" | "fuzzy" | "unknown")`，未标过为 `None`。
+    ///
+    /// **必须持久化**：课前预习靠它把「认识」的词移出队列，
+    /// 重进课程时也要能看到上次的判断，而不是重新来一遍。
+    #[serde(default)]
+    pub mark: Option<String>,
 }
 
 // ============================================================================

@@ -89,6 +89,8 @@ pub fn extract_lesson_vocab(
                 frequency,
                 tags: entry.as_ref().map(|e| e.tags.clone()).unwrap_or_default(),
                 importance: importance_from_frequency(frequency),
+                // 导入时不带 mark：用户自评是**学习行为**，不是教材内容。
+                mark: None,
             }
         })
         .collect()

@@ -57,6 +57,25 @@ impl CourseStorePort for CourseStoreAdapter {
         map(self.store.lock().lesson_vocab(lesson_id))
     }
 
+    fn lesson_vocab_marks(
+        &self,
+        lesson_id: &str,
+    ) -> Result<std::collections::HashMap<String, Option<String>>, String> {
+        map(self.store.lock().lesson_vocab_marks(lesson_id))
+    }
+
+    fn set_lesson_vocab_mark(
+        &self,
+        lesson_id: &str,
+        word: &str,
+        mark: Option<&str>,
+    ) -> Result<(), String> {
+        map(self
+            .store
+            .lock()
+            .set_lesson_vocab_mark(lesson_id, word, mark))
+    }
+
     fn book_summary(&self, book_id: &str) -> Result<BookSummary, String> {
         map(self.store.lock().book_summary(book_id))
     }

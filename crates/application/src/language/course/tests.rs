@@ -353,6 +353,7 @@ impl FakeCourseStore {
                 frequency: frq,
                 tags: vec!["cet4".into()],
                 importance,
+                mark: None,
             });
             store.dict.lock().insert(
                 word.into(),
@@ -426,6 +427,35 @@ impl CourseStorePort for FakeCourseStore {
             .filter(|v| v.lesson_id == lesson_id)
             .cloned()
             .collect())
+    }
+
+    fn lesson_vocab_marks(
+        &self,
+        lesson_id: &str,
+    ) -> Result<std::collections::HashMap<String, Option<String>>, String> {
+        Ok(self
+            .vocab
+            .lock()
+            .iter()
+            .filter(|v| v.lesson_id == lesson_id)
+            .map(|v| (v.word.clone(), v.mark.clone()))
+            .collect())
+    }
+
+    fn set_lesson_vocab_mark(
+        &self,
+        lesson_id: &str,
+        word: &str,
+        mark: Option<&str>,
+    ) -> Result<(), String> {
+        let mut guard = self.vocab.lock();
+        if let Some(entry) = guard
+            .iter_mut()
+            .find(|v| v.lesson_id == lesson_id && v.word == word)
+        {
+            entry.mark = mark.map(str::to_string);
+        }
+        Ok(())
     }
     fn book_summary(&self, _book_id: &str) -> Result<BookSummary, String> {
         Ok(BookSummary {
@@ -844,6 +874,7 @@ fn blank_word_matches_whole_word_case_insensitive() {
         frequency: 0,
         tags: vec![],
         importance: 0,
+        mark: None,
     };
     assert_eq!(
         blank_word("She often appears on the stage as a girl.", &vocab),
@@ -870,4 +901,52 @@ fn search_covers_words_and_lessons() {
     assert_eq!(result.words.len(), 1);
     let lessons = service.search("Always", 10).expect("lessons");
     assert_eq!(lessons.lessons.len(), 1);
+}
+
+/// 回归：用户标「认识」的词必须**持久化**，并且重进课程时能看到。
+///
+/// 真实问题：课前队列只在前端 session 里记「标过」，后端没存，于是
+/// （a）重进课程又变回一整列新词；（b）前端分不清哪些标过，只能靠一排
+/// 含义不明的小圆点猜。修复后 mark 落在 `language_lesson_vocab.user_mark`。
+#[test]
+fn known_mark_persists_across_lesson_reload() {
+    let (service, _store, _platform) = service_with_lesson();
+
+    // 未标记时三个词都没有 mark。
+    let before = service
+        .lesson_detail("nce:2:17", NOW)
+        .expect("detail")
+        .expect("some");
+    assert!(
+        before.vocab.iter().all(|item| item.mark.is_none()),
+        "初始不应有 mark"
+    );
+
+    service
+        .mark_word("nce:2:17", "hesitate", WordMark::Know, NOW)
+        .expect("mark know");
+
+    // 重新读取课程详情：mark 必须还在。
+    let after = service
+        .lesson_detail("nce:2:17", NOW + 5)
+        .expect("detail")
+        .expect("some");
+    let hesitate = after
+        .vocab
+        .iter()
+        .find(|item| item.vocab.word == "hesitate")
+        .expect("hesitate in vocab");
+    assert_eq!(
+        hesitate.mark.as_deref(),
+        Some("know"),
+        "「认识」必须持久化，重进课程才不用重来一遍"
+    );
+    // 其它词不受影响。
+    assert!(
+        after
+            .vocab
+            .iter()
+            .filter(|item| item.vocab.word != "hesitate")
+            .all(|item| item.mark.is_none())
+    );
 }
