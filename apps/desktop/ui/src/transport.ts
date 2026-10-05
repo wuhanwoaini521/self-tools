@@ -279,6 +279,7 @@ const HTTP_POST_ENDPOINTS: Record<
   language_add_collection_item: (a) =>
     `/api/v1/learning/collections/${encodeURIComponent(String(a.collectionId))}/items`,
   news_add_source: () => "/api/v1/news/sources",
+  news_refresh_now: () => "/api/v1/news/refresh",
   news_toggle_star: (a) =>
     `/api/v1/news/articles/${encodeURIComponent(String(a.storyId))}/star`,
   news_mark_read: (a) =>

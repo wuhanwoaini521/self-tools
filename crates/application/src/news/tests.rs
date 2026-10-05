@@ -237,6 +237,9 @@ impl FakeNewsRepository {
             last_updated: None,
             last_error: None,
             unread_count: 0,
+            health: devtoolbox_core::news::SourceHealth::Ok,
+            latest_article_at: None,
+            disabled_reason: None,
         });
         id
     }
@@ -314,6 +317,9 @@ impl NewsRepositoryPort for FakeNewsRepository {
             last_updated: None,
             last_error: None,
             unread_count: 0,
+            health: devtoolbox_core::news::SourceHealth::Ok,
+            latest_article_at: None,
+            disabled_reason: None,
         });
         Ok(id)
     }

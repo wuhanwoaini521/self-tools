@@ -368,11 +368,18 @@ fn news_end_to_end_real_sqlite_to_ai_tools_and_mcp() {
         "News 首次打开必须 seed 系统维护的新闻源"
     );
 
-    // 落地：给 seed 源写两条新闻（真实 SQLite）。
+    // 落地：给一个 **China 分类**的 seed 源写两条新闻（真实 SQLite）。
+    // 源地址取自当前目录（`recommended_sources()`）而不是写死 —— 上一版写死的
+    // 新华网地址在 2026-10-05 已 404 并被迁移替换，这里再写死就会假失败。
+    let seed_url = devtoolbox_core::news::recommended_sources()
+        .into_iter()
+        .find(|source| source.category == NewsCategory::China)
+        .expect("catalog has a China source")
+        .url;
     let wire = news_store
         .lock()
         .expect("news lock")
-        .find_source_id_by_url("http://www.news.cn/rss/politics.xml")
+        .find_source_id_by_url(&seed_url)
         .expect("find seed")
         .expect("seed must exist");
     news_store

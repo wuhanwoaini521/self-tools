@@ -21133,3 +21133,70 @@ main.history-v2-period {
   font-size: 13px;
   color: var(--muted);
 }
+
+/* 源站没给摘要：明说，而不是把半句话当摘要显示 */
+.news-story-snippet.is-missing {
+  color: var(--faint, var(--muted));
+  font-style: italic;
+  opacity: 0.75;
+}
+
+/* --- 源健康面板（2026-10-05）------------------------------------------- */
+.news-degraded {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: 10px var(--space-4);
+  border: 1px solid color-mix(in srgb, var(--warning, #f5a623) 40%, var(--line));
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--warning, #f5a623) 8%, transparent);
+  font-size: 13px;
+}
+.news-degraded p {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-weight: 600;
+}
+.news-degraded-hint {
+  font-weight: 400;
+  color: var(--muted);
+}
+.news-degraded-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.news-degraded-list li {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-weight: 400;
+  color: var(--text-secondary, var(--muted));
+}
+.news-degraded-reason {
+  overflow-wrap: anywhere;
+}
+.news-health-tag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #fff;
+  background: var(--muted, #8b979e);
+}
+.news-health-tag[data-health="failing"] {
+  background: var(--danger, #e5484d);
+}
+.news-health-tag[data-health="stale"] {
+  background: var(--warning, #f5a623);
+}
+.news-health-tag[data-health="disabled"] {
+  background: var(--faint, #9aa4ab);
+}

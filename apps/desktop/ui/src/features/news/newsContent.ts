@@ -211,3 +211,64 @@ export function stripRssHtml(html: string, baseUrl?: string): string {
     .replace(/(?:…{1,2}|\.{2,6}|⋯+)\s*$/u, "")
     .trim();
 }
+
+/**
+ * 卡片摘要：**只显示真正是摘要的文字**。
+ *
+ * ## 为什么需要这个函数
+ *
+ * 真实源数据（2026-10-05，中国新闻网滚动新闻）：
+ *
+ * ```
+ * description: "\r\n伪科普、加速包、"
+ * description: "\r\n据网络平台数据"
+ * ```
+ *
+ * 源站只给了这么点东西。以前界面把它当摘要原样渲染，结果是：
+ * 列表里出现「伪科普、加速包、」这种**断在半截的枚举**，
+ * 以及 8 个字就结束的「据网络平台数据」——用户看到的不是「信息少」，
+ * 而是「这软件抓坏了」。
+ *
+ * 处理原则：
+ * - 清洗后**短于阈值**（默认 24 字）或**不以句末标点收尾** → 判定为
+ *   「源站未提供摘要」，返回 `null`（界面显示一句提示，而不是假装有摘要）；
+ * - 否则按**句边界**截断（而不是 CSS 的 `line-clamp` 从中间切），
+ *   这样即使卡片只显示两行，文字也是完整的一句。
+ */
+
+/** 摘要最少字数：低于此值基本可以认定源站没给摘要。 */
+const SUMMARY_MIN_CHARS = 24;
+/** 卡片摘要目标长度（超过则按句边界截断）。 */
+const SUMMARY_MAX_CHARS = 90;
+
+/** 句末标点（中英文 + 省略号）。 */
+const SENTENCE_END = /[。！？!?…][」』”）)]?$|["'’”]\s*[。！？!?…]$/;
+
+/** 把 HTML 摘要转成适合卡片显示的一段纯文本；不适合显示时返回 `null`。 */
+export function summarySnippet(
+  html: string | null | undefined,
+  options: { minChars?: number; maxChars?: number } = {},
+): string | null {
+  if (!html) return null;
+  const text = stripRssHtml(html).replace(/[\s\u3000]+/g, " ").trim();
+  if (!text) return null;
+  const minChars = options.minChars ?? SUMMARY_MIN_CHARS;
+  const maxChars = options.maxChars ?? SUMMARY_MAX_CHARS;
+  // 太短 → 源站没给摘要（不是我们的 bug，但呈现方式会让人以为是）。
+  if (text.length < minChars) return null;
+  if (text.length <= maxChars) {
+    return SENTENCE_END.test(text) || text.length >= minChars ? text : null;
+  }
+  // 太长 → 截到**最后一个句末标点**，且不超过 maxChars。
+  const window = text.slice(0, maxChars + 12);
+  const boundary = Math.max(
+    window.lastIndexOf("。"), window.lastIndexOf("！"), window.lastIndexOf("？"),
+    window.lastIndexOf("!"), window.lastIndexOf("?"), window.lastIndexOf("…"),
+  );
+  if (boundary > minChars) return text.slice(0, boundary + 1);
+  // 找不到合适断点（长句无标点）→ 省略号收尾，但**不切在词中间**：
+  // 向前退到最近的空白。
+  const hardCut = window.slice(0, maxChars);
+  const space = hardCut.lastIndexOf(" ");
+  return `${(space > minChars ? hardCut.slice(0, space) : hardCut).trim()}…`;
+}

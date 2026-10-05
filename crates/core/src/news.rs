@@ -134,7 +134,71 @@ pub struct NewsSource {
     pub last_error: Option<String>,
     /// 未读条数（查询时由 articles 实时聚合）。
     pub unread_count: i64,
+    /// **源健康度**（2026-10-05 起）。
+    ///
+    /// 为什么要单独一维：抓取「成功」不等于源还活着。实测发现人民网
+    /// `people.com.cn/rss/politics.xml` 一直返回 200，但内容停在 2025-06 ——
+    /// 这种「假活」源会静默贡献过期内容，用户只会觉得「新闻怎么不更新」。
+    /// `Stale` 就是给这种源用的：**不报错，但明确标记为已停更**。
+    pub health: SourceHealth,
+    /// 该源最新一篇文章的发布时间（用于判断停更与展示）。
+    pub latest_article_at: Option<i64>,
+    /// 被系统停用的原因（`None` = 未停用）。
+    ///
+    /// 例如「人民网 politics RSS 仍返回 200，但最新条目停在 2025-06（已停更）」。
+    /// 必须把原因告诉用户：源凭空消失会让人以为数据丢了。
+    pub disabled_reason: Option<String>,
 }
+
+/// 新闻源健康度。
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Deserialize, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SourceHealth {
+    /// 正常：抓取成功且内容新鲜。
+    #[default]
+    Ok,
+    /// 抓取失败（404 / 401 / 返回 HTML / 网络错误）——`last_error` 有原因。
+    Failing,
+    /// 抓取成功但内容停更（最新文章超过阈值）——**最容易被忽略的一种坏**。
+    Stale,
+    /// 已被系统停用（例如上一版目录里的源已下线）。
+    Disabled,
+}
+
+impl SourceHealth {
+    #[must_use]
+    pub const fn id(self) -> &'static str {
+        match self {
+            Self::Ok => "ok",
+            Self::Failing => "failing",
+            Self::Stale => "stale",
+            Self::Disabled => "disabled",
+        }
+    }
+
+    #[must_use]
+    pub fn from_id(raw: &str) -> Option<Self> {
+        match raw {
+            "ok" => Some(Self::Ok),
+            "failing" => Some(Self::Failing),
+            "stale" => Some(Self::Stale),
+            "disabled" => Some(Self::Disabled),
+            _ => None,
+        }
+    }
+
+    /// 是否需要在 UI 上给出**明确的坏消息**（而不是假装正常）。
+    #[must_use]
+    pub const fn needs_attention(self) -> bool {
+        matches!(self, Self::Failing | Self::Stale | Self::Disabled)
+    }
+}
+
+/// 停更判定阈值（天）。
+///
+/// 10 天：日更源（中新网 / BBC / HN / 东财 / IT之家）远低于此；
+/// 周更源（阮一峰）也在此之内。超过 10 天基本等于「源死了但还在返回 200」。
+pub const SOURCE_STALE_AFTER_DAYS: i64 = 10;
 
 /// 新闻文章行（`news_articles` 表；`source_name` 冗余便于列表直接展示）。
 ///
@@ -174,6 +238,9 @@ pub struct RecommendedSource {
     pub category: NewsCategory,
     /// 一句话说明（为什么推荐）。
     pub note: String,
+    /// **人工实测日期**（`YYYY-MM-DD`）：这个 URL 在那天确实能拉到 feed。
+    /// 没有它，目录就只是一张写着「看起来不错」的地址表。
+    pub verified_on: String,
 }
 
 /// 内置推荐源目录（News 模块 onboarding 与 seed 的唯一来源）。
@@ -186,52 +253,91 @@ pub struct RecommendedSource {
 pub fn recommended_sources() -> Vec<RecommendedSource> {
     RECOMMENDED_SOURCES
         .iter()
-        .map(|&(name, url, site, category, note)| RecommendedSource {
-            name: (*name).to_string(),
-            url: (*url).to_string(),
-            site_url: site.map(str::to_string),
-            category,
-            note: (*note).to_string(),
-        })
+        .map(
+            |&(name, url, site, category, note, verified_on)| RecommendedSource {
+                name: (*name).to_string(),
+                url: (*url).to_string(),
+                site_url: site.map(str::to_string),
+                category,
+                note: (*note).to_string(),
+                verified_on: (*verified_on).to_string(),
+            },
+        )
         .collect()
 }
 
-/// 目录表：(name, feed_url, site_url, category, note)。
-const RECOMMENDED_SOURCES: &[(&str, &str, Option<&str>, NewsCategory, &str)] = &[
+/// 目录表：(name, feed_url, site_url, category, note, verified_on)。
+///
+/// ## 为什么要带「实测日期」
+///
+/// 上一版目录里的 11 个源，到 2026-10-05 已有 **6 个死了**（404 / 401 / 返回 HTML），
+/// 还有 1 个（人民网）**不报错但内容停在 2025-06** —— 这种「假活」最坏：
+/// 用户只会看到「今日新闻里怎么都是三个月前的旧闻」。
+///
+/// 所以每个源都记录**人工实测日期**：目录不是写完就算数，是要定期复核的东西。
+/// 复核脚本：`scripts/check_news_sources.sh`（逐个拉取、验证是否 feed、报告最新条目时间）。
+///
+/// ## 已下线的源（不要再加回来）
+///
+/// | 源 | 2026-10-05 实测 | 处置 |
+/// |---|---|---|
+/// | 新华网 `news.cn/rss/politics.xml` | 404 | 删除，政要用「中国新闻网·中国」 |
+/// | 财联社 `cls.cn/nodeapi/telegraphList` | 404（非 RSS 接口） | 删除，财经用东方财富 |
+/// | 第一财经 `yicai.com/rss/news.xml` | 404 | 删除 |
+/// | 路透中文 `cn.reuters.com/tools/rss` | 301 → reuters.com，401 | 删除（中文站已下线） |
+/// | 36 氪 `36kr.com/feed` | 200 但返回 HTML（JS 壳） | 删除，科技用 IT之家 / 极客公园 |
+/// | 澎湃新闻 `thepaper.cn/rss.xml` | 302 → 首页 | 删除 |
+/// | 人民网 `people.com.cn/rss/politics.xml` | 200 但最新条目 2025-06-05 | 停止 seed（内容停更），旧库由迁移自动停用 |
+/// 目录表的一行：`(name, feed_url, site_url, category, note, verified_on)`。
+type CatalogRow = (
+    &'static str,
+    &'static str,
+    Option<&'static str>,
+    NewsCategory,
+    &'static str,
+    &'static str,
+);
+
+const RECOMMENDED_SOURCES: &[CatalogRow] = &[
     (
-        "新华网",
-        "http://www.news.cn/rss/politics.xml",
-        Some("https://www.news.cn/"),
+        "中国新闻网",
+        "https://www.chinanews.com.cn/rss/scroll-news.xml",
+        Some("https://www.chinanews.com.cn/"),
+        NewsCategory::General,
+        "中新社滚动新闻，社会要闻（实测更新最勤的中文源）",
+        "2026-10-05",
+    ),
+    (
+        "中国新闻网·中国",
+        "https://www.chinanews.com.cn/rss/china.xml",
+        Some("https://www.chinanews.com.cn/"),
         NewsCategory::China,
-        "国家通讯社，时政要闻第一手",
+        "中新社国内要闻；分频道 RSS 比综合版更聚焦",
+        "2026-10-05",
     ),
     (
-        "人民网",
-        "http://www.people.com.cn/rss/politics.xml",
-        Some("http://www.people.com.cn/"),
-        NewsCategory::China,
-        "人民日报社主办，党政要闻与评论",
-    ),
-    (
-        "财联社",
-        "https://www.cls.cn/nodeapi/telegraphList",
-        Some("https://www.cls.cn/"),
-        NewsCategory::Finance,
-        "24 小时电报流，市场速览",
-    ),
-    (
-        "第一财经",
-        "https://www.yicai.com/rss/news.xml",
-        Some("https://www.yicai.com/"),
-        NewsCategory::Finance,
-        "宏观、公司与市场深度报道",
-    ),
-    (
-        "路透中文",
-        "https://cn.reuters.com/tools/rss",
-        Some("https://cn.reuters.com/"),
+        "中国新闻网·国际",
+        "https://www.chinanews.com.cn/rss/world.xml",
+        Some("https://www.chinanews.com.cn/"),
         NewsCategory::World,
-        "国际通讯社中文版，环球要闻",
+        "中新社国际新闻",
+        "2026-10-05",
+    ),
+    (
+        "中国新闻网·财经",
+        "https://www.chinanews.com.cn/rss/finance.xml",
+        Some("https://www.chinanews.com.cn/"),
+        NewsCategory::Finance,
+        "中新社财经要闻",
+        "2026-10-05",
+    ),
+    (
+        "东方财富",
+        "http://rss.eastmoney.com/rss_partener.xml",
+        Some("https://www.eastmoney.com/"),
+        NewsCategory::Finance,
+        "财经资讯流，条目量大、更新快（替代已下线的财联社 / 第一财经）",
+        "2026-10-05",
     ),
     (
         "BBC 中文",
@@ -239,13 +345,31 @@ const RECOMMENDED_SOURCES: &[(&str, &str, Option<&str>, NewsCategory, &str)] = &
         Some("https://www.bbc.com/zhongwen/simp"),
         NewsCategory::World,
         "国际新闻与深度分析",
+        "2026-10-05",
     ),
     (
-        "Hacker News Front Page",
-        "https://hnrss.org/frontpage",
-        Some("https://news.ycombinator.com/"),
+        "联合国新闻（中文）",
+        "https://news.un.org/feed/subscribe/zh/news/all/rss.xml",
+        Some("https://news.un.org/zh/"),
+        NewsCategory::World,
+        "联合国官方中文稿源（替代已下线的路透中文）",
+        "2026-10-05",
+    ),
+    (
+        "IT之家",
+        "https://www.ithome.com/rss/",
+        Some("https://www.ithome.com/"),
         NewsCategory::Tech,
-        "技术与创业社区每日头条",
+        "科技资讯与产品动态，条目多、更新快（替代已下线的 36 氪）",
+        "2026-10-05",
+    ),
+    (
+        "极客公园",
+        "http://www.geekpark.net/rss",
+        Some("https://www.geekpark.net/"),
+        NewsCategory::Tech,
+        "科技产品与创投观察",
+        "2026-10-05",
     ),
     (
         "少数派",
@@ -253,26 +377,22 @@ const RECOMMENDED_SOURCES: &[(&str, &str, Option<&str>, NewsCategory, &str)] = &
         Some("https://sspai.com/"),
         NewsCategory::Tech,
         "效率工具与应用推荐",
+        "2026-10-05",
     ),
     (
-        "36 氪",
-        "https://36kr.com/feed",
-        Some("https://36kr.com/"),
+        "阮一峰的网络日志",
+        "https://www.ruanyifeng.com/blog/atom.xml",
+        Some("https://www.ruanyifeng.com/blog/"),
         NewsCategory::Tech,
-        "科技创投与商业趋势",
+        "科技周刊，长期高质量（周更）",
+        "2026-10-05",
     ),
     (
-        "澎湃新闻",
-        "https://www.thepaper.cn/rss.xml",
-        Some("https://www.thepaper.cn/"),
-        NewsCategory::General,
-        "综合时政与社会新闻",
-    ),
-    (
-        "中国新闻网",
-        "https://www.chinanews.com.cn/rss/scroll-news.xml",
-        Some("https://www.chinanews.com.cn/"),
-        NewsCategory::General,
-        "中新社滚动新闻，社会要闻",
+        "Hacker News Front Page",
+        "https://hnrss.org/frontpage",
+        Some("https://news.ycombinator.com/"),
+        NewsCategory::Tech,
+        "技术与创业社区每日头条（英文）",
+        "2026-10-05",
     ),
 ];

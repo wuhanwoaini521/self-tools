@@ -27,12 +27,29 @@ import type {
   NewsArticle,
   NewsOverview,
   NewsSource,
+  NewsSourceHealth,
   RecommendedSource,
 } from "../../types";
 import { errorMessage, formatDateTime, formatRelativeTime } from "../../utils";
 import { newsClient } from "./newsClient";
 import { learningClient } from "../learning/learningClient";
-import { prepareRssContent, stripRssHtml } from "./newsContent";
+import { prepareRssContent, stripRssHtml, summarySnippet } from "./newsContent";
+
+/** 源健康度标签（与后端 `SourceHealth` 的 snake_case 对齐）。 */
+const HEALTH_LABELS: Record<NewsSourceHealth, string> = {
+  ok: "正常",
+  failing: "抓取失败",
+  stale: "已停更",
+  disabled: "已停用",
+};
+
+/** 停更源的原因（后端没给 `disabled_reason` 时自己说明，别只丢一个标签）。 */
+function describeStale(source: NewsSource): string {
+  if (source.latest_article_at) {
+    return `最新内容停在 ${formatRelativeTime(source.latest_article_at)}（超过 10 天没更新）`;
+  }
+  return "从未抓到过内容";
+}
 
 /** 栏目：今日 / 稍后读 / 订阅源。 */
 type NewsTab = "today" | "starred" | "sources";
@@ -360,6 +377,10 @@ export function NewsPage({
 
   const degraded = overview?.health === "degraded";
 
+  // 不正常的源逐个列出：抓取失败 / 已停更 / 被系统停用要分开说。
+  const unhealthy = sources.filter((source) => source.health !== "ok");
+  const healthy = sources.length - unhealthy.length;
+
   /** 推荐源只从后端目录取（URL 单一来源；不订阅 = 不抓取）。 */
   useEffect(() => {
     if (!active) return;
@@ -464,10 +485,32 @@ export function NewsPage({
         </div>
       </header>
 
-      {degraded ? (
-        <p className="news-degraded">
-          <Warning size={14} /> 有订阅源最近刷新失败：{sources.find((s) => s.last_error)?.last_error}
-        </p>
+      {/* 健康面板：过去这里只显示「某一个源报了什么错」，而 2026-10-05 实测发现
+          真正的问题是「11 个源里 6 个已死、1 个不报错但停更」。所以逐个列出来，
+          区分「抓取失败」与「已停更」，并给出可执行的下一步。 */}
+      {unhealthy.length > 0 ? (
+        <div className="news-degraded" role="status">
+          <p>
+            <Warning size={14} />
+            {unhealthy.length} 个订阅源不正常
+            <span className="news-degraded-hint">
+              （这会直接影响「今日新闻」的数量：{healthy} 个源在正常供稿）
+            </span>
+          </p>
+          <ul className="news-degraded-list">
+            {unhealthy.map((source) => (
+              <li key={source.id}>
+                <b>{source.name}</b>
+                <span className="news-health-tag" data-health={source.health}>
+                  {HEALTH_LABELS[source.health]}
+                </span>
+                <span className="news-degraded-reason">
+                  {source.disabled_reason ?? source.last_error ?? describeStale(source)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
       ) : null}
 
       <div className="news-body">
@@ -483,6 +526,7 @@ export function NewsPage({
                       <b>{item.name}</b>
                       <small>
                         {CATEGORY_LABELS[item.category] ?? item.category} · {item.note}
+                        {item.verified_on ? ` · ${item.verified_on} 实测可用` : ""}
                       </small>
                     </div>
                     <button onClick={() => void subscribe(item)}>订阅</button>
@@ -496,11 +540,21 @@ export function NewsPage({
               {sources.map((source: NewsSource) => (
                 <div className="news-source-row" key={source.id}>
                   <button onClick={() => { setSourceFilter(source.id); setTab("today"); }}>
-                    <b>{source.name}</b>
+                    <b>
+                      {source.name}
+                      {source.health !== "ok" ? (
+                        <span className="news-health-tag" data-health={source.health}>
+                          {HEALTH_LABELS[source.health]}
+                        </span>
+                      ) : null}
+                    </b>
                     <small>
                       未读 {source.unread_count}
-                      {source.last_updated ? ` · ${formatRelativeTime(source.last_updated)}` : ""}
+                      {source.latest_article_at
+                        ? ` · 最新内容 ${formatRelativeTime(source.latest_article_at)}`
+                        : ""}
                       {source.last_error ? ` · ${source.last_error}` : ""}
+                      {source.disabled_reason ? ` · ${source.disabled_reason}` : ""}
                     </small>
                   </button>
                 </div>
@@ -590,6 +644,8 @@ export function NewsPage({
                 // 无封面（或封面已加载失败）时列表项不渲染 <img>，列模板必须同步收掉缩略图列，
                 // 否则 grid auto-placement 会把正文挤进那 72px 里。
                 const cover = story.image_url && !brokenImages.has(story.id) ? story.image_url : null;
+                // 摘要只算一次：stripRssHtml 走 DOM 解析，重复调用是白花钱。
+                const snippet = summarySnippet(story.summary);
                 return (
                   <li key={story.id}>
                     <button
@@ -618,8 +674,12 @@ export function NewsPage({
                           {story.author ? ` · ${story.author}` : ""}
                           {story.published_at ? ` · ${formatRelativeTime(story.published_at)}` : ""}
                         </small>
-                        {story.summary ? (
-                          <p className="news-story-snippet">{stripRssHtml(story.summary, story.url)}</p>
+                        {/* 源站只给「据网络平台数据」这种碎片时，宁可明说没有摘要，
+                            也不把半句话当摘要渲染成「抓坏了」的样子。 */}
+                        {snippet ? (
+                          <p className="news-story-snippet">{snippet}</p>
+                        ) : story.summary ? (
+                          <p className="news-story-snippet is-missing">源站未提供摘要</p>
                         ) : null}
                       </span>
                       {story.starred && <BookmarkSimple size={14} weight="fill" />}

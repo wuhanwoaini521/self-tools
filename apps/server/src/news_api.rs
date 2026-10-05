@@ -38,6 +38,7 @@ pub async fn recommended(
                 "site_url": candidate.site_url,
                 "category": candidate.category,
                 "note": candidate.note,
+                "verified_on": candidate.verified_on,
             })
         })
         .collect();
@@ -149,6 +150,33 @@ pub struct AddSourceRequest {
     pub category: Option<String>,
 }
 
+/// `POST /api/v1/news/refresh`
+///
+/// **网页端此前完全没有刷新入口**：`news_refresh_now` 只是 Tauri 命令，
+/// transport 里没有对应映射，于是浏览器打开 News 页点刷新只会得到
+/// 「尚无网页端接口」—— 这台机器明明就是服务器，抓取链路也全在本地。
+///
+/// 现在补上：与桌面端调用**同一个** `NewsIngestPort::refresh`。
+pub async fn refresh(
+    axum::Extension(ingest): axum::Extension<Arc<dyn NewsIngestPort>>,
+) -> Result<axum::Json<serde_json::Value>, ApiError> {
+    let report = ingest.refresh().await.map_err(|error| ApiError {
+        code: "news_refresh_failed",
+        message: error.to_string(),
+    })?;
+    Ok(axum::Json(serde_json::json!({
+        "new_articles": report.new_articles,
+        "failures": report
+            .failures
+            .iter()
+            .map(|failure| serde_json::json!({
+                "source": failure.source,
+                "message": failure.message,
+            }))
+            .collect::<Vec<_>>(),
+    })))
+}
+
 pub async fn add_source(
     axum::Extension(ingest): axum::Extension<Arc<dyn NewsIngestPort>>,
     axum::Json(request): axum::Json<AddSourceRequest>,
@@ -251,6 +279,9 @@ fn source_json(source: &devtoolbox_application::news::NewsSource) -> serde_json:
         "last_updated": source.last_updated,
         "last_error": source.last_error,
         "unread_count": source.unread_count,
+        "health": source.health.id(),
+        "latest_article_at": source.latest_article_at,
+        "disabled_reason": source.disabled_reason,
     })
 }
 

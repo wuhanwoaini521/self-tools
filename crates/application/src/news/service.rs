@@ -61,7 +61,10 @@ impl NewsService {
 impl NewsPort for NewsService {
     fn sources(&self) -> Result<NewsSourcesView, NewsError> {
         let sources = self.repository.list_sources().map_err(store_failure)?;
-        let health = if sources.iter().any(|source| source.last_error.is_some()) {
+        // 「降级」的口径扩大了：过去只看有没有 `last_error`，于是人民网这种
+        // **不报错但半年没更新**的源会被算成「一切正常」，用户只看到
+        // 「今日新闻怎么都是旧闻」。现在把停更 / 已停用都算进来。
+        let health = if sources.iter().any(|source| source.health.needs_attention()) {
             NewsSourceHealth::Degraded
         } else {
             NewsSourceHealth::Healthy

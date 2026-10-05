@@ -412,6 +412,7 @@ fn news_recommended(state: State<'_, AppState>) -> Result<Vec<serde_json::Value>
                 "category": candidate.category.id(),
                 "category_label": candidate.category.label(),
                 "note": candidate.note,
+                "verified_on": candidate.verified_on,
             })
         })
         .collect())
@@ -579,6 +580,9 @@ fn news_source_json(source: &devtoolbox_application::news::NewsSource) -> serde_
         "last_updated": source.last_updated,
         "last_error": source.last_error,
         "unread_count": source.unread_count,
+        "health": source.health.id(),
+        "latest_article_at": source.latest_article_at,
+        "disabled_reason": source.disabled_reason,
     })
 }
 

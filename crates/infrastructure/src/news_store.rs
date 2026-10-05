@@ -16,12 +16,116 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use rusqlite::{Connection, OptionalExtension};
 
 use crate::error::InfrastructureError;
-use devtoolbox_core::news::{NewsArticle, NewsCategory, NewsSource, NewsSourceType};
+use devtoolbox_core::news::{
+    NewsArticle, NewsCategory, NewsSource, NewsSourceType, SOURCE_STALE_AFTER_DAYS, SourceHealth,
+};
 
 /// 当前 schema 版本（新增列时递增并补非破坏性迁移）。
 pub const NEWS_SCHEMA_VERSION: u32 = 1;
 
 /// 当前 Unix 秒。
+/// 上一版目录里的死源 → 新目录里已实测可用的替代源。
+///
+/// 2026-10-05 实测：`curl -I` 逐个验证。新目录（`core::news::recommended_sources`）
+/// 里每条都有 `verified_on`，**不要往这里塞没验证过的地址**。
+/// 跨源同标题去重条件（拼进 SQL 用）。
+///
+/// 同一条通稿常被同一机构的多个频道重复推送：实测「出行热 体验丰 门市旺——国庆假期
+/// 消费市场观察」在**中国新闻网**与**中国新闻网·财经**各出现一次，列表里连着两条
+/// 同样的标题，看起来像「抓重了」——其实它确实是两条记录。
+///
+/// 做法：**按标题保留最早入库的那条**（`MIN(id)`，稳定且可重放）。按源查看
+/// （`latest_by_source`）不做去重：用户筛某个源时，看到该源自己的记录是对的。
+const TITLE_DEDUP: &str =
+    "a.id = (SELECT MIN(dup.id) FROM news_articles dup WHERE dup.title = a.title)";
+
+/// 死因见各行注释（2026-10-05 实测）。
+const OUTDATED_SEED_SOURCES: &[(&str, &str, &str, NewsCategory)] = &[
+    // 新华网 RSS 已 404
+    (
+        "http://www.news.cn/rss/politics.xml",
+        "https://www.chinanews.com.cn/rss/china.xml",
+        "中国新闻网·中国",
+        NewsCategory::China,
+    ),
+    // 财联社 telegraphList 接口已 404
+    (
+        "https://www.cls.cn/nodeapi/telegraphList",
+        "http://rss.eastmoney.com/rss_partener.xml",
+        "东方财富",
+        NewsCategory::Finance,
+    ),
+    // 第一财经 RSS 已 404
+    (
+        "https://www.yicai.com/rss/news.xml",
+        "https://www.chinanews.com.cn/rss/finance.xml",
+        "中国新闻网·财经",
+        NewsCategory::Finance,
+    ),
+    // 路透中文站已下线（301 → reuters.com，401）
+    (
+        "https://cn.reuters.com/tools/rss",
+        "https://news.un.org/feed/subscribe/zh/news/all/rss.xml",
+        "联合国新闻（中文）",
+        NewsCategory::World,
+    ),
+    // 36 氪 /feed 已返回 HTML 页面
+    (
+        "https://36kr.com/feed",
+        "https://www.ithome.com/rss/",
+        "IT之家",
+        NewsCategory::Tech,
+    ),
+    // 澎湃 rss.xml 已 302 到首页
+    (
+        "https://www.thepaper.cn/rss.xml",
+        "http://www.geekpark.net/rss",
+        "极客公园",
+        NewsCategory::Tech,
+    ),
+];
+
+/// **不报错但内容停更**的种子源（200 却半年没更新 —— 最容易被忽略的一种坏）。
+const SILENTLY_STALE_SEED_SOURCES: &[(&str, &str)] = &[(
+    "http://www.people.com.cn/rss/politics.xml",
+    "人民网 politics RSS 仍返回 200，但最新条目停在 2025-06（已停更）",
+)];
+
+/// 行 → 健康度。
+///
+/// 判定顺序（有优先级，不能反过来）：
+/// 1. `disabled`：系统明确停用；
+/// 2. `failing`：有 `last_error`（抓取真的失败了）；
+/// 3. `stale`：抓取没报错，但**最新文章超过阈值** —— 「假活」源；
+/// 4. `ok`。
+///
+/// `stale` 只在源确实有历史文章时判定：一个刚添加、还没抓到东西的源
+/// 报「停更」是误导（应该是「还没抓到」）。
+fn source_health(row: &rusqlite::Row<'_>) -> SourceHealth {
+    let stored: String = row.get(9).unwrap_or_default();
+    let disabled_reason: Option<String> = row.get(10).ok().flatten();
+    if disabled_reason.is_some() {
+        return SourceHealth::Disabled;
+    }
+    // 显式标记优先（`disabled` / `stale` 可以被系统写入，不靠推导）。
+    if let Some(explicit) =
+        SourceHealth::from_id(&stored).filter(|value| *value != SourceHealth::Ok)
+    {
+        return explicit;
+    }
+    let last_error: Option<String> = row.get(7).ok().flatten();
+    if last_error.is_some() {
+        return SourceHealth::Failing;
+    }
+    let latest: Option<i64> = row.get(11).ok().flatten();
+    match latest {
+        Some(latest) if news_now() - latest > SOURCE_STALE_AFTER_DAYS * 86_400 => {
+            SourceHealth::Stale
+        }
+        _ => SourceHealth::Ok,
+    }
+}
+
 pub fn news_now() -> i64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -77,7 +181,9 @@ impl NewsRepository {
             .map_err(|source| InfrastructureError::Sqlite(source.to_string()))?;
         let repository = Self { connection };
         repository.ensure_schema()?;
+        repository.migrate_health_columns()?;
         repository.seed_sources()?;
+        repository.repair_outdated_seeded_sources()?;
         repository.write_version()?;
         Ok(repository)
     }
@@ -93,7 +199,9 @@ impl NewsRepository {
                     category TEXT NOT NULL DEFAULT 'general',
                     site_url TEXT,
                     last_updated INTEGER,
-                    last_error TEXT
+                    last_error TEXT,
+                    health TEXT NOT NULL DEFAULT 'ok',
+                    disabled_reason TEXT
                 );
                 CREATE INDEX IF NOT EXISTS idx_news_sources_category
                     ON news_sources(category);
@@ -119,6 +227,102 @@ impl NewsRepository {
                 );",
             )
             .map_err(|source| InfrastructureError::Sqlite(source.to_string()))
+    }
+
+    /// 老库补 `health` / `disabled_reason` 两列（幂等；新库由 schema 直接建好）。
+    ///
+    /// 用 `ALTER TABLE` 的重复执行会报错，所以先查 `PRAGMA table_info`：
+    /// 「列在不在」是唯一可靠的幂等判据。
+    fn migrate_health_columns(&self) -> Result<(), InfrastructureError> {
+        let columns: Vec<String> = self
+            .connection
+            .prepare("PRAGMA table_info(news_sources)")
+            .map_err(|source| InfrastructureError::Sqlite(source.to_string()))?
+            .query_map([], |row| row.get(1))
+            .map_err(|source| InfrastructureError::Sqlite(source.to_string()))?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|source| InfrastructureError::Sqlite(source.to_string()))?;
+        for (name, ddl) in [
+            (
+                "health",
+                "ALTER TABLE news_sources ADD COLUMN health TEXT NOT NULL DEFAULT 'ok'",
+            ),
+            (
+                "disabled_reason",
+                "ALTER TABLE news_sources ADD COLUMN disabled_reason TEXT",
+            ),
+        ] {
+            if columns.iter().any(|column| column == name) {
+                continue;
+            }
+            self.connection
+                .execute(ddl, [])
+                .map_err(|source| InfrastructureError::Sqlite(source.to_string()))?;
+        }
+        Ok(())
+    }
+
+    /// 修复「上一版目录种下、但其实已经死了」的种子源。
+    ///
+    /// ## 为什么要做这一步
+    ///
+    /// seed 只跑一次（`schema_meta.sources_seeded`），所以**老用户的库里会一直躺着
+    /// 6 个死源**：新华网 404、财联社 404、第一财经 404、路透中文 401、
+    /// 36 氪返回 HTML、澎湃新闻 302。用户只能看到「今日新闻少得可怜」，
+    /// 却又不知道为什么。
+    ///
+    /// 这里按 URL 精确匹配做替换（不按名字 —— 名字可能撞车），并：
+    /// - 替换成**新目录里已实测可用**的同分类源；
+    /// - 写 `disabled_reason`，让 UI 明确说「已下线」而不是让它继续报错；
+    /// - 幂等：URL 已改过就不会再动。
+    fn repair_outdated_seeded_sources(&self) -> Result<(), InfrastructureError> {
+        // 先**只读**检查有没有要修的行，没有就完全不碰写锁。
+        // 为什么重要：应用启动时若有别的进程（桌面端 + 网页端同时开着）正在写
+        // news.db，一次多余的 UPDATE 就可能撞上 SQLITE_BUSY，直接启动失败。
+        let pending = |url: &str| -> Result<bool, InfrastructureError> {
+            let count: i64 = self
+                .connection
+                .query_row(
+                    "SELECT COUNT(*) FROM news_sources WHERE url = ?1",
+                    [url],
+                    |row| row.get(0),
+                )
+                .map_err(|source| InfrastructureError::Sqlite(source.to_string()))?;
+            Ok(count > 0)
+        };
+
+        for (old_url, new_url, new_name, new_category) in OUTDATED_SEED_SOURCES {
+            if !pending(old_url)? {
+                continue;
+            }
+            let affected = self
+                .connection
+                .execute(
+                    "UPDATE news_sources
+                     SET url = ?2, name = ?3, category = ?4, health = 'ok', last_error = NULL
+                     WHERE url = ?1",
+                    rusqlite::params![old_url, new_url, new_name, new_category.id()],
+                )
+                .map_err(|source| InfrastructureError::Sqlite(source.to_string()))?;
+            if affected > 0 {
+                eprintln!("[news] 已替换失效源 {old_url} → {new_name}（{new_url}）");
+            }
+        }
+        // 停更但「不报错」的源：内容停在 2025-06，URL 仍然 200。
+        for (url, reason) in SILENTLY_STALE_SEED_SOURCES {
+            if !pending(url)? {
+                continue;
+            }
+            self.connection
+                .execute(
+                    "UPDATE news_sources
+                     SET health = 'disabled', disabled_reason = ?2
+                     WHERE url = ?1 AND (health IS NULL OR health = 'ok')",
+                    rusqlite::params![url, reason],
+                )
+                .map_err(|source| InfrastructureError::Sqlite(source.to_string()))?;
+        }
+        Ok(())
     }
 
     /// 首次打开：把系统维护的推荐源目录灌进 `news_sources`（`URL` 幂等，
@@ -202,7 +406,9 @@ impl NewsRepository {
             .prepare(
                 "SELECT s.id, s.name, s.url, s.source_type, s.category, s.site_url,
                         s.last_updated, s.last_error,
-                        COUNT(a.id) FILTER (WHERE a.is_read = 0) AS unread
+                        COUNT(a.id) FILTER (WHERE a.is_read = 0) AS unread,
+                        s.health, s.disabled_reason,
+                        MAX(a.published_at) AS latest_article_at
                  FROM news_sources s
                  LEFT JOIN news_articles a ON a.source_id = s.id
                  GROUP BY s.id
@@ -211,7 +417,9 @@ impl NewsRepository {
             .map_err(|source| InfrastructureError::Sqlite(source.to_string()))?;
         let rows = statement
             .query_map([], |row| {
-                let site_url: String = row.get(5)?;
+                // site_url 可空：任何「没有站点首页」的行都不该让整张列表查询失败
+                // （此前用 `String` 读取，遇到 NULL 直接报 Sqlite 错误）。
+                let site_url: Option<String> = row.get(5)?;
                 Ok(NewsSource {
                     id: row.get(0)?,
                     name: row.get(1)?,
@@ -219,14 +427,13 @@ impl NewsRepository {
                     source_type: NewsSourceType::from_id(&row.get::<_, String>(3)?)
                         .unwrap_or_default(),
                     category: NewsCategory::from_id(&row.get::<_, String>(4)?).unwrap_or_default(),
-                    site_url: if site_url.is_empty() {
-                        None
-                    } else {
-                        Some(site_url)
-                    },
+                    site_url: site_url.filter(|value| !value.is_empty()),
                     last_updated: row.get(6)?,
                     last_error: row.get(7)?,
                     unread_count: row.get(8)?,
+                    health: source_health(row),
+                    latest_article_at: row.get(11)?,
+                    disabled_reason: row.get(10)?,
                 })
             })
             .map_err(|source| InfrastructureError::Sqlite(source.to_string()))?
@@ -374,6 +581,7 @@ impl NewsRepository {
             .connection
             .prepare(&format!(
                 "{ARTICLE_SELECT}
+                 WHERE {TITLE_DEDUP}
                  ORDER BY a.published_at IS NULL, a.published_at DESC, a.id DESC
                  LIMIT ?1",
             ))
@@ -391,7 +599,7 @@ impl NewsRepository {
             .connection
             .prepare(&format!(
                 "{ARTICLE_SELECT}
-                 WHERE s.category = ?1
+                 WHERE s.category = ?1 AND {TITLE_DEDUP}
                  ORDER BY a.published_at IS NULL, a.published_at DESC, a.id DESC
                  LIMIT ?2",
             ))
@@ -934,5 +1142,282 @@ mod tests {
                 .is_err(),
             "未知源必须受控报错"
         );
+    }
+}
+
+#[cfg(test)]
+mod health_tests {
+    //! 源健康度与「失效源自动替换」的回归测试。
+    //!
+    //! 背景：2026-10-05 实测发现 11 个种子源里 6 个已死、1 个「不报错但停更」。
+    //! 这些都属于**静默失败**——用户只看到「新闻怎么不更新」，不知道为什么。
+
+    use super::*;
+    use devtoolbox_core::feed::FetchedEntry;
+    use tempfile::tempdir;
+
+    fn entry(guid: &str, title: &str, published_at: i64) -> FetchedEntry {
+        FetchedEntry {
+            guid: guid.to_string(),
+            url: format!("https://example.com/{guid}"),
+            title: title.to_string(),
+            author: None,
+            image_url: None,
+            published_at: Some(published_at),
+            summary: Some("摘要".to_string()),
+        }
+    }
+
+    fn store_with_old_seed() -> (tempfile::TempDir, NewsRepository) {
+        let dir = tempdir().expect("tempdir");
+        let path = dir.path().join("news.db");
+        // 造一个「上一版目录」的库：只含已下线的死源。
+        let store = NewsRepository::open(&path).expect("open");
+        store
+            .connection
+            .execute("DELETE FROM news_sources", [])
+            .expect("clear");
+        for (old_url, _new, _name, _category) in OUTDATED_SEED_SOURCES {
+            store
+                .connection
+                .execute(
+                    "INSERT INTO news_sources (name, url, source_type, category) VALUES (?1, ?2, 'rss', 'general')",
+                    rusqlite::params!["旧源", old_url],
+                )
+                .expect("insert legacy");
+        }
+        store
+            .connection
+            .execute(
+                "INSERT INTO news_sources (name, url, source_type, category) VALUES ('人民网', ?1, 'rss', 'china')",
+                ["http://www.people.com.cn/rss/politics.xml"],
+            )
+            .expect("insert people");
+        (dir, store)
+    }
+
+    #[test]
+    fn dead_seeded_sources_are_replaced_on_open() {
+        let dir = tempdir().expect("tempdir");
+        let path = dir.path().join("news.db");
+        {
+            let _ = NewsRepository::open(&path).expect("first open");
+        }
+        // 第二次打开 = 老用户升级路径。
+        let store = NewsRepository::open(&path).expect("reopen");
+        let urls: Vec<String> = store
+            .list_sources()
+            .expect("list")
+            .into_iter()
+            .map(|source| source.url)
+            .collect();
+        for (old_url, new_url, _name, _category) in OUTDATED_SEED_SOURCES {
+            assert!(
+                !urls.iter().any(|url| url == old_url),
+                "死源应被替换：{old_url}"
+            );
+            assert!(
+                urls.iter().any(|url| url == new_url),
+                "替代源应已就位：{new_url}"
+            );
+        }
+    }
+
+    #[test]
+    fn silently_stale_source_is_disabled_with_a_reason() {
+        let (_dir, store) = store_with_old_seed();
+        store
+            .connection
+            .execute(
+                "UPDATE news_sources SET health='ok', disabled_reason=NULL
+                 WHERE url = 'http://www.people.com.cn/rss/politics.xml'",
+                [],
+            )
+            .expect("reset");
+        // 重新执行修复（模拟再次打开）
+        store.repair_outdated_seeded_sources().expect("repair");
+        let people = store
+            .list_sources()
+            .expect("list")
+            .into_iter()
+            .find(|source| source.url == "http://www.people.com.cn/rss/politics.xml")
+            .expect("人民网仍在库里（不删用户数据）");
+        assert_eq!(people.health, SourceHealth::Disabled);
+        assert!(
+            people
+                .disabled_reason
+                .as_deref()
+                .is_some_and(|reason| reason.contains("停更"))
+        );
+    }
+
+    #[test]
+    fn fresh_source_is_ok_and_old_articles_make_it_stale() {
+        let dir = tempdir().expect("tempdir");
+        let store = NewsRepository::open(dir.path().join("news.db")).expect("open");
+        let source = store.list_sources().expect("list").remove(0);
+        // 没有任何文章 → 不判定停更（刚加的源还没抓到东西，不该说它坏了）。
+        assert_eq!(source.health, SourceHealth::Ok);
+
+        let now = news_now();
+        store
+            .insert_articles(source.id, &[entry("fresh", "今天", now - 3600)])
+            .expect("fresh");
+        assert_eq!(
+            store
+                .list_sources()
+                .expect("list")
+                .into_iter()
+                .find(|item| item.id == source.id)
+                .expect("row")
+                .health,
+            SourceHealth::Ok
+        );
+
+        // 清掉刚才那条新文章，只留半年前的 → 停更（抓取没报错，但内容不动了）。
+        store
+            .connection
+            .execute("DELETE FROM news_articles WHERE guid = 'fresh'", [])
+            .expect("clear fresh");
+        store
+            .insert_articles(
+                source.id,
+                &[entry(
+                    "old",
+                    "半年前",
+                    now - (SOURCE_STALE_AFTER_DAYS + 3) * 86_400,
+                )],
+            )
+            .expect("old");
+        let row = store
+            .list_sources()
+            .expect("list")
+            .into_iter()
+            .find(|item| item.id == source.id)
+            .expect("row");
+        assert_eq!(row.health, SourceHealth::Stale, "旧内容必须被标记为停更");
+        assert!(row.latest_article_at.is_some());
+    }
+
+    #[test]
+    fn failing_beats_ok_but_disabled_beats_all() {
+        let dir = tempdir().expect("tempdir");
+        let store = NewsRepository::open(dir.path().join("news.db")).expect("open");
+        let source = store.list_sources().expect("list").remove(0);
+        store
+            .set_source_health(source.id, Some("server returned 404 Not Found"))
+            .expect("fail");
+        assert_eq!(
+            store
+                .list_sources()
+                .expect("list")
+                .into_iter()
+                .find(|item| item.id == source.id)
+                .expect("row")
+                .health,
+            SourceHealth::Failing
+        );
+        store.set_source_health(source.id, None).expect("recover");
+        assert_eq!(
+            store
+                .list_sources()
+                .expect("list")
+                .into_iter()
+                .find(|item| item.id == source.id)
+                .expect("row")
+                .health,
+            SourceHealth::Ok,
+            "恢复后回到 ok"
+        );
+    }
+
+    #[test]
+    fn catalog_entries_all_carry_a_verification_date() {
+        for source in devtoolbox_core::news::recommended_sources() {
+            assert!(
+                source.verified_on.len() == 10 && source.verified_on.contains('-'),
+                "{} 缺少实测日期：{}",
+                source.name,
+                source.verified_on
+            );
+            assert!(
+                source.url.starts_with("http://") || source.url.starts_with("https://"),
+                "{} 的地址不是 http(s)",
+                source.name
+            );
+        }
+    }
+}
+
+#[cfg(test)]
+mod dedup_tests {
+    //! 跨源同标题去重（2026-10-05 实测：同一条通稿在两个频道各出现一次）。
+
+    use super::*;
+    use devtoolbox_core::feed::FetchedEntry;
+    use tempfile::tempdir;
+
+    fn entry(guid: &str, title: &str, published_at: i64) -> FetchedEntry {
+        FetchedEntry {
+            guid: guid.to_string(),
+            url: format!("https://example.com/{guid}"),
+            title: title.to_string(),
+            author: None,
+            image_url: None,
+            published_at: Some(published_at),
+            summary: None,
+        }
+    }
+
+    #[test]
+    fn same_title_from_two_sources_appears_once_in_the_feed() {
+        let dir = tempdir().expect("tempdir");
+        let store = NewsRepository::open(dir.path().join("news.db")).expect("open");
+        let sources = store.list_sources().expect("list");
+        let now = news_now();
+        store
+            .insert_articles(sources[0].id, &[entry("a1", "同一条通稿", now - 60)])
+            .expect("first");
+        store
+            .insert_articles(sources[1].id, &[entry("a2", "同一条通稿", now - 30)])
+            .expect("duplicate");
+
+        let feed = store.latest(50).expect("latest");
+        assert_eq!(
+            feed.iter()
+                .filter(|article| article.title == "同一条通稿")
+                .count(),
+            1,
+            "跨源同标题只应出现一次"
+        );
+        // 按源看仍然各自可见（用户筛源时不希望被去重掉）。
+        assert_eq!(
+            store
+                .latest_by_source(sources[1].id, 10)
+                .expect("by source")
+                .iter()
+                .filter(|article| article.title == "同一条通稿")
+                .count(),
+            1,
+            "按源查看不受跨源去重影响"
+        );
+    }
+
+    #[test]
+    fn different_titles_are_untouched() {
+        let dir = tempdir().expect("tempdir");
+        let store = NewsRepository::open(dir.path().join("news.db")).expect("open");
+        let sources = store.list_sources().expect("list");
+        let now = news_now();
+        store
+            .insert_articles(
+                sources[0].id,
+                &[
+                    entry("a", "标题一", now - 30),
+                    entry("b", "标题二", now - 20),
+                ],
+            )
+            .expect("insert");
+        assert_eq!(store.latest(50).expect("latest").len(), 2);
     }
 }

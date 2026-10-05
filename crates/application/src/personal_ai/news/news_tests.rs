@@ -52,6 +52,9 @@ impl FakeNewsPort {
             last_updated: Some(1_800_000_000),
             last_error: None,
             unread_count: 2,
+            health: devtoolbox_core::news::SourceHealth::Ok,
+            latest_article_at: None,
+            disabled_reason: None,
         });
         port.articles.push(NewsArticle {
             id: 11,
@@ -598,6 +601,9 @@ fn recommendations_are_excluded_once_subscribed() {
         last_updated: None,
         last_error: None,
         unread_count: 0,
+        health: devtoolbox_core::news::SourceHealth::Ok,
+        latest_article_at: None,
+        disabled_reason: None,
     });
     register(&mut modules, &mut tools, Arc::new(port), None);
 

@@ -393,6 +393,8 @@ pub fn router(
             get(crate::news_api::recommended),
         )
         .route("/api/v1/news/sources", get(crate::news_api::sources))
+        // 网页端此前没有刷新入口（只有 Tauri 命令）—— 补上，与桌面端同一个用例。
+        .route("/api/v1/news/refresh", post(crate::news_api::refresh))
         .route("/api/v1/news/headlines", get(crate::news_api::headlines))
         .route("/api/v1/news/search", get(crate::news_api::search))
         .route("/api/v1/news/starred", get(crate::news_api::starred))
@@ -1013,15 +1015,20 @@ mod tests {
         )
     }
 
-    /// News 测试装配：内存 news 库 + 不联网的抓取器。
+    /// News 测试装配：**每个用例一个独立库** + 不联网的抓取器。
+    ///
+    /// 之前所有用例共用同一个 `self-tools-test-news-{pid}.db`：测试是并行的，
+    /// 多个 `NewsRepository::open` 会互相抢写锁，报 `database is locked`
+    /// （踩过一次：给 news 库加了启动期迁移写入后，稳定的测试开始随机失败）。
     fn news_service() -> Arc<devtoolbox_application::news::NewsService> {
+        static SEQ: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+        let seq = SEQ.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         Arc::new(devtoolbox_application::news::NewsService::new(Arc::new(
             devtoolbox_infrastructure::NewsRepositoryAdapter::new(Arc::new(
                 parking_lot::Mutex::new(
-                    devtoolbox_infrastructure::NewsRepository::open(
-                        std::env::temp_dir()
-                            .join(format!("self-tools-test-news-{}.db", std::process::id())),
-                    )
+                    devtoolbox_infrastructure::NewsRepository::open(std::env::temp_dir().join(
+                        format!("self-tools-test-news-{}-{seq}.db", std::process::id()),
+                    ))
                     .expect("news store"),
                 ),
             )),

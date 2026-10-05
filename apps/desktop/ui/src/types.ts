@@ -186,6 +186,9 @@ export type NewsSourceType = "rss" | "atom" | "json_feed" | "api";
 export type NewsCategoryId = "general" | "tech" | "finance" | "world" | "china";
 
 /** 新闻源（news.db：系统 seed + 用户添加；**不是 RSS 订阅**）。 */
+/** 源健康度：2026-10-05 起。`stale` 是「不报错但已停更」——最容易被忽略的一种坏。 */
+export type NewsSourceHealth = "ok" | "failing" | "stale" | "disabled";
+
 export interface NewsSource {
   id: number;
   name: string;
@@ -197,6 +200,11 @@ export interface NewsSource {
   last_updated: number | null;
   last_error: string | null;
   unread_count: number;
+  health: NewsSourceHealth;
+  /** 该源最新一篇文章的发布时间（停更判定与展示用）。 */
+  latest_article_at: number | null;
+  /** 被系统停用的原因（源凭空消失会让人以为数据丢了）。 */
+  disabled_reason: string | null;
 }
 
 /** 新闻文章（news.db）。 */
@@ -222,6 +230,8 @@ export interface RecommendedSource {
   category: NewsCategoryId;
   category_label: string;
   note: string;
+  /** 人工实测日期（`YYYY-MM-DD`）：这个地址在那天真能拉到 feed。 */
+  verified_on: string;
 }
 
 /** `news_sources` 返回的聚合。 */
