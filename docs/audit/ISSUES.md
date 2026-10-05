@@ -240,3 +240,60 @@ save → list → get → snapshot 往返，非法 id 400 / 不存在 404。
 截图存 `apps/output/audit/history-theme-{warm-editorial,default,pixel-light}.png`、
 `history-error-state.png`；另跑了 Home / News / Study / Settings 四页的主题切换巡检
 （`sweep-*.png`），没有出现被新 token 破坏的页面。
+
+
+---
+
+## Phase 11：控件不统一（2026-10-05）
+
+用户反馈：**「部分按钮、字体、下拉、分类等还是这种感觉的样式，不太统一」**（附 Knowledge 筛选行截图：
+搜索框 + 「全部分类」下拉 + 刷新按钮三者高低、字体、边框各不相同，下拉还是 macOS 原生控件）。
+
+### 巡检结果（不是凭感觉，是逐页量的）
+
+写脚本把 11 个页面里所有 `select / input / textarea / button` 的计算样式收上来统计：
+
+| 对象 | 修复前 | 修复后 |
+| --- | --- | --- |
+| `<select>` | 高度 34 / 41 / **58**px，字号 14px，`appearance: auto`（macOS 原生箭头） | **36px / 13px / `none`** |
+| `<input>` | 高度 26 / 28 / 34 / **42** / 44px，字号 14–16px | **36px / 13px / `none`** |
+| 行内按钮 | 与同行控件不同高（30 / 33 / 34 / 42 / 58px） | **36px**，与同行控件一致 |
+| 按钮圆角 / 字号 | 6 / 10 / 16px 三种圆角，10–16px 七种字号 | 行内控件统一 10px / 13px（卡片型大按钮不动） |
+
+最刺眼的一处：Knowledge 那一行里 **select 52px + 搜索按钮 22px + 输入框 42px**。
+
+### 根因
+
+1. **没有人定义「控件该多大」**：每个页面各写各的 padding/height/border-radius，
+   同一行控件自然对不齐；
+2. **`appearance` 全是 auto**：macOS 会给 `<select>` 画原生控件（灰底 + 上下箭头），
+   在任何主题里都和设计语言不像；
+3. **flex 行默认 `align-items: stretch`**：36px 的下拉会被同行最高的搜索框拉成 52px
+   —— 这是「同一行高低不齐」的另一半原因；
+4. 部分页面「外层盒子有边框 + 内层 input 也有边框」，输入框看起来像被套了个相框。
+
+### 改动
+
+1. **控件契约**（`:root` 四个变量，作为唯一依据）：
+   `--control-height: 36px` / `--control-radius` / `--control-font: 13px` / `--control-pad-x: 12px`。
+2. **基础控件层**：`appearance: none` + 统一高度/字号/圆角 + hover / disabled / focus 状态；
+   数字输入的步进箭头与搜索框的原生清除按钮一并去掉。
+3. **下拉箭头**：按主题给两套内联 SVG（`--control-arrow`）+ `color-scheme: light|dark`
+   —— 深色主题里下拉列表和日期选择器也跟着是暗的。
+4. **行内按钮用 `:has()` 精确圈定**：只统一「与输入框/下拉并排的按钮」，
+   卡片型大按钮（列表项、文章卡）不受影响。
+5. **行内 flex 行 `align-items: center`**，并把 Travel 自己写死的 42px/14px 交回契约。
+6. **搜索框去双边框**：内层 input 透明无边框，外观由外层盒子承担。
+
+### 过程中踩到的两个坑（都记在代码注释里）
+
+- `mask-image` 画下拉箭头会把 `<select>` 的**文字也一起遮掉**（只剩一个箭头可见）→ 改用按主题的 `background-image`。
+- 深色主题块的选择器是 `:root, :root[data-theme="default"]`（含裸 `:root`），
+  往里插 token 会**命中所有主题** —— 第一次插进去，浅色主题也拿到了深色箭头。
+
+### 验证
+
+真实 Chrome 逐页量：select / input / input[search] / input[date] **全部 36px / 13px /
+appearance: none**；7 个「输入框 + 按钮」的行（news / rss / knowledge / search / travel /
+geography）**偏差 0**。浅色与深色主题各截图确认
+（`ui-warm-editorial-knowledge.png`、`ui-warm-editorial-dark-knowledge.png` 等）。

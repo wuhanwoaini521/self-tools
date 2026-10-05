@@ -19,6 +19,19 @@
  * 导致同一控件在不同主题下圆角不一致——这正是「每个页面自己定义一套」的根因。
  * ========================================================================== */
 :root {
+ /* 行内控件契约（2026-10-05）：筛选栏 / 工具栏 / 表单里的输入框、下拉、
+    按钮必须同高同字号同圆角。此前巡检实测同一行里出现过
+    select 58px + 按钮 22px + 输入框 42px 的组合 —— 那不是「风格差异」，
+    是没人定义控件该多大。下面三个变量是对齐的唯一依据。 */
+ --control-height: 36px;
+ --control-radius: var(--radius-sm);
+ --control-font: 13px;
+ --control-pad-x: 12px;
+ /* 下拉箭头：内联 SVG 按主题给两套（浅色用深灰、深色用浅灰）。
+    不能用 mask —— mask 会连同 <select> 的文字一起遮掉（实测只剩箭头可见）。 */
+ --control-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 4.5 6 8l3.5-3.5' fill='none' stroke='%236b6b73' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+ color-scheme: light;
+
  /* 圆角：小控件 10px、卡片 16px、大浮层 18px。不用胶囊形做主控件。 */
  --radius-xs: 6px;
  --radius-sm: 10px;
@@ -66,8 +79,10 @@
  --content-measure: 72ch;
 }
 
-:root,
 :root[data-theme="default"] {
+ /* 深色主题：下拉箭头换成浅色，并让原生控件（下拉列表 / 日期选择器）走暗色。 */
+ --control-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 4.5 6 8l3.5-3.5' fill='none' stroke='%23a8b3ba' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+ color-scheme: dark;
  --bg: #0d1315;
  --panel: #11191c;
  --panel-raised: #151e21;
@@ -188,6 +203,9 @@
 /* Pixel Light（现 Soft Minimal）：默认工作区。
    浅灰纸面 + 纯白卡片 + 极轻边框；彩色只出现在状态与主操作上。 */
 :root[data-theme="pixel-light"] {
+ /* 浅色主题：深灰箭头 + 原生控件走浅色（否则下拉列表是白的、页面是暖色的）。 */
+ --control-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 4.5 6 8l3.5-3.5' fill='none' stroke='%236b6b73' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+ color-scheme: light;
  --bg: #f4f4f3;
  --panel: #fcfcfc;
  --panel-raised: #ffffff;
@@ -271,6 +289,9 @@
 }
 
 :root[data-theme="warm-editorial"] {
+ /* 浅色主题：深灰箭头 + 原生控件走浅色（否则下拉列表是白的、页面是暖色的）。 */
+ --control-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 4.5 6 8l3.5-3.5' fill='none' stroke='%236b6b73' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+ color-scheme: light;
  /* 2026-10-05 修正层次：此前 bg #f7f5ef / panel #faf8f3 / raised #faf8f3 三者只差
     2–3 个色阶，任何「卡片」在纸面上都看不出来（用户反馈：背景不对劲）。
     纸面保持暖调，但让「面」真的比「底」亮一档：卡片浮得起来，线也看得见。 */
@@ -390,6 +411,9 @@
 
 /* Warm Editorial Dark:暖黑夜间版,同一 Editorial 语言的深色表达。 */
 :root[data-theme="warm-editorial-dark"] {
+ /* 深色主题：下拉箭头换成浅色，并让原生控件（下拉列表 / 日期选择器）走暗色。 */
+ --control-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 4.5 6 8l3.5-3.5' fill='none' stroke='%23d8cfb8' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+ color-scheme: dark;
  --bg: #1d1c19;
  --panel: #25231f;
  --panel-raised: #25231f;
@@ -504,6 +528,9 @@
 
 /* Nord:北欧极光深色主题 */
 :root[data-theme="nord"] {
+ /* 深色主题：下拉箭头换成浅色，并让原生控件（下拉列表 / 日期选择器）走暗色。 */
+ --control-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 4.5 6 8l3.5-3.5' fill='none' stroke='%23d8dee9' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+ color-scheme: dark;
  --bg: #2e3440;
  --panel: #3b4252;
  --panel-raised: #434c5e;
@@ -570,6 +597,9 @@
 
 /* Catppuccin Macchiato:舒适现代柔和深色 */
 :root[data-theme="catppuccin-macchiato"] {
+ /* 深色主题：下拉箭头换成浅色，并让原生控件（下拉列表 / 日期选择器）走暗色。 */
+ --control-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 4.5 6 8l3.5-3.5' fill='none' stroke='%23cad3f5' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+ color-scheme: dark;
  --bg: #24273a;
  --panel: #2a2d42;
  --panel-raised: #363a4f;
@@ -2105,20 +2135,15 @@ button {
 
 .travel-search-row {
   display: flex;
+  align-items: center;
   gap: 10px;
 }
 
+/* 尺寸走 --control-* 契约（此前这一行自己写死 42px / 14px，
+   于是同一页的输入框同时存在 36px 与 42px 两种高度）。 */
 .travel-search-row input {
   min-width: 0;
   flex: 1;
-  height: 42px;
-  padding: 0 14px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-control);
-  background: var(--surface-control);
-  color: var(--text-input);
-  font-size: 14px;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .travel-search-row input::placeholder {
@@ -18240,25 +18265,74 @@ main.history-v2-period {
  cursor: not-allowed;
 }
 
-/* ---------- Input / Select / Textarea ---------- */
+/* ---------- Input / Select / Textarea ----------
+ *
+ * 统一到 `--control-*` 契约：高度固定 36px（box-sizing: border-box 已全局开启），
+ * 字号 13px，横向 padding 12px，圆角 --radius-control。
+ *
+ * `appearance: none` 是关键：不加这一句，macOS 会画出**原生控件**
+ * （灰色渐变 + 上下箭头），在浅色主题里和周围的设计语言完全不像一回事。
+ * 下拉箭头改用 mask + currentColor —— 这样它会跟着主题的文字色走，
+ * 不用为每个主题各写一张 PNG。
+ */
 .app-shell input:not([type="checkbox"]):not([type="radio"]),
 .app-shell select,
 .app-shell textarea {
+ appearance: none;
+ -webkit-appearance: none;
  border: 1px solid var(--line);
- border-radius: var(--radius-sm);
+ border-radius: var(--radius-control);
  background: var(--surface-control);
  color: var(--text);
  font-family: inherit;
- font-size: 14px;
- line-height: 1.6;
- padding: 9px 12px;
+ font-size: var(--control-font);
+ line-height: 1.5;
+ min-height: var(--control-height);
+ padding: 0 var(--control-pad-x);
  transition:
   border-color var(--motion-fast) var(--motion-ease),
-  box-shadow var(--motion-fast) var(--motion-ease);
+  box-shadow var(--motion-fast) var(--motion-ease),
+  background-color var(--motion-fast) var(--motion-ease);
 }
 .app-shell textarea {
  min-height: 96px;
+ padding: 10px var(--control-pad-x);
  resize: vertical;
+}
+.app-shell input:hover:not(:disabled),
+.app-shell select:hover:not(:disabled),
+.app-shell textarea:hover:not(:disabled) {
+ border-color: var(--line-strong);
+}
+.app-shell input:disabled,
+.app-shell select:disabled,
+.app-shell textarea:disabled {
+ background: var(--surface-sunken);
+ color: var(--faint);
+ cursor: not-allowed;
+}
+/* 下拉箭头：主题 token（浅/深各一套）。不用 mask —— 那会把文字一起遮掉。 */
+.app-shell select {
+ padding-right: calc(var(--control-pad-x) + 20px);
+ background-image: var(--control-arrow);
+ background-repeat: no-repeat;
+ background-position: right 10px center;
+ background-size: 12px 12px;
+}
+.app-shell select option {
+ background: var(--surface-overlay);
+ color: var(--text);
+ font-size: var(--control-font);
+}
+/* 数字输入的原生步进箭头与清除按钮：统一到无边框的次要样式。 */
+.app-shell input[type="number"]::-webkit-outer-spin-button,
+.app-shell input[type="number"]::-webkit-inner-spin-button {
+ -webkit-appearance: none;
+ margin: 0;
+}
+.app-shell input[type="search"]::-webkit-search-decoration,
+.app-shell input[type="search"]::-webkit-search-cancel-button {
+ -webkit-appearance: none;
 }
 .app-shell input::placeholder,
 .app-shell textarea::placeholder {
@@ -18270,6 +18344,105 @@ main.history-v2-period {
  outline: none;
  border-color: var(--accent);
  box-shadow: var(--shadow-focus);
+}
+
+/* ---------- 行内控件（筛选栏 / 工具栏）----------
+ *
+ * 巡检实测的偏差：同一行里 select 58px、按钮 22px、输入框 42px；按钮圆角有
+ * 6/10/16 三种，字号有 10–16px 七种，`appearance` 全是 auto（macOS 画原生控件）。
+ *
+ * 这里的契约只针对**与输入框/下拉并排的按钮**（`:has()` 精确表达「同一行」），
+ * 不动卡片型大按钮 —— 列表项、文章卡不是控件，不该被压成 36px。
+ */
+.app-shell :is(div, header, section, footer)
+  :has(> input:not([type="checkbox"]):not([type="radio"])),
+.app-shell :is(div, header, section, footer):has(> select) {
+ /* flex 行默认 stretch：36px 的下拉会被同行最高的搜索框拉成 52px。 */
+ align-items: center;
+}
+.app-shell :is(div, header, section, footer)
+  :has(> input:not([type="checkbox"]):not([type="radio"]))
+  > button,
+.app-shell :is(div, header, section, footer):has(> select) > button {
+ display: inline-flex;
+ align-items: center;
+ justify-content: center;
+ gap: 6px;
+ min-height: var(--control-height);
+ height: var(--control-height);
+ padding: 0 var(--control-pad-x);
+ border: 1px solid var(--line);
+ border-radius: var(--radius-control);
+ background: var(--surface-control);
+ color: var(--text);
+ font-family: inherit;
+ font-size: var(--control-font);
+ font-weight: 500;
+ line-height: 1;
+ white-space: nowrap;
+ cursor: pointer;
+ transition:
+  border-color var(--motion-fast) var(--motion-ease),
+  background-color var(--motion-fast) var(--motion-ease),
+  color var(--motion-fast) var(--motion-ease);
+}
+.app-shell :is(div, header, section, footer)
+  :has(> input:not([type="checkbox"]):not([type="radio"]))
+  > button:hover:not(:disabled),
+.app-shell :is(div, header, section, footer):has(> select) > button:hover:not(:disabled) {
+ border-color: var(--line-strong);
+ background: var(--panel-hover);
+}
+.app-shell :is(div, header, section, footer)
+  :has(> input:not([type="checkbox"]):not([type="radio"]))
+  > button:disabled,
+.app-shell :is(div, header, section, footer):has(> select) > button:disabled {
+ color: var(--faint);
+ cursor: not-allowed;
+}
+/* 主操作（显式标记）用强调色，避免一排全是同质灰块。 */
+.app-shell :is(div, header, section, footer)
+  :has(> input:not([type="checkbox"]):not([type="radio"]))
+  > button.is-primary,
+.app-shell :is(div, header, section, footer):has(> select) > button.is-primary {
+ border-color: var(--accent);
+ background: var(--accent);
+ color: #fff;
+}
+.app-shell :is(div, header, section, footer)
+  :has(> input:not([type="checkbox"]):not([type="radio"]))
+  > button.is-primary:hover:not(:disabled) {
+ border-color: var(--accent-hover);
+ background: var(--accent-hover);
+}
+/* 搜索框：图标 + 输入 + 按钮收进**一个**控件里。
+ *
+ * 此前不少页面是「外层盒子有边框 + 内层 input 也有边框」，
+ * 看起来像输入框被套了个相框（Knowledge 的搜索框就是如此）。
+ * 这里让内层 input 透明无边框，由外层盒子承担外观；高度仍锁在契约高度上。 */
+/* 选择器要压过基础层（`.app-shell input:not(...)` = 0,2,1），
+   所以这里用 `:is(div[class], header[class])` + `:not([type=…])` 把权重提上去。 */
+.app-shell :is(div[class], header[class]):has(> input) {
+ display: flex;
+ align-items: center;
+ gap: 8px;
+}
+.app-shell :is(div[class], header[class]):has(> input) > input:not([type="checkbox"]) {
+ flex: 1;
+ min-width: 0;
+ background: transparent;
+ border-color: transparent;
+}
+.app-shell :is(div[class], header[class]):has(> input) > input:not([type="checkbox"]):hover:not(:disabled) {
+ border-color: transparent;
+}
+.app-shell :is(div[class], header[class]):has(> input) > input:not([type="checkbox"]):focus {
+ border-color: transparent;
+ box-shadow: none;
+}
+.app-shell :is(div[class], header[class]):has(> input) > svg {
+ flex: none;
+ color: var(--faint);
 }
 
 /* ---------- Card：白底 + 1px 极轻边框 + 极轻阴影 ---------- */
