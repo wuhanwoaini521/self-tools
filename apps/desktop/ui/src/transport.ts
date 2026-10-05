@@ -224,6 +224,8 @@ const HTTP_ENDPOINTS: Record<string, (args: Record<string, unknown>) => string> 
     `/api/v1/study-boards?limit=${encodeURIComponent(String(a.limit ?? 20))}`,
   study_board_get: (a) =>
     `/api/v1/study-boards/${encodeURIComponent(String(a.boardId ?? ""))}`,
+  // 26 周能力路线图（V13 W6）：静态计划 + 真实统计。
+  english_roadmap: () => "/api/v1/english/roadmap",
   // 句子挖掘预览（V13 W3）：本课能挖出哪些卡（只读，不写库）。
   language_mining_preview: (a) =>
     `/api/v1/language/mining/lesson/${encodeURIComponent(String(a.lessonId ?? ""))}` +

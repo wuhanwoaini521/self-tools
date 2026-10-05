@@ -92,7 +92,7 @@
 - 每个场景：必说句块 + 追问 + 常见听懂障碍；先跟读，再自由对话
 - AI 未配置 → 场景退化为「情景句跟读 + 自评 checklist」，功能不残废
 
-### W6 26 周路线图与能力检查（Roadmap & Milestones）
+### W6 26 周路线图与能力检查（Roadmap & Milestones）✅ 已实现
 - 首页把「今日任务」升级为「今日目标 + 本周里程碑 + 距下一个能力检查还有几天」
 - 进度页展示真实指标：开口分钟、听写正确率、复习留存率、场景任务数、听力通过率
 - 每 4 周一次**能力自测**（听力 5 句 + 复述 + 场景任务），结果入历史曲线
@@ -105,6 +105,7 @@
 | --- | --- | --- |
 | W1 沉浸精读 | `features/language/english/ImmersiveReader.tsx` + `immersive.ts` | 句级高亮跟音频；译文三态（隐藏/逐句/全显）；字号行距栏宽可调并持久化；键盘流；无音频时用浏览器 TTS 朗读并说明原因；退出时回写句位与学习秒数 |
 | W2 跟读评分 | `core::language::speaking`（原有但从未被调用）→ `SpeakingService` → Tauri 命令 + `/api/v1/language/shadow/*` → `ShadowStage` | **目标句由服务端查库**（不采信前端自报）；**没有转写就没有分数**（空串 → 400，不落库）；词级差异（漏说/说错/多说）；进度页新增「开口」指标 |
+| W6 路线图 | `core::language::roadmap`（10 个检查点，稀疏表）→ `RoadmapService` → `/api/v1/english/roadmap` → `RoadmapPage` | 每个检查项显示 `当前/目标`；**没有学习记录就不显示「第几周」**（不编起点）；自评项不参与自动判定；指标全部来自真实统计 |
 | W3 句子挖掘 | `core::language::mining`（纯函数）→ `MiningService` → `/api/v1/language/mining/lesson/{id}` + `MiningPanel` | 挖空位置**可解释**（本课生词 > 功能词 > 实词），同分取先出现的位置 → 重复挖掘幂等；卡片带原句语境进同一套 SRS；`reviewMatch.ts` 让句子卡按**词级**判定（只差一个冠词算「基本会」） |
 
 验证：Rust 全量 20 个测试目标通过、clippy 零警告；前端 85 passed；

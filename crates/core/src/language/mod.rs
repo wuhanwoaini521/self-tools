@@ -10,6 +10,7 @@ pub mod lrc;
 pub mod metadata;
 pub mod mining;
 pub mod model;
+pub mod roadmap;
 pub mod romaji;
 pub mod speaking;
 
@@ -35,6 +36,10 @@ pub use mining::{
 pub use model::{
     LanguageCode, LanguageCount, LanguageItem, LanguageItemType, LanguageRelation,
     LanguageRelationKind, Meaning, Pronunciation, PronunciationScheme, SentenceRecord,
+};
+pub use roadmap::{
+    CheckKind, Checkpoint, ROADMAP, RoadmapMetrics, RoadmapWeek, current_week, latest_checkpoint,
+    week_complete, week_plan,
 };
 pub use romaji::{kana_to_romaji, normalize_roman, tones_from_syllables};
 pub use speaking::{SpeakingScore, WordDiff, compare_words, score, tokenize};

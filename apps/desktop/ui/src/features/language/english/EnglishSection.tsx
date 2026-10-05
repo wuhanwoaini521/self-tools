@@ -21,6 +21,7 @@ import { BookViewPage } from "./BookViewPage";
 import { LessonWorkspace } from "./LessonWorkspace";
 import { ReviewHub } from "./ReviewHub";
 import { ProgressView } from "./ProgressView";
+import { RoadmapPage } from "./RoadmapPage";
 import { ImportDialog } from "./ImportDialog";
 import { PlanDialog } from "./PlanDialog";
 
@@ -30,7 +31,8 @@ export type EnglishView =
   | { kind: "book"; bookId: string }
   | { kind: "lesson"; lessonId: string }
   | { kind: "review" }
-  | { kind: "progress" };
+  | { kind: "progress" }
+  | { kind: "roadmap" };
 
 export interface EnglishSectionProps {
   /** 打开全局 AI；缺省 / AI 不可用时隐藏 AI 入口。 */
@@ -194,6 +196,18 @@ export function EnglishSection({ onAskAi, aiAvailable = false }: EnglishSectionP
     return <ProgressView onBack={backToHome} />;
   }
 
+  if (view.kind === "roadmap") {
+    return (
+      <RoadmapPage
+        onBack={backToHome}
+        onStart={() => {
+          // 没有学习记录时给一条真能走的路：去课程库挑第一课。
+          setView({ kind: "library" });
+        }}
+      />
+    );
+  }
+
   // 默认：首页驾驶舱。
   return (
     <>
@@ -207,6 +221,7 @@ export function EnglishSection({ onAskAi, aiAvailable = false }: EnglishSectionP
         onOpenLibrary={() => setView({ kind: "library" })}
         onOpenReview={() => setView({ kind: "review" })}
         onOpenProgress={() => setView({ kind: "progress" })}
+        onOpenRoadmap={() => setView({ kind: "roadmap" })}
         onOpenImport={() => setShowImport(true)}
         onOpenPlan={() => setShowPlan(true)}
       />

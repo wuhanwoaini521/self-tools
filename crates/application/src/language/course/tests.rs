@@ -20,8 +20,8 @@ use devtoolbox_core::learning::{
 };
 
 use crate::language::course::{
-    CourseService, CourseStorePort, DictionaryService, MiningService, ShadowScoreInput,
-    SpeakingService,
+    CourseService, CourseStorePort, DictionaryService, MiningService, RoadmapService,
+    ShadowScoreInput, SpeakingService,
 };
 use crate::learning::ports::{LearningPortError, LearningStorePort};
 use crate::learning::service::LearningService as PlatformLearningService;
@@ -1201,4 +1201,127 @@ fn mined_card_prompt_matches_kind() {
     }
     assert!(saw_cloze, "至少应有一张填空卡");
     let _ = saw_other;
+}
+
+// ============================================================================
+// RoadmapService（V13 W6）
+// ============================================================================
+
+fn roadmap_service() -> (RoadmapService, Arc<FakeCourseStore>, Arc<FakePlatform>) {
+    let store = Arc::new(FakeCourseStore::with_lesson());
+    let platform = Arc::new(FakePlatform::default());
+    let learning = Arc::new(PlatformLearningService::new(platform.clone()));
+    let course = Arc::new(CourseService::new(store.clone(), Arc::clone(&learning)));
+    let course_port: Arc<dyn CourseStorePort> = store.clone();
+    let speaking = Arc::new(SpeakingService::new(course_port));
+    (
+        RoadmapService::new(course, speaking, learning),
+        store,
+        platform,
+    )
+}
+
+#[test]
+fn roadmap_without_any_study_record_has_no_week_invented() {
+    let (service, _store, _platform) = roadmap_service();
+    let view = service.view(NOW).expect("roadmap");
+    // 没有学习记录 → 不知道从哪天开始 → 不显示第几周（而不是从今天倒推）
+    assert_eq!(view.started_at, None);
+    assert_eq!(view.current_week, None);
+    assert_eq!(view.days_to_next, None);
+    assert!(view.current_checkpoint.is_none());
+    // 但计划本身完整给出，界面能让人看到「前方的检查点长什么样」。
+    assert!(view.checkpoints.len() >= 8);
+    assert_eq!(view.checkpoints.last().map(|c| c.week), Some(26));
+}
+
+#[test]
+fn roadmap_metrics_come_from_real_services() {
+    let (service, _store, _platform) = roadmap_service();
+    let view = service.view(NOW).expect("roadmap");
+    // 什么都没学时，全部为 0（不编造）。
+    assert_eq!(view.metrics.lessons_completed, 0);
+    assert_eq!(view.metrics.spoken_minutes, 0);
+    assert_eq!(view.metrics.sentence_cards, 0);
+    // 每一项都带 current/threshold，能显示「12 / 30」这种真实差距。
+    for checkpoint in &view.checkpoints {
+        for check in &checkpoint.checks {
+            assert!(check.threshold > 0, "检查项必须有阈值：{check:?}");
+            if check.auto {
+                // 判定与展示的数字必须一致：不能「显示 0/3 却判达标」。
+                assert_eq!(
+                    check.met,
+                    check.current >= check.threshold,
+                    "判定与数值不一致：{check:?}"
+                );
+            } else {
+                assert!(!check.met, "自评项永不自动达标：{check:?}");
+            }
+        }
+    }
+}
+
+#[test]
+fn roadmap_week_appears_once_there_is_a_real_start_date() {
+    let (service, _store, platform) = roadmap_service();
+    // 造一次学习活动（真实事件 → 平台进度 → last_studied_at）。
+    let learning = Arc::new(PlatformLearningService::new(platform.clone()));
+    learning
+        .record_event(
+            &devtoolbox_core::learning::LearningEvent {
+                id: String::new(),
+                module: "language".into(),
+                entity_type: "lesson".into(),
+                entity_id: "nce:2:17".into(),
+                entity_title: Some("Lesson 17".into()),
+                action: devtoolbox_core::learning::LearningAction::Study,
+                timestamp: NOW - 3 * 86_400,
+                duration_ms: None,
+                metadata: serde_json::json!({}),
+                source: None,
+            },
+            NOW - 3 * 86_400,
+        )
+        .expect("event");
+    let view = service.view(NOW).expect("roadmap");
+    assert_eq!(view.current_week, Some(1), "3 天前开始 → 第 1 周");
+    assert!(view.started_at.is_some());
+    assert!(view.current_checkpoint.is_some(), "第 1 周本身是检查点");
+    assert!(view.days_to_next.is_some(), "还有下一个检查点（第 2 周）");
+}
+
+#[test]
+fn spoken_check_is_shown_in_minutes_on_both_sides() {
+    let (service, _store, _platform) = roadmap_service();
+    let view = service.view(NOW).expect("roadmap");
+    // 找开口项：current 与 threshold 必须是同一单位（否则界面显示 0 / 720 分钟）
+    let spoken: Vec<_> = view
+        .checkpoints
+        .iter()
+        .flat_map(|c| c.checks.iter())
+        .filter(|check| check.kind == "spokenseconds")
+        .collect();
+    assert!(!spoken.is_empty(), "计划里应有开口时长检查项");
+    for check in spoken {
+        assert_eq!(check.unit, "分钟");
+        assert!(
+            check.threshold <= 240,
+            "阈值应换算成分钟：{:?}",
+            check.threshold
+        );
+    }
+}
+
+#[test]
+fn self_reported_checks_are_labelled_and_never_counted() {
+    let (service, _store, _platform) = roadmap_service();
+    let view = service.view(NOW).expect("roadmap");
+    for checkpoint in &view.checkpoints {
+        for check in &checkpoint.checks {
+            if !check.auto {
+                assert!(!check.met, "自评项不能自动判达标");
+                assert_eq!(check.unit, "自评");
+            }
+        }
+    }
 }

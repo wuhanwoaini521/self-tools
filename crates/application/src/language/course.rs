@@ -12,10 +12,10 @@ use std::sync::Arc;
 use serde::{Deserialize, Serialize};
 
 use devtoolbox_core::language::{
-    BookSummary, Course, CourseBook, CourseLesson, LearningPlan, LessonListEntry, LessonProgress,
-    LessonSentence, LessonStage, LessonVocab, MinedCard, MinedCardKind, QuizAnswer, QuizItem,
-    QuizResult, ShadowAttempt, ShadowStats, WordEntry, WordMark, WordOccurrence, mine_lesson,
-    mined_card_id, summarize_shadow_attempts,
+    BookSummary, CheckKind, Course, CourseBook, CourseLesson, LearningPlan, LessonListEntry,
+    LessonProgress, LessonSentence, LessonStage, LessonVocab, MinedCard, MinedCardKind, QuizAnswer,
+    QuizItem, QuizResult, ROADMAP, RoadmapMetrics, RoadmapWeek, ShadowAttempt, ShadowStats,
+    WordEntry, WordMark, WordOccurrence, mine_lesson, mined_card_id, summarize_shadow_attempts,
 };
 use devtoolbox_core::learning::{
     LearningAction, LearningEvent, LearningProgress, LearningStatus, ReviewCardType, ReviewRating,
@@ -849,6 +849,25 @@ impl CourseService {
         self.store.save_learning_plan(plan).map_err(err)
     }
 
+    /// 第一次学习活动所在的日期（当天 00:00，Unix 秒）；没有记录返回 `None`。
+    ///
+    /// 用途：路线图的「第几周」必须有**真实起点**。没有记录就返回 `None`，
+    /// 由界面询问用户，而不是从今天倒推一个假的开始日。
+    pub fn first_study_day(&self, now: i64) -> Option<i64> {
+        let recent = self
+            .platform
+            .list_progress(Some(MODULE), None, 20_000)
+            .ok()?;
+        let earliest = recent
+            .iter()
+            .map(|row| row.last_studied_at)
+            .filter(|at| *at > 0)
+            .min()?;
+        let day = earliest.div_euclid(86_400) * 86_400;
+        // 未来的时间戳（时钟不准 / 手改库）不当开始日。
+        if day > now { None } else { Some(day) }
+    }
+
     pub fn english_progress(&self, now: i64) -> Result<EnglishProgress, ApplicationError> {
         let books = self.store.course_books("nce").map_err(err)?;
         let mut book_views = Vec::new();
@@ -1232,6 +1251,192 @@ fn review_prompt(card: &MinedCard) -> String {
             .chinese
             .clone()
             .unwrap_or_else(|| card.sentence.clone()),
+    }
+}
+
+// ============================================================================
+// RoadmapService（V13 W6：26 周能力路线图）
+// ============================================================================
+
+/// 一条检查项的展示形态（静态计划 → 接口 DTO）。
+#[derive(Clone, Debug, Serialize)]
+pub struct RoadmapCheckView {
+    pub label: String,
+    pub kind: String,
+    pub current: u32,
+    pub threshold: u32,
+    pub unit: String,
+    /// 是否自动判定（`self_reported` 为 false：界面要说明这是自己填的）。
+    pub auto: bool,
+    /// 达标 / 未达标。
+    pub met: bool,
+}
+
+/// 一次能力检查的展示形态。
+#[derive(Clone, Debug, Serialize)]
+pub struct RoadmapCheckpointView {
+    pub week: u32,
+    pub focus: String,
+    pub can_do: String,
+    pub checks: Vec<RoadmapCheckView>,
+    /// 全部自动项达标。
+    pub complete: bool,
+}
+
+/// 路线图（当前所在位置 + 全部检查点）。
+#[derive(Clone, Debug, Serialize)]
+pub struct RoadmapView {
+    /// 开始日期（Unix 秒）；没有记录时为 `None`。
+    pub started_at: Option<i64>,
+    /// 当前第几周（没有开始日时为 `None`）。
+    pub current_week: Option<u32>,
+    /// 距下一个检查点还有几天（没有开始日时为 `None`）。
+    pub days_to_next: Option<i64>,
+    /// 当前对应的检查点（`None` = 还没到第一个检查点）。
+    pub current_checkpoint: Option<RoadmapCheckpointView>,
+    /// 全部检查点。
+    pub checkpoints: Vec<RoadmapCheckpointView>,
+    /// 真实指标（界面上要能看到数字从哪来）。
+    pub metrics: RoadmapMetricsView,
+}
+
+/// 真实指标的展示形态。
+#[derive(Clone, Copy, Debug, Serialize)]
+pub struct RoadmapMetricsView {
+    pub lessons_completed: u32,
+    pub spoken_minutes: i64,
+    pub review_mastery: f64,
+    pub sentence_cards: u32,
+    pub words_learned: u32,
+    pub streak_days: u32,
+}
+
+/// 路线图服务：把**静态计划**与**真实统计**拼成一张可执行的图。
+///
+/// ## 诚实边界（这一层最容易变成自欺欺人）
+///
+/// - 每一项都显示 `current / threshold`，不达标就显示不达标；
+/// - **没有开始日就不显示「第几周」** —— 替用户编一个起点会让整张图失真；
+/// - `self_reported` 项（敢不敢说、能不能听懂）**不参与自动判定**，
+///   界面标注为自评；
+/// - 数据全部来自已有服务的真实统计（课程进度 / 跟读记录 / 平台复习），不额外估算。
+pub struct RoadmapService {
+    course: Arc<CourseService>,
+    speaking: Arc<SpeakingService>,
+    platform: Arc<LearningService>,
+}
+
+impl RoadmapService {
+    #[must_use]
+    pub fn new(
+        course: Arc<CourseService>,
+        speaking: Arc<SpeakingService>,
+        platform: Arc<LearningService>,
+    ) -> Self {
+        Self {
+            course,
+            speaking,
+            platform,
+        }
+    }
+
+    /// 组装路线图。
+    pub fn view(&self, now: i64) -> Result<RoadmapView, ApplicationError> {
+        let progress = self.course.english_progress(now)?;
+        // 开口时长来自真实跟读记录（V13 W2），没有记录就是 0。
+        let spoken = self.speaking.stats(None, 0)?;
+        // 句子卡数量：来自平台复习卡里 entity_type = "sentence" 的真实卡片。
+        let sentence_cards = self
+            .platform
+            .list_progress(Some(MODULE), None, 20_000)
+            .map_err(platform)?
+            .iter()
+            .filter(|row| row.entity_type == "sentence")
+            .count() as u32;
+        // 开始日：取最近一次学习活动所在的**那一天 00:00**（本地语义），
+        // 没有学习记录就 `None` —— 界面会问「从哪天开始算」，而不是替你编一个。
+        let started_at = self.course.first_study_day(now);
+
+        let metrics = RoadmapMetrics {
+            lessons_completed: progress.lessons_completed,
+            spoken_seconds: spoken.spoken_seconds,
+            review_mastery: progress.review_mastery,
+            sentence_cards,
+            words_learned: progress.words_learned,
+            streak_days: progress.streak_days,
+        };
+
+        let checkpoints: Vec<RoadmapCheckpointView> = ROADMAP
+            .iter()
+            .map(|week| checkpoint_view(week, &metrics))
+            .collect();
+        let current_week = started_at
+            .map(|start| devtoolbox_core::language::current_week(start, now).unwrap_or(0));
+        let next = current_week.and_then(|week| {
+            ROADMAP
+                .iter()
+                .find(|item| item.week > week)
+                .map(|item| i64::from(item.week))
+        });
+        // 距下一个检查点：目标周的第一天 − 今天。
+        let days_to_next = match (started_at, next) {
+            (Some(start), Some(target)) => Some(target * 7 - ((now - start) / 86_400)),
+            _ => None,
+        };
+        Ok(RoadmapView {
+            started_at,
+            current_week,
+            days_to_next,
+            current_checkpoint: current_week
+                .and_then(devtoolbox_core::language::latest_checkpoint)
+                .map(|plan| checkpoint_view(plan, &metrics)),
+            checkpoints,
+            metrics: RoadmapMetricsView {
+                lessons_completed: metrics.lessons_completed,
+                spoken_minutes: metrics.spoken_seconds / 60,
+                review_mastery: metrics.review_mastery,
+                sentence_cards: metrics.sentence_cards,
+                words_learned: metrics.words_learned,
+                streak_days: metrics.streak_days,
+            },
+        })
+    }
+}
+
+/// 静态计划 → 展示形态（逐项算达标）。
+fn checkpoint_view(week: &RoadmapWeek, metrics: &RoadmapMetrics) -> RoadmapCheckpointView {
+    let checks: Vec<RoadmapCheckView> = week
+        .checks
+        .iter()
+        .map(|check| {
+            let auto = check.kind != CheckKind::SelfReported;
+            // 开口时长的内部单位是秒，展示单位是分钟 —— **两边都换算**，
+            // 否则界面会出现「0 / 720 分钟」这种自相矛盾的数字。
+            let (current, threshold) = if check.kind == CheckKind::SpokenSeconds {
+                (
+                    u32::try_from(metrics.spoken_seconds / 60).unwrap_or(0),
+                    check.threshold / 60,
+                )
+            } else {
+                (check.current(metrics), check.threshold)
+            };
+            RoadmapCheckView {
+                label: check.label.to_string(),
+                kind: format!("{:?}", check.kind).to_lowercase(),
+                current,
+                threshold,
+                unit: check.unit().to_string(),
+                auto,
+                met: auto && check.is_met(metrics),
+            }
+        })
+        .collect();
+    RoadmapCheckpointView {
+        week: week.week,
+        focus: week.focus.to_string(),
+        can_do: week.can_do.to_string(),
+        checks,
+        complete: devtoolbox_core::language::week_complete(week, metrics),
     }
 }
 

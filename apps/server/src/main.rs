@@ -216,6 +216,8 @@ async fn main() -> ExitCode {
     let speaking = Arc::clone(&core.speaking);
     // 句子挖掘：写入平台学习库（同一套 SRS）。
     let mining = Arc::clone(&core.mining);
+    // 26 周能力路线图。
+    let roadmap = Arc::clone(&core.roadmap);
 
     let app = routes::router(
         Arc::new(service),
@@ -239,6 +241,7 @@ async fn main() -> ExitCode {
         study_board,
         speaking,
         mining,
+        roadmap,
     );
     info!(
         bind = %config.bind,

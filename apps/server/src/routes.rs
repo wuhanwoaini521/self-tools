@@ -70,6 +70,8 @@ pub fn router(
     speaking: Arc<devtoolbox_application::language::course::SpeakingService>,
     // 句子挖掘（V13 W3）：读过的课文句 → SRS 复习卡。
     mining: Arc<devtoolbox_application::language::course::MiningService>,
+    // 26 周能力路线图（V13 W6）：静态计划 + 真实统计。
+    roadmap: Arc<devtoolbox_application::language::course::RoadmapService>,
 ) -> Router {
     Router::new()
         .route("/health", get(health))
@@ -419,6 +421,10 @@ pub fn router(
             get(crate::language_write_api::shadow_stats),
         )
         .route(
+            "/api/v1/english/roadmap",
+            get(crate::language_course_api::roadmap),
+        )
+        .route(
             "/api/v1/language/mining/lesson/{lesson_id}",
             get(crate::language_write_api::mining_preview)
                 .post(crate::language_write_api::mining_add),
@@ -453,6 +459,7 @@ pub fn router(
         .layer(axum::Extension(study_board))
         .layer(axum::Extension(speaking))
         .layer(axum::Extension(mining))
+        .layer(axum::Extension(roadmap))
         .layer(axum::Extension(
             None::<Arc<dyn crate::ai_api::AiChatRunner>>,
         ))
@@ -1002,6 +1009,7 @@ mod tests {
             Arc::clone(&test_core().study_board),
             Arc::clone(&test_core().speaking),
             Arc::clone(&test_core().mining),
+            Arc::clone(&test_core().roadmap),
         )
     }
 
@@ -1377,6 +1385,52 @@ mod tests {
         assert!(body["message"].is_string());
     }
 
+    // ---- 26 周能力路线图（V13 W6）：不达标就说没达标 ----
+
+    #[tokio::test]
+    async fn roadmap_returns_real_plan_and_never_invents_a_start_date() {
+        let app = test_router(false);
+        let (status, body) = request(&app, "/api/v1/english/roadmap").await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        // 计划完整（至少 8 个检查点，覆盖到第 26 周）。
+        let checkpoints = body["checkpoints"].as_array().expect("checkpoints");
+        assert!(checkpoints.len() >= 8, "{body}");
+        assert_eq!(checkpoints.last().unwrap()["week"], 26);
+        // 每个检查项都带 current/threshold，判定必须与数字一致。
+        for checkpoint in checkpoints {
+            let week = checkpoint["week"].as_u64().unwrap_or(0);
+            for check in checkpoint["checks"].as_array().expect("checks") {
+                let current = check["current"].as_u64().unwrap_or(0);
+                let threshold = check["threshold"].as_u64().unwrap_or(0);
+                assert!(threshold > 0, "第 {week} 周的检查项必须有阈值：{check}");
+                let met = check["met"].as_bool().unwrap_or(false);
+                if check["auto"].as_bool().unwrap_or(false) {
+                    assert_eq!(
+                        met,
+                        current >= threshold,
+                        "第 {week} 周：判定与数值不一致 {check}"
+                    );
+                } else {
+                    assert!(!met, "自评项不能自动判达标：{check}");
+                }
+            }
+        }
+        // 指标字段齐全（界面要显示数字来源）。
+        for field in [
+            "lessons_completed",
+            "spoken_minutes",
+            "review_mastery",
+            "sentence_cards",
+            "words_learned",
+            "streak_days",
+        ] {
+            assert!(
+                body["metrics"].get(field).is_some(),
+                "缺少指标 {field}: {body}"
+            );
+        }
+    }
+
     // ---- 句子挖掘（V13 W3）：读过的句子进 SRS ----
 
     #[tokio::test]
@@ -1480,12 +1534,15 @@ mod tests {
     #[tokio::test]
     async fn shadow_score_rejects_empty_transcript_without_writing_anything() {
         let app = test_router(false);
-        let before = stats_of(&app, None).await;
+        // 统计必须**按本课**看：用全局统计会被并行用例的记录污染
+        // （踩过一次：A 用例写记录，B 用例断言 attempts 没变却看到 3）。
+        let lesson_id = shadow_lesson_id("902");
+        let before = stats_of(&app, Some(&lesson_id)).await;
         let (status, body) = post_json(
             &app,
             "/api/v1/language/shadow/score",
             &serde_json::json!({
-                "lessonId": shadow_lesson_id("902"),
+                "lessonId": lesson_id,
                 "sentenceSeq": 0,
                 "transcript": "   ",
                 "durationMs": 1200,
@@ -1494,7 +1551,7 @@ mod tests {
         .await;
         assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
         assert_eq!(body["code"], "language_shadow_empty_transcript");
-        let after = stats_of(&app, None).await;
+        let after = stats_of(&app, Some(&lesson_id)).await;
         assert_eq!(before, after, "被拒绝的请求不能留下任何记录");
     }
 

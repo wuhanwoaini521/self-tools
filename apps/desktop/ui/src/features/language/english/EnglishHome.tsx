@@ -36,6 +36,8 @@ export interface EnglishHomeProps {
   onOpenLibrary: () => void;
   onOpenReview: () => void;
   onOpenProgress: () => void;
+  /** 26 周交流路线图（V13 W6）。 */
+  onOpenRoadmap: () => void;
   onOpenImport: () => void;
   onOpenPlan: () => void;
 }
@@ -50,6 +52,7 @@ export function EnglishHome({
   onOpenLibrary,
   onOpenReview,
   onOpenProgress,
+  onOpenRoadmap,
   onOpenImport,
   onOpenPlan,
 }: EnglishHomeProps) {
@@ -183,6 +186,9 @@ export function EnglishHome({
           <h1>Today's English</h1>
         </div>
         <div className="en-row-actions">
+          <button type="button" className="en-link-btn" onClick={onOpenRoadmap}>
+            路线图
+          </button>
           <button type="button" className="en-link-btn" onClick={onOpenLibrary}>
             课程库
           </button>
@@ -324,6 +330,9 @@ export function EnglishHome({
             ) : null}
             <button type="button" className="en-link-btn" onClick={onOpenProgress}>
               学习统计
+            </button>
+            <button type="button" className="en-link-btn" onClick={onOpenRoadmap}>
+              26 周路线图
             </button>
           </div>
         </header>

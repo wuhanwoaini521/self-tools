@@ -79,6 +79,8 @@ pub struct AppCore {
     pub speaking: Arc<devtoolbox_application::language::course::SpeakingService>,
     /// 句子挖掘（V13 W3）：把读过的课文句变成 SRS 复习卡。
     pub mining: Arc<devtoolbox_application::language::course::MiningService>,
+    /// 26 周能力路线图（V13 W6）：静态计划 + 真实统计。
+    pub roadmap: Arc<devtoolbox_application::language::course::RoadmapService>,
 }
 
 impl AppCore {
@@ -231,7 +233,21 @@ impl AppCore {
         // 句子挖掘：与复习共用平台 LearningService（卡进同一套 SRS）。
         let mining = Arc::new(
             devtoolbox_application::language::course::MiningService::new(
-                course_store_port,
+                Arc::clone(&course_store_port),
+                Arc::clone(&learning),
+            ),
+        );
+        // 路线图：课程进度 + 跟读记录 + 平台复习，三处真实数据拼一张图。
+        let course_service = Arc::new(
+            devtoolbox_application::language::course::CourseService::new(
+                Arc::clone(&course_store_port),
+                Arc::clone(&learning),
+            ),
+        );
+        let roadmap = Arc::new(
+            devtoolbox_application::language::course::RoadmapService::new(
+                Arc::clone(&course_service),
+                Arc::clone(&speaking),
                 Arc::clone(&learning),
             ),
         );
@@ -269,6 +285,7 @@ impl AppCore {
             study_board,
             speaking,
             mining,
+            roadmap,
         })
     }
 }

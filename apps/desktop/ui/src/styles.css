@@ -21053,3 +21053,83 @@ main.history-v2-period {
   color: var(--faint, var(--muted));
   white-space: nowrap;
 }
+
+/* --- 26 周能力路线图（V13 W6）------------------------------------------- */
+.en-roadmap-current {
+  border-left: 3px solid var(--accent);
+}
+.en-roadmap-can-do {
+  margin: var(--space-2) 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text);
+}
+.en-roadmap-checks {
+  list-style: none;
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.en-roadmap-checks li {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-size: 13px;
+  color: var(--muted);
+}
+.en-roadmap-checks li.is-met {
+  color: var(--text);
+}
+.en-roadmap-mark {
+  color: var(--accent);
+  font-weight: 700;
+}
+.en-roadmap-check-label {
+  flex: 1;
+}
+.en-roadmap-value {
+  font-variant-numeric: tabular-nums;
+}
+.en-roadmap-self {
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1px dashed var(--line);
+  color: var(--muted);
+}
+.en-roadmap-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.en-roadmap-item {
+  padding: var(--space-3);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-md);
+  background: var(--panel);
+}
+.en-roadmap-item.is-complete {
+  border-color: color-mix(in srgb, var(--success, #27c67b) 45%, var(--line));
+}
+.en-roadmap-item.is-current {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 6%, var(--panel));
+}
+.en-roadmap-week {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin-bottom: 2px;
+}
+.en-roadmap-week strong {
+  font-variant-numeric: tabular-nums;
+}
+.en-roadmap-week span {
+  font-size: 13px;
+  color: var(--muted);
+}

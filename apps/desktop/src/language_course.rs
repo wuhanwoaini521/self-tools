@@ -14,8 +14,8 @@ use tauri::{AppHandle, Emitter, State};
 
 use devtoolbox_application::language::course::{
     BookView, CourseService, DataStatus, EnglishProgress, EnglishSearchResult, LessonDetail,
-    MinedReport, MiningService, ProgressPatch, ShadowScoreInput, ShadowScoreResult, SpeakingError,
-    SpeakingService, TodayDashboard, WordLookup,
+    MinedReport, MiningService, ProgressPatch, RoadmapService, ShadowScoreInput, ShadowScoreResult,
+    SpeakingError, SpeakingService, TodayDashboard, WordLookup,
 };
 use devtoolbox_application::language::{CourseStorePort, DictionaryService};
 use devtoolbox_application::learning::LearningService as PlatformLearningService;
@@ -185,6 +185,29 @@ pub fn language_course_lookup_word(
     course_service(&state)
         .lookup_word(&word, sentence.as_deref(), lesson_id.as_deref(), now())
         .map_err(CommandError::from)
+}
+
+/// 26 周能力路线图（V13 W6）：静态计划 + 真实统计。
+#[tauri::command]
+pub fn english_roadmap(
+    state: State<'_, AppState>,
+) -> Result<devtoolbox_application::language::course::RoadmapView, CommandError> {
+    roadmap_service(&state)
+        .view(now())
+        .map_err(CommandError::from)
+}
+
+/// 组合根装配：路线图服务（课程进度 + 跟读记录 + 平台复习）。
+pub fn roadmap_service(state: &State<'_, AppState>) -> RoadmapService {
+    let store: Arc<dyn CourseStorePort> = Arc::new(
+        devtoolbox_runtime::composition::CourseStoreAdapter::new(Arc::clone(&state.language_store)),
+    );
+    let learning = Arc::new(PlatformLearningService::new(Arc::clone(
+        &state.learning_store,
+    )));
+    let course = Arc::new(CourseService::new(store.clone(), Arc::clone(&learning)));
+    let speaking = Arc::new(SpeakingService::new(store));
+    RoadmapService::new(course, speaking, learning)
 }
 
 /// 句子挖掘预览（V13 W3）：本课可以挖出哪些卡（不写库）。

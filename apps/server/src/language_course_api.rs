@@ -148,3 +148,25 @@ pub async fn search(
             message: error.to_string(),
         })
 }
+
+/// `GET /api/v1/english/roadmap`
+///
+/// 26 周能力路线图：静态计划 + **真实统计**。
+/// 没有学习记录时 `current_week` 为 `null`（不替用户编起点）。
+pub async fn roadmap(
+    axum::Extension(roadmap): axum::Extension<
+        Arc<devtoolbox_application::language::course::RoadmapService>,
+    >,
+    axum::Extension(clock): axum::Extension<Arc<dyn Fn() -> i64 + Send + Sync>>,
+) -> Result<axum::Json<serde_json::Value>, LanguageErrorBody> {
+    let view = roadmap.view(clock()).map_err(|error| LanguageErrorBody {
+        code: "language_error",
+        message: error.to_string(),
+    })?;
+    serde_json::to_value(view)
+        .map(axum::Json)
+        .map_err(|error| LanguageErrorBody {
+            code: "language_error",
+            message: error.to_string(),
+        })
+}

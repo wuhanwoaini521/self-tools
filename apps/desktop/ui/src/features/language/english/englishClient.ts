@@ -12,6 +12,7 @@
 import type { CommandTransport } from "../../../transport";
 import { defaultTransport } from "../../../transport";
 import type { MinedCard, MinedReport } from "../miningTypes";
+import type { RoadmapView } from "../roadmapTypes";
 import type { ShadowScoreInput, ShadowScoreResult, ShadowStats } from "../speakingTypes";
 import type {
   BookView,
@@ -72,6 +73,9 @@ export interface EnglishClient {
 
   /** 读取课时音频二进制（返回 ArrayBuffer，前端转 Blob URL）。 */
   lessonAudio(lessonId: string): Promise<ArrayBuffer>;
+
+  /** 26 周能力路线图（V13 W6）：静态计划 + 真实统计。 */
+  roadmap(): Promise<RoadmapView>;
 
   /**
    * 句子挖掘预览（V13 W3）：本课能挖出哪些复习卡（不写库）。
@@ -161,6 +165,8 @@ export function createEnglishClient(
       }
       throw new Error("unexpected audio response type");
     },
+
+    roadmap: () => transport.invoke<RoadmapView>("english_roadmap"),
 
     miningPreview: async (lessonId, maxPerKind) => {
       const raw = await transport.invoke<{ items?: MinedCard[] } | MinedCard[]>(
