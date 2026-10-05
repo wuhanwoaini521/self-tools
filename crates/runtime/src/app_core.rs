@@ -75,6 +75,8 @@ pub struct AppCore {
     pub study_board_store: Arc<dyn StudyBoardStorePort>,
     /// 学习板用例服务（列表 / 读取 / 幂等保存 / 快照登记）。
     pub study_board: Arc<StudyBoardService>,
+    /// 英语跟读发音评分（V13 W2）：目标句由服务端查库得到，没有转写就没有分数。
+    pub speaking: Arc<devtoolbox_application::language::course::SpeakingService>,
 }
 
 impl AppCore {
@@ -216,6 +218,13 @@ impl AppCore {
             )));
         let study_board = Arc::new(StudyBoardService::new(Arc::clone(&study_board_store)));
 
+        // 跟读评分：与课程读写共用同一份 language.db（course_store 适配的是同一个 store）。
+        let course_store_port: Arc<dyn devtoolbox_application::language::course::CourseStorePort> =
+            course_store.clone();
+        let speaking = Arc::new(
+            devtoolbox_application::language::course::SpeakingService::new(course_store_port),
+        );
+
         // 供两端复用的学习视图语言 / AI 装配（未配置时 None，不编造）。
         let _ = current_settings;
 
@@ -247,6 +256,7 @@ impl AppCore {
             server: Arc::new(server),
             study_board_store,
             study_board,
+            speaking,
         })
     }
 }

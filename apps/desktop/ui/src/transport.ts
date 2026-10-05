@@ -224,6 +224,13 @@ const HTTP_ENDPOINTS: Record<string, (args: Record<string, unknown>) => string> 
     `/api/v1/study-boards?limit=${encodeURIComponent(String(a.limit ?? 20))}`,
   study_board_get: (a) =>
     `/api/v1/study-boards/${encodeURIComponent(String(a.boardId ?? ""))}`,
+  // 跟读统计（V13 W2）：进度页的「开口时长 / 平均准确率」来自这里。
+  language_shadow_stats: (a) => {
+    const parts: string[] = [];
+    if (a.lessonId) parts.push(`lessonId=${encodeURIComponent(String(a.lessonId))}`);
+    if (a.since) parts.push(`since=${encodeURIComponent(String(a.since))}`);
+    return `/api/v1/language/shadow/stats${parts.length ? `?${parts.join("&")}` : ""}`;
+  },
 };
 
 /** 写操作：POST + JSON body。 */
@@ -276,6 +283,7 @@ const HTTP_POST_ENDPOINTS: Record<
   study_board_save: () => "/api/v1/study-boards",
   study_board_snapshot: (a) =>
     `/api/v1/study-boards/${encodeURIComponent(String(a.boardId ?? ""))}/snapshots`,
+  language_shadow_score: () => "/api/v1/language/shadow/score",
 };
 
 /** 服务端错误体的可能形状（与 `apps/server` 的错误契约一致）。 */

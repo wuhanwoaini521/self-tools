@@ -13,8 +13,8 @@ use serde::{Deserialize, Serialize};
 
 use devtoolbox_core::language::{
     BookSummary, Course, CourseBook, CourseLesson, LearningPlan, LessonListEntry, LessonProgress,
-    LessonSentence, LessonStage, LessonVocab, QuizAnswer, QuizItem, QuizResult, WordEntry,
-    WordMark, WordOccurrence,
+    LessonSentence, LessonStage, LessonVocab, QuizAnswer, QuizItem, QuizResult, ShadowAttempt,
+    ShadowStats, WordEntry, WordMark, WordOccurrence, summarize_shadow_attempts,
 };
 use devtoolbox_core::learning::{
     LearningAction, LearningEvent, LearningProgress, LearningStatus, ReviewCardType, ReviewRating,
@@ -127,6 +127,14 @@ pub trait CourseStorePort: Send + Sync {
     fn dict_search(&self, query: &str, limit: usize) -> Result<Vec<WordEntry>, String>;
     fn dict_count(&self) -> Result<i64, String>;
     fn lesson_title_search(&self, query: &str, limit: usize) -> Result<Vec<CourseLesson>, String>;
+    /// 写入一次跟读尝试（V13 W2；id 幂等）。
+    fn insert_shadow_attempt(&self, attempt: &ShadowAttempt) -> Result<(), String>;
+    /// 跟读尝试（时间倒序；`lesson_id` 为 `None` 取全部）。
+    fn shadow_attempts(
+        &self,
+        lesson_id: Option<&str>,
+        limit: usize,
+    ) -> Result<Vec<ShadowAttempt>, String>;
 }
 
 // ============================================================================
@@ -898,6 +906,188 @@ impl CourseService {
             words: self.store.dict_search(query, limit).map_err(err)?,
             lessons: self.store.lesson_title_search(query, limit).map_err(err)?,
         })
+    }
+}
+
+// ============================================================================
+// SpeakingService（V13 W2：跟读发音评分）
+// ============================================================================
+
+/// 一次跟读评分的结果（含词级差异，直接给界面展示）。
+#[derive(Clone, Debug, Serialize)]
+pub struct ShadowScoreResult {
+    pub attempt: ShadowAttempt,
+    /// 整体印象（三项均分）。
+    pub overall: u8,
+    /// 漏说的词。
+    pub missing: Vec<String>,
+    /// 说错的词。
+    pub wrong: Vec<String>,
+    /// 多说的词。
+    pub extra: Vec<String>,
+}
+
+/// 跟读评分的失败分类（前端据此区分「你得再说一次」与「服务坏了」）。
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum SpeakingError {
+    /// 没有识别到内容 —— **不给分**，这不是学习者的问题。
+    EmptyTranscript,
+    /// 课文里没有这一句（客户端指错了位置）。
+    SentenceNotFound { lesson_id: String, sequence: u32 },
+    /// 存储层失败。
+    Storage(String),
+}
+
+impl std::fmt::Display for SpeakingError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::EmptyTranscript => write!(
+                formatter,
+                "没有识别到语音内容，无法评分（请确认麦克风权限与网络）"
+            ),
+            Self::SentenceNotFound {
+                lesson_id,
+                sequence,
+            } => write!(
+                formatter,
+                "课文里没有第 {sequence} 句（lesson {lesson_id}）"
+            ),
+            Self::Storage(message) => write!(formatter, "{message}"),
+        }
+    }
+}
+
+/// 一次跟读打分的输入（前端提供的部分；**目标句不在其中**，由服务端查库）。
+#[derive(Clone, Debug, Default)]
+pub struct ShadowScoreInput {
+    pub sentence_seq: u32,
+    /// 语音识别转写（必须来自真实识别结果）。
+    pub transcript: String,
+    /// 实际开口时长（毫秒）。
+    pub duration_ms: u64,
+    /// 目标句参考朗读时长（毫秒；0 = 不参与流利度计算）。
+    pub target_ms: u64,
+    /// 超过阈值的长停顿（毫秒数组）。
+    pub long_pauses_ms: Vec<u64>,
+}
+
+/// 跟读评分服务。
+///
+/// ## 铁律：没有转写就没有分数
+///
+/// 输入的 `transcript` 必须来自**真实的语音识别结果**（浏览器 Web Speech）。
+/// 没拿到转写时前端根本不会调用本服务 —— 服务端也不会替它编一个分数。
+/// 识别可用但结果是空串时，返回受控错误而不是记一条 0 分。
+///
+/// ## 目标句由服务端查库得到
+///
+/// 请求只带 `lesson_id` + `sentence_seq`；目标文本从 `language_sentences` 读。
+/// 信任前端传来的「目标句」等于让用户自己给自己判分。
+pub struct SpeakingService {
+    store: Arc<dyn CourseStorePort>,
+}
+
+/// 跟读尝试的进程内自增序号（让同一秒内的多次尝试也各有 id）。
+static ATTEMPT_SEQ: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+fn next_attempt_seq() -> u64 {
+    ATTEMPT_SEQ.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+}
+
+impl SpeakingService {
+    #[must_use]
+    pub fn new(store: Arc<dyn CourseStorePort>) -> Self {
+        Self { store }
+    }
+
+    /// 对一次跟读尝试评分并落库。
+    pub fn score_attempt(
+        &self,
+        lesson_id: &str,
+        input: ShadowScoreInput,
+        now: i64,
+    ) -> Result<ShadowScoreResult, SpeakingError> {
+        let sentence_seq = input.sentence_seq;
+        // 识别结果常常带首尾空白与换行；trim 后再判空，否则「只听到噪声」
+        // 会被当成一次真实尝试记成 0 分。
+        let trimmed = input.transcript.trim();
+        if trimmed.is_empty() {
+            return Err(SpeakingError::EmptyTranscript);
+        }
+        let sentences = self
+            .store
+            .lesson_sentences(lesson_id)
+            .map_err(|error| SpeakingError::Storage(error.to_string()))?;
+        let target = sentences
+            .iter()
+            .find(|item| item.sequence == sentence_seq)
+            .ok_or_else(|| SpeakingError::SentenceNotFound {
+                lesson_id: lesson_id.to_string(),
+                sequence: sentence_seq,
+            })?
+            .english
+            .clone();
+        let score = devtoolbox_core::language::speaking::score(
+            &target,
+            trimmed,
+            input.duration_ms,
+            input.target_ms,
+            &input.long_pauses_ms,
+        );
+        let diff = devtoolbox_core::language::speaking::compare_words(
+            &devtoolbox_core::language::speaking::tokenize(&target),
+            &devtoolbox_core::language::speaking::tokenize(trimmed),
+        );
+        let attempt = ShadowAttempt {
+            // id 含进程内自增序号：同一秒内连续跟读两句（或重试）也不会互相覆盖。
+            id: format!(
+                "shadow:{lesson_id}:{sentence_seq}:{now}:{}",
+                next_attempt_seq()
+            ),
+            lesson_id: lesson_id.to_string(),
+            sentence_seq,
+            target,
+            transcript: trimmed.to_string(),
+            accuracy: score.accuracy,
+            completeness: score.completeness,
+            fluency: score.fluency,
+            duration_ms: input.duration_ms,
+            created_at: now,
+        };
+        self.store
+            .insert_shadow_attempt(&attempt)
+            .map_err(|error| SpeakingError::Storage(error.to_string()))?;
+        Ok(ShadowScoreResult {
+            overall: attempt.overall(),
+            attempt,
+            missing: diff.missing,
+            wrong: diff.wrong,
+            extra: diff.extra,
+        })
+    }
+
+    /// 跟读统计（`lesson_id` 为 `None` 时跨课汇总；`since` 为 0 表示不限时间）。
+    pub fn stats(
+        &self,
+        lesson_id: Option<&str>,
+        since: i64,
+    ) -> Result<ShadowStats, ApplicationError> {
+        let mut attempts = self.store.shadow_attempts(lesson_id, 1_000).map_err(err)?;
+        if since > 0 {
+            attempts.retain(|attempt| attempt.created_at >= since);
+        }
+        Ok(summarize_shadow_attempts(&attempts))
+    }
+
+    /// 最近若干次尝试（按时间倒序）。
+    pub fn recent_attempts(
+        &self,
+        lesson_id: Option<&str>,
+        limit: usize,
+    ) -> Result<Vec<ShadowAttempt>, ApplicationError> {
+        self.store
+            .shadow_attempts(lesson_id, limit.clamp(1, 200))
+            .map_err(err)
     }
 }
 

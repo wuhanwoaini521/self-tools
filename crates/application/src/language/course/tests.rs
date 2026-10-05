@@ -19,7 +19,9 @@ use devtoolbox_core::learning::{
     ReviewScheduleOutcome, SpacedRepetitionScheduler, UniversalReviewCard,
 };
 
-use crate::language::course::{CourseService, CourseStorePort, DictionaryService};
+use crate::language::course::{
+    CourseService, CourseStorePort, DictionaryService, ShadowScoreInput, SpeakingService,
+};
 use crate::learning::ports::{LearningPortError, LearningStorePort};
 use crate::learning::service::LearningService as PlatformLearningService;
 
@@ -279,6 +281,7 @@ struct FakeCourseStore {
     occurrences: Mutex<Vec<WordOccurrence>>,
     plan: Mutex<Option<LearningPlan>>,
     dict: Mutex<HashMap<String, WordEntry>>,
+    shadow: Mutex<Vec<devtoolbox_core::language::ShadowAttempt>>,
 }
 
 impl FakeCourseStore {
@@ -574,6 +577,31 @@ impl CourseStorePort for FakeCourseStore {
             })
             .cloned()
             .collect())
+    }
+    fn insert_shadow_attempt(
+        &self,
+        attempt: &devtoolbox_core::language::ShadowAttempt,
+    ) -> Result<(), String> {
+        let mut rows = self.shadow.lock();
+        rows.retain(|row| row.id != attempt.id);
+        rows.push(attempt.clone());
+        Ok(())
+    }
+    fn shadow_attempts(
+        &self,
+        lesson_id: Option<&str>,
+        limit: usize,
+    ) -> Result<Vec<devtoolbox_core::language::ShadowAttempt>, String> {
+        let mut rows: Vec<devtoolbox_core::language::ShadowAttempt> = self
+            .shadow
+            .lock()
+            .iter()
+            .filter(|row| lesson_id.is_none_or(|id| row.lesson_id == id))
+            .cloned()
+            .collect();
+        rows.sort_by_key(|row| std::cmp::Reverse(row.created_at));
+        rows.truncate(limit);
+        Ok(rows)
     }
 }
 
@@ -949,4 +977,131 @@ fn known_mark_persists_across_lesson_reload() {
             .filter(|item| item.vocab.word != "hesitate")
             .all(|item| item.mark.is_none())
     );
+}
+
+// ============================================================================
+// SpeakingService（V13 W2）
+// ============================================================================
+
+fn speaking_service() -> (SpeakingService, Arc<FakeCourseStore>) {
+    let store = Arc::new(FakeCourseStore::with_lesson());
+    let service = SpeakingService::new(store.clone());
+    (service, store)
+}
+
+/// 打分输入（测试里只需要几个字段）。
+fn input(seq: u32, transcript: &str, duration_ms: u64) -> ShadowScoreInput {
+    ShadowScoreInput {
+        sentence_seq: seq,
+        transcript: transcript.to_string(),
+        duration_ms,
+        target_ms: 1_600,
+        long_pauses_ms: Vec::new(),
+    }
+}
+
+#[test]
+fn shadow_scoring_uses_server_side_target_and_persists() {
+    let (service, store) = speaking_service();
+    let result = service
+        .score_attempt("nce:2:17", input(0, "this is a test sentence", 1_500), NOW)
+        .expect("score");
+
+    // 目标句来自数据库，不是客户端传的（这里客户端根本没资格传目标句）。
+    assert_eq!(result.attempt.lesson_id, "nce:2:17");
+    assert_eq!(result.attempt.transcript, "this is a test sentence");
+    assert!(!result.attempt.target.is_empty());
+    assert!(result.overall <= 100);
+    assert_eq!(
+        store.shadow.lock().len(),
+        1,
+        "评分必须落库（否则进度页没有开口数据）"
+    );
+    // 同一秒内重说一次 = 练了两次，两条都要留下（id 带进程内序号，不互相覆盖）。
+    service
+        .score_attempt("nce:2:17", input(0, "this is a test sentence", 1_500), NOW)
+        .expect("rescore");
+    assert_eq!(store.shadow.lock().len(), 2, "重说一次算两次开口");
+}
+
+#[test]
+fn empty_transcript_is_refused_instead_of_scoring_zero() {
+    let (service, store) = speaking_service();
+    for empty in ["", "   ", "\n\t "] {
+        let error = service
+            .score_attempt("nce:2:17", input(0, empty, 1_000), NOW)
+            .expect_err("必须拒绝空转写");
+        assert!(error.to_string().contains("无法评分"), "{error}");
+    }
+    assert!(store.shadow.lock().is_empty(), "没有转写就不该产生记录");
+}
+
+#[test]
+fn unknown_sentence_is_controlled_error_not_a_zero_score() {
+    let (service, _) = speaking_service();
+    let error = service
+        .score_attempt("nce:2:17", input(9_999, "hello", 500), NOW)
+        .expect_err("句子不存在");
+    assert!(error.to_string().contains("没有第 9999 句"), "{error}");
+}
+
+#[test]
+fn stats_reflect_real_attempts_and_can_be_scoped_by_lesson() {
+    let (service, _) = speaking_service();
+    assert_eq!(
+        service.stats(None, 0).expect("empty stats").attempts,
+        0,
+        "没有任何尝试时给出全零，而不是报错"
+    );
+
+    service
+        .score_attempt("nce:2:17", input(0, "this is a test sentence", 2_000), NOW)
+        .expect("first");
+    service
+        .score_attempt("nce:2:17", input(0, "this is a test", 2_000), NOW + 60)
+        .expect("second");
+
+    let all = service.stats(None, 0).expect("stats");
+    assert_eq!(all.attempts, 2);
+    assert_eq!(all.spoken_seconds, 4, "开口总时长按秒累计");
+    assert!(
+        all.avg_completeness >= all.avg_accuracy,
+        "少说一个词 → 完整度不低于准确度但明显有差距"
+    );
+
+    // 只看本课：同一 lesson 两条都算进来；其它课为零。
+    assert_eq!(
+        service.stats(Some("nce:2:17"), 0).expect("scoped").attempts,
+        2
+    );
+    assert_eq!(
+        service.stats(Some("nce:2:18"), 0).expect("other").attempts,
+        0
+    );
+    // 时间过滤：NOW 之前的记录被排除（模拟「今天开口统计」）。
+    assert_eq!(service.stats(None, NOW + 30).expect("since").attempts, 1);
+}
+
+#[test]
+fn recent_attempts_are_newest_first_and_bounded() {
+    let (service, _) = speaking_service();
+    for (index, at) in [NOW, NOW + 10, NOW + 20].iter().enumerate() {
+        service
+            .score_attempt(
+                "nce:2:17",
+                input(
+                    u32::try_from(index).unwrap_or(0),
+                    "this is a test sentence",
+                    1_000,
+                ),
+                *at,
+            )
+            .expect("score");
+    }
+    let recent = service
+        .recent_attempts(Some("nce:2:17"), 2)
+        .expect("recent");
+    assert_eq!(recent.len(), 2, "limit 生效");
+    assert_eq!(recent[0].created_at, NOW + 20, "最近的在前");
+    assert_eq!(recent[1].created_at, NOW + 10);
 }

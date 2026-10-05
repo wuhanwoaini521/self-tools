@@ -15,7 +15,8 @@ pub mod speaking;
 pub use course::{
     BookSummary, Course, CourseBook, CourseLesson, LearningPlan, LessonListEntry, LessonProgress,
     LessonSentence, LessonStage, LessonStatus, LessonVocab, QuizAnswer, QuizItem, QuizResult,
-    WordEntry, WordMark, WordOccurrence, importance_from_frequency, is_stopword, tokenize_english,
+    ShadowAttempt, ShadowStats, WordEntry, WordMark, WordOccurrence, importance_from_frequency,
+    is_stopword, summarize_shadow_attempts, tokenize_english,
 };
 pub use learning::{
     Difficulty, LanguageLearningItem, LearningItemType, Lesson, LessonPosition, LessonStep,

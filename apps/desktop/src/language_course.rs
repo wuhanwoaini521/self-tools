@@ -14,12 +14,14 @@ use tauri::{AppHandle, Emitter, State};
 
 use devtoolbox_application::language::course::{
     BookView, CourseService, DataStatus, EnglishProgress, EnglishSearchResult, LessonDetail,
-    ProgressPatch, TodayDashboard, WordLookup,
+    ProgressPatch, ShadowScoreInput, ShadowScoreResult, SpeakingError, SpeakingService,
+    TodayDashboard, WordLookup,
 };
 use devtoolbox_application::language::{CourseStorePort, DictionaryService};
 use devtoolbox_application::learning::LearningService as PlatformLearningService;
 use devtoolbox_core::language::{
-    CourseBook, LearningPlan, LessonProgress, QuizAnswer, QuizItem, QuizResult, WordMark,
+    CourseBook, LearningPlan, LessonProgress, QuizAnswer, QuizItem, QuizResult, ShadowStats,
+    WordMark,
 };
 
 use crate::{AppState, CommandError};
@@ -46,6 +48,14 @@ pub fn course_service(state: &State<'_, AppState>) -> CourseService {
         &state.learning_store,
     )));
     CourseService::new(store, platform)
+}
+
+/// 组合根装配：跟读评分服务（与课程读写同一个 language.db）。
+pub fn speaking_service(state: &State<'_, AppState>) -> SpeakingService {
+    let store: Arc<dyn CourseStorePort> = Arc::new(
+        devtoolbox_runtime::composition::CourseStoreAdapter::new(Arc::clone(&state.language_store)),
+    );
+    SpeakingService::new(store)
 }
 
 fn dictionary_service(state: &State<'_, AppState>) -> DictionaryService {
@@ -163,6 +173,62 @@ pub fn language_course_lookup_word(
 ) -> Result<WordLookup, CommandError> {
     course_service(&state)
         .lookup_word(&word, sentence.as_deref(), lesson_id.as_deref(), now())
+        .map_err(CommandError::from)
+}
+
+/// 跟读发音评分（V13 W2）：只收「哪一课哪一句 + 识别到的转写」。
+///
+/// **目标句由服务端查库得到**（`SpeakingService` 内部读 `language_sentences`）——
+/// 接受客户端自报的目标句等于让用户自己给自己判分。
+/// 转写为空 → 受控错误，不产生记录（没有识别结果就没有分数）。
+#[tauri::command]
+pub fn language_shadow_score(
+    state: State<'_, AppState>,
+    lesson_id: String,
+    sentence_seq: u32,
+    transcript: String,
+    duration_ms: u64,
+    target_ms: Option<u64>,
+    long_pauses_ms: Option<Vec<u64>>,
+) -> Result<ShadowScoreResult, CommandError> {
+    if transcript.trim().is_empty() {
+        return Err(CommandError {
+            code: "language_shadow_empty_transcript",
+            message: "没有识别到语音内容，无法评分（请确认麦克风权限与网络）".to_string(),
+        });
+    }
+    speaking_service(&state)
+        .score_attempt(
+            &lesson_id,
+            ShadowScoreInput {
+                sentence_seq,
+                transcript,
+                duration_ms,
+                target_ms: target_ms.unwrap_or_default(),
+                long_pauses_ms: long_pauses_ms.unwrap_or_default(),
+            },
+            now(),
+        )
+        .map_err(|error| CommandError {
+            code: match error {
+                SpeakingError::EmptyTranscript => "language_shadow_empty_transcript",
+                // 指错了句子 = 客户端错误，不是服务故障。
+                SpeakingError::SentenceNotFound { .. } => "language_shadow_no_sentence",
+                SpeakingError::Storage(_) => "language_shadow_failed",
+            },
+            message: error.to_string(),
+        })
+}
+
+/// 跟读统计（开口时长 / 平均准确率；进度页与路线图的真实指标）。
+#[tauri::command]
+pub fn language_shadow_stats(
+    state: State<'_, AppState>,
+    lesson_id: Option<String>,
+    since: Option<i64>,
+) -> Result<ShadowStats, CommandError> {
+    speaking_service(&state)
+        .stats(lesson_id.as_deref(), since.unwrap_or_default())
         .map_err(CommandError::from)
 }
 

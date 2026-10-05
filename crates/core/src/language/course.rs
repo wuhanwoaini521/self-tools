@@ -446,6 +446,97 @@ pub struct QuizResult {
 }
 
 // ============================================================================
+// 5b. 跟读评分（Shadowing Score）
+// ============================================================================
+
+/// 一次跟读尝试的记录（V13 W2）。
+///
+/// **诚实边界**：本结构只在**真的拿到语音识别转写结果**时才会被创建。
+/// 没有转写就不写记录、不给分数 —— 界面上显示「无法评分」并说明原因，
+/// 而不是拿时长/点击次数编一个「发音 92 分」。
+///
+/// 存储的是**分数与词级差异**，不存音频：音频属于用户录音，留在浏览器本地回放即可，
+/// 不进数据库、不进日志。
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ShadowAttempt {
+    /// 稳定 id：`shadow:{lesson_id}:{seq}:{时间戳}`。
+    pub id: String,
+    pub lesson_id: String,
+    /// 句子序号（对齐 `LessonSentence.sequence`）。
+    pub sentence_seq: u32,
+    /// 目标句（**由服务端按 lesson_id + seq 查库得到**，不信任前端传值）。
+    pub target: String,
+    /// 识别得到的转写文本（用户说的内容）。
+    pub transcript: String,
+    /// 0–100 准确度（含漏词/错词/多词惩罚）。
+    pub accuracy: u8,
+    /// 0–100 完整度（目标词被覆盖的比例）。
+    pub completeness: u8,
+    /// 0–100 流利度（时长比 + 停顿惩罚）。
+    pub fluency: u8,
+    /// 录音时长（毫秒）。
+    pub duration_ms: u64,
+    pub created_at: i64,
+}
+
+impl ShadowAttempt {
+    /// 三项均分（用于排序与展示一个总印象；**不替代**分项展示）。
+    #[must_use]
+    pub fn overall(&self) -> u8 {
+        u8::try_from(
+            (u16::from(self.accuracy) + u16::from(self.completeness) + u16::from(self.fluency)) / 3,
+        )
+        .unwrap_or_default()
+    }
+}
+
+/// 跟读统计（进度页 / 路线图的真实指标，不看课时数）。
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ShadowStats {
+    /// 尝试次数。
+    pub attempts: u32,
+    /// 开口总时长（秒）——「说了多久」是能不能开口的直接指标。
+    pub spoken_seconds: i64,
+    /// 平均准确度（0–100；无记录时 0）。
+    pub avg_accuracy: u8,
+    /// 平均完整度。
+    pub avg_completeness: u8,
+    /// 平均流利度。
+    pub avg_fluency: u8,
+    /// 达到 80 分以上的次数（「说得不错」的次数）。
+    pub strong_attempts: u32,
+}
+
+/// 由多次尝试汇总统计（空集合给出全零，而不是除零/NaN）。
+#[must_use]
+pub fn summarize_shadow_attempts(attempts: &[ShadowAttempt]) -> ShadowStats {
+    if attempts.is_empty() {
+        return ShadowStats::default();
+    }
+    let count = attempts.len() as u32;
+    let sum =
+        |pick: fn(&ShadowAttempt) -> u8| -> u32 { attempts.iter().map(pick).map(u32::from).sum() };
+    let spoken_ms: i64 = attempts
+        .iter()
+        .map(|attempt| i64::try_from(attempt.duration_ms).unwrap_or_default())
+        .sum();
+    ShadowStats {
+        attempts: count,
+        spoken_seconds: spoken_ms / 1000,
+        avg_accuracy: (sum(|a| a.accuracy) / count).min(100) as u8,
+        avg_completeness: (sum(|a| a.completeness) / count).min(100) as u8,
+        avg_fluency: (sum(|a| a.fluency) / count).min(100) as u8,
+        strong_attempts: u32::try_from(
+            attempts
+                .iter()
+                .filter(|attempt| attempt.overall() >= 80)
+                .count(),
+        )
+        .unwrap_or(u32::MAX),
+    }
+}
+
+// ============================================================================
 // 6. 英语文本工具（纯函数）
 // ============================================================================
 
@@ -569,5 +660,62 @@ mod tests {
     fn importance_decreases_with_frequency() {
         assert!(importance_from_frequency(100) < importance_from_frequency(5000));
         assert!(importance_from_frequency(5000) < importance_from_frequency(50000));
+    }
+}
+
+#[cfg(test)]
+mod shadow_tests {
+    use super::*;
+
+    fn attempt(accuracy: u8, completeness: u8, fluency: u8, ms: u64) -> ShadowAttempt {
+        ShadowAttempt {
+            id: format!("shadow:1:{ms}"),
+            lesson_id: "nce:1:1".into(),
+            sentence_seq: 0,
+            target: "Excuse me!".into(),
+            transcript: "excuse me".into(),
+            accuracy,
+            completeness,
+            fluency,
+            duration_ms: ms,
+            created_at: 1,
+        }
+    }
+
+    #[test]
+    fn overall_is_mean_of_three_scores() {
+        // (90 + 100 + 70) / 3 = 86.67 → 整数除法截断为 86
+        assert_eq!(attempt(90, 100, 70, 1000).overall(), 86);
+        assert_eq!(attempt(100, 100, 100, 1000).overall(), 100);
+        assert_eq!(attempt(0, 0, 0, 1000).overall(), 0);
+    }
+
+    #[test]
+    fn summarize_aggregates_and_flags_strong_attempts() {
+        let stats =
+            summarize_shadow_attempts(&[attempt(90, 100, 80, 4_000), attempt(60, 70, 50, 6_000)]);
+        assert_eq!(stats.attempts, 2);
+        assert_eq!(stats.spoken_seconds, 10, "开口总时长按秒累计");
+        assert_eq!(stats.avg_accuracy, 75);
+        assert_eq!(stats.avg_completeness, 85);
+        assert_eq!(stats.avg_fluency, 65);
+        // 86 分与 60 分：只有第一次算「说得不错」。
+        assert_eq!(stats.strong_attempts, 1);
+    }
+
+    #[test]
+    fn summarize_of_nothing_is_all_zero_not_panic() {
+        let stats = summarize_shadow_attempts(&[]);
+        assert_eq!(stats, ShadowStats::default());
+        assert_eq!(stats.avg_accuracy, 0);
+        assert_eq!(stats.spoken_seconds, 0);
+    }
+
+    #[test]
+    fn shadow_attempt_round_trips_through_json() {
+        let value = attempt(88, 92, 80, 1_500);
+        let text = serde_json::to_string(&value).expect("serialize");
+        let back: ShadowAttempt = serde_json::from_str(&text).expect("deserialize");
+        assert_eq!(back, value);
     }
 }

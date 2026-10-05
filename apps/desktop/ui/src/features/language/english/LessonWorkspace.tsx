@@ -14,7 +14,7 @@
  * - 没有 AI 时 Lesson 仍然完整可用（AI 只是右侧可选增强）。
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Sparkle, Note, X } from "@phosphor-icons/react";
+import { ArrowLeft, Sparkle, Note, X, BookOpenText } from "@phosphor-icons/react";
 import type {
   LessonDetail,
   LessonStage,
@@ -34,6 +34,7 @@ import { ReadingStage } from "./ReadingStage";
 import { SentenceStage } from "./SentenceStage";
 import { ShadowStage } from "./ShadowStage";
 import { QuizStage } from "./QuizStage";
+import { ImmersiveReader } from "./ImmersiveReader";
 
 export interface LessonWorkspaceProps {
   detail: LessonDetail;
@@ -63,6 +64,8 @@ export function LessonWorkspace({
   const [activeSeq, setActiveSeq] = useState<number | null>(progress.sentence_seq || null);
   const [positionMs, setPositionMs] = useState(progress.position_ms);
   const [popover, setPopover] = useState<{ word: string; sentence: string | null } | null>(null);
+  /** 沉浸式精读（V13 W1）：全屏单屏阅读，退出时回写句位与时长。 */
+  const [immersive, setImmersive] = useState(false);
   const [showTranslation, setShowTranslation] = useState(false);
   const [showVocabHighlight, setShowVocabHighlight] = useState(true);
   const [rate, setRate] = useState(1);
@@ -203,9 +206,41 @@ export function LessonWorkspace({
     [activeSeq, sentences],
   );
 
+  // 退出沉浸：句位与时长写回进度（否则关闭页面就丢了刚才读了多久）。
+  const exitImmersive = useCallback(
+    (sentenceIndex: number, sessionSeconds: number) => {
+      setImmersive(false);
+      const seq = sentences[sentenceIndex]?.sequence ?? activeSeq;
+      if (seq !== null && seq !== undefined) {
+        setActiveSeq(seq);
+        pendingPatch.current.sentence_seq = seq;
+      }
+      if (sessionSeconds > 0) studySecondsRef.current += sessionSeconds;
+      flushProgress(true);
+    },
+    [activeSeq, flushProgress, sentences],
+  );
+
   const completedCount = sentences.filter(
     (item) => item.sequence <= (activeSeq ?? -1),
   ).length;
+
+  if (immersive) {
+    return (
+      <ImmersiveReader
+        sentences={sentences}
+        vocab={vocab}
+        audioUrl={audioUrl}
+        audioMissingReason={audioError}
+        lessonLabel={`NCE${book?.book_no ?? ""} Lesson ${lesson.lesson_no} · 沉浸精读`}
+        lessonId={lesson.id}
+        onExit={exitImmersive}
+        onMark={markWord}
+        onAskAi={onAskAi}
+        aiAvailable={aiAvailable}
+      />
+    );
+  }
 
   return (
     <div className="en-workspace">
@@ -226,6 +261,14 @@ export function LessonWorkspace({
           </div>
         </div>
         <StageNav stage={stage} onChange={changeStage} completed={stageDone} />
+        <button
+          type="button"
+          className="en-ghost-btn en-immersive-btn"
+          onClick={() => setImmersive(true)}
+          title="全屏沉浸精读（句级高亮 / 点词即查 / 可隐藏译文）"
+        >
+          <BookOpenText size={15} /> 沉浸精读
+        </button>
       </header>
 
       {/* ---- 主体 + 右侧栏 ---- */}
@@ -306,6 +349,7 @@ export function LessonWorkspace({
 
           {stage === "shadow" ? (
             <ShadowStage
+              lessonId={lesson.id}
               sentences={sentences}
               startSeq={progress.shadow_seq}
               activeSeq={activeSeq}

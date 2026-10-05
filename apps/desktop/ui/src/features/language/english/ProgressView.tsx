@@ -2,7 +2,11 @@
  * 学习统计（Progress）。
  *
  * 只展示**可解释、有用**的数据：完成课程 / 学过的词 / 复习掌握度 / 学习时长 /
- * 连续天数 / 每册进度。没有装饰性图表，也没有假 KPI（任务书 §27）。
+ * 连续天数 / 每册进度 / **开口指标**。没有装饰性图表，也没有假 KPI（任务书 §27）。
+ *
+ * 「开口」是能不能交流的直接证据（V13 W2）：读了多少课不代表会说话，
+ * 说了多久、说得准不准才是。所以统计里有单独一块，取自**真实跟读记录**；
+ * 没有任何记录时明确说「还没有跟读记录」，不显示 0 分假装练过。
  */
 import { useCallback, useEffect, useState } from "react";
 import { ArrowLeft, Fire } from "@phosphor-icons/react";
@@ -10,6 +14,7 @@ import type { EnglishProgress } from "../../../types";
 import { errorMessage } from "../../../utils";
 import { englishClient } from "./englishClient";
 import { formatDurationShort } from "./shared";
+import type { ShadowStats } from "../speakingTypes";
 
 export interface ProgressViewProps {
   onBack: () => void;
@@ -17,6 +22,7 @@ export interface ProgressViewProps {
 
 export function ProgressView({ onBack }: ProgressViewProps) {
   const [data, setData] = useState<EnglishProgress | null>(null);
+  const [shadow, setShadow] = useState<ShadowStats | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -26,6 +32,11 @@ export function ProgressView({ onBack }: ProgressViewProps) {
     } catch (cause) {
       setError(errorMessage(cause));
     }
+    // 跟读统计独立取：它失败不该把整页变成错误页（进度数据仍然有用）。
+    englishClient
+      .shadowStats(null, 0)
+      .then(setShadow)
+      .catch(() => setShadow(null));
   }, []);
 
   useEffect(() => {
@@ -102,6 +113,46 @@ export function ProgressView({ onBack }: ProgressViewProps) {
           </span>
           <strong>{data.streak_days} 天</strong>
         </div>
+      </section>
+
+      <section className="en-card">
+        <header className="en-card-head">
+          <h3>开口（跟读记录）</h3>
+          <span className="en-muted">说了多久 · 说得准不准</span>
+        </header>
+        {!shadow || shadow.attempts === 0 ? (
+          <p className="en-muted">
+            还没有跟读评分记录。在课内进入 <strong>Shadowing</strong> 阶段，点「朗读评分」
+            就会被记录（需要 Chrome / Edge + 麦克风 + 网络）。
+          </p>
+        ) : (
+          <div className="en-metric-row">
+            <div className="en-metric">
+              <span className="en-metric-label">开口时长</span>
+              <strong>{formatDurationShort(shadow.spoken_seconds)}</strong>
+            </div>
+            <div className="en-metric">
+              <span className="en-metric-label">跟读次数</span>
+              <strong>{shadow.attempts}</strong>
+            </div>
+            <div className="en-metric">
+              <span className="en-metric-label">平均准确度</span>
+              <strong>{shadow.avg_accuracy}%</strong>
+            </div>
+            <div className="en-metric">
+              <span className="en-metric-label">平均完整度</span>
+              <strong>{shadow.avg_completeness}%</strong>
+            </div>
+            <div className="en-metric">
+              <span className="en-metric-label">平均流利度</span>
+              <strong>{shadow.avg_fluency}%</strong>
+            </div>
+            <div className="en-metric">
+              <span className="en-metric-label">说得不错（≥80）</span>
+              <strong>{shadow.strong_attempts}</strong>
+            </div>
+          </div>
+        )}
       </section>
 
       {currentBook ? (

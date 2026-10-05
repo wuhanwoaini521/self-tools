@@ -12,6 +12,11 @@
 import type { CommandTransport } from "../../../transport";
 import { defaultTransport } from "../../../transport";
 import type {
+  ShadowScoreInput,
+  ShadowScoreResult,
+  ShadowStats,
+} from "../speakingTypes";
+import type {
   BookView,
   CourseBook,
   DataStatus,
@@ -70,6 +75,15 @@ export interface EnglishClient {
 
   /** 读取课时音频二进制（返回 ArrayBuffer，前端转 Blob URL）。 */
   lessonAudio(lessonId: string): Promise<ArrayBuffer>;
+
+  /**
+   * 跟读发音评分（V13 W2）。
+   * `transcript` 必须来自**真实的语音识别结果**；拿不到就不要调用
+   * （服务端也会拒绝空转写，不会编造分数）。
+   */
+  shadowScore(input: ShadowScoreInput): Promise<ShadowScoreResult>;
+  /** 跟读统计（开口时长 / 平均准确率；`since` 为 Unix 秒，0 = 不限）。 */
+  shadowStats(lessonId?: string | null, since?: number): Promise<ShadowStats>;
 
   nceScan(sourceDir: string): Promise<NceScanReport>;
   nceImport(sourceDir: string): Promise<NceImportReport>;
@@ -143,8 +157,19 @@ export function createEnglishClient(
       throw new Error("unexpected audio response type");
     },
 
-    nceScan: (sourceDir) => transport.invoke<NceScanReport>("language_nce_scan", { sourceDir }),
-    nceImport: (sourceDir) =>
+    shadowScore: (input) =>
+      transport.invoke<ShadowScoreResult>("language_shadow_score", {
+        lessonId: input.lessonId,
+        sentenceSeq: input.sentenceSeq,
+        transcript: input.transcript,
+        durationMs: input.durationMs,
+        targetMs: input.targetMs ?? 0,
+        longPausesMs: input.longPausesMs ?? [],
+      }),
+    shadowStats: (lessonId, since) =>
+      transport.invoke<ShadowStats>("language_shadow_stats", { lessonId, since }),
+
+    nceScan: (sourceDir) => transport.invoke<NceScanReport>("language_nce_scan", { sourceDir }),    nceImport: (sourceDir) =>
       transport.invoke<NceImportReport>("language_nce_import", { sourceDir }),
     nceCancel: () => transport.invoke<void>("language_nce_cancel"),
     dictImport: (path) => transport.invoke<DictImportReport>("language_dict_import", { path }),

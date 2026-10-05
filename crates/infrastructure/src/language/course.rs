@@ -9,7 +9,8 @@ use rusqlite::{Connection, OptionalExtension, params};
 
 use devtoolbox_core::language::{
     BookSummary, Course, CourseBook, CourseLesson, LearningPlan, LessonListEntry, LessonProgress,
-    LessonSentence, LessonStage, LessonStatus, LessonVocab, WordEntry, WordOccurrence,
+    LessonSentence, LessonStage, LessonStatus, LessonVocab, ShadowAttempt, WordEntry,
+    WordOccurrence,
 };
 
 use crate::error::InfrastructureError;
@@ -95,7 +96,123 @@ impl LanguageStore {
             )
             .map_err(sqlite)?;
         self.migrate_plan_source_dir()?;
-        self.migrate_lesson_vocab_user_mark()
+        self.migrate_lesson_vocab_user_mark()?;
+        self.migrate_shadow_attempts()
+    }
+
+    /// 跟读尝试表（V13 W2）。`CREATE TABLE IF NOT EXISTS` 幂等，旧库启动时自动补上。
+    fn migrate_shadow_attempts(&self) -> Result<(), InfrastructureError> {
+        self.conn()
+            .execute_batch(
+                "CREATE TABLE IF NOT EXISTS language_shadow_attempts (
+                    id TEXT PRIMARY KEY,
+                    lesson_id TEXT NOT NULL,
+                    sentence_seq INTEGER NOT NULL,
+                    target TEXT NOT NULL,
+                    transcript TEXT NOT NULL,
+                    accuracy INTEGER NOT NULL,
+                    completeness INTEGER NOT NULL,
+                    fluency INTEGER NOT NULL,
+                    duration_ms INTEGER NOT NULL,
+                    created_at INTEGER NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_shadow_lesson
+                    ON language_shadow_attempts(lesson_id, created_at DESC);
+                CREATE INDEX IF NOT EXISTS idx_shadow_created
+                    ON language_shadow_attempts(created_at DESC);",
+            )
+            .map_err(sqlite)
+    }
+
+    /// 写入一次跟读尝试（id 幂等：同一 id 重复提交不新增行）。
+    pub fn insert_shadow_attempt(
+        &self,
+        attempt: &ShadowAttempt,
+    ) -> Result<(), InfrastructureError> {
+        self.conn()
+            .execute(
+                "INSERT INTO language_shadow_attempts
+                    (id, lesson_id, sentence_seq, target, transcript,
+                     accuracy, completeness, fluency, duration_ms, created_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
+                 ON CONFLICT(id) DO UPDATE SET
+                    transcript = excluded.transcript, accuracy = excluded.accuracy,
+                    completeness = excluded.completeness, fluency = excluded.fluency,
+                    duration_ms = excluded.duration_ms",
+                params![
+                    attempt.id,
+                    attempt.lesson_id,
+                    attempt.sentence_seq,
+                    attempt.target,
+                    attempt.transcript,
+                    i64::from(attempt.accuracy),
+                    i64::from(attempt.completeness),
+                    i64::from(attempt.fluency),
+                    i64::try_from(attempt.duration_ms).unwrap_or(i64::MAX),
+                    attempt.created_at,
+                ],
+            )
+            .map_err(sqlite)?;
+        Ok(())
+    }
+
+    /// 跟读尝试（按时间倒序；`lesson_id` 为空则取全部）。
+    pub fn shadow_attempts(
+        &self,
+        lesson_id: Option<&str>,
+        limit: usize,
+    ) -> Result<Vec<ShadowAttempt>, InfrastructureError> {
+        let limit = i64::try_from(limit).unwrap_or(200).clamp(1, 1_000);
+        let mut out = Vec::new();
+        let push = |row: &rusqlite::Row<'_>| -> rusqlite::Result<ShadowAttempt> {
+            Ok(ShadowAttempt {
+                id: row.get(0)?,
+                lesson_id: row.get(1)?,
+                sentence_seq: row.get(2)?,
+                target: row.get(3)?,
+                transcript: row.get(4)?,
+                accuracy: row.get::<_, i64>(5)?.clamp(0, 100) as u8,
+                completeness: row.get::<_, i64>(6)?.clamp(0, 100) as u8,
+                fluency: row.get::<_, i64>(7)?.clamp(0, 100) as u8,
+                duration_ms: row.get::<_, i64>(8)?.max(0) as u64,
+                created_at: row.get(9)?,
+            })
+        };
+        match lesson_id {
+            Some(lesson) => {
+                let mut stmt = self
+                    .conn()
+                    .prepare(
+                        "SELECT id, lesson_id, sentence_seq, target, transcript, accuracy,
+                            completeness, fluency, duration_ms, created_at
+                     FROM language_shadow_attempts WHERE lesson_id = ?1
+                     ORDER BY created_at DESC LIMIT ?2",
+                    )
+                    .map_err(sqlite)?;
+                let rows = stmt
+                    .query_map(params![lesson, limit], push)
+                    .map_err(sqlite)?;
+                for row in rows {
+                    out.push(row.map_err(sqlite)?);
+                }
+            }
+            None => {
+                let mut stmt = self
+                    .conn()
+                    .prepare(
+                        "SELECT id, lesson_id, sentence_seq, target, transcript, accuracy,
+                            completeness, fluency, duration_ms, created_at
+                     FROM language_shadow_attempts
+                     ORDER BY created_at DESC LIMIT ?1",
+                    )
+                    .map_err(sqlite)?;
+                let rows = stmt.query_map(params![limit], push).map_err(sqlite)?;
+                for row in rows {
+                    out.push(row.map_err(sqlite)?);
+                }
+            }
+        }
+        Ok(out)
     }
 
     /// 旧库 `language_lesson_vocab` 没有 `user_mark` 列：补上（幂等）。

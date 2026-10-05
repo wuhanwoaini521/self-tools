@@ -17,7 +17,9 @@ use std::sync::Arc;
 use axum::extract::Query;
 use axum::response::IntoResponse;
 use axum::{Extension, Json};
-use devtoolbox_application::language::course::{CourseService, ProgressPatch, WordLookup};
+use devtoolbox_application::language::course::{
+    CourseService, ProgressPatch, ShadowScoreInput, SpeakingError, SpeakingService, WordLookup,
+};
 use devtoolbox_core::language::{LearningPlan, LessonProgress, QuizAnswer, QuizItem, WordMark};
 use devtoolbox_core::learning::LearningProgress as PlatformProgress;
 use serde::Deserialize;
@@ -25,6 +27,9 @@ use serde_json::Value;
 
 /// 课程运行时（与 readiness 共用同一实例：同一个 language.db）。
 pub type Course = Arc<CourseService>;
+
+/// 跟读评分服务（V13 W2；与课程读写同库）。
+pub type Speaking = Arc<SpeakingService>;
 
 fn clock() -> i64 {
     devtoolbox_infrastructure::now_unix()
@@ -75,6 +80,122 @@ pub struct SubmitQuizBody {
 #[derive(Deserialize)]
 pub struct LessonQuery {
     pub lesson_id: String,
+}
+
+// ============================================================================
+// 跟读发音评分（V13 W2）
+// ============================================================================
+
+/// `POST /api/v1/language/shadow/score`
+///
+/// 请求只带「哪一课哪一句 + 识别到的转写」；**目标句由服务端查库得到**，
+/// 不接受客户端自报的目标句（否则等于自己给自己判分）。
+/// 转写为空 → 400，不产生任何记录（没有识别结果就没有分数）。
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ShadowScoreBody {
+    #[serde(alias = "lesson_id")]
+    pub lesson_id: String,
+    pub sentence_seq: u32,
+    /// 语音识别转写（必须来自真实识别结果）。
+    pub transcript: String,
+    /// 本次开口时长（毫秒）。
+    pub duration_ms: u64,
+    /// 目标句参考时长（毫秒；用于流利度对比）。
+    #[serde(default)]
+    pub target_ms: u64,
+    /// 超过阈值的长停顿（毫秒数组；用于流利度惩罚）。
+    #[serde(default)]
+    pub long_pauses_ms: Vec<u64>,
+}
+
+/// `GET /api/v1/language/shadow/stats?lessonId=…&since=…`
+///
+/// **必须 camelCase**：transport 统一发 `lessonId`；不加 rename_all 时
+/// 查询参数会被静默忽略 → 端点返回「全部课时」的统计，看起来正常但口径错了
+/// （这正是本条注释存在的原因）。
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ShadowStatsQuery {
+    #[serde(default)]
+    pub lesson_id: Option<String>,
+    /// 只统计该时间戳之后的尝试（0 = 不限）。
+    #[serde(default)]
+    pub since: Option<i64>,
+    #[serde(default)]
+    pub include_attempts: Option<bool>,
+}
+
+/// `POST /api/v1/language/shadow/score`
+pub async fn shadow_score(
+    Extension(speaking): Extension<Speaking>,
+    Json(body): Json<ShadowScoreBody>,
+) -> Result<Json<Value>, crate::ai_api::ApiError> {
+    if body.transcript.trim().is_empty() {
+        return Err(err(
+            "language_shadow_empty_transcript",
+            "没有识别到语音内容，无法评分（请确认麦克风权限与网络）".to_string(),
+        ));
+    }
+    let result = speaking
+        .score_attempt(
+            &body.lesson_id,
+            ShadowScoreInput {
+                sentence_seq: body.sentence_seq,
+                transcript: body.transcript,
+                duration_ms: body.duration_ms,
+                target_ms: body.target_ms,
+                long_pauses_ms: body.long_pauses_ms,
+            },
+            clock(),
+        )
+        .map_err(|error| match error {
+            SpeakingError::EmptyTranscript => {
+                err("language_shadow_empty_transcript", error.to_string())
+            }
+            // 指错了句子 = 客户端错误（400），不是服务故障。
+            SpeakingError::SentenceNotFound { .. } => {
+                err("language_shadow_no_sentence", error.to_string())
+            }
+            SpeakingError::Storage(message) => err("language_shadow_failed", message),
+        })?;
+    Ok(Json(serde_json::json!({
+        "overall": result.overall,
+        "accuracy": result.attempt.accuracy,
+        "completeness": result.attempt.completeness,
+        "fluency": result.attempt.fluency,
+        "duration_ms": result.attempt.duration_ms,
+        "target": result.attempt.target,
+        "transcript": result.attempt.transcript,
+        "missing": result.missing,
+        "wrong": result.wrong,
+        "extra": result.extra,
+    })))
+}
+
+/// `GET /api/v1/language/shadow/stats`
+pub async fn shadow_stats(
+    Extension(speaking): Extension<Speaking>,
+    Query(query): Query<ShadowStatsQuery>,
+) -> Result<Json<Value>, crate::ai_api::ApiError> {
+    let stats = speaking
+        .stats(query.lesson_id.as_deref(), query.since.unwrap_or_default())
+        .map_err(from_app)?;
+    let mut body = serde_json::json!({
+        "attempts": stats.attempts,
+        "spoken_seconds": stats.spoken_seconds,
+        "avg_accuracy": stats.avg_accuracy,
+        "avg_completeness": stats.avg_completeness,
+        "avg_fluency": stats.avg_fluency,
+        "strong_attempts": stats.strong_attempts,
+    });
+    if query.include_attempts == Some(true) {
+        let attempts = speaking
+            .recent_attempts(query.lesson_id.as_deref(), 20)
+            .map_err(from_app)?;
+        body["attempts_recent"] = serde_json::to_value(attempts).unwrap_or(Value::Null);
+    }
+    Ok(Json(body))
 }
 
 // ============================================================================

@@ -26,9 +26,21 @@ pub struct ApiError {
 
 impl axum::response::IntoResponse for ApiError {
     fn into_response(self) -> axum::response::Response {
+        // 客户端错误要映射成 4xx：否则「参数写错了」会变成 500，
+        // 前端只能显示「服务出错」，用户不知道是自己填错了。
+        // 4xx 码清单：客户端能自己纠正的错误一律不该是 500，
+        // 否则前端只能显示「服务出错」，用户不知道是自己填错了。
+        const BAD_REQUEST_CODES: [&str; 6] = [
+            "invalid",
+            "ai_not_configured",
+            "language_invalid_mark",
+            "language_shadow_empty_transcript",
+            "language_shadow_no_sentence",
+            "study_board_invalid",
+        ];
         let status = match self.code {
             "not_found" => axum::http::StatusCode::NOT_FOUND,
-            "invalid" | "ai_not_configured" => axum::http::StatusCode::BAD_REQUEST,
+            code if BAD_REQUEST_CODES.contains(&code) => axum::http::StatusCode::BAD_REQUEST,
             _ => axum::http::StatusCode::INTERNAL_SERVER_ERROR,
         };
         (status, axum::Json(self)).into_response()

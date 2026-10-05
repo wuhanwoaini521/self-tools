@@ -110,3 +110,53 @@ describe("englishClient 命令契约", () => {
     await expect(client.lessonAudio("nce:1:1")).rejects.toThrow(/unexpected audio/);
   });
 });
+describe("跟读评分命令契约（V13 W2）", () => {
+  it("评分只发识别结果与位置，绝不发目标句（由服务端查库）", async () => {
+    const invoke = vi.fn().mockResolvedValue({
+      overall: 80,
+      accuracy: 80,
+      completeness: 100,
+      fluency: 70,
+      duration_ms: 1200,
+      target: "Excuse me!",
+      transcript: "excuse me",
+      missing: [],
+      wrong: [],
+      extra: [],
+    });
+    const client = createEnglishClient(mockTransport(invoke));
+
+    const result = await client.shadowScore({
+      lessonId: "nce:1:1",
+      sentenceSeq: 0,
+      transcript: "excuse me",
+      durationMs: 1200,
+      targetMs: 1500,
+    });
+
+    const [name, args] = invoke.mock.calls[0];
+    expect(name).toBe("language_shadow_score");
+    expect(args).toEqual({
+      lessonId: "nce:1:1",
+      sentenceSeq: 0,
+      transcript: "excuse me",
+      durationMs: 1200,
+      targetMs: 1500,
+      longPausesMs: [],
+    });
+    expect(args).not.toHaveProperty("target");
+    expect(result.completeness).toBe(100);
+  });
+
+  it("统计查询按需带上 lessonId / since", async () => {
+    const invoke = vi.fn().mockResolvedValue({ attempts: 0 });
+    const client = createEnglishClient(mockTransport(invoke));
+
+    await client.shadowStats();
+    expect(invoke.mock.calls[0]).toEqual(["language_shadow_stats", { lessonId: undefined, since: undefined }]);
+
+    invoke.mockClear();
+    await client.shadowStats("nce:1:1", 1_700_000_000);
+    expect(invoke.mock.calls[0][1]).toEqual({ lessonId: "nce:1:1", since: 1_700_000_000 });
+  });
+});

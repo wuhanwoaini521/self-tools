@@ -66,6 +66,8 @@ pub fn router(
     news_ingest: Arc<dyn devtoolbox_application::news::NewsIngestPort>,
     // 学习板用例服务（与桌面端命令共用；数据在 config/study_boards.db）。
     study_board: Arc<devtoolbox_application::study_board::StudyBoardService>,
+    // 跟读发音评分（V13 W2）：目标句由服务端查库，没有转写就没有分数。
+    speaking: Arc<devtoolbox_application::language::course::SpeakingService>,
 ) -> Router {
     Router::new()
         .route("/health", get(health))
@@ -405,6 +407,15 @@ pub fn router(
         )
         // 学习板：此前画板只写浏览器 localStorage —— 换设备就没了，
         // 而且 AI 看到的板和用户画的板不是同一块。这里接出同一份用例。
+        // 跟读评分 + 开口统计：progress 页的「说了多少」来自这里。
+        .route(
+            "/api/v1/language/shadow/score",
+            post(crate::language_write_api::shadow_score),
+        )
+        .route(
+            "/api/v1/language/shadow/stats",
+            get(crate::language_write_api::shadow_stats),
+        )
         .route(
             "/api/v1/study-boards",
             get(crate::study_board_api::list_boards).post(crate::study_board_api::save_board),
@@ -433,6 +444,7 @@ pub fn router(
         .layer(axum::Extension(import_tracker))
         .layer(axum::Extension(Arc::clone(&news_ingest)))
         .layer(axum::Extension(study_board))
+        .layer(axum::Extension(speaking))
         .layer(axum::Extension(
             None::<Arc<dyn crate::ai_api::AiChatRunner>>,
         ))
@@ -846,13 +858,70 @@ mod tests {
         .clone()
     }
 
+    /// 测试用 language.db 路径（跟读评分的播种与请求走同一个库）。
+    fn test_language_db() -> std::path::PathBuf {
+        std::env::temp_dir().join(format!(
+            "self-tools-test-language-{}.db",
+            std::process::id()
+        ))
+    }
+
+    /// 共享运行时（`AppCore`）的数据目录 —— 跟读评分服务就装在这里。
+    fn test_core_dir() -> std::path::PathBuf {
+        std::env::temp_dir().join(format!("self-tools-test-core-{}", std::process::id()))
+    }
+
+    /// 播种一课真实课文（跟读评分必须能在库里查到目标句）。
+    ///
+    /// 写在 **`AppCore` 的 language.db** 里：`speaking` 服务来自共享运行时，
+    /// 写错库的话评分端点只会说「没有第 0 句」。
+    fn seed_shadow_lesson(tag: &str) -> String {
+        let lesson_id = format!("nce:1:{tag}");
+        let store =
+            devtoolbox_infrastructure::LanguageStore::open(test_core_dir().join("language.db"))
+                .expect("seed store");
+        store
+            .replace_lesson_content(
+                &devtoolbox_core::language::CourseLesson {
+                    id: lesson_id.clone(),
+                    book_id: "nce:1".into(),
+                    lesson_no: 1,
+                    title: "Excuse me".into(),
+                    audio_path: None,
+                    duration_ms: Some(2_000),
+                    sentence_count: 2,
+                    vocab_count: 0,
+                },
+                &[
+                    devtoolbox_core::language::LessonSentence {
+                        id: format!("{lesson_id}#0"),
+                        lesson_id: lesson_id.clone(),
+                        sequence: 0,
+                        start_ms: 0,
+                        end_ms: 1_200,
+                        english: "Excuse me! Yes?".into(),
+                        chinese: Some("对不起，是吗？".into()),
+                    },
+                    devtoolbox_core::language::LessonSentence {
+                        id: format!("{lesson_id}#1"),
+                        lesson_id: lesson_id.clone(),
+                        sequence: 1,
+                        start_ms: 1_200,
+                        end_ms: 2_000,
+                        english: "This is your handbag.".into(),
+                        chinese: Some("这是你的手提包。".into()),
+                    },
+                ],
+                &[],
+            )
+            .expect("seed lesson");
+        lesson_id
+    }
+
     fn test_router(fail_all: bool) -> axum::Router {
         let language_store = Arc::new(parking_lot::Mutex::new(
-            devtoolbox_infrastructure::LanguageStore::open(std::env::temp_dir().join(format!(
-                "self-tools-test-language-{}.db",
-                std::process::id()
-            )))
-            .expect("language store"),
+            devtoolbox_infrastructure::LanguageStore::open(test_language_db())
+                .expect("language store"),
         ));
         let content: Arc<dyn devtoolbox_application::language::LanguageStorePort> = Arc::new(
             devtoolbox_infrastructure::LanguageStoreAdapter::new(Arc::clone(&language_store)),
@@ -923,6 +992,7 @@ mod tests {
                 ),
             )) as Arc<dyn devtoolbox_application::news::NewsIngestPort>,
             Arc::clone(&test_core().study_board),
+            Arc::clone(&test_core().speaking),
         )
     }
 
@@ -1296,6 +1366,145 @@ mod tests {
         assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
         assert_eq!(body["code"], "history_error");
         assert!(body["message"].is_string());
+    }
+
+    // ---- 跟读发音评分（V13 W2）：没有转写就没有分数 ----
+
+    /// 播种一课并返回 lesson id。
+    ///
+    /// **按用例隔离**：共用同一课时，统计类断言会被并行用例互相污染
+    /// （这条是踩过的坑：A 用例写了记录，B 用例断言 attempts == 1 却拿到 3）。
+    fn shadow_lesson_id(tag: &str) -> String {
+        seed_shadow_lesson(tag)
+    }
+
+    #[tokio::test]
+    async fn shadow_score_rejects_empty_transcript_without_writing_anything() {
+        let app = test_router(false);
+        let before = stats_of(&app, None).await;
+        let (status, body) = post_json(
+            &app,
+            "/api/v1/language/shadow/score",
+            &serde_json::json!({
+                "lessonId": shadow_lesson_id("902"),
+                "sentenceSeq": 0,
+                "transcript": "   ",
+                "durationMs": 1200,
+            }),
+        )
+        .await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+        assert_eq!(body["code"], "language_shadow_empty_transcript");
+        let after = stats_of(&app, None).await;
+        assert_eq!(before, after, "被拒绝的请求不能留下任何记录");
+    }
+
+    #[tokio::test]
+    async fn shadow_score_of_unknown_sentence_is_400_not_zero_score() {
+        let app = test_router(false);
+        let (status, body) = post_json(
+            &app,
+            "/api/v1/language/shadow/score",
+            &serde_json::json!({
+                "lessonId": shadow_lesson_id("903"),
+                "sentenceSeq": 9_999,
+                "transcript": "hello there",
+                "durationMs": 900,
+            }),
+        )
+        .await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+        assert_eq!(body["code"], "language_shadow_no_sentence", "{body}");
+        assert!(
+            body["message"].as_str().unwrap().contains("没有第 9999 句"),
+            "{body}"
+        );
+    }
+
+    #[tokio::test]
+    async fn shadow_score_uses_server_side_target_and_returns_word_diff() {
+        let app = test_router(false);
+        let lesson_id = shadow_lesson_id("900");
+        // 目标句是库里的 "Excuse me! Yes?"；这里故意只说第一个词。
+        let (status, body) = post_json(
+            &app,
+            "/api/v1/language/shadow/score",
+            &serde_json::json!({
+                "lessonId": lesson_id,
+                "sentenceSeq": 0,
+                "transcript": "excuse",
+                "durationMs": 4_000,
+                "targetMs": 1_500,
+            }),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        assert_eq!(
+            body["target"], "Excuse me! Yes?",
+            "目标句必须来自服务端（不接受前端自报）"
+        );
+        assert!(
+            body["completeness"].as_u64().unwrap() < 100,
+            "只说一个词不该满分"
+        );
+        assert!(
+            body["missing"]
+                .as_array()
+                .map(|list| !list.is_empty())
+                .unwrap_or(false),
+            "应当指出漏说的词：{body}"
+        );
+        // 说全了：完整度 100，逐词对上。
+        let (status, full) = post_json(
+            &app,
+            "/api/v1/language/shadow/score",
+            &serde_json::json!({
+                "lessonId": lesson_id,
+                "sentenceSeq": 0,
+                "transcript": "Excuse me yes",
+                "durationMs": 1_100,
+                "targetMs": 1_200,
+            }),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{full}");
+        assert_eq!(full["completeness"], 100, "{full}");
+        assert_eq!(full["accuracy"], 100, "{full}");
+        assert!(full["missing"].as_array().expect("missing").is_empty());
+    }
+
+    #[tokio::test]
+    async fn shadow_stats_counts_spoken_seconds_and_strong_attempts() {
+        let app = test_router(false);
+        let lesson_id = shadow_lesson_id("901");
+        post_json(
+            &app,
+            "/api/v1/language/shadow/score",
+            &serde_json::json!({
+                "lessonId": lesson_id,
+                "sentenceSeq": 0,
+                "transcript": "Excuse me yes",
+                "durationMs": 2_000,
+                "targetMs": 1_200,
+            }),
+        )
+        .await;
+        let stats = stats_of(&app, Some(&lesson_id)).await;
+        assert_eq!(stats["attempts"], 1, "{stats}");
+        assert_eq!(stats["spoken_seconds"], 2, "开口秒数进账：{stats}");
+        assert_eq!(stats["strong_attempts"], 1, "说得不错：{stats}");
+        assert_eq!(stats["avg_completeness"], 100, "{stats}");
+    }
+
+    /// 读跟读统计（`lessonId` 为空 = 全部）。
+    async fn stats_of(app: &axum::Router, lesson_id: Option<&str>) -> Value {
+        let uri = match lesson_id {
+            Some(id) => format!("/api/v1/language/shadow/stats?lessonId={id}"),
+            None => "/api/v1/language/shadow/stats".to_string(),
+        };
+        let (status, body) = request(app, &uri).await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        body
     }
 
     #[tokio::test]

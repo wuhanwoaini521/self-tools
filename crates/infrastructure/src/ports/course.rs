@@ -6,7 +6,7 @@ use std::sync::Arc;
 use devtoolbox_application::language::CourseStorePort;
 use devtoolbox_core::language::{
     BookSummary, Course, CourseBook, CourseLesson, LearningPlan, LessonListEntry, LessonProgress,
-    LessonSentence, LessonVocab, WordEntry, WordOccurrence,
+    LessonSentence, LessonVocab, ShadowAttempt, WordEntry, WordOccurrence,
 };
 use parking_lot::Mutex;
 
@@ -138,5 +138,17 @@ impl CourseStorePort for CourseStoreAdapter {
 
     fn lesson_title_search(&self, query: &str, limit: usize) -> Result<Vec<CourseLesson>, String> {
         map(self.store.lock().lesson_title_search(query, limit))
+    }
+
+    fn insert_shadow_attempt(&self, attempt: &ShadowAttempt) -> Result<(), String> {
+        map(self.store.lock().insert_shadow_attempt(attempt))
+    }
+
+    fn shadow_attempts(
+        &self,
+        lesson_id: Option<&str>,
+        limit: usize,
+    ) -> Result<Vec<ShadowAttempt>, String> {
+        map(self.store.lock().shadow_attempts(lesson_id, limit))
     }
 }

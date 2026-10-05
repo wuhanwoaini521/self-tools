@@ -212,6 +212,8 @@ async fn main() -> ExitCode {
     });
     // 学习板：同一份用例（桌面端命令也用它），同一份 config/study_boards.db。
     let study_board = Arc::clone(&core.study_board);
+    // 跟读发音评分：与课程读写同一个 language.db。
+    let speaking = Arc::clone(&core.speaking);
 
     let app = routes::router(
         Arc::new(service),
@@ -233,6 +235,7 @@ async fn main() -> ExitCode {
         news,
         news_ingest,
         study_board,
+        speaking,
     );
     info!(
         bind = %config.bind,
