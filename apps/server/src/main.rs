@@ -14,6 +14,7 @@ mod learning_api;
 mod news_api;
 mod readiness_api;
 mod routes;
+mod study_board_api;
 mod travel_api;
 
 use std::net::SocketAddr;
@@ -209,6 +210,8 @@ async fn main() -> ExitCode {
         registry: Arc::clone(&core.travel_registry),
         settings_loader: Arc::clone(&core.settings_loader),
     });
+    // 学习板：同一份用例（桌面端命令也用它），同一份 config/study_boards.db。
+    let study_board = Arc::clone(&core.study_board);
 
     let app = routes::router(
         Arc::new(service),
@@ -229,6 +232,7 @@ async fn main() -> ExitCode {
         geography,
         news,
         news_ingest,
+        study_board,
     );
     info!(
         bind = %config.bind,

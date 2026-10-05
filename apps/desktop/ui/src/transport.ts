@@ -219,6 +219,11 @@ const HTTP_ENDPOINTS: Record<string, (args: Record<string, unknown>) => string> 
   geography_detail: (a) =>
     `/api/v1/geography/entities/${encodeURIComponent(String(a.id ?? ""))}`,
 
+  // ---- 学习板：同一份用例、同一份 study_boards.db（此前只写 localStorage）----
+  study_board_list: (a) =>
+    `/api/v1/study-boards?limit=${encodeURIComponent(String(a.limit ?? 20))}`,
+  study_board_get: (a) =>
+    `/api/v1/study-boards/${encodeURIComponent(String(a.boardId ?? ""))}`,
 };
 
 /** 写操作：POST + JSON body。 */
@@ -268,6 +273,9 @@ const HTTP_POST_ENDPOINTS: Record<
   geography_toggle_favorite: () => "/api/v1/geography/favorite",
   news_remove_source: (a) =>
     `/api/v1/news/sources/${encodeURIComponent(String(a.sourceId))}/remove`,
+  study_board_save: () => "/api/v1/study-boards",
+  study_board_snapshot: (a) =>
+    `/api/v1/study-boards/${encodeURIComponent(String(a.boardId ?? ""))}/snapshots`,
 };
 
 /** 服务端错误体的可能形状（与 `apps/server` 的错误契约一致）。 */

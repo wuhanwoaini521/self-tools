@@ -14,6 +14,7 @@ use devtoolbox_application::language::{LanguageService, LanguageStorePort};
 use devtoolbox_application::learning::{LearningService, LearningStorePort};
 use devtoolbox_application::news::{NewsIngestPort, NewsPort, NewsService};
 use devtoolbox_application::rss::RssRepositoryPort;
+use devtoolbox_application::study_board::{StudyBoardService, StudyBoardStorePort};
 use devtoolbox_application::travel::TravelAiPort;
 use devtoolbox_application::travel::session::TravelSessionRegistry;
 use devtoolbox_application::workflows::ports::SettingsStorePort;
@@ -24,12 +25,13 @@ use devtoolbox_infrastructure::history::HistoryDuckDbRepository;
 use devtoolbox_infrastructure::knowledge_runtime::KnowledgeRuntime;
 use devtoolbox_infrastructure::language::LanguageStore;
 use devtoolbox_infrastructure::news_store::NewsRepository;
+use devtoolbox_infrastructure::study_board::StudyBoardSqliteStore;
 use devtoolbox_infrastructure::travel::TravelStore;
 use devtoolbox_infrastructure::{FeedRepository, GeographyStore, LearningStore, feed_client};
 
 use crate::composition::{
     CourseStoreAdapter, GeographyQueryAdapter, LanguageStoreAdapter, NewsRepositoryAdapter,
-    RssRepositoryAdapter, SettingsStoreAdapter,
+    RssRepositoryAdapter, SettingsStoreAdapter, StudyBoardStoreAdapter,
 };
 use crate::history_enrichment::{self, SettingsLoader};
 use crate::history_query::HistoryQueryAdapter;
@@ -68,6 +70,11 @@ pub struct AppCore {
     pub news_ingest: Arc<dyn NewsIngestPort>,
     pub knowledge: Arc<KnowledgeRuntime>,
     pub server: Arc<ServerRuntime>,
+    /// 学习板存储端口（`config/study_boards.db`）：agent 工具、桌面命令与网页端
+    /// 共用同一份 —— 此前学习板只存在于浏览器 localStorage，换设备就没了。
+    pub study_board_store: Arc<dyn StudyBoardStorePort>,
+    /// 学习板用例服务（列表 / 读取 / 幂等保存 / 快照登记）。
+    pub study_board: Arc<StudyBoardService>,
 }
 
 impl AppCore {
@@ -196,6 +203,19 @@ impl AppCore {
                 .expect("empty server runtime")
             });
 
+        // 学习板：存不住就退到内存库并说明原因，绝不静默丢数据。
+        let study_board_store: Arc<dyn StudyBoardStorePort> =
+            Arc::new(StudyBoardStoreAdapter::new(Arc::new(
+                StudyBoardSqliteStore::open(config_dir.join("study_boards.db")).unwrap_or_else(
+                    |error| {
+                        eprintln!("[study-board] store unavailable: {error}");
+                        StudyBoardSqliteStore::open_in_memory()
+                            .expect("in-memory study board store")
+                    },
+                ),
+            )));
+        let study_board = Arc::new(StudyBoardService::new(Arc::clone(&study_board_store)));
+
         // 供两端复用的学习视图语言 / AI 装配（未配置时 None，不编造）。
         let _ = current_settings;
 
@@ -225,6 +245,8 @@ impl AppCore {
             news_ingest,
             knowledge,
             server: Arc::new(server),
+            study_board_store,
+            study_board,
         })
     }
 }

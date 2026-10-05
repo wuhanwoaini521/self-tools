@@ -12,7 +12,7 @@
 | 3 | History | `#history` | 时间轴 / 时期 / 人物 / 事件 | duckdb | ✅ | 7 个 Rust | — |
 | 4 | Geography | `#geography` | 地图 / 地形 / 3D | geography.db | ❌ | 无 | 数据仅 14 条示例；Web 端搜索走 12 条 fallback |
 | 5 | Language | `#language` | 学习卡片 / 课程 / 复习 / 错题 | language.db + learning.db | ✅ | 8 个 E2E | — |
-| 6 | Study Board | `#study-board` | 手写板 | **localStorage** | ❌ | 无 | **后端存在但未接通** |
+| 6 | Study Board | `#study-board` | 手写板 / 笔刷 | `study_boards.db` | ✅ | 5 个 server + 5 前端 | — |
 | 7 | News | `#news` | 今日 / 分类 / 搜索 | news.db | ✅ | 14 个 server | 推荐源恒空（11 条用尽） |
 | 8 | RSS | `#rss` | 订阅 / 阅读 | rss | ❌ | 无 | `rss_*` 无 HTTP 映射 |
 | 9 | Travel | `#travel` | 城市探索 / AI 行程 | travel.db | ❌ | 无 | `travel_*` 无映射；AI 未配 |
@@ -45,14 +45,16 @@
 | History / News / AI / Settings | Web 端 `isTauriRuntime` 早退 + 内部错误串泄漏 | ✅ |
 | Learning OS | 8 个 client 未迁移 + 无 HTTP 端点 | ✅ |
 | Markdown | 原生对话框失败静默 | ✅ |
+| Study Board | 笔迹只存 localStorage，网页端与 AI 各存各的 | ✅ |
+| Study Board | 列表笔画数恒为 0（SQLite 层硬编码） | ✅ |
 | Travel | 主按钮失色 / 图标被撑成巨幅 | ✅ |
 | 设计系统 | Pixel-Lift 硬阴影 + 结构 token 分散在 4 个主题 | ✅ |
 
 ## 未修复（按影响）
 
-1. **~50 个命令无 HTTP 映射** → Knowledge(21) / Geography(4) / Travel(4) /
-   RSS / Server / Conversation(6) / History enrichment(5) 在 Web 端是空壳
+1. **~50 个命令无 HTTP 映射** → Geography(4) / RSS / Server / Conversation(6) /
+   History enrichment(5) 在 Web 端是空壳（Learning / Language / News / Travel /
+   Knowledge / Study Board 已接）
 2. `SystemReadinessPage` 无后端、假报告
-3. `StudyBoardPage` 用 localStorage
-4. Geography 数据仅 14 条示例（Web 端搜索走 fallback，非真实库）
-5. 未在真实 Tauri 宿主中验证
+3. Geography 数据仅 14 条示例（Web 端搜索走 fallback，非真实库）
+4. 未在真实 Tauri 宿主中验证

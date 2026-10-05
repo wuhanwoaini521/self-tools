@@ -294,6 +294,7 @@ Tauri command
 | Travel 缓存 | `config/travel.db` | TravelStore | 用户数据（读写） |
 | Language | `config/language.db` | LanguageStore | 用户数据 + 导入（读写） |
 | Geography | `config/geography.db` | GeographyStore（经 adapter 注入） | 用户数据（读写） |
+| **学习板**（笔迹 + 快照） | `config/study_boards.db` | infra StudyBoardSqliteStore（经 adapter 注入） | 用户私有数据（读写；不进日志/记忆） |
 | **History** | `history-data-pipeline/dist/history.duckdb` | lib.rs setup 只读 | **只读知识库唯一事实源** |
 
 `config/` 被 `.gitignore` 忽略；每域一个 Source of Truth。

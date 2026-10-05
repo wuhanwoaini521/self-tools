@@ -102,7 +102,7 @@
 ## Phase 7 跨模块流程结果
 
 | Flow | 结果 |
-|---|---|
+| --- | --- |
 | A Dashboard → Language → Lesson → 学词 → 进度 | 6/6 PASS |
 | B AI 未配置时诚实告知 | 1/1 PASS |
 | C News 列表 → 打开详情 | 2/2 PASS |
@@ -130,3 +130,17 @@
 | News 源站图床 | BBC CDN 图片地址已失效（真实 404）。已加 6s 超时兜底，不再泄漏 `<img>`；但图片本身拿不到。 |
 | Server 页网页端 | 显示「浏览器预览不支持家庭服务器，请在桌面端使用」——诚实声明，非空白页。 |
 | macOS GUI 自动化 | WKWebView 无法被 Playwright 驱动（safaridriver 需交互式授权会挂起）。桌面端验证采用「真实二进制启动 + 屏幕截图 + Rust 层命令测试」。 |
+
+---
+
+## Phase 8：学习板持久化（Study Board）
+
+| 发现 | 处理 |
+|---|---|
+| 画板笔迹只存浏览器 `localStorage`：换浏览器/清缓存就没，网页端与桌面端各存各的 | ✅ 新增 `StudyBoardService` 用例，桌面命令 + HTTP 端点共用，数据落 `config/study_boards.db`；旧 localStorage 数据首次进入画板时自动导入并清掉本地副本 |
+| AI 看到的 `study-board.list` 与用户眼前那块板不是同一块 | ✅ 工具层改为调用同一份用例（`personal_ai::study_board` → `StudyBoardService`），ToolResult 形状、文本与错误 reason 均未变（28 个既有测试全通过） |
+| 列表里每块板的笔画数恒为 0 | ✅ `StudyBoardSqliteStore::list_boards` 曾硬编码 `stroke_count: 0`（列表页显示「0 笔」但打开有笔），改为由 strokes 文本现算 + 回归测试 |
+
+验证：Rust 全量测试通过（含 5 个新 HTTP 黑盒用例）、clippy 零警告、
+前端 71 passed、`tsc --noEmit` 通过；真实起 server 用 curl 走完
+save → list → get → snapshot 往返，非法 id 400 / 不存在 404。

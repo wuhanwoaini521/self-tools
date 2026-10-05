@@ -149,7 +149,9 @@ impl StudyBoardSqliteStore {
 
     /// 学习板列表（`updated_at` 倒序）。`limit` 被夹到 `[1, 200]`。
     ///
-    /// 只返回元数据摘要，**不含** `strokes`（笔迹正文只在显式 `get_board` 时返回）。
+    /// 只返回元数据摘要，**不含** `strokes`（笔迹正文只在显式 `get_board` 时返回）；
+    /// `stroke_count` 由 strokes 文本现算 —— 列里不存冗余计数，避免与正文不一致
+    /// （列表页「N 笔」显示 0 但打开明明有笔，是这里曾经硬编码 0 造成的）。
     pub fn list_boards(&self, limit: usize) -> Result<Vec<StudyBoardSummary>, InfrastructureError> {
         let limit = i64::try_from(limit)
             .unwrap_or(MAX_LIST_LIMIT)
@@ -157,19 +159,22 @@ impl StudyBoardSqliteStore {
         let connection = self.connection.lock();
         let mut statement = connection
             .prepare(
-                "SELECT id, title, module_origin, created_at, updated_at
+                "SELECT id, title, strokes, module_origin, created_at, updated_at
                  FROM boards ORDER BY updated_at DESC LIMIT ?1",
             )
             .map_err(sqlite)?;
         let rows = statement
             .query_map(params![limit], |row| {
+                let strokes_raw: String = row.get(2)?;
+                let strokes: serde_json::Value =
+                    serde_json::from_str(&strokes_raw).unwrap_or_default();
                 Ok(StudyBoardSummary {
                     id: row.get(0)?,
                     title: row.get(1)?,
-                    module_origin: row.get(2)?,
-                    created_at: row.get(3)?,
-                    updated_at: row.get(4)?,
-                    stroke_count: 0,
+                    module_origin: row.get(3)?,
+                    created_at: row.get(4)?,
+                    updated_at: row.get(5)?,
+                    stroke_count: devtoolbox_core::study_board::stroke_count(&strokes),
                 })
             })
             .map_err(sqlite)?;
@@ -463,6 +468,39 @@ mod tests {
         assert!(!rendered.contains("points"));
         assert_eq!(store.list_boards(0).unwrap().len(), 1, "limit 下限 1");
         assert_eq!(store.list_boards(10_000).unwrap().len(), 3);
+    }
+
+    #[test]
+    fn list_reports_real_stroke_count() {
+        // 回归：列表里的笔画数曾经硬编码 0 —— 列表页显示「0 笔」，
+        // 打开却有笔，用户以为保存丢了。
+        let store = StudyBoardSqliteStore::open_in_memory().unwrap();
+        store.upsert_board(&board("b-1", "一筆", 1_000)).unwrap();
+        store
+            .upsert_board(&StudyBoard::new(
+                "b-2",
+                "三笔",
+                json!({"strokes": [{"points": [[0, 0]]}, {"points": [[1, 1]]}, {"points": [[2, 2]]}]}),
+                2_000,
+                "history",
+            ))
+            .unwrap();
+        store
+            .upsert_board(&StudyBoard::new(
+                "b-3",
+                "空板",
+                json!({"strokes": []}),
+                3_000,
+                "history",
+            ))
+            .unwrap();
+
+        let items = store.list_boards(10).unwrap();
+        let counts: Vec<(&str, usize)> = items
+            .iter()
+            .map(|item| (item.id.as_str(), item.stroke_count))
+            .collect();
+        assert_eq!(counts, vec![("b-3", 0), ("b-2", 3), ("b-1", 1)]);
     }
 
     #[test]

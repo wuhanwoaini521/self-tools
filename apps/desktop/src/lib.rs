@@ -34,6 +34,8 @@ pub mod readiness;
 // V7：Home Server 组合根（平台适配器 + 注册表 + 安全动作层）。
 // V11：Personal Learning OS 适配器与命令
 pub mod learning;
+// V11：学习板（画板）持久化命令 —— 与 agent 工具、网页端共用同一份用例。
+pub mod study_board;
 
 // lib 已不再直接使用 serde_json（History 用例迁入 application）；保留空导入以消除 unused warning。
 use serde::{Deserialize, Serialize};
@@ -156,6 +158,8 @@ pub struct AppState {
     pub news_ingest: Arc<dyn devtoolbox_application::news::NewsIngestPort>,
     /// V11 Learning OS 存储端口（`config/learning.db`）。
     pub learning_store: Arc<dyn devtoolbox_application::learning::LearningStorePort>,
+    /// 学习板用例服务（`config/study_boards.db`）：与 agent 工具、网页端共用。
+    pub study_board: Arc<devtoolbox_application::study_board::StudyBoardService>,
 }
 
 /// 轮询快照（Serialize 给前端；命令契约形状保持不变）。
@@ -2478,6 +2482,11 @@ pub fn run() {
                     }),
                 )),
             );
+            // 前端画板与 AI 工具共用同一份用例（此前画板只往 localStorage 写）。
+            let study_board =
+                Arc::new(devtoolbox_application::study_board::StudyBoardService::new(
+                    Arc::clone(&study_board_store),
+                ));
             // V12 News（ADR-010：独立 bounded context）：
             // - NewsRepository → `config/news.db`（系统 seed + 抓取落地）；
             // - NewsService / NewsIngestService 分别供读写命令与联网命令；
@@ -2555,6 +2564,7 @@ pub fn run() {
                 news,
                 news_ingest,
                 learning_store,
+                study_board,
             });
             Ok(())
         })
@@ -2706,6 +2716,10 @@ pub fn run() {
             learning::learning_get_graph,
             learning::learning_get_explore,
             learning::learning_list_collections,
+            study_board::study_board_list,
+            study_board::study_board_get,
+            study_board::study_board_save,
+            study_board::study_board_snapshot,
             learning::learning_create_collection,
             learning::learning_add_collection_item,
             learning::learning_list_collection_items,

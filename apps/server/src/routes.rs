@@ -64,6 +64,8 @@ pub fn router(
     geography: Arc<devtoolbox_application::geography::GeographyService>,
     news: Arc<devtoolbox_application::news::NewsService>,
     news_ingest: Arc<dyn devtoolbox_application::news::NewsIngestPort>,
+    // 学习板用例服务（与桌面端命令共用；数据在 config/study_boards.db）。
+    study_board: Arc<devtoolbox_application::study_board::StudyBoardService>,
 ) -> Router {
     Router::new()
         .route("/health", get(health))
@@ -401,6 +403,20 @@ pub fn router(
             "/api/v1/news/articles/{id}/read",
             post(crate::news_api::mark_read),
         )
+        // 学习板：此前画板只写浏览器 localStorage —— 换设备就没了，
+        // 而且 AI 看到的板和用户画的板不是同一块。这里接出同一份用例。
+        .route(
+            "/api/v1/study-boards",
+            get(crate::study_board_api::list_boards).post(crate::study_board_api::save_board),
+        )
+        .route(
+            "/api/v1/study-boards/{id}",
+            get(crate::study_board_api::get_board),
+        )
+        .route(
+            "/api/v1/study-boards/{id}/snapshots",
+            post(crate::study_board_api::save_snapshot),
+        )
         .layer(axum::Extension(Arc::clone(&content)))
         .layer(axum::Extension(Arc::clone(&dictionary)))
         .layer(axum::Extension(Arc::clone(&learning)))
@@ -416,6 +432,7 @@ pub fn router(
         .layer(axum::Extension(data_paths))
         .layer(axum::Extension(import_tracker))
         .layer(axum::Extension(Arc::clone(&news_ingest)))
+        .layer(axum::Extension(study_board))
         .layer(axum::Extension(
             None::<Arc<dyn crate::ai_api::AiChatRunner>>,
         ))
@@ -905,6 +922,7 @@ mod tests {
                     devtoolbox_infrastructure::feed_fetcher::feed_client().expect("http client"),
                 ),
             )) as Arc<dyn devtoolbox_application::news::NewsIngestPort>,
+            Arc::clone(&test_core().study_board),
         )
     }
 
@@ -1283,6 +1301,157 @@ mod tests {
     #[tokio::test]
     async fn unknown_route_is_404() {
         let (status, _) = request(&test_router(false), "/api/v1/history/charts").await;
+        assert_eq!(status, StatusCode::NOT_FOUND);
+    }
+
+    // ---- 学习板：网页端画的板与桌面端 / AI 是同一块 ----
+
+    /// 每轮用独立 id，避免与共享测试运行时里的其它用例互相覆盖。
+    fn board_id(tag: &str) -> String {
+        format!("b-test-{tag}-{}", std::process::id())
+    }
+
+    #[tokio::test]
+    async fn study_board_save_then_list_then_get_round_trips_strokes() {
+        let app = test_router(false);
+        let id = board_id("roundtrip");
+        let strokes = serde_json::json!({
+            "strokes": [{"color": "#000", "width": 3, "points": [0, 0, 10, 10]}]
+        });
+
+        let (status, body) = post_json(
+            &app,
+            "/api/v1/study-boards",
+            &serde_json::json!({
+                "board_id": id,
+                "title": "网页端画的板",
+                "strokes": strokes,
+                "module_origin": "study-board",
+            }),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        assert_eq!(body["created"], true);
+        assert_eq!(body["board"]["strokes"], strokes, "笔迹原样存取");
+        assert_eq!(body["board"]["title"], "网页端画的板");
+
+        // 列表里只有元数据（不含笔迹正文）。
+        let (status, list) = request(&app, "/api/v1/study-boards?limit=200").await;
+        assert_eq!(status, StatusCode::OK);
+        let items = list.as_array().expect("array");
+        let item = items
+            .iter()
+            .find(|item| item["id"] == id.as_str())
+            .expect("新建的板在列表里");
+        assert_eq!(item["title"], "网页端画的板");
+        assert_eq!(item["stroke_count"], 1);
+        assert!(item.get("strokes").is_none(), "列表不得回传笔迹正文");
+
+        // 读回：笔迹一致（浏览器刷新后能接着画）。
+        let (status, board) = request(&app, &format!("/api/v1/study-boards/{id}")).await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(board["strokes"], strokes);
+    }
+
+    #[tokio::test]
+    async fn study_board_save_is_idempotent_and_keeps_untouched_fields() {
+        let app = test_router(false);
+        let id = board_id("idempotent");
+        post_json(
+            &app,
+            "/api/v1/study-boards",
+            &serde_json::json!({
+                "board_id": id,
+                "title": "初稿",
+                "strokes": {"strokes": [{"points": [1, 1]}]},
+            }),
+        )
+        .await;
+        // 只改标题：笔迹保留，且不新增第二块板。
+        let (status, body) = post_json(
+            &app,
+            "/api/v1/study-boards",
+            &serde_json::json!({"board_id": id, "title": "定稿"}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        assert_eq!(body["created"], false);
+        assert_eq!(body["board"]["title"], "定稿");
+        assert_eq!(
+            body["board"]["strokes"],
+            serde_json::json!({"strokes": [{"points": [1, 1]}]}),
+            "未给笔迹时保留原笔迹"
+        );
+    }
+
+    #[tokio::test]
+    async fn study_board_unknown_id_is_404_and_injection_shaped_id_is_400() {
+        let app = test_router(false);
+        let (status, body) = request(&app, "/api/v1/study-boards/b-none").await;
+        assert_eq!(status, StatusCode::NOT_FOUND);
+        assert_eq!(body["code"], "not_found");
+
+        let (status, body) = post_json(
+            &app,
+            "/api/v1/study-boards",
+            &serde_json::json!({"board_id": "../etc/passwd", "title": "x"}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+        assert_eq!(body["code"], "invalid");
+    }
+
+    #[tokio::test]
+    async fn study_board_new_without_title_is_400_not_silent_ghost() {
+        let app = test_router(false);
+        let (status, body) = post_json(
+            &app,
+            "/api/v1/study-boards",
+            &serde_json::json!({
+                "board_id": board_id("no-title"),
+                "strokes": {"strokes": []},
+            }),
+        )
+        .await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+        assert!(body["message"].as_str().unwrap().contains("必须提供 title"));
+    }
+
+    #[tokio::test]
+    async fn study_board_snapshot_registers_reference_for_saved_board() {
+        let app = test_router(false);
+        let id = board_id("snapshot");
+        post_json(
+            &app,
+            "/api/v1/study-boards",
+            &serde_json::json!({
+                "board_id": id,
+                "title": "快照板",
+                "strokes": {"strokes": [{"points": [1, 2], "color": "#f00"}]},
+            }),
+        )
+        .await;
+        let (status, body) = post_json(
+            &app,
+            &format!("/api/v1/study-boards/{id}/snapshots"),
+            &serde_json::json!({}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        assert_eq!(body["board_id"], id.as_str());
+        assert_eq!(body["has_png"], false);
+        assert!(
+            !body["strokes_summary"].as_str().unwrap().contains("1, 2"),
+            "摘要不得含坐标"
+        );
+
+        // 未保存的板不能登记快照。
+        let (status, _) = post_json(
+            &app,
+            &format!("/api/v1/study-boards/{}/snapshots", board_id("ghost")),
+            &serde_json::json!({}),
+        )
+        .await;
         assert_eq!(status, StatusCode::NOT_FOUND);
     }
 }

@@ -16,13 +16,9 @@
 
 use std::sync::Arc;
 use std::sync::LazyLock;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use devtoolbox_core::personal_ai::AppContext;
-use devtoolbox_core::study_board::{
-    STUDY_BOARD_MAX_TITLE_CHARS, StudyBoard, StudyBoardSnapshot, StudyBoardSummary,
-    is_valid_board_id, strokes_summary,
-};
+use devtoolbox_core::study_board::{StudyBoardSummary, is_valid_board_id, strokes_summary};
 use devtoolbox_core::{AgentError, ModuleDescriptor, ToolResult, ToolRisk, ToolSpec};
 
 use crate::personal_ai::args::{optional_string, require_string, tool_error, usize_arg};
@@ -30,7 +26,8 @@ use crate::personal_ai::context::{ContextBudget, ContextBundle, ModuleContextPro
 use crate::personal_ai::registry::{
     ModuleRegistration, ModuleRegistry, ToolExecutor, ToolRegistry,
 };
-use crate::study_board::ports::{StudyBoardStoreError, StudyBoardStorePort};
+use crate::study_board::ports::StudyBoardStorePort;
+use crate::study_board::service::{SavedBoard, StudyBoardError, StudyBoardService};
 
 /// 模块 id（descriptor id、ContextProvider id、工具名前缀必须一致）。
 pub const STUDY_BOARD_MODULE_ID: &str = "study-board";
@@ -59,23 +56,27 @@ pub fn study_board_tool_names() -> [&'static str; 4] {
 }
 
 /// Study Board 工具集（一个结构体、四个身份；dispatch 属模块内部实现细节）。
+///
+/// 用例编排在 [`StudyBoardService`]：工具与前端命令共用，行为天然一致。
 pub struct StudyBoardTools {
-    store: Arc<dyn StudyBoardStorePort>,
+    service: StudyBoardService,
 }
 
 impl StudyBoardTools {
     #[must_use]
     pub fn new(store: Arc<dyn StudyBoardStorePort>) -> Self {
-        Self { store }
+        Self {
+            service: StudyBoardService::new(store),
+        }
     }
 
     /// `study-board.list`：学习板元数据列表（不含笔迹正文）。
     fn list(&self, arguments: &serde_json::Value) -> Result<ToolResult, AgentError> {
-        let limit = usize_arg(arguments, "limit").unwrap_or(20).min(200);
+        let limit = usize_arg(arguments, "limit");
         let items = self
-            .store
-            .list_boards(limit)
-            .map_err(|error| tool_error(store_failure("board_list_failed", &error)))?;
+            .service
+            .list(limit)
+            .map_err(|error| tool_failure("study-board.list", error))?;
         let list: Vec<serde_json::Value> = items.iter().map(summary_json).collect();
         let count = list.len();
         Ok(ToolResult::ok_with_metadata(
@@ -89,21 +90,20 @@ impl StudyBoardTools {
     /// `study-board.get`：单块板的元数据 + 有界笔迹摘要（不回传坐标）。
     fn get(&self, arguments: &serde_json::Value) -> Result<ToolResult, AgentError> {
         let board_id = board_id_argument(arguments)?;
-        let board = self
-            .store
-            .get_board(&board_id)
-            .map_err(|error| tool_error(store_failure("board_read_failed", &error)))?;
-        let Some(board) = board else {
+        let Some(board) = self
+            .service
+            .get(&board_id)
+            .map_err(|error| tool_failure("study-board.get", error))?
+        else {
             return Ok(ToolResult::fail(format!(
                 "学习板「{board_id}」不存在；可先用 study-board.list 查看现有学习板"
             )));
         };
         // 最近快照引用（只读登记，不生成图像）。
         let snapshot_id = self
-            .store
-            .latest_snapshot(&board.id)
-            .map_err(|error| tool_error(store_failure("snapshot_read_failed", &error)))?
-            .map(|snapshot| snapshot.id);
+            .service
+            .latest_snapshot_id(&board.id)
+            .map_err(|error| tool_failure("study-board.get", error))?;
         Ok(ToolResult::ok_with_metadata(
             serde_json::json!({
                 "board_id": board.id,
@@ -137,57 +137,12 @@ impl StudyBoardTools {
             None => None,
         };
         let module_origin = optional_string(arguments, "module_origin");
-        let now = now_unix();
 
-        if title.is_none() && strokes.is_none() {
-            return Err(AgentError::tool_invalid_argument(
-                "study-board.save: 至少提供 title 或 strokes 之一",
-            ));
-        }
-        if let Some(title) = &title
-            && title.chars().count() > STUDY_BOARD_MAX_TITLE_CHARS
-        {
-            return Err(AgentError::tool_invalid_argument(format!(
-                "study-board.save: title 超过 {STUDY_BOARD_MAX_TITLE_CHARS} 字符"
-            )));
-        }
-
-        let existing = self
-            .store
-            .get_board(&board_id)
-            .map_err(|error| tool_error(store_failure("board_read_failed", &error)))?;
-        let (board, created) = match existing {
-            Some(mut board) => {
-                board.update(title, strokes, now);
-                if let Some(origin) = module_origin {
-                    board.module_origin = origin;
-                }
-                (board, false)
-            }
-            None => {
-                // 新板必须有标题（不能创建无标题板）。
-                let Some(title) = title else {
-                    return Err(AgentError::tool_invalid_argument(format!(
-                        "study-board.save: 新学习板「{board_id}」必须提供 title"
-                    )));
-                };
-                let strokes = strokes.unwrap_or_else(|| serde_json::json!({"strokes": []}));
-                (
-                    StudyBoard::new(
-                        board_id,
-                        title,
-                        strokes,
-                        now,
-                        module_origin.unwrap_or_default(),
-                    ),
-                    true,
-                )
-            }
-        };
-
-        self.store
-            .upsert_board(&board)
-            .map_err(|error| tool_error(store_failure("board_save_failed", &error)))?;
+        let saved = self
+            .service
+            .save(&board_id, title, strokes, module_origin)
+            .map_err(|error| tool_failure("study-board.save", error))?;
+        let SavedBoard { board, created } = saved;
         Ok(ToolResult::ok_with_metadata(
             serde_json::json!({
                 "board_id": board.id,
@@ -215,42 +170,32 @@ impl StudyBoardTools {
     /// 返回的 `data.kind == "board_snapshot"` 就是快照内容部件引用。
     fn snapshot(&self, arguments: &serde_json::Value) -> Result<ToolResult, AgentError> {
         let board_id = board_id_argument(arguments)?;
-        let board = self
-            .store
-            .get_board(&board_id)
-            .map_err(|error| tool_error(store_failure("board_read_failed", &error)))?;
-        let Some(board) = board else {
-            return Ok(ToolResult::fail(format!(
-                "学习板「{board_id}」不存在，无法登记快照"
-            )));
-        };
         let png_base64 = optional_string(arguments, "png_base64");
-        let summary = strokes_summary(&board.strokes);
-        let snapshot = StudyBoardSnapshot::new(
-            new_id("snap"),
-            &board.id,
-            &board.title,
-            png_base64,
-            summary.clone(),
-            now_unix(),
-        );
-        self.store
-            .upsert_snapshot(&snapshot)
-            .map_err(|error| tool_error(store_failure("snapshot_save_failed", &error)))?;
+        let snapshot = match self.service.save_snapshot(&board_id, png_base64) {
+            Ok(snapshot) => snapshot,
+            Err(error) if error.is_not_found() => {
+                return Ok(ToolResult::fail(format!(
+                    "学习板「{board_id}」不存在，无法登记快照"
+                )));
+            }
+            Err(error) => return Err(tool_failure("study-board.snapshot", error)),
+        };
+        let summary = snapshot.strokes_summary.clone();
+        let snapshot_title = snapshot.title.clone();
         Ok(ToolResult::ok_with_metadata(
             serde_json::json!({
                 "kind": "board_snapshot",
                 "snapshot_id": snapshot.id,
-                "board_id": board.id,
-                "title": board.title,
+                "board_id": snapshot.board_id,
+                "title": snapshot_title,
                 "strokes_summary": summary,
                 "created_at": snapshot.created_at,
                 "has_png": snapshot.png_base64.is_some(),
             }),
             serde_json::json!({
                 "ui_hint": {"ui_blocks": [key_value_block(
-                    &format!("学习板快照 · {}", board.title),
-                    &[("板", board.title.clone()), ("摘要", summary)],
+                    &format!("学习板快照 · {snapshot_title}"),
+                    &[("板", snapshot_title), ("摘要", summary)],
                 )]}
             }),
         ))
@@ -382,9 +327,11 @@ impl ModuleContextProvider for StudyBoardProviderOwned {
             });
         };
         let page = app_context.page.clone().unwrap_or_default();
-        let loaded = self.tools.store.get_board(&board_id).map_err(|error| {
-            AgentError::context(store_failure("board_read_failed", &error).to_string())
-        })?;
+        let loaded = self
+            .tools
+            .service
+            .get(&board_id)
+            .map_err(|error| AgentError::context(error.to_string()))?;
         match loaded {
             Some(board) => Ok(ContextBundle {
                 module: STUDY_BOARD_MODULE_ID.to_string(),
@@ -465,13 +412,20 @@ fn board_id_argument(arguments: &serde_json::Value) -> Result<String, AgentError
     Ok(board_id)
 }
 
-/// 存储失败 → 应用层错误。`reason` 稳定；文本不含笔迹正文。
+/// 用例错误 → agent 错误。
 ///
-/// 复用 `ApplicationError::Infrastructure`（最接近的既有变体；不新增变体）。
-fn store_failure(reason: &str, error: &StudyBoardStoreError) -> crate::error::ApplicationError {
-    crate::error::ApplicationError::Infrastructure {
-        path: std::path::PathBuf::from("study_board"),
-        message: format!("{reason}: {}", error.0),
+/// - 存储失败：走 `ApplicationError::Infrastructure`（最接近的既有变体），
+///   `reason` 稳定、文本不含笔迹正文；
+/// - 参数不合法：`tool_invalid_argument`（模型改了输入即可重试）。
+fn tool_failure(context: &str, error: StudyBoardError) -> AgentError {
+    match error {
+        StudyBoardError::Store { reason, message } => {
+            tool_error(crate::error::ApplicationError::Infrastructure {
+                path: std::path::PathBuf::from("study_board"),
+                message: format!("{reason}: {message}"),
+            })
+        }
+        other => AgentError::tool_invalid_argument(format!("{context}: {other}")),
     }
 }
 
@@ -504,22 +458,6 @@ fn entity_list_block(title: &str, items: &[serde_json::Value]) -> serde_json::Va
         "title": title,
         "data": {"items": items},
     })
-}
-
-fn now_unix() -> i64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|elapsed| elapsed.as_secs() as i64)
-        .unwrap_or_default()
-}
-
-/// 时间后缀 id（无 crypto 依赖；与 agent 会话 id 同手法）。
-fn new_id(prefix: &str) -> String {
-    let nanos = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|duration| duration.as_nanos())
-        .unwrap_or(0);
-    format!("{prefix}-{:016x}", nanos % u128::from(u64::MAX))
 }
 
 #[cfg(test)]

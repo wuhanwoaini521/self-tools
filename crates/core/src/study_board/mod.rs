@@ -14,5 +14,5 @@ pub mod model;
 pub use model::{
     STROKE_SUMMARY_MAX_CHARS, STUDY_BOARD_MAX_TITLE_CHARS, STUDY_BOARD_MODULE_ID, StudyBoard,
     StudyBoardSnapshot, StudyBoardSummary, bounded_strokes_summary, is_valid_board_id,
-    strokes_summary,
+    stroke_count, strokes_summary,
 };

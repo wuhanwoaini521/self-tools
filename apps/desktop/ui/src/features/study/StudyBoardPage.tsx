@@ -2,8 +2,13 @@
  * Study Board（V11 §107-§114）：平板优先的画写板。
  *
  * P0 能力：Pen / Eraser / Undo / Redo / Clear / Touch / 保存 / 打开。
- * 数据流：Board → strokes（本组件状态 + 后端 StudyBoardStore）
- *         → snapshot（PNG base64）→ BoardSnapshot ContentPart → PersonalAgent。
+ * 数据流：Board → strokes（本组件状态）
+ *         → 后端 StudyBoardService（桌面端 IPC / 网页端 HTTP，同一份 study_boards.db）
+ *         → snapshot（PNG base64）→ PersonalAgent。
+ *
+ * 历史：曾经只写 `localStorage` —— 换浏览器就没了，而且 AI 看到的那块板和
+ * 用户眼前这块不是同一块。现在走后端；旧 localStorage 数据在首次保存时
+ * 一次性导入（见 importLegacyBoard），导入后清掉，避免两边各一份。
  *
  * 隐私：画布内容不上传任何第三方；仅按用户显式操作保存 / 发送。
  */
@@ -19,6 +24,7 @@ import {
 } from "@phosphor-icons/react";
 import type { AppContextPayload } from "../ai/aiTypes";
 import { learningClient } from "../learning/learningClient";
+import { studyBoardClient, type StudyBoardSummary } from "./studyBoardClient";
 import {
   BRUSH_PROFILES,
   BRUSHES,
@@ -30,10 +36,42 @@ import {
   type BrushPoint,
 } from "./brush";
 
-export interface StudyBoardSummary {
-  id: string;
-  title: string;
-  updated_at: number;
+/** 板 id 必须是后端接受的形态（小写英数字与 . _ -，1–64 字符）。 */
+function normalizeBoardId(raw: string): string {
+  const cleaned = raw
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, "-")
+    .replace(/^[^a-z0-9]+/, "")
+    .slice(0, 64);
+  return cleaned || `board-${Date.now().toString(36)}`;
+}
+
+/** 旧版（localStorage 时代）遗留的本地副本。 */
+interface LegacyBoard {
+  title?: string;
+  strokes?: Stroke[];
+}
+
+function readLegacyBoards(): { id: string; payload: LegacyBoard }[] {
+  const out: { id: string; payload: LegacyBoard }[] = [];
+  try {
+    for (let index = 0; index < window.localStorage.length; index += 1) {
+      const key = window.localStorage.key(index);
+      if (!key?.startsWith("study-board:")) continue;
+      try {
+        out.push({
+          id: key.slice("study-board:".length),
+          payload: JSON.parse(window.localStorage.getItem(key) ?? "{}") as LegacyBoard,
+        });
+      } catch {
+        // 损坏的旧数据不值得抢救，直接忽略（用户仍可重新画）。
+      }
+    }
+  } catch {
+    // 无痕模式 / 存储被禁用：没有旧数据可导。
+  }
+  return out;
 }
 
 export interface StudyBoardPageProps {
@@ -151,6 +189,20 @@ export function StudyBoardPage({ active, onContextChange, onAskAi }: StudyBoardP
   const [drawing, setDrawing] = useState(false);
   const [status, setStatus] = useState("");
   const [boards, setBoards] = useState<StudyBoardSummary[]>([]);
+
+  const refreshBoards = useCallback(async () => {
+    const items = await studyBoardClient.list(20).catch(() => [] as StudyBoardSummary[]);
+    setBoards(items);
+  }, []);
+
+  /** 新建一块空板（不丢旧板：旧板已在后端）。 */
+  const newBoard = useCallback(() => {
+    setBoardId(newBoardId());
+    setTitle("未命名学习板");
+    setStrokes([]);
+    setRedoStack([]);
+    setStatus("新板（记得保存）");
+  }, []);
 
   // --- 绘制 ---------------------------------------------------------------
 
@@ -338,47 +390,98 @@ export function StudyBoardPage({ active, onContextChange, onAskAi }: StudyBoardP
     setStatus(image ? "快照已发送（本地处理）" : "画布为空，仅发送了文字");
   }, [onAskAi, snapshot]);
 
-  const save = useCallback(() => {
-    // 本地优先：后端 Conversation/StudyBoardStore 未接通前保存到 localStorage，
-    // 接通后由组合根替换（V11 §109：不能只存在浏览器内存 —— 这里至少跨会话存活，
-    // 真正的持久化解在 StudyBoardSqliteStore + desktop 命令）。
+  const save = useCallback(async () => {
+    const id = normalizeBoardId(boardId);
     try {
-      const payload = JSON.stringify({ boardId, title, strokes, updated_at: Date.now() });
-      window.localStorage.setItem(`study-board:${boardId}`, payload);
-      setBoards((current) => {
-        const others = current.filter((board) => board.id !== boardId);
-        return [{ id: boardId, title, updated_at: Date.now() }, ...others].slice(0, 20);
+      const result = await studyBoardClient.save({
+        boardId: id,
+        title: title.trim() || "未命名学习板",
+        strokes: { strokes },
+        moduleOrigin: "study-board",
       });
+      if (id !== boardId) setBoardId(id);
+      setStatus(result.created ? "已创建并保存" : "已保存");
       void learningClient.recordEvent({
         module: "study",
         entity_type: "board",
-        entity_id: boardId,
+        entity_id: id,
         entity_title: title || "研习画板",
         action: "study",
       });
-      setStatus("已保存到本地");
+      void refreshBoards();
     } catch (error) {
-      setStatus(`保存失败：${String(error)}`);
+      // 诚实告知：没保存成功就是没保存成功（不假装存到本地）。
+      setStatus(`保存失败：${error instanceof Error ? error.message : String(error)}`);
     }
-  }, [boardId, strokes, title]);
+  }, [boardId, refreshBoards, strokes, title]);
 
-  const open = useCallback((id: string) => {
+  const open = useCallback(async (id: string) => {
     try {
-      const raw = window.localStorage.getItem(`study-board:${id}`);
-      if (!raw) {
-        setStatus("本地没有这块板");
+      const board = await studyBoardClient.get(normalizeBoardId(id));
+      if (!board) {
+        setStatus("后端没有这块板（可能已在另一处删除）");
         return;
       }
-      const parsed = JSON.parse(raw) as { title: string; strokes: Stroke[] };
-      setBoardId(id);
-      setTitle(parsed.title);
-      setStrokes(parsed.strokes ?? []);
+      const loaded = (board.strokes as { strokes?: Stroke[] } | null)?.strokes ?? [];
+      setBoardId(board.id);
+      setTitle(board.title || "未命名学习板");
+      setStrokes(loaded);
       setRedoStack([]);
-      setStatus("已打开");
-    } catch {
-      setStatus("打开失败（本地数据损坏）");
+      setStatus(`已打开「${board.title}」`);
+    } catch (error) {
+      setStatus(`打开失败：${error instanceof Error ? error.message : String(error)}`);
     }
   }, []);
+
+  /**
+   * 旧版只写 localStorage；首次进入时把它们导入后端并清掉本地副本。
+   * 静默迁移会让用户不知道东西去了哪，所以明确报一句。
+   */
+  const importLegacyBoards = useCallback(async (): Promise<number> => {
+    const legacy = readLegacyBoards();
+    let imported = 0;
+    for (const entry of legacy) {
+      const strokes = entry.payload.strokes ?? [];
+      if (strokes.length === 0) continue;
+      try {
+        await studyBoardClient.save({
+          boardId: normalizeBoardId(entry.id),
+          title: entry.payload.title || "未命名学习板",
+          strokes: { strokes },
+          moduleOrigin: "study-board",
+        });
+        imported += 1;
+      } catch {
+        // 单块失败不阻断其它导入；本地副本保留，下次还会试。
+        continue;
+      }
+      try {
+        window.localStorage.removeItem(`study-board:${entry.id}`);
+      } catch {
+        // 存储不可用时忽略。
+      }
+    }
+    return imported;
+  }, []);
+
+  // 打开页面时拉一次板列表（真实后端，不是本地缓存）。
+  useEffect(() => {
+    if (!active) return;
+    let cancelled = false;
+    void (async () => {
+      const imported = await importLegacyBoards().catch(() => 0);
+      const items = await studyBoardClient.list(20).catch((error: unknown) => {
+        setStatus(`学习板列表不可用：${error instanceof Error ? error.message : String(error)}`);
+        return [] as StudyBoardSummary[];
+      });
+      if (cancelled) return;
+      setBoards(items);
+      if (imported > 0) setStatus(`已把浏览器里的 ${imported} 块旧学习板导入本机存储`);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [active, importLegacyBoards]);
 
   const toolButtons = useMemo(
     () => (
@@ -465,7 +568,10 @@ export function StudyBoardPage({ active, onContextChange, onAskAi }: StudyBoardP
           </button>
         </div>
         <div className="study-toolbar-group study-toolbar-right" role="group" aria-label="操作">
-          <button type="button" onClick={save} title="保存">
+          <button type="button" onClick={newBoard} title="新建一块学习板">
+            新建
+          </button>
+          <button type="button" onClick={() => void save()} title="保存">
             保存
           </button>
           <button type="button" onClick={askAi} className="study-ask" title="问 AI">
@@ -475,7 +581,7 @@ export function StudyBoardPage({ active, onContextChange, onAskAi }: StudyBoardP
         </div>
       </div>
     ),
-    [askAi, clear, color, redo, redoStack.length, save, strokes.length, tool, undo],
+    [askAi, clear, color, newBoard, redo, redoStack.length, save, strokes.length, tool, undo],
   );
 
   return (
@@ -508,8 +614,8 @@ export function StudyBoardPage({ active, onContextChange, onAskAi }: StudyBoardP
         <ul className="study-recent" aria-label="最近学习板">
           {boards.map((board) => (
             <li key={board.id}>
-              <button type="button" onClick={() => open(board.id)}>
-                {board.title}
+              <button type="button" onClick={() => void open(board.id)} title={`${board.stroke_count} 笔`}>
+                {board.title || "未命名学习板"}
               </button>
             </li>
           ))}
