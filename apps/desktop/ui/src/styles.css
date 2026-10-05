@@ -188,8 +188,8 @@
 /* Pixel Light（现 Soft Minimal）：默认工作区。
    浅灰纸面 + 纯白卡片 + 极轻边框；彩色只出现在状态与主操作上。 */
 :root[data-theme="pixel-light"] {
- --bg: #f6f6f5;
- --panel: #fbfbfb;
+ --bg: #f4f4f3;
+ --panel: #fcfcfc;
  --panel-raised: #ffffff;
  --panel-hover: #f1f1f0;
  --line: #e4e4e7;
@@ -271,12 +271,15 @@
 }
 
 :root[data-theme="warm-editorial"] {
- --bg: #f7f5ef;
- --panel: #faf8f3;
- --panel-raised: #faf8f3;
- --panel-hover: #efeae0;
- --line: #e5e0d7;
- --line-soft: #eae6dc;
+ /* 2026-10-05 修正层次：此前 bg #f7f5ef / panel #faf8f3 / raised #faf8f3 三者只差
+    2–3 个色阶，任何「卡片」在纸面上都看不出来（用户反馈：背景不对劲）。
+    纸面保持暖调，但让「面」真的比「底」亮一档：卡片浮得起来，线也看得见。 */
+ --bg: #f3f0e7;
+ --panel: #fbf9f4;
+ --panel-raised: #fffdf8;
+ --panel-hover: #eee8db;
+ --line: #dcd4c3;
+ --line-soft: #e7e0d0;
  --text: #1e1e1b;
  --muted: #73706a;
  --faint: #a19d94;
@@ -288,14 +291,14 @@
  --scrollbar-thumb: #d8d1c3;
  --scrollbar-thumb-hover: #c3b9a6;
 
- --surface-bar: #faf8f3;
- --surface-control: #faf8f3;
- --surface-panel-deep: #f1eee7;
- --surface-raised: #faf8f3;
- --surface-chip: #f1eee7;
- --surface-sunken: #f7f5ef;
- --surface-overlay: #fbfaf6;
- --surface-overlay-hover: #f1ebdd;
+ --surface-bar: #fbf9f4;
+ --surface-control: #fbf9f4;
+ --surface-panel-deep: #efebe0;
+ --surface-raised: #fffdf8;
+ --surface-chip: #f1ece1;
+ --surface-sunken: #f3f0e7;
+ --surface-overlay: #fffdf8;
+ --surface-overlay-hover: #f2ebda;
 
  --line-strong: #d5cec0;
  --line-hover: #cfc7b6;
@@ -5285,36 +5288,15 @@ kbd {
  * 交互：出场动效仅 opacity + transform，克制不喧宾。
  * ========================================================================== */
 
-/* ---- 模块级局部 token（三个主题作用域）；不修改全局主题 ---- */
-.history-page,
-.history-empty {
- --history-accent: #c9a06a;
- --history-accent-strong: #e2bd8b;
- --history-accent-soft: rgb(201 160 106 / 12%);
- --history-accent-line: rgb(201 160 106 / 38%);
- --history-accent-faint: rgb(201 160 106 / 9%);
-}
-:root[data-theme="pixel-light"] .history-page,
-:root[data-theme="pixel-light"] .history-empty,
-:root[data-theme="warm-editorial"] .history-page,
-:root[data-theme="warm-editorial"] .history-empty {
- --history-accent: #a96500;
- --history-accent-strong: #8f5700;
- --history-accent-soft: rgb(169 101 0 / 10%);
- --history-accent-line: rgb(169 101 0 / 35%);
- --history-accent-faint: rgb(169 101 0 / 7%);
-}
-:root[data-theme="warm-editorial-dark"] .history-page,
-:root[data-theme="warm-editorial-dark"] .history-empty {
- --history-accent: #cd8b26;
- --history-accent-strong: #e0a74c;
- --history-accent-soft: rgb(205 139 38 / 12%);
- --history-accent-line: rgb(205 139 38 / 38%);
- --history-accent-faint: rgb(205 139 38 / 9%);
-}
-
 /* ---- 页面框架 ---- */
 .history-page {
+ /* 模块 accent 跟随全局主题（2026-10-05：此前这里是按主题硬编码的三套值，
+    换主题时 History 纹丝不动）。 */
+ --history-accent: var(--accent);
+ --history-accent-strong: var(--accent-hover);
+ --history-accent-soft: var(--accent-soft);
+ --history-accent-line: color-mix(in srgb, var(--accent) 38%, transparent);
+ --history-accent-faint: color-mix(in srgb, var(--accent) 9%, transparent);
  max-width: 1280px;
  min-height: 100%;
  margin: 0 auto;
@@ -7507,7 +7489,51 @@ kbd {
  * ⑨ 状态与响应式
  * ========================================================================== */
 .history-loading,
+/* 载入 / 错误状态：此前**完全没有样式**，所以「历史数据知识库未就绪」是
+   一段裸文字贴在页面底色上（用户看到的就是「这页坏了」而不是「服务没起来」）。 */
+.history-v2-state {
+ display: grid;
+ place-items: center;
+ align-content: center;
+ gap: var(--space-2);
+ min-height: 60vh;
+ padding: var(--space-6) var(--space-4);
+ color: var(--muted);
+ text-align: center;
+}
+.history-v2-state strong {
+ color: var(--text);
+ font-size: 16px;
+}
+.history-v2-state p {
+ color: var(--muted);
+ font-size: 13px;
+ line-height: 1.6;
+}
+.history-v2-state svg {
+ color: var(--warning, var(--accent));
+}
+.history-v2-spinner {
+ width: 22px;
+ height: 22px;
+ border: 2px solid var(--line);
+ border-top-color: var(--accent);
+ border-radius: 50%;
+ animation: history-v2-spin 0.9s linear infinite;
+}
+@keyframes history-v2-spin {
+ to {
+  transform: rotate(360deg);
+ }
+}
+
 .history-empty {
+ /* 同 .history-page：模块 accent 跟随全局主题（此前是按主题硬编码的三套值）。 */
+ --history-accent: var(--accent);
+ --history-accent-strong: var(--accent-hover);
+ --history-accent-soft: var(--accent-soft);
+ --history-accent-line: color-mix(in srgb, var(--accent) 38%, transparent);
+ --history-accent-faint: color-mix(in srgb, var(--accent) 9%, transparent);
  display: grid;
  place-items: center;
  min-height: 360px;
@@ -9543,51 +9569,50 @@ kbd {
  pointer-events: none;
 }
 
-/* History UI V2：现代历史图谱 / 编辑阅读布局。正式内容由 DuckDB Semantic Query 提供。 */
-.history-v2 {
- /* Period Detail 编辑风配色：暖米白纸面 + 墨黑印刷 + 低饱和青绿（归档/年鉴语汇）。
-     在模块作用域内覆盖全局 token，外壳导航（深色）不受影响。 */
- --history-v2-paper: #f6f2e9;
- --history-v2-panel: #fbf9f2;
- --history-v2-raised: #ffffff;
- --history-v2-ink: #23251f;
- --history-v2-ink-soft: #3c3f36;
- --history-v2-muted: #5c6055;
- --history-v2-faint: #8c9185;
- --history-v2-line: #ddd8cb;
- --history-v2-line-soft: #e9e5da;
- --history-v2-accent: #4e8a83;
- --history-v2-accent-ink: #3c6f69;
- --history-v2-accent-soft: rgb(78 138 131 / 11%);
- --history-v2-ochre: #9a6f38;
- --history-v2-ochre-soft: rgb(154 111 56 / 12%);
+/* History UI V2：现代历史图谱 / 阅读布局。正式内容由 DuckDB Semantic Query 提供。 */
 
- /* 模块内旧规则引用的全局 token → 统一映射到编辑风 */
- --bg: var(--history-v2-paper);
- --panel: var(--history-v2-panel);
- --panel-raised: var(--history-v2-raised);
- --panel-hover: var(--history-v2-panel);
- --line: var(--history-v2-line);
- --line-soft: var(--history-v2-line-soft);
- --text: var(--history-v2-ink);
- --text-bright: var(--history-v2-ink);
- --text-hover: var(--history-v2-accent-ink);
- --text-tree: var(--history-v2-muted);
- --muted: var(--history-v2-muted);
- --faint: var(--history-v2-faint);
- --accent: var(--history-v2-accent);
- --accent-hover: var(--history-v2-accent-ink);
- --accent-soft: var(--history-v2-accent-soft);
- --scrollbar-thumb: #c9c3b4;
- --scrollbar-thumb-hover: #b3ab98;
+/* ---- 模块 token：全部由全局主题派生（2026-10-05 修正）-------------------
+ *
+ * 之前这里把 `--bg` / `--panel` / `--text` / `--accent` **在模块作用域内重新定义**
+ * 成一套固定的「暖米白纸面 + 墨黑 + 青绿」配色。结果是：
+ * - 无论用户选哪套主题，History 永远是米白纸面 —— 换主题时它纹丝不动，
+ *   看起来就像「另一个应用」（用户反馈：背景不对劲）；
+ * - 浅色主题下 `--bg: #f6f2e9` 与 `--panel: #fbf9f2` 只差 3 个色阶，
+ *   卡片和页面底色几乎糊在一起。
+ *
+ * 现在规则很简单：**History 不再有自己的配色**，只用全局 token；
+ * 布局里的层次靠 `--line` / `--panel` / `--panel-raised` 表达。
+ * 下面这组变量保留是为了不动那几百条已有规则的名字。
+ * --------------------------------------------------------------------- */
+.history-v2 {
+ --history-v2-paper: var(--bg);
+ --history-v2-panel: var(--panel);
+ --history-v2-raised: var(--panel-raised);
+ --history-v2-ink: var(--text);
+ --history-v2-ink-soft: var(--text);
+ --history-v2-muted: var(--muted);
+ --history-v2-faint: var(--faint);
+ --history-v2-line: var(--line);
+ --history-v2-line-soft: var(--line-soft);
+ --history-v2-accent: var(--accent);
+ --history-v2-accent-ink: var(--accent-hover);
+ --history-v2-accent-soft: var(--accent-soft);
+ --history-v2-ochre: var(--warning, var(--accent));
+ --history-v2-ochre-soft: color-mix(in srgb, var(--accent) 12%, transparent);
 
  position: relative;
  min-height: 100%;
  padding: 30px clamp(24px, 4vw, 64px) 70px;
  color: var(--history-v2-ink);
- background:
-  radial-gradient(circle at 82% 7%, rgb(126 180 170 / 5%), transparent 32%),
-  var(--bg);
+ background: var(--bg);
+}
+/* 时间轴竖线与年份点：低饱和 accent，不再用固定青绿。 */
+.history-v2 {
+ --history-accent: var(--accent);
+ --history-accent-strong: var(--accent-hover);
+ --history-accent-soft: var(--accent-soft);
+ --history-accent-line: color-mix(in srgb, var(--accent) 38%, transparent);
+ --history-accent-faint: color-mix(in srgb, var(--accent) 9%, transparent);
 }
 .history-v2-header {
  display: flex;
@@ -9814,7 +9839,7 @@ main.history-v2-period {
 .history-v2-era-neighbor strong {
  overflow: hidden;
  color: var(--history-v2-ink);
- font-family: Georgia, "Songti SC", "Noto Serif SC", "SimSun", serif;
+ font-family: var(--font-sans);
  font-size: clamp(20px, 2.2vw, 27px);
  font-weight: 500;
  text-overflow: ellipsis;
@@ -9846,7 +9871,7 @@ main.history-v2-period {
 }
 .history-v2-era-current strong {
  color: var(--history-v2-ink);
- font-family: Georgia, "Songti SC", "Noto Serif SC", "SimSun", serif;
+ font-family: var(--font-sans);
  font-size: clamp(30px, 3.4vw, 42px);
  font-weight: 500;
  letter-spacing: 0.01em;
@@ -9904,7 +9929,7 @@ main.history-v2-period {
   background-color 0.2s ease;
 }
 .history-v2-era-chip strong {
- font-family: Georgia, "Songti SC", "Noto Serif SC", "SimSun", serif;
+ font-family: var(--font-sans);
  font-size: 15px;
  font-weight: 500;
  color: var(--history-v2-ink);
@@ -9933,7 +9958,7 @@ main.history-v2-period {
 .history-v2-period-title h1 {
  margin: 12px 0 8px;
  color: var(--history-v2-ink);
- font-family: Georgia, "Songti SC", "Noto Serif SC", "SimSun", serif;
+ font-family: var(--font-sans);
  font-size: clamp(46px, 6vw, 76px);
  font-weight: 500;
  letter-spacing: -0.02em;
@@ -9942,7 +9967,7 @@ main.history-v2-period {
 .history-v2-period-range {
  margin: 0;
  color: var(--history-v2-accent-ink);
- font-family: Georgia, "Songti SC", "Noto Serif SC", "SimSun", serif;
+ font-family: var(--font-sans);
  font-size: clamp(18px, 2vw, 24px);
 }
 .history-v2-period-context {
@@ -9951,7 +9976,7 @@ main.history-v2-period {
 .history-v2-period-intro {
  margin: 0 0 12px;
  color: var(--history-v2-ink-soft);
- font-family: Georgia, "Songti SC", "Noto Serif SC", "SimSun", serif;
+ font-family: var(--font-sans);
  font-size: clamp(16px, 1.7vw, 19px);
  line-height: 1.85;
 }
@@ -10057,7 +10082,7 @@ main.history-v2-period {
 }
 .history-v2-stage-title strong {
  color: var(--history-v2-ink);
- font-family: Georgia, "Songti SC", "Noto Serif SC", "SimSun", serif;
+ font-family: var(--font-sans);
  font-size: clamp(21px, 2.4vw, 30px);
  font-weight: 500;
  letter-spacing: 0.01em;
@@ -10190,7 +10215,7 @@ main.history-v2-period {
  gap: 10px;
  flex-wrap: wrap;
  color: var(--history-v2-ink);
- font-family: Georgia, "Songti SC", "Noto Serif SC", "SimSun", serif;
+ font-family: var(--font-sans);
  font-size: clamp(22px, 2.5vw, 30px);
  font-weight: 500;
  letter-spacing: 0.01em;
@@ -10287,7 +10312,7 @@ main.history-v2-period {
 }
 .history-v2-person-copy strong {
  color: var(--history-v2-ink);
- font-family: Georgia, "Songti SC", "Noto Serif SC", "SimSun", serif;
+ font-family: var(--font-sans);
  font-size: 20px;
  font-weight: 500;
 }
@@ -10363,7 +10388,7 @@ main.history-v2-period {
  gap: 8px;
  align-items: baseline;
  color: var(--history-v2-ink);
- font-family: Georgia, "Songti SC", "Noto Serif SC", "SimSun", serif;
+ font-family: var(--font-sans);
  font-size: 15px;
 }
 .history-v2-regime-name i {
@@ -10485,7 +10510,9 @@ main.history-v2-period {
  gap: 14px;
  align-items: center;
  padding: 20px 0 12px;
- border-top: 1px solid var(--history-v2-ink);
+ /* 分隔线用主题的 line，而不是「墨色」：深色主题下墨色 ≈ 白，
+    会变成一条刺眼的白线（此前固定纸面配色时才成立）。 */
+ border-top: 1px solid var(--history-v2-line);
  scroll-margin-top: 70px;
 }
 .history-v2-chapter-mark {
@@ -10520,7 +10547,7 @@ main.history-v2-period {
  max-width: 58%;
  overflow: hidden;
  color: var(--history-v2-muted);
- font-family: Georgia, "Songti SC", "Noto Serif SC", "SimSun", serif;
+ font-family: var(--font-sans);
  font-size: 12.5px;
  text-overflow: ellipsis;
  white-space: nowrap;
@@ -10589,7 +10616,7 @@ main.history-v2-period {
  gap: 9px;
  flex-wrap: wrap;
  color: var(--history-v2-ink);
- font-family: Georgia, "Songti SC", "Noto Serif SC", "SimSun", serif;
+ font-family: var(--font-sans);
  font-size: 17.5px;
  font-weight: 500;
  letter-spacing: 0.01em;
@@ -10697,7 +10724,7 @@ main.history-v2-period {
 }
 .history-v2-story-card h3 {
  margin: 5px 0 8px;
- font-family: Georgia, "Songti SC", "Noto Serif SC", "SimSun", serif;
+ font-family: var(--font-sans);
  font-size: clamp(21px, 2vw, 29px);
  font-weight: 500;
 }

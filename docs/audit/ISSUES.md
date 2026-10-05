@@ -174,3 +174,69 @@ save → list → get → snapshot 往返，非法 id 400 / 不存在 404。
   新目录里已验证的源（`OUTDATED_SEED_SOURCES`），并把停更源标记为已停用。
 - 迁移先做**只读检查**再写：没有待修行时完全不碰写锁（否则桌面端与网页端同时
   开着会撞 SQLITE_BUSY）。
+
+
+---
+
+## Phase 10：History 页面「不像这个应用」（2026-10-05）
+
+用户反馈：**「这 UI 有问题，字体背景不对劲」**（附 History 时期详情截图）。
+
+### 根因一：History V2 有自己的一套配色，完全无视主题
+
+`.history-v2` 在**模块作用域内重新定义**了全局 token：
+
+```css
+.history-v2 {
+  --history-v2-paper: #f6f2e9;   /* 暖米白纸面 */
+  --history-v2-ink:   #23251f;   /* 墨黑 */
+  --history-v2-accent: #4e8a83;  /* 低饱和青绿 */
+  /* 然后把 --bg / --panel / --text / --accent 全指向自己 */
+  --bg: var(--history-v2-paper);
+  --text: var(--history-v2-ink);
+  …
+}
+```
+
+后果：
+- **换主题时 History 纹丝不动** —— 无论选 pixel-light / warm-editorial / nord /
+  catppuccin / 深色，它永远是那张米白纸面，看起来像「另一个应用」；
+- 浅色主题下 `--bg #f6f2e9` 与 `--panel #fbf9f2` 只差 3 个色阶 → **卡片和页面底色
+  糊成一片**（实测人物卡 `#faf8f3` 落在 `#f7f5ef` 上，肉眼几乎看不出边界）；
+- 深色主题更糟：米白纸面 + 浅色文字的组合基本不可读。
+
+### 根因二：13 处硬编码衬线字体
+
+`.history-v2-*` 的标题与专名用
+`font-family: Georgia, "Songti SC", "Noto Serif SC", "SimSun", serif`，
+而全应用是 `var(--font-sans)`（Manrope + 系统无衬线）—— 换到 History 就换了一套字体。
+
+### 改动
+
+1. **History 不再有自己的配色**：`--history-v2-*` 全部由全局 token 派生
+   （`--bg` / `--panel` / `--text` / `--accent` / `--line`…），
+   并删掉那三段「按主题硬编码 accent」的覆盖块；`.history-page` / `.history-empty`
+   同样改为从 `--accent` 派生。**换主题，History 跟着换。**
+2. **13 处衬线栈 → `var(--font-sans)`**（层次靠字号/字重，不再靠字体家族）。
+3. **章节标题的分隔线**从「墨色」改为 `--line`：深色主题下墨色≈白，会变成刺眼白线。
+4. **两个浅色主题补回层次**（这是「背景不对劲」的第二层原因）：
+   - `warm-editorial`：`bg #f7f5ef → #f3f0e7`，`panel → #fbf9f4`，
+     `panel-raised → #fffdf8`，`line → #dcd4c3`（此前三者只差 2–3 色阶）；
+   - `pixel-light`：`bg → #f4f4f3`，`panel → #fcfcfc`。
+5. **顺手补上 `.history-v2-state` 的样式**（载入 / 错误态此前**完全没有 CSS**）：
+   「历史数据知识库未就绪」原本是一段裸文字贴在底色上，现在是有图标、有排查指引的
+   居中状态，并补了 loading  spinner。
+
+### 验证
+
+真实 Chrome + 真实 duckdb 数据 + 真实 server，逐主题截图对比：
+
+| 主题 | 修复前 | 修复后 |
+| --- | --- | --- |
+| warm-editorial | 米白纸面 + 衬线专名 + 卡片糊成一片 | 主题暖调 + 无衬线 + 卡片边界清晰 |
+| default（深色） | 同一张米白纸面（基本不可读） | 深色面 + 主题蓝 accent |
+| pixel-light | 同上（层次塌陷） | 卡片与底色分得开 |
+
+截图存 `apps/output/audit/history-theme-{warm-editorial,default,pixel-light}.png`、
+`history-error-state.png`；另跑了 Home / News / Study / Settings 四页的主题切换巡检
+（`sweep-*.png`），没有出现被新 token 破坏的页面。
