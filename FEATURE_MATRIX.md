@@ -42,6 +42,8 @@
 | 模块 | 问题 | 状态 |
 |---|---|---|
 | Language | 自建第二套复习/进度；写入路径全断；Mastered 不可达 | ✅ |
+| Language | 跟读无反馈（`speaking::score` 写好却从未被调用） | ✅ |
+| Language | 复习只做「认词」，不练「用句子」 | ✅ |
 | History / News / AI / Settings | Web 端 `isTauriRuntime` 早退 + 内部错误串泄漏 | ✅ |
 | Learning OS | 8 个 client 未迁移 + 无 HTTP 端点 | ✅ |
 | Markdown | 原生对话框失败静默 | ✅ |

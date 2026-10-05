@@ -18,7 +18,8 @@ use axum::extract::Query;
 use axum::response::IntoResponse;
 use axum::{Extension, Json};
 use devtoolbox_application::language::course::{
-    CourseService, ProgressPatch, ShadowScoreInput, SpeakingError, SpeakingService, WordLookup,
+    CourseService, MinedReport, MiningService, ProgressPatch, ShadowScoreInput, SpeakingError,
+    SpeakingService, WordLookup,
 };
 use devtoolbox_core::language::{LearningPlan, LessonProgress, QuizAnswer, QuizItem, WordMark};
 use devtoolbox_core::learning::LearningProgress as PlatformProgress;
@@ -30,6 +31,9 @@ pub type Course = Arc<CourseService>;
 
 /// 跟读评分服务（V13 W2；与课程读写同库）。
 pub type Speaking = Arc<SpeakingService>;
+
+/// 句子挖掘服务（V13 W3；与复习同一套 SRS）。
+pub type Mining = Arc<MiningService>;
 
 fn clock() -> i64 {
     devtoolbox_infrastructure::now_unix()
@@ -325,4 +329,50 @@ pub async fn lesson_audio(
     let bytes = std::fs::read(&path)
         .map_err(|error| err("language_audio_read", format!("{path}: {error}")))?;
     Ok(([(axum::http::header::CONTENT_TYPE, "audio/mpeg")], bytes).into_response())
+}
+
+// ============================================================================
+// 句子挖掘（V13 W3）
+// ============================================================================
+
+/// `GET /api/v1/language/mining/lesson/{lesson_id}?maxPerKind=…`
+///
+/// 只**预览**候选卡（不写库）：界面要能先告诉用户「本课可以挖 N 张」。
+pub async fn mining_preview(
+    Extension(mining): Extension<Mining>,
+    axum::extract::Path(lesson_id): axum::extract::Path<String>,
+    Query(query): Query<mining::MiningQuery>,
+) -> Result<Json<Value>, crate::ai_api::ApiError> {
+    let report = mining
+        .preview(&lesson_id, query.max_per_kind.unwrap_or(6))
+        .map_err(from_app)?;
+    Ok(Json(
+        serde_json::json!({ "lesson_id": lesson_id, "count": report.len(), "items": report }),
+    ))
+}
+
+/// `POST /api/v1/language/mining/lesson/{lesson_id}`
+///
+/// 挖出并写入复习卡（幂等；已存在的卡覆盖，不重复计数）。
+pub async fn mining_add(
+    Extension(mining): Extension<Mining>,
+    axum::extract::Path(lesson_id): axum::extract::Path<String>,
+    axum::extract::Query(query): axum::extract::Query<mining::MiningQuery>,
+) -> Result<Json<MinedReport>, crate::ai_api::ApiError> {
+    mining
+        .mine_into_review(&lesson_id, query.max_per_kind.unwrap_or(6), clock())
+        .map(Json)
+        .map_err(from_app)
+}
+
+/// 挖掘端点的查询参数（**camelCase**：transport 统一发 `maxPerKind`）。
+pub mod mining {
+    use serde::Deserialize;
+
+    #[derive(Debug, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct MiningQuery {
+        /// 每种卡的挖掘上限（默认 6，三种合计最多 18 张）。
+        pub max_per_kind: Option<usize>,
+    }
 }

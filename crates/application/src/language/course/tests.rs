@@ -15,12 +15,13 @@ use devtoolbox_core::language::{
 };
 use devtoolbox_core::learning::{
     Collection, CollectionItem, CollectionItemRef, ContinueItem, LearningEvent, LearningProgress,
-    LearningStatus, MasteryCalculator, ReviewQueueItem, ReviewQueueStats, ReviewRating,
-    ReviewScheduleOutcome, SpacedRepetitionScheduler, UniversalReviewCard,
+    LearningStatus, MasteryCalculator, ReviewCardType, ReviewQueueItem, ReviewQueueStats,
+    ReviewRating, ReviewScheduleOutcome, SpacedRepetitionScheduler, UniversalReviewCard,
 };
 
 use crate::language::course::{
-    CourseService, CourseStorePort, DictionaryService, ShadowScoreInput, SpeakingService,
+    CourseService, CourseStorePort, DictionaryService, MiningService, ShadowScoreInput,
+    SpeakingService,
 };
 use crate::learning::ports::{LearningPortError, LearningStorePort};
 use crate::learning::service::LearningService as PlatformLearningService;
@@ -1104,4 +1105,100 @@ fn recent_attempts_are_newest_first_and_bounded() {
     assert_eq!(recent.len(), 2, "limit 生效");
     assert_eq!(recent[0].created_at, NOW + 20, "最近的在前");
     assert_eq!(recent[1].created_at, NOW + 10);
+}
+
+// ============================================================================
+// MiningService（V13 W3）
+// ============================================================================
+
+fn mining_service() -> (MiningService, Arc<FakeCourseStore>, Arc<FakePlatform>) {
+    let store = Arc::new(FakeCourseStore::with_lesson());
+    let platform = Arc::new(FakePlatform::default());
+    let service = MiningService::new(
+        store.clone(),
+        Arc::new(PlatformLearningService::new(platform.clone())),
+    );
+    (service, store, platform)
+}
+
+#[test]
+fn mining_previews_real_sentences_without_writing_cards() {
+    let (service, _store, platform) = mining_service();
+    let cards = service.preview("nce:2:17", 3).expect("preview");
+    assert!(!cards.is_empty(), "本课有真实句子 → 应能挖出候选");
+    assert!(
+        cards.iter().all(|card| !card.answer.is_empty()),
+        "每张卡都要有答案"
+    );
+    assert!(
+        platform.cards.lock().is_empty(),
+        "预览只是预览，不写平台复习卡"
+    );
+}
+
+#[test]
+fn mining_writes_cards_with_sentence_context_and_stable_ids() {
+    let (service, _store, platform) = mining_service();
+    let report = service.mine_into_review("nce:2:17", 3, NOW).expect("mine");
+    assert!(report.cards > 0);
+    let cards = platform.cards.lock();
+    assert_eq!(cards.len(), report.cards, "每张挖掘卡都进平台 SRS");
+    for card in cards.values() {
+        assert_eq!(card.module, "language");
+        assert_eq!(card.entity_type, "sentence", "句子是独立学习对象");
+        assert!(
+            card.context
+                .as_deref()
+                .is_some_and(|context| context.contains(' ')),
+            "复习时要看到原句语境"
+        );
+        assert!(!card.answer.is_empty());
+    }
+    // 幂等：再挖一次不产生新卡（id 内容派生）。
+    let ids_before: Vec<String> = cards.keys().cloned().collect();
+    drop(cards);
+    service
+        .mine_into_review("nce:2:17", 3, NOW + 60)
+        .expect("re-mine");
+    let cards = platform.cards.lock();
+    let ids_after: Vec<String> = cards.keys().cloned().collect();
+    assert_eq!(ids_before.len(), ids_after.len(), "重复挖掘不产生重复卡");
+    assert!(ids_after.iter().all(|id| ids_before.contains(id)));
+}
+
+#[test]
+fn mining_of_unknown_lesson_is_controlled_not_empty_success() {
+    let (service, _store, platform) = mining_service();
+    // 没有句子 → 0 张卡是可接受的（教材没导入），但不能 panic。
+    let report = service.mine_into_review("nce:9:9", 3, NOW).expect("mine");
+    assert_eq!(report.cards, 0);
+    assert!(platform.cards.lock().is_empty());
+}
+
+#[test]
+fn mined_card_prompt_matches_kind() {
+    let (service, _store, platform) = mining_service();
+    service.mine_into_review("nce:2:17", 5, NOW).expect("mine");
+    let cards = platform.cards.lock();
+    let mut saw_cloze = false;
+    let mut saw_other = false;
+    for card in cards.values() {
+        if card.card_type == ReviewCardType::FillBlank {
+            saw_cloze = true;
+            assert!(
+                card.prompt.contains("____"),
+                "填空卡题干必须含空格标记：{}",
+                card.prompt
+            );
+        } else {
+            saw_other = true;
+            assert!(!card.prompt.is_empty());
+        }
+        // 中文提示来自课文译文，没有就不给（不编造）。
+        if let Some(hint) = &card.hint {
+            assert!(!hint.is_empty());
+        }
+    }
+    assert!(saw_cloze, "至少应有一张填空卡");
+    let _ = saw_other;
 }

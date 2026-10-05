@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import {
   Brain,
   CheckCircle,
@@ -16,6 +16,7 @@ import {
   Flame,
 } from "@phosphor-icons/react";
 import { learningClient } from "./learningClient";
+import { matchAnswer, matchFeedback } from "../language/reviewMatch";
 import type {
   ReviewQueueItem,
   ReviewQueueStats,
@@ -25,6 +26,12 @@ import type {
 interface ReviewCenterPageProps {
   onNavigate?: (route: string) => void;
   onAskAi?: (prompt: string) => void;
+}
+
+/** 需要用户**写出来**的卡型（其余是选择题/回忆提示，直接揭晓即可）。 */
+function needsTypedAnswer(card: { card_type: string } | null): boolean {
+  if (!card) return false;
+  return card.card_type === "fill_blank" || card.card_type === "qa";
 }
 
 const MODULE_NAMES: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
@@ -44,6 +51,8 @@ export function ReviewCenterPage({ onNavigate, onAskAi }: ReviewCenterPageProps)
   /** 是否已展示提示（提示 ≠ 答案：给线索但保留答案）。 */
   const [isHintRevealed, setIsHintRevealed] = useState<boolean>(false);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
+  // 主观作答（填空 / 问答 / 句子卡）：写了才算「主动回忆」，只看答案不算。
+  const [typedAnswer, setTypedAnswer] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(true);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [sessionCompletedCount, setSessionCompletedCount] = useState<number>(0);
@@ -61,6 +70,7 @@ export function ReviewCenterPage({ onNavigate, onAskAi }: ReviewCenterPageProps)
       setIsAnswerRevealed(false);
       setIsHintRevealed(false);
       setSelectedOption(null);
+      setTypedAnswer("");
     } catch (err) {
       console.error("Failed to load review center data:", err);
     } finally {
@@ -76,6 +86,12 @@ export function ReviewCenterPage({ onNavigate, onAskAi }: ReviewCenterPageProps)
   // `ReviewQueueItem` 是 `{ card, is_overdue, urgency_score }`（后端嵌套形状），
   // 此前这里当成扁平卡片读 `.card_id` / `.prompt`，运行时全部为 undefined。
   const currentCard = currentItem?.card ?? null;
+  // 作答与参考答案的**词级**比对：句子卡只差一个冠词不该判全错
+  // （全等判定会把「主动回忆」变成纯挫败）。
+  const typedMatch = useMemo(
+    () => matchAnswer(typedAnswer, currentCard?.answer ?? ""),
+    [typedAnswer, currentCard],
+  );
 
   const handleRating = async (rating: UniversalReviewRating) => {
     if (!currentCard || submitting) return;
@@ -88,8 +104,8 @@ export function ReviewCenterPage({ onNavigate, onAskAi }: ReviewCenterPageProps)
         setCurrentIndex((i) => i + 1);
         setIsAnswerRevealed(false);
         setIsHintRevealed(false);
-      setIsHintRevealed(false);
         setSelectedOption(null);
+        setTypedAnswer(""); // 换卡时清空作答，别把上一题的答案带过来
       } else {
         // Queue finished
         setCurrentIndex(queue.length);
@@ -286,6 +302,31 @@ export function ReviewCenterPage({ onNavigate, onAskAi }: ReviewCenterPageProps)
               </h2>
             </div>
 
+            {/* 主观作答：填空 / 问答（含 NCE 句子卡）。不给输入框的话，
+                「复习」就退化成「再看一遍」，主动回忆就没了。 */}
+            {needsTypedAnswer(currentCard) ? (
+              <div style={{ marginBottom: 20 }}>
+                <textarea
+                  value={typedAnswer}
+                  onChange={(event) => setTypedAnswer(event.target.value)}
+                  placeholder="写下你的答案（写完按空格揭晓对照）"
+                  rows={3}
+                  style={{
+                    width: "100%",
+                    boxSizing: "border-box",
+                    padding: "12px 14px",
+                    borderRadius: 10,
+                    border: "1px solid var(--border-color, #e5e7eb)",
+                    background: "var(--surface-primary, #fff)",
+                    color: "var(--text-primary, #111827)",
+                    fontSize: 15,
+                    lineHeight: 1.6,
+                    resize: "vertical",
+                  }}
+                />
+              </div>
+            ) : null}
+
             {/* Multiple choice options if any */}
             {currentCard.options && currentCard.options.length > 0 && (
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 24 }}>
@@ -337,6 +378,24 @@ export function ReviewCenterPage({ onNavigate, onAskAi }: ReviewCenterPageProps)
                 <div style={{ fontSize: 16, fontWeight: 600, color: "var(--text-primary, #1e293b)", marginBottom: 8 }}>
                   {currentCard.answer}
                 </div>
+                {typedAnswer.trim() && needsTypedAnswer(currentCard) ? (
+                  <div style={{ fontSize: 13, marginTop: 8, lineHeight: 1.6 }}>
+                    <div style={{ color: "var(--text-secondary, #64748b)" }}>你的答案：{typedAnswer}</div>
+                    <div
+                      style={{
+                        marginTop: 4,
+                        fontWeight: 600,
+                        color: typedMatch.exact
+                          ? "var(--success, #16a34a)"
+                          : typedMatch.close
+                            ? "var(--warning, #d97706)"
+                            : "var(--danger, #dc2626)",
+                      }}
+                    >
+                      {matchFeedback(typedMatch)}
+                    </div>
+                  </div>
+                ) : null}
                 {(currentCard.context ?? currentCard.hint) && (
                   <div style={{ fontSize: 13, color: "var(--text-secondary, #64748b)", lineHeight: 1.5 }}>
                     {currentCard.context ?? currentCard.hint}

@@ -2689,6 +2689,8 @@ pub fn run() {
             language_course::language_course_complete_lesson,
             language_course::language_course_mark_word,
             language_course::language_course_lookup_word,
+            language_course::language_mining_preview,
+            language_course::language_mining_add,
             language_course::language_shadow_score,
             language_course::language_shadow_stats,
             language_course::language_dict_lookup,

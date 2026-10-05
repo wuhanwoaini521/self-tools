@@ -68,6 +68,8 @@ pub fn router(
     study_board: Arc<devtoolbox_application::study_board::StudyBoardService>,
     // 跟读发音评分（V13 W2）：目标句由服务端查库，没有转写就没有分数。
     speaking: Arc<devtoolbox_application::language::course::SpeakingService>,
+    // 句子挖掘（V13 W3）：读过的课文句 → SRS 复习卡。
+    mining: Arc<devtoolbox_application::language::course::MiningService>,
 ) -> Router {
     Router::new()
         .route("/health", get(health))
@@ -417,6 +419,11 @@ pub fn router(
             get(crate::language_write_api::shadow_stats),
         )
         .route(
+            "/api/v1/language/mining/lesson/{lesson_id}",
+            get(crate::language_write_api::mining_preview)
+                .post(crate::language_write_api::mining_add),
+        )
+        .route(
             "/api/v1/study-boards",
             get(crate::study_board_api::list_boards).post(crate::study_board_api::save_board),
         )
@@ -445,6 +452,7 @@ pub fn router(
         .layer(axum::Extension(Arc::clone(&news_ingest)))
         .layer(axum::Extension(study_board))
         .layer(axum::Extension(speaking))
+        .layer(axum::Extension(mining))
         .layer(axum::Extension(
             None::<Arc<dyn crate::ai_api::AiChatRunner>>,
         ))
@@ -993,6 +1001,7 @@ mod tests {
             )) as Arc<dyn devtoolbox_application::news::NewsIngestPort>,
             Arc::clone(&test_core().study_board),
             Arc::clone(&test_core().speaking),
+            Arc::clone(&test_core().mining),
         )
     }
 
@@ -1366,6 +1375,96 @@ mod tests {
         assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
         assert_eq!(body["code"], "history_error");
         assert!(body["message"].is_string());
+    }
+
+    // ---- 句子挖掘（V13 W3）：读过的句子进 SRS ----
+
+    #[tokio::test]
+    async fn mining_preview_does_not_write_cards_but_add_does() {
+        let app = test_router(false);
+        let lesson_id = shadow_lesson_id("950");
+
+        // 预览是只读的：这一步不能让复习队列多出卡片。
+        let (status, preview) = request(
+            &app,
+            &format!("/api/v1/language/mining/lesson/{lesson_id}?maxPerKind=2"),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{preview}");
+        let items = preview["items"].as_array().expect("items").clone();
+        assert!(!items.is_empty(), "播种的课文应能挖出卡：{preview}");
+        assert!(
+            items.len() <= 6,
+            "maxPerKind=2 → 三种卡最多 6 张：{preview}"
+        );
+        // 填空卡的题干必须真的挖了空，答案与原因都可解释。
+        let cloze = items
+            .iter()
+            .find(|item| item["kind"] == "cloze")
+            .expect("应有填空卡");
+        assert!(
+            cloze["prompt"]
+                .as_str()
+                .unwrap_or_default()
+                .contains("_____"),
+            "{cloze}"
+        );
+        assert!(!cloze["answer"].as_str().unwrap_or_default().is_empty());
+        assert!(cloze["reason"].is_string(), "挖空理由必须可解释");
+        // 原文完整保留（复习时要看到语境）。
+        assert!(cloze["sentence"].as_str().unwrap_or_default().contains(' '));
+
+        // 入库：写进平台 SRS，且重复调用不产生重复卡。
+        let (status, report) = post_query(
+            &app,
+            &format!("/api/v1/language/mining/lesson/{lesson_id}?maxPerKind=2"),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{report}");
+        let first = report["cards"].as_u64().expect("cards");
+        assert_eq!(first, items.len() as u64, "入库数量 = 预览数量");
+
+        let (_, again) = post_query(
+            &app,
+            &format!("/api/v1/language/mining/lesson/{lesson_id}?maxPerKind=2"),
+        )
+        .await;
+        assert_eq!(
+            again["cards"].as_u64(),
+            Some(first),
+            "重复挖掘幂等（id 内容派生，不重复计数）"
+        );
+    }
+
+    #[tokio::test]
+    async fn mining_of_lesson_without_sentences_is_empty_not_error() {
+        let app = test_router(false);
+        let (status, body) = request(
+            &app,
+            "/api/v1/language/mining/lesson/nce:9:999?maxPerKind=3",
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        assert_eq!(body["count"], 0, "没有句子就是 0 张，不硬凑");
+        assert_eq!(body["items"].as_array().map(Vec::len), Some(0));
+    }
+
+    /// POST 但没有请求体（挖掘端点用 query 传参）。
+    async fn post_query(app: &axum::Router, uri: &str) -> (StatusCode, Value) {
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri(uri)
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let status = response.status();
+        let body = to_bytes(response.into_body(), 1 << 20).await.unwrap();
+        (status, serde_json::from_slice(&body).unwrap_or(Value::Null))
     }
 
     // ---- 跟读发音评分（V13 W2）：没有转写就没有分数 ----

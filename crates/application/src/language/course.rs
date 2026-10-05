@@ -13,8 +13,9 @@ use serde::{Deserialize, Serialize};
 
 use devtoolbox_core::language::{
     BookSummary, Course, CourseBook, CourseLesson, LearningPlan, LessonListEntry, LessonProgress,
-    LessonSentence, LessonStage, LessonVocab, QuizAnswer, QuizItem, QuizResult, ShadowAttempt,
-    ShadowStats, WordEntry, WordMark, WordOccurrence, summarize_shadow_attempts,
+    LessonSentence, LessonStage, LessonVocab, MinedCard, MinedCardKind, QuizAnswer, QuizItem,
+    QuizResult, ShadowAttempt, ShadowStats, WordEntry, WordMark, WordOccurrence, mine_lesson,
+    mined_card_id, summarize_shadow_attempts,
 };
 use devtoolbox_core::learning::{
     LearningAction, LearningEvent, LearningProgress, LearningStatus, ReviewCardType, ReviewRating,
@@ -1088,6 +1089,149 @@ impl SpeakingService {
         self.store
             .shadow_attempts(lesson_id, limit.clamp(1, 200))
             .map_err(err)
+    }
+}
+
+// ============================================================================
+// MiningService（V13 W3：句子挖掘 → 复习卡）
+// ============================================================================
+
+/// 挖掘服务：把读过的课文句变成**要主动回忆**的复习卡。
+///
+/// ## 为什么要有
+///
+/// 学完一课，用户认得 200 个词，却很难在无提示下说出课文句子 —— 而真实交流
+/// 靠的是整句产出。这里从**本课真实句子**里挖空 / 听写 / 中译英，做成卡片进
+/// **同一个 SRS**：复习时先看句、再回忆，测的是「用」不是「认」。
+///
+/// ## 边界
+///
+/// - 卡片 id 内容派生（`lesson + 句号 + 类型`）→ 重复挖掘**幂等**，不产生重复卡；
+/// - 只有本课真实存在的句子才成卡（短句、缺译文的句子跳过，**不编造**）；
+/// - 不改动教材内容，只新增复习卡。
+pub struct MiningService {
+    store: Arc<dyn CourseStorePort>,
+    platform: Arc<LearningService>,
+}
+
+/// 句子卡的实体 id。
+fn sentence_entity_id(lesson_id: &str, sequence: u32) -> String {
+    format!("en-sentence:{lesson_id}:{sequence}")
+}
+
+impl MiningService {
+    #[must_use]
+    pub fn new(store: Arc<dyn CourseStorePort>, platform: Arc<LearningService>) -> Self {
+        Self { store, platform }
+    }
+
+    /// 挖掘一课的候选卡（不落库；给界面预览「本课可以挖 N 张」）。
+    pub fn preview(
+        &self,
+        lesson_id: &str,
+        max_per_kind: usize,
+    ) -> Result<Vec<MinedCard>, ApplicationError> {
+        let sentences = self.store.lesson_sentences(lesson_id).map_err(err)?;
+        let vocab: Vec<String> = self
+            .store
+            .lesson_vocab(lesson_id)
+            .map_err(err)?
+            .into_iter()
+            .map(|item| item.word)
+            .collect();
+        Ok(mine_lesson(&sentences, &vocab, max_per_kind.clamp(1, 50)))
+    }
+
+    /// 挖掘并写入复习卡（幂等：已存在的卡会被原样覆盖，不重复计数）。
+    ///
+    /// 返回实际写入的卡数量。
+    pub fn mine_into_review(
+        &self,
+        lesson_id: &str,
+        max_per_kind: usize,
+        now: i64,
+    ) -> Result<MinedReport, ApplicationError> {
+        let cards = self.preview(lesson_id, max_per_kind)?;
+        let mut written = 0_usize;
+        for card in &cards {
+            let entity_id = sentence_entity_id(lesson_id, card.sequence);
+            let review_card = UniversalReviewCard {
+                id: mined_card_id(lesson_id, card),
+                module: MODULE.to_string(),
+                entity_id: entity_id.clone(),
+                entity_type: "sentence".to_string(),
+                card_type: review_card_type(card.kind),
+                prompt: review_prompt(card),
+                answer: card.answer.clone(),
+                // 填空/听写用播放按钮 + 中文提示，不给选择项（选择题测不出产出）。
+                options: None,
+                hint: card.chinese.clone(),
+                // 语境就是原句：复习时先看句再回忆。
+                context: Some(card.sentence.clone()),
+                due_at: now,
+                interval_days: 0.0,
+                ease: 2.5,
+                mastery_score: 0.0,
+                repetition_count: 0,
+                lapses: 0,
+                last_reviewed_at: None,
+                created_at: now,
+            };
+            self.platform
+                .upsert_review_card(&review_card)
+                .map_err(platform)?;
+            // 同步登记学习进度：句子也是一个学习对象（掌握度 / 今日面板可见）。
+            let event = LearningEvent {
+                id: String::new(),
+                module: MODULE.to_string(),
+                entity_type: "sentence".to_string(),
+                entity_id,
+                entity_title: Some(card.sentence.clone()),
+                action: LearningAction::Study,
+                timestamp: now,
+                duration_ms: None,
+                metadata: serde_json::json!({
+                    "card_kind": card.kind.as_str(),
+                    "reason": card.reason,
+                }),
+                source: Some("nce-mining".to_string()),
+            };
+            let _ = self.platform.record_event(&event, now);
+            written += 1;
+        }
+        Ok(MinedReport {
+            lesson_id: lesson_id.to_string(),
+            cards: written,
+            items: cards,
+        })
+    }
+}
+
+/// 挖掘结果（界面展示用）。
+#[derive(Clone, Debug, Serialize)]
+pub struct MinedReport {
+    pub lesson_id: String,
+    pub cards: usize,
+    pub items: Vec<MinedCard>,
+}
+
+/// 卡的类型 → 平台复习卡类型。
+fn review_card_type(kind: MinedCardKind) -> ReviewCardType {
+    match kind {
+        MinedCardKind::Cloze => ReviewCardType::FillBlank,
+        MinedCardKind::Dictation | MinedCardKind::Translate => ReviewCardType::Qa,
+    }
+}
+
+/// 题干：填空给挖空句；听写只写「听写这一句」；中译英给中文。
+fn review_prompt(card: &MinedCard) -> String {
+    match card.kind {
+        MinedCardKind::Cloze => card.prompt.clone().unwrap_or_else(|| card.sentence.clone()),
+        MinedCardKind::Dictation => "听写这一句".to_string(),
+        MinedCardKind::Translate => card
+            .chinese
+            .clone()
+            .unwrap_or_else(|| card.sentence.clone()),
     }
 }
 

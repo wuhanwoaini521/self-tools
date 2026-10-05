@@ -8,6 +8,7 @@ pub mod learning;
 pub mod license;
 pub mod lrc;
 pub mod metadata;
+pub mod mining;
 pub mod model;
 pub mod romaji;
 pub mod speaking;
@@ -26,6 +27,10 @@ pub use license::{DatasetManifest, LanguageSource, LicenseKind, SourceLicense};
 pub use lrc::{LrcParse, TimedLine, parse_lrc};
 pub use metadata::{
     CantoneseMetadata, EnglishMetadata, JapaneseMetadata, LanguageMetadata, MandarinMetadata,
+};
+pub use mining::{
+    BlankReason, MinedCard, MinedCardKind, blank_score, mine_cloze, mine_dictation, mine_lesson,
+    mine_sentence, mine_translate, mined_card_id, split_words,
 };
 pub use model::{
     LanguageCode, LanguageCount, LanguageItem, LanguageItemType, LanguageRelation,

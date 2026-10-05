@@ -35,6 +35,7 @@ import { SentenceStage } from "./SentenceStage";
 import { ShadowStage } from "./ShadowStage";
 import { QuizStage } from "./QuizStage";
 import { ImmersiveReader } from "./ImmersiveReader";
+import { MiningPanel } from "./MiningPanel";
 
 export interface LessonWorkspaceProps {
   detail: LessonDetail;
@@ -374,6 +375,11 @@ export function LessonWorkspace({
               onAskAi={onAskAi}
               aiAvailable={aiAvailable}
             />
+          ) : null}
+
+          {/* 读完一课就把句子变成复习卡（V13 W3）：此时正是「我刚看过这句」的时刻 */}
+          {stage === "quiz" || stage === "done" ? (
+            <MiningPanel lessonId={lesson.id} />
           ) : null}
 
           {/* 阶段切换：底部一行，前后一致 */}

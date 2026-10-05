@@ -77,6 +77,8 @@ pub struct AppCore {
     pub study_board: Arc<StudyBoardService>,
     /// 英语跟读发音评分（V13 W2）：目标句由服务端查库得到，没有转写就没有分数。
     pub speaking: Arc<devtoolbox_application::language::course::SpeakingService>,
+    /// 句子挖掘（V13 W3）：把读过的课文句变成 SRS 复习卡。
+    pub mining: Arc<devtoolbox_application::language::course::MiningService>,
 }
 
 impl AppCore {
@@ -222,7 +224,16 @@ impl AppCore {
         let course_store_port: Arc<dyn devtoolbox_application::language::course::CourseStorePort> =
             course_store.clone();
         let speaking = Arc::new(
-            devtoolbox_application::language::course::SpeakingService::new(course_store_port),
+            devtoolbox_application::language::course::SpeakingService::new(Arc::clone(
+                &course_store_port,
+            )),
+        );
+        // 句子挖掘：与复习共用平台 LearningService（卡进同一套 SRS）。
+        let mining = Arc::new(
+            devtoolbox_application::language::course::MiningService::new(
+                course_store_port,
+                Arc::clone(&learning),
+            ),
         );
 
         // 供两端复用的学习视图语言 / AI 装配（未配置时 None，不编造）。
@@ -257,6 +268,7 @@ impl AppCore {
             study_board_store,
             study_board,
             speaking,
+            mining,
         })
     }
 }

@@ -76,7 +76,7 @@
 - 识别不可用（离线/无麦克风）→ 诚实降级：录音对比 + 自评清单，**不编造分数**
 - 分数按句写入课程进度，出现在进度页「开口时长 / 平均准确率」
 
-### W3 句子挖掘（Sentence Mining）— 把读过的东西变成复习卡
+### W3 句子挖掘（Sentence Mining）— 把读过的东西变成复习卡 ✅ 已实现
 - 从已学课文的句子自动生成三类卡：**填空（cloze）/ 听写 / 中译英**
 - 挖空位置只选**内容词与功能词中的高价值位**（不定冠词、助动词、介词优先 —— 这些是口语高频错点）
 - 卡带原句 context，进平台 SRS（`UniversalReviewCard`），复习时先看句再回忆
@@ -105,6 +105,7 @@
 | --- | --- | --- |
 | W1 沉浸精读 | `features/language/english/ImmersiveReader.tsx` + `immersive.ts` | 句级高亮跟音频；译文三态（隐藏/逐句/全显）；字号行距栏宽可调并持久化；键盘流；无音频时用浏览器 TTS 朗读并说明原因；退出时回写句位与学习秒数 |
 | W2 跟读评分 | `core::language::speaking`（原有但从未被调用）→ `SpeakingService` → Tauri 命令 + `/api/v1/language/shadow/*` → `ShadowStage` | **目标句由服务端查库**（不采信前端自报）；**没有转写就没有分数**（空串 → 400，不落库）；词级差异（漏说/说错/多说）；进度页新增「开口」指标 |
+| W3 句子挖掘 | `core::language::mining`（纯函数）→ `MiningService` → `/api/v1/language/mining/lesson/{id}` + `MiningPanel` | 挖空位置**可解释**（本课生词 > 功能词 > 实词），同分取先出现的位置 → 重复挖掘幂等；卡片带原句语境进同一套 SRS；`reviewMatch.ts` 让句子卡按**词级**判定（只差一个冠词算「基本会」） |
 
 验证：Rust 全量 20 个测试目标通过、clippy 零警告；前端 85 passed；
 真实浏览器跑通「沉浸精读（高亮/译文三态/点词查词/Esc 退出）」与

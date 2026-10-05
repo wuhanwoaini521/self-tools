@@ -27,6 +27,7 @@ import {
   useAsyncPanel,
   useLanguageShortcuts,
 } from "./languageUi";
+import { matchAnswer, matchFeedback } from "./reviewMatch";
 
 const RATINGS: UniversalReviewRating[] = ["again", "hard", "good", "easy"];
 
@@ -138,6 +139,13 @@ export function ReviewSession({
     [card],
   );
 
+  // 作答与标准答案的**词级**比对（句子卡必需：全等判定会把
+  // 「excuse me」对「Excuse me!」判错）。
+  const match = useMemo(
+    () => matchAnswer(answer, card?.answer ?? ""),
+    [answer, card],
+  );
+
   if (queue.length === 0) {
     return (
       <div className="lang-review" role="dialog" aria-modal="true">
@@ -223,9 +231,12 @@ export function ReviewSession({
           <div className="lang-review-answer">
             <p className="lang-review-word">{card.answer}</p>
             {answer && needsInput(card) ? (
-              <p className={cx("lang-muted", answer.trim() === card.answer && "is-correct")}>
+              <p className={cx("lang-muted", match.exact && "is-correct")}>
                 你的答案：{answer}
               </p>
+            ) : null}
+            {answer && needsInput(card) && !match.exact ? (
+              <p className="lang-muted">{matchFeedback(match)}</p>
             ) : null}
           </div>
         ) : (

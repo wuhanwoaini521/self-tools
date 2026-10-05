@@ -224,6 +224,10 @@ const HTTP_ENDPOINTS: Record<string, (args: Record<string, unknown>) => string> 
     `/api/v1/study-boards?limit=${encodeURIComponent(String(a.limit ?? 20))}`,
   study_board_get: (a) =>
     `/api/v1/study-boards/${encodeURIComponent(String(a.boardId ?? ""))}`,
+  // 句子挖掘预览（V13 W3）：本课能挖出哪些卡（只读，不写库）。
+  language_mining_preview: (a) =>
+    `/api/v1/language/mining/lesson/${encodeURIComponent(String(a.lessonId ?? ""))}` +
+    `?maxPerKind=${encodeURIComponent(String(a.maxPerKind ?? 6))}`,
   // 跟读统计（V13 W2）：进度页的「开口时长 / 平均准确率」来自这里。
   language_shadow_stats: (a) => {
     const parts: string[] = [];
@@ -284,6 +288,9 @@ const HTTP_POST_ENDPOINTS: Record<
   study_board_snapshot: (a) =>
     `/api/v1/study-boards/${encodeURIComponent(String(a.boardId ?? ""))}/snapshots`,
   language_shadow_score: () => "/api/v1/language/shadow/score",
+  language_mining_add: (a) =>
+    `/api/v1/language/mining/lesson/${encodeURIComponent(String(a.lessonId ?? ""))}` +
+    `?maxPerKind=${encodeURIComponent(String(a.maxPerKind ?? 6))}`,
 };
 
 /** 服务端错误体的可能形状（与 `apps/server` 的错误契约一致）。 */

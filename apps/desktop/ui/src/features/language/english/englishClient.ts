@@ -11,11 +11,8 @@
  */
 import type { CommandTransport } from "../../../transport";
 import { defaultTransport } from "../../../transport";
-import type {
-  ShadowScoreInput,
-  ShadowScoreResult,
-  ShadowStats,
-} from "../speakingTypes";
+import type { MinedCard, MinedReport } from "../miningTypes";
+import type { ShadowScoreInput, ShadowScoreResult, ShadowStats } from "../speakingTypes";
 import type {
   BookView,
   CourseBook,
@@ -75,6 +72,14 @@ export interface EnglishClient {
 
   /** 读取课时音频二进制（返回 ArrayBuffer，前端转 Blob URL）。 */
   lessonAudio(lessonId: string): Promise<ArrayBuffer>;
+
+  /**
+   * 句子挖掘预览（V13 W3）：本课能挖出哪些复习卡（不写库）。
+   * 界面据此告诉用户「本课可挖 N 张」，而不是让用户凭空点一个按钮。
+   */
+  miningPreview(lessonId: string, maxPerKind?: number): Promise<MinedCard[]>;
+  /** 句子挖掘入库：把卡片写进同一套 SRS（幂等）。 */
+  miningAdd(lessonId: string, maxPerKind?: number): Promise<MinedReport>;
 
   /**
    * 跟读发音评分（V13 W2）。
@@ -156,6 +161,16 @@ export function createEnglishClient(
       }
       throw new Error("unexpected audio response type");
     },
+
+    miningPreview: async (lessonId, maxPerKind) => {
+      const raw = await transport.invoke<{ items?: MinedCard[] } | MinedCard[]>(
+        "language_mining_preview",
+        { lessonId, maxPerKind },
+      );
+      return Array.isArray(raw) ? raw : (raw?.items ?? []);
+    },
+    miningAdd: (lessonId, maxPerKind) =>
+      transport.invoke<MinedReport>("language_mining_add", { lessonId, maxPerKind }),
 
     shadowScore: (input) =>
       transport.invoke<ShadowScoreResult>("language_shadow_score", {

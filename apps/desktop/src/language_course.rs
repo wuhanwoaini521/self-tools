@@ -14,8 +14,8 @@ use tauri::{AppHandle, Emitter, State};
 
 use devtoolbox_application::language::course::{
     BookView, CourseService, DataStatus, EnglishProgress, EnglishSearchResult, LessonDetail,
-    ProgressPatch, ShadowScoreInput, ShadowScoreResult, SpeakingError, SpeakingService,
-    TodayDashboard, WordLookup,
+    MinedReport, MiningService, ProgressPatch, ShadowScoreInput, ShadowScoreResult, SpeakingError,
+    SpeakingService, TodayDashboard, WordLookup,
 };
 use devtoolbox_application::language::{CourseStorePort, DictionaryService};
 use devtoolbox_application::learning::LearningService as PlatformLearningService;
@@ -48,6 +48,17 @@ pub fn course_service(state: &State<'_, AppState>) -> CourseService {
         &state.learning_store,
     )));
     CourseService::new(store, platform)
+}
+
+/// 组合根装配：句子挖掘服务（卡片进平台学习库，与复习同一套 SRS）。
+pub fn mining_service(state: &State<'_, AppState>) -> MiningService {
+    let store: Arc<dyn CourseStorePort> = Arc::new(
+        devtoolbox_runtime::composition::CourseStoreAdapter::new(Arc::clone(&state.language_store)),
+    );
+    let platform = Arc::new(PlatformLearningService::new(Arc::clone(
+        &state.learning_store,
+    )));
+    MiningService::new(store, platform)
 }
 
 /// 组合根装配：跟读评分服务（与课程读写同一个 language.db）。
@@ -173,6 +184,30 @@ pub fn language_course_lookup_word(
 ) -> Result<WordLookup, CommandError> {
     course_service(&state)
         .lookup_word(&word, sentence.as_deref(), lesson_id.as_deref(), now())
+        .map_err(CommandError::from)
+}
+
+/// 句子挖掘预览（V13 W3）：本课可以挖出哪些卡（不写库）。
+#[tauri::command]
+pub fn language_mining_preview(
+    state: State<'_, AppState>,
+    lesson_id: String,
+    max_per_kind: Option<usize>,
+) -> Result<Vec<devtoolbox_core::language::MinedCard>, CommandError> {
+    mining_service(&state)
+        .preview(&lesson_id, max_per_kind.unwrap_or(6))
+        .map_err(CommandError::from)
+}
+
+/// 句子挖掘入库（V13 W3）：把本课句子变成复习卡（幂等）。
+#[tauri::command]
+pub fn language_mining_add(
+    state: State<'_, AppState>,
+    lesson_id: String,
+    max_per_kind: Option<usize>,
+) -> Result<MinedReport, CommandError> {
+    mining_service(&state)
+        .mine_into_review(&lesson_id, max_per_kind.unwrap_or(6), now())
         .map_err(CommandError::from)
 }
 

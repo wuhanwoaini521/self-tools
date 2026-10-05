@@ -214,6 +214,8 @@ async fn main() -> ExitCode {
     let study_board = Arc::clone(&core.study_board);
     // 跟读发音评分：与课程读写同一个 language.db。
     let speaking = Arc::clone(&core.speaking);
+    // 句子挖掘：写入平台学习库（同一套 SRS）。
+    let mining = Arc::clone(&core.mining);
 
     let app = routes::router(
         Arc::new(service),
@@ -236,6 +238,7 @@ async fn main() -> ExitCode {
         news_ingest,
         study_board,
         speaking,
+        mining,
     );
     info!(
         bind = %config.bind,
