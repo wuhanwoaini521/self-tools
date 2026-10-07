@@ -158,17 +158,28 @@ pub fn assemble_messages_with_parts(
 #[must_use]
 pub fn parse_agent_envelope(text: &str) -> (String, Vec<Action>, Vec<UiBlock>) {
     let trimmed = text.trim();
-    // 有围栏先剥围栏；无围栏直接尝试 JSON；都不是则整体当纯文本。
-    let candidate = strip_code_fence(trimmed).unwrap_or(trimmed).trim();
+    // 模型有时会在合法 envelope 前后添加说明，或把 envelope 包在 Markdown fence
+    // 中。抽取 envelope 后再解析，避免把 actions/ui_blocks 原始 JSON 泄漏到聊天气泡。
+    let (candidate, prefix) = extract_envelope_candidate(trimmed);
     if !candidate.is_empty()
         && let Ok(value) = serde_json::from_str::<serde_json::Value>(candidate)
         && let Some(obj) = value.as_object()
+        && ["message", "actions", "ui_blocks"]
+            .iter()
+            .any(|key| obj.contains_key(*key))
     {
         let message = obj
             .get("message")
             .and_then(serde_json::Value::as_str)
             .unwrap_or_default()
-            .to_string();
+            .trim();
+        let message = match (prefix, message) {
+            (Some(prefix), message) if !prefix.is_empty() && !message.is_empty() => {
+                format!("{prefix}{}{message}", char::from(10))
+            }
+            (Some(prefix), "") => prefix.to_string(),
+            (_, message) => message.to_string(),
+        };
         let actions = parse_actions(obj.get("actions"));
         let blocks = parse_ui_blocks(obj.get("ui_blocks"));
         return (message, actions, blocks);
@@ -176,16 +187,23 @@ pub fn parse_agent_envelope(text: &str) -> (String, Vec<Action>, Vec<UiBlock>) {
     (text.to_string(), Vec::new(), Vec::new())
 }
 
-fn strip_code_fence(text: &str) -> Option<&str> {
+fn extract_envelope_candidate(text: &str) -> (&str, Option<&str>) {
     if text.starts_with("```") {
         let body = text.trim_start_matches("```");
-        let body = body.trim_start_matches("json");
-        body.strip_suffix("```")
-            .map(str::trim)
-            .or(Some(body.trim()))
-    } else {
-        None
+        let body = body.strip_prefix("json").unwrap_or(body);
+        return (body.strip_suffix("```").unwrap_or(body).trim(), None);
     }
+
+    if let Some(fence_start) = text.find("```") {
+        let before = text[..fence_start].trim();
+        let after_open = &text[fence_start + 3..];
+        let body_start = after_open.find(char::from(10)).map_or(0, |index| index + 1);
+        let body = &after_open[body_start..];
+        let (candidate, _) = body.split_once("```").unwrap_or((body, ""));
+        return (candidate.trim(), (!before.is_empty()).then_some(before));
+    }
+
+    (text, None)
 }
 
 fn parse_actions(value: Option<&serde_json::Value>) -> Vec<Action> {
@@ -273,6 +291,21 @@ mod tests {
         let (message, actions, _) = parse_agent_envelope(text);
         assert_eq!(message, "m");
         assert!(actions.is_empty());
+    }
+
+    #[test]
+    fn envelope_with_intro_and_markdown_fence_hides_raw_json() {
+        let text = r#"需要我打开新闻详情吗？
+```json
+{"message":"找到 1 条新闻。","actions":[],"ui_blocks":[{"kind":"entity_list","title":"相关新闻","data":[]}]}
+```"#;
+        let (message, actions, blocks) = parse_agent_envelope(text);
+        assert!(message.starts_with("需要我打开新闻详情吗？"));
+        assert!(message.contains("找到 1 条新闻。"));
+        assert!(actions.is_empty());
+        assert_eq!(blocks.len(), 1);
+        assert!(!message.contains("ui_blocks"));
+        assert!(!message.contains("```"));
     }
 
     #[test]
