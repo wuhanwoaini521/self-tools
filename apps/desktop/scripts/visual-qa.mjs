@@ -100,6 +100,7 @@ async function inspectPage(page, viewport, route, label) {
       `${viewport.name}/${route}: bottom navigation target smaller than 44px`);
   }
 
+  await page.locator(".toast").evaluateAll((nodes) => nodes.forEach((node) => node.remove()));
   const screenshot = join(outDir, viewport.name, `${route}.png`);
   await mkdir(dirname(screenshot), { recursive: true });
   await page.screenshot({ path: screenshot, fullPage: false });
@@ -136,26 +137,43 @@ try {
     }));
     page.on("pageerror", (error) => errors.push(`${page.url()}: ${error.message}`));
     page.on("console", (message) => {
-      if (message.type() === "error") errors.push(`${page.url()}: ${message.text()}`);
+      if (message.type() !== "error") return;
+      const text = message.text();
+      // The visual harness runs without the local Rust API by default. Its
+      // expected connection warnings are not frontend runtime failures.
+      if (text.includes("无法连接本地数据服务") || text.includes("Failed to load resource:")) return;
+      errors.push(`${page.url()}: ${text}`);
     });
     page.on("response", (response) => {
-      if (response.status() >= 400) {
+      if (response.status() >= 400 && !new URL(response.url()).pathname.startsWith("/api/")) {
         errors.push(`${page.url()}: ${response.status()} ${response.url()}`);
       }
     });
 
     for (const [route, label] of pages) await inspectPage(page, viewport, route, label);
 
+    if (viewport.name === "desktop") {
+      for (const [route, label] of pages) {
+        const navItem = page.locator(`.app-nav-item[aria-label="${label}"]`);
+        await navItem.click();
+        await page.waitForTimeout(40);
+        assert.equal(await navItem.getAttribute("aria-current"), "page", `Sidebar navigation: ${label}`);
+        assert.equal(await page.locator(".page-pane:not(.page-hidden)").count(), 1, `Visible pane after sidebar navigation: ${route}`);
+      }
+    }
+
     await page.goto(`${baseUrl}/#home`, { waitUntil: "domcontentloaded" });
-    await page.locator(".app-bar-gear").click();
+    await page.locator('.app-bar-gear[aria-label="Settings"]').click();
     await page.locator(".settings-dialog").waitFor({ state: "visible" });
+    await page.locator(".toast").evaluateAll((nodes) => nodes.forEach((node) => node.remove()));
     const settingsShot = join(outDir, viewport.name, "settings.png");
     await page.screenshot({ path: settingsShot, fullPage: false });
     report.push({ viewport: viewport.name, route: "settings", label: "Settings dialog", screenshot: settingsShot });
     await page.locator("button[title='关闭设置']").click();
 
-    await page.locator(".app-bar-ai").click();
+    await page.locator(".ai-bubble-launch").click();
     await page.locator(".ai-panel").waitFor({ state: "visible" });
+    await page.locator(".toast").evaluateAll((nodes) => nodes.forEach((node) => node.remove()));
     const aiShot = join(outDir, viewport.name, "ai-panel.png");
     await page.screenshot({ path: aiShot, fullPage: false });
     report.push({ viewport: viewport.name, route: "ai-panel", label: "AI panel", screenshot: aiShot });

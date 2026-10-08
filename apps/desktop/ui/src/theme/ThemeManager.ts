@@ -73,7 +73,7 @@ export function readStoredThemeId(): string | null {
   }
 }
 
-/** 启动时同步调用的初始主题:优先 localStorage 快照,否则浅色 Pixel Light 默认值 */
+/** 启动时同步调用的初始主题:优先 localStorage 快照,否则默认 Pencil Sketch */
 export function initialThemeId(): string {
   return getTheme(readStoredThemeId()).id;
 }

@@ -1,4 +1,5 @@
 import {
+  BookOpen,
   Brain,
   Cards,
   Compass,
@@ -9,13 +10,15 @@ import {
   House,
   MagnifyingGlass,
   MapTrifold,
+  Moon,
   Newspaper,
   Notebook,
   Rss,
   Scroll,
-  Sparkle,
+  Sun,
   Translate,
   TreeStructure,
+  UserCircle,
   X,
 } from "@phosphor-icons/react";
 import { openPath } from "@tauri-apps/plugin-opener";
@@ -36,6 +39,7 @@ import { historyClient } from "./features/history/historyClient";
 import { geographyClient } from "./features/geography/geographyClient";
 import { LanguagePage } from "./features/language/LanguagePage";
 import { AIPanel } from "./features/ai/AIPanel";
+import { AIBubbleLauncher } from "./features/ai/AIBubble";
 import type { AgentAction, AppContextPayload } from "./features/ai/aiTypes";
 import {
   KnowledgePage,
@@ -697,23 +701,31 @@ export default function App() {
         <div
           className="brand"
           onClick={() => setPage("home")}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") setPage("home");
+          }}
           style={{ cursor: "pointer" }}
         >
-          <strong>self-tools</strong>
-          <span />
-          <p>Personal AI Hub</p>
+          <div className="brand-mark">
+            <span className="brand-book" aria-hidden>
+              <BookOpen size={26} weight="regular" />
+            </span>
+            <strong>DevToolbox</strong>
+          </div>
+          <span className="brand-sticker">self-tools</span>
+          <span className="brand-tag">Personal AI Hub</span>
         </div>
         <div className="app-bar-actions">
           <button
-            className={
-              "app-bar-btn app-bar-search" +
-              (page === "search" ? " active" : "")
-            }
+            className="app-shell-search"
             title="Search & Commands (⌘K)"
             onClick={() => setPage(page === "search" ? "home" : "search")}
           >
             <MagnifyingGlass size={16} />
-            <span className="app-bar-hotkey">⌘K</span>
+            <span className="app-shell-search-placeholder">搜索知识、工具、文档…</span>
+            <kbd>⌘ K</kbd>
           </button>
           <button
             className="app-bar-gear"
@@ -724,14 +736,24 @@ export default function App() {
             <Gear size={19} />
           </button>
           <button
-            className={"app-bar-ai" + (aiOpen ? " active" : "")}
-            title="Ask AI (⌘/)"
-            aria-label="Ask AI"
-            onClick={() => setAiOpen((prev) => !prev)}
+            className="app-bar-gear"
+            title="切换明暗主题"
+            aria-label="切换明暗主题"
+            onClick={() =>
+              changeTheme(
+                getTheme(themeId).appearance === "dark" ? "default" : "warm-editorial-dark",
+              )
+            }
           >
-            <Sparkle size={18} weight="fill" />
-            <span className="app-bar-hotkey">⌘/</span>
+            {getTheme(themeId).appearance === "dark" ? (
+              <Moon size={18} />
+            ) : (
+              <Sun size={18} />
+            )}
           </button>
+          <span className="app-avatar" aria-hidden title="Personal Workspace">
+            <UserCircle size={24} />
+          </span>
         </div>
       </header>
       <div className="app-body">
@@ -798,10 +820,12 @@ export default function App() {
               onOpenLanguage={openLanguage}
               onNewNote={newNote}
               onRefreshRss={() => void refreshFeeds()}
-              onAskAi={() => setAiOpen(true)}
+              onAskAi={(prompt) =>
+                prompt ? deliverToAi(prompt) : setAiOpen(true)
+              }
               onOpenServer={() => setPage("server")}
               onOpenStudyBoard={() => setPage("study-board")}
-              onOpenKnowledge={() => setPage("knowledge")}
+              onOpenKnowledge={(tab) => openKnowledge(tab)}
               onNavigate={navigateToHash}
             />
           </section>
@@ -1055,6 +1079,7 @@ export default function App() {
           <X size={16} />
         </button>
       ) : null}
+      <AIBubbleLauncher onOpen={() => setAiOpen(true)} />
       <AIPanel
         open={aiOpen}
         onClose={() => setAiOpen(false)}

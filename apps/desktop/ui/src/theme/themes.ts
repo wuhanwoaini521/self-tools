@@ -16,14 +16,21 @@ const warmEditorialDarkEditor = EditorView.theme({}, { dark: true });
 const nordDarkEditor = EditorView.theme({}, { dark: true });
 const catppuccinDarkEditor = EditorView.theme({}, { dark: true });
 
+/**
+ * 默认主题 = Pencil Sketch。
+ *
+ * 全站的几何语言（手绘描边、纸张旋转、手写标题）由 pencil.css 统一提供，
+ * 主题只负责颜色。保留 id="default" 以兼容历史 settings.json，
+ * 但 data-theme 指向 pencil.css 中的 `:root[data-theme="pencil"]` 调色板。
+ */
 const defaultTheme: ThemeDefinition = {
   id: DEFAULT_THEME_ID,
-  name: "Pixel Light",
-  description: "浅色工作区搭配硬边阴影、阶梯动效与细小像素点阵。",
+  name: "Pencil Sketch",
+  description: "暖白纸张、手绘描边与彩铅点缀——一本可以操作的知识笔记本。",
   appearance: "light",
-  dataTheme: "pixel-light",
+  dataTheme: "pencil",
   editorTheme: pixelLightEditor,
-  previewColors: ["#f7f5ef", "#faf8f3", "#1688ff"],
+  previewColors: ["#f2ebdc", "#fffdf7", "#9a6a2f"],
 };
 
 const warmEditorial: ThemeDefinition = {

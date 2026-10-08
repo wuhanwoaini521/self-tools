@@ -1,27 +1,23 @@
-import React, { useEffect, useState } from "react";
 import {
   ArrowRight,
-  BookOpen,
   Brain,
   Cards,
-  CheckCircle,
-  Clock,
+  CaretRight,
   FileText,
   Flame,
   FolderOpen,
   FolderSimple,
   Globe,
   HardDrives,
-  Lightbulb,
   MapPin,
-  Note,
+  Notebook,
   NotePencil,
   Rss,
-  Sparkle,
   Translate,
+  TrendUp,
   Wrench,
 } from "@phosphor-icons/react";
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import type {
   ArticleDto,
   GeographyHome,
@@ -31,6 +27,19 @@ import type {
 import { fileName, formatRelativeTime, greetingByHour } from "../../utils";
 import { stripRssHtml } from "../rss/rssContent";
 import { learningClient } from "../learning/learningClient";
+import { AIBubbleHero } from "../ai/AIBubble";
+import {
+  SketchBadge,
+  SketchButton,
+  SketchCard,
+  SketchProgress,
+  SketchSectionHeader,
+  SketchStatCard,
+} from "../../components/sketch/SketchKit";
+import {
+  SketchIllustration,
+  type SketchIllustrationName,
+} from "../../components/sketch/SketchIllustrations";
 
 interface HomePageProps {
   recentFiles: string[];
@@ -54,7 +63,7 @@ interface HomePageProps {
   /** V11-J：打开学习板。 */
   onOpenStudyBoard?: () => void;
   /** V11-J：打开知识层（Memory/Documents/Files）。 */
-  onOpenKnowledge?: () => void;
+  onOpenKnowledge?: (tab?: "memory" | "documents" | "files") => void;
   /** V11 Learning OS 导航 */
   onNavigate?: (route: string) => void;
 }
@@ -66,13 +75,23 @@ const LANGUAGE_LABELS: Record<string, string> = {
   yue: "粤语",
 };
 
-const MODULE_ICONS: Record<string, React.ReactNode> = {
-  history: <Clock size={16} color="#f59e0b" />,
-  geography: <Globe size={16} color="#10b981" />,
-  language: <Translate size={16} color="#3b82f6" />,
-  study: <BookOpen size={16} color="#8b5cf6" />,
-  news: <Lightbulb size={16} color="#f43f5e" />,
-  documents: <FileText size={16} color="#06b6d4" />,
+const MODULE_ILLUSTRATION: Record<string, SketchIllustrationName> = {
+  history: "history",
+  geography: "geography",
+  language: "language",
+  study: "study",
+  news: "news",
+  documents: "markdown",
+  knowledge: "knowledge",
+  review: "review",
+};
+
+const MODULE_TONE: Record<string, "blue" | "green" | "orange" | "red" | "purple" | "default"> = {
+  history: "orange",
+  geography: "green",
+  language: "blue",
+  study: "purple",
+  news: "red",
 };
 
 function dateLabel(article: ArticleDto | null) {
@@ -81,26 +100,6 @@ function dateLabel(article: ArticleDto | null) {
     month: "2-digit",
     day: "2-digit",
   });
-}
-
-function HomeSectionHeading({
-  eyebrow,
-  title,
-  action,
-}: {
-  eyebrow: string;
-  title: string;
-  action?: ReactNode;
-}) {
-  return (
-    <header className="home-section-heading">
-      <div>
-        <span>{eyebrow}</span>
-        <h2>{title}</h2>
-      </div>
-      {action}
-    </header>
-  );
 }
 
 export function HomePage({
@@ -140,6 +139,8 @@ export function HomePage({
       .catch((err) => console.error("Failed to load today dashboard data:", err));
   }, []);
 
+  const today = todayData ?? platformToday;
+
   // 跨领域实体智能语义关联
   const allGeoEntities = [
     ...(geographyHome?.featured ?? []),
@@ -149,7 +150,7 @@ export function HomePage({
     ? allGeoEntities.find(
         (item) =>
           (item.name && articleText.includes(item.name.toLowerCase())) ||
-          (item.name_en && articleText.includes(item.name_en.toLowerCase()))
+          (item.name_en && articleText.includes(item.name_en.toLowerCase())),
       )
     : null;
 
@@ -169,7 +170,7 @@ export function HomePage({
           ((story.title_zh_cn &&
             articleText.includes(story.title_zh_cn.toLowerCase())) ||
             (story.summary_zh_cn &&
-              articleText.includes(story.summary_zh_cn.toLowerCase())))
+              articleText.includes(story.summary_zh_cn.toLowerCase()))),
       )
     : null;
 
@@ -180,12 +181,9 @@ export function HomePage({
     null;
   const isHistoryLinked = Boolean(matchedHistoryStory);
 
-  // Language 在首页只展示「今天要复习多少」——那是平台 Today 的数字。
-  const languageDueCount = platformToday?.pending_reviews_count ?? 0;
+  const languageDueCount = today?.pending_reviews_count ?? 0;
   const language = LANGUAGE_LABELS.jpn ?? "日语";
-  const placeName =
-    geoEntity?.name ?? recommendation?.title ?? "从一个地点开始";
-  const placeEnglish = geoEntity?.name_en ?? "A place to explore";
+  const placeName = geoEntity?.name ?? recommendation?.title ?? "从一个地点开始";
   const placeSummary =
     geoEntity?.summary ??
     recommendation?.question ??
@@ -198,530 +196,366 @@ export function HomePage({
     ? stripRssHtml(article.summary, article.url)
     : "首页会把最新订阅和地理、历史、语言学习线索放在一起，帮助你从阅读自然地走向理解。";
 
+  const continueItems = (today?.continue_items ?? []).slice(0, 4);
+  const exploreItems = (today?.explore_recommendations ?? []).slice(0, 4);
+
   const handleDeepLink = (deepLink: string) => {
     if (deepLink.startsWith("#")) {
       onNavigate?.(deepLink);
     }
   };
 
+  const openExplore = (module: string, entityType: string, entityId: string) => {
+    if (module === "history") {
+      if (entityType === "story") handleDeepLink(`#history?story=${entityId}`);
+      else if (entityType === "person") handleDeepLink(`#history?person=${entityId}`);
+      else handleDeepLink(`#history?event=${entityId}`);
+    } else if (module === "geography") {
+      handleDeepLink(`#geography?id=${entityId}`);
+    } else if (module === "language") {
+      handleDeepLink(`#language?id=${entityId}`);
+    } else {
+      handleDeepLink(`#${module}?id=${entityId}`);
+    }
+  };
+
   return (
     <div className="page-scroll home-page home-story-page">
-      {/* Top Header */}
-      <header className="home-story-header">
-        <div>
-          <div className="home-story-kicker">
-            <BookOpen size={18} weight="duotone" />
-            <span>PERSONAL KNOWLEDGE & LEARNING OS</span>
-          </div>
-          <h1>{todayData?.greeting || "你好，开启今天的知识探索"}</h1>
-          <p>
-            {greetingByHour(hour)} · 跨历史、地理、语言、研习与新闻的统一学习工作台。
-          </p>
+      {/* Greeting + Stats */}
+      <header className="home-hero">
+        <div className="home-hero-copy">
+          <span className="home-hero-kicker">PERSONAL KNOWLEDGE &amp; LEARNING OS</span>
+          <h1>
+            {hour < 12 ? "早上好" : hour < 18 ? "下午好" : "晚上好"}，整理今天学到的知识并完成复习。
+          </h1>
+          <p>{greetingByHour(hour)} · 跨历史、地理、语言、研习与新闻的统一学习工作台。</p>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          {todayData && (
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "var(--space-4)",
-                flexWrap: "wrap",
-              }}
-            >
-              {/* 状态用「圆点 + 文字」而不是彩色徽章；颜色一律走 Design Token。 */}
-              <span className="dsn-status is-warning">
-                <Flame size={13} /> 连续 {todayData.recent_streak_days ?? 0} 天
-              </span>
-              <span className="dsn-status">
-                今日已学 {todayData.studied_topics_today ?? 0} 项
-              </span>
-              <span className="dsn-status is-success">
-                平均掌握度 {Math.round(todayData.average_mastery ?? 0)}%
-              </span>
-            </div>
-          )}
+        <div className="home-hero-stats">
+          <SketchStatCard
+            tone="orange"
+            icon={<Flame size={18} />}
+            value={`连续 ${today?.recent_streak_days ?? 0} 天`}
+            label="保持学习"
+          />
+          <SketchStatCard
+            tone="green"
+            icon={<TrendUp size={18} />}
+            value={`今日已学 ${today?.studied_topics_today ?? 0} 项`}
+            label="比昨天多一点"
+          />
+          <SketchStatCard
+            tone="blue"
+            icon={<Brain size={18} />}
+            value={`平均掌握度 ${Math.round(today?.average_mastery ?? 0)}%`}
+            label="持续进步中"
+          />
         </div>
       </header>
 
-      {/* Review Queue Notification Banner if items are due */}
-      {todayData && (todayData.review_stats?.due_count ?? todayData.pending_reviews_count ?? 0) > 0 && (
-        <div
-          style={{
-            margin: "0 0 20px",
-            padding: "16px 20px",
-            borderRadius: 12,
-            background: "linear-gradient(135deg, rgba(37, 99, 235, 0.08), rgba(139, 92, 246, 0.08))",
-            border: "1px solid rgba(37, 99, 235, 0.2)",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <div
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: "50%",
-                background: "#2563eb",
-                color: "#ffffff",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
+      {/* AI Bubble */}
+      <AIBubbleHero
+        onAsk={(prompt) => onAskAi?.(prompt)}
+        onOpenFiles={() => onNavigate?.("#knowledge?tab=files")}
+        contextLabel={null}
+      />
+
+      {/* Continue Learning */}
+      <section className="home-block" aria-label="继续学习">
+        <SketchSectionHeader
+          title="继续学习"
+          en="Continue Learning"
+          icon={<Notebook size={20} />}
+          action={
+            <button
+              type="button"
+              className="home-link-btn"
+              onClick={() => onNavigate?.("#review")}
             >
-              <Cards size={20} />
-            </div>
-            <div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text-primary, #111827)" }}>
-                今日有 {todayData.review_stats?.due_count ?? todayData.pending_reviews_count ?? 0} 张卡片待复习
-              </div>
-              <div style={{ fontSize: 12, color: "var(--text-secondary, #6b7280)", marginTop: 2 }}>
-                根据间隔重复记忆曲线，适时复习可最大化巩固记忆。
-              </div>
-            </div>
-          </div>
-          <button
-            onClick={() => onNavigate?.("#review")}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 6,
-              padding: "8px 16px",
-              borderRadius: 8,
-              border: "none",
-              background: "#2563eb",
-              color: "#ffffff",
-              fontSize: 13,
-              fontWeight: 600,
-              cursor: "pointer",
-            }}
-          >
-            进入复习中心 <ArrowRight size={14} />
-          </button>
-        </div>
-      )}
-
-      {/* Personal Hub: Ask AI & Quick Actions */}
-      <section className="home-hub" aria-label="Personal Hub">
-        <div className="home-hub-ask">
-          <Sparkle size={18} weight="fill" />
-          <button
-            type="button"
-            className="home-hub-ask-input"
-            onClick={() => onAskAi?.()}
-          >
-            <span>问 AI：任何关于你知识、学习或家庭服务器的问题</span>
-          </button>
-          <button
-            type="button"
-            className="home-hub-ask-go"
-            onClick={() => onAskAi?.()}
-          >
-            提问 <ArrowRight size={15} />
-          </button>
-        </div>
-
-        {/* Continue Learning Cards */}
-        {todayData && (todayData.continue_items?.length ?? 0) > 0 ? (
-          <div style={{ marginTop: 20 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text-primary, #111827)" }}>
-                继续学习 (Continue)
-              </div>
-              <button
-                onClick={() => onNavigate?.("#graph")}
-                style={{
-                  fontSize: 12,
-                  color: "#2563eb",
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 4,
-                  fontWeight: 600,
-                }}
-              >
-                <Brain size={14} /> 查看知识图谱
-              </button>
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 12 }}>
-              {(todayData.continue_items ?? []).slice(0, 4).map((item, idx) => (
-                <div
-                  key={idx}
+              <Cards size={15} /> 复习中心
+            </button>
+          }
+        />
+        {continueItems.length > 0 ? (
+          <div className="home-continue-grid">
+            {continueItems.map((item, index) => {
+              const tone = MODULE_TONE[item.module] ?? "default";
+              const progress = Math.round(item.progress_percent ?? 0);
+              return (
+                <SketchCard
+                  key={`${item.module}-${item.entity_id ?? index}`}
+                  interactive
+                  rotation={index % 3 === 0 ? "a" : index % 3 === 1 ? "b" : "c"}
                   onClick={() => handleDeepLink(item.action_target)}
-                  style={{
-                    background: "var(--surface-primary, #ffffff)",
-                    border: "1px solid var(--border-color, #e5e7eb)",
-                    borderRadius: 10,
-                    padding: "12px 14px",
-                    cursor: "pointer",
-                    transition: "transform 0.15s ease, box-shadow 0.15s ease",
-                  }}
+                  className="home-continue-card"
                 >
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
-                    {MODULE_ICONS[item.module] ?? <BookOpen size={14} />}
-                    <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", color: "#9ca3af" }}>
+                  <div className="home-continue-head">
+                    <SketchBadge tone={tone}>
                       {item.module} · {item.entity_type}
-                    </span>
-                  </div>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary, #111827)", marginBottom: 8 }}>
-                    {item.title}
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <div style={{ flex: 1, height: 4, background: "#f3f4f6", borderRadius: 2, overflow: "hidden" }}>
-                      <div
-                        style={{
-                          height: "100%",
-                          width: `${item.progress_percent ?? 0}%`,
-                          background: (item.progress_percent ?? 0) >= 80 ? "#10b981" : "#3b82f6",
-                        }}
+                    </SketchBadge>
+                    <span className="home-continue-illustration" aria-hidden>
+                      <SketchIllustration
+                        name={MODULE_ILLUSTRATION[item.module] ?? "study"}
+                        size={30}
                       />
-                    </div>
-                    <span style={{ fontSize: 11, color: "#6b7280", fontWeight: 600 }}>
-                      {Math.round(item.progress_percent ?? 0)}%
                     </span>
                   </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        ) : null}
-
-        {/* Explore Recommendations */}
-        {todayData && (todayData.explore_recommendations?.length ?? 0) > 0 ? (
-          <div style={{ marginTop: 20 }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text-primary, #111827)", marginBottom: 12 }}>
-              今日发现 (Explore)
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 12 }}>
-              {(todayData.explore_recommendations ?? []).slice(0, 3).map((exp) => (
-                <div
-                  key={exp.id}
-                  onClick={() => {
-                    if (exp.module === "history") {
-                      if (exp.entity_type === "story") handleDeepLink(`#history?story=${exp.entity_id}`);
-                      else if (exp.entity_type === "person") handleDeepLink(`#history?person=${exp.entity_id}`);
-                      else handleDeepLink(`#history?event=${exp.entity_id}`);
-                    } else if (exp.module === "geography") {
-                      handleDeepLink(`#geography?id=${exp.entity_id}`);
-                    } else if (exp.module === "language") {
-                      handleDeepLink(`#language?id=${exp.entity_id}`);
-                    } else {
-                      handleDeepLink(`#${exp.module}?id=${exp.entity_id}`);
-                    }
-                  }}
-                  style={{
-                    background: "var(--surface-primary, #ffffff)",
-                    border: "1px solid var(--border-color, #e5e7eb)",
-                    borderRadius: 10,
-                    padding: "14px",
-                    cursor: "pointer",
-                  }}
-                >
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
-                    {MODULE_ICONS[exp.module] ?? <Lightbulb size={14} />}
-                    <span style={{ fontSize: 11, fontWeight: 700, color: "#2563eb" }}>
-                      {exp.reason}
-                    </span>
+                  <div className="home-continue-title">{item.title}</div>
+                  <div className="home-continue-progress">
+                    <SketchProgress
+                      value={progress}
+                      tone={progress >= 80 ? "green" : tone === "green" ? "green" : "blue"}
+                      label={`${item.title} 进度`}
+                    />
+                    <span>{progress}%</span>
+                    <ArrowRight size={14} />
                   </div>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary, #111827)", marginBottom: 6 }}>
-                    {exp.title}
-                  </div>
-                  {exp.summary && (
-                    <p style={{ fontSize: 12, color: "var(--text-secondary, #6b7280)", margin: 0, lineClamp: 2 }}>
-                      {exp.summary}
-                    </p>
-                  )}
-                </div>
-              ))}
-            </div>
+                </SketchCard>
+              );
+            })}
           </div>
-        ) : null}
+        ) : (
+          <SketchCard className="home-empty-card">
+            <p className="home-empty">
+              还没有进行中的学习项。打开 Language 或 History，开始今天的第一段内容。
+            </p>
+            <div className="home-empty-actions">
+              <SketchButton size="sm" onClick={() => onOpenLanguage()}>
+                <Translate size={15} /> 学语言
+              </SketchButton>
+              <SketchButton size="sm" onClick={() => onOpenHistory()}>
+                <Notebook size={15} /> 看历史
+              </SketchButton>
+            </div>
+          </SketchCard>
+        )}
+      </section>
 
-        {/* Hub Group Quick Shortcuts */}
-        <div className="home-hub-groups" style={{ marginTop: 20 }}>
-          <section className="home-hub-group">
-            <h3>学习系统</h3>
-            <ul>
-              <li>
-                <button type="button" onClick={() => onNavigate?.("#review")}>
-                  <Cards size={15} />
-                  <span>复习中心 (SRS)</span>
-                </button>
-              </li>
-              <li>
-                <button type="button" onClick={() => onNavigate?.("#graph")}>
-                  <Brain size={15} />
-                  <span>知识图谱</span>
-                </button>
-              </li>
-              <li>
-                <button type="button" onClick={() => onNavigate?.("#collections")}>
-                  <FolderSimple size={15} />
-                  <span>专题合集</span>
-                </button>
-              </li>
-            </ul>
-          </section>
+      {/* Explore */}
+      <section className="home-block" aria-label="今日发现">
+        <SketchSectionHeader
+          title="今日发现"
+          en="Explore"
+          icon={<Globe size={20} />}
+          action={
+            <button type="button" className="home-link-btn" onClick={onRefreshRss} disabled={rssRefreshing}>
+              <Rss size={15} /> {rssRefreshing ? "刷新中…" : "刷新订阅"}
+            </button>
+          }
+        />
+        {exploreItems.length > 0 ? (
+          <div className="home-explore-grid">
+            {exploreItems.map((exp, index) => (
+              <SketchCard
+                key={exp.id}
+                interactive
+                rotation={index % 2 === 0 ? "c" : "b"}
+                onClick={() => openExplore(exp.module, exp.entity_type, exp.entity_id)}
+                className="home-explore-card"
+              >
+                <span className="home-explore-illustration" aria-hidden>
+                  <SketchIllustration
+                    name={MODULE_ILLUSTRATION[exp.module] ?? "knowledge"}
+                    size={44}
+                  />
+                </span>
+                <div className="home-explore-copy">
+                  <SketchBadge tone={MODULE_TONE[exp.module] ?? "default"}>{exp.reason}</SketchBadge>
+                  <strong>{exp.title}</strong>
+                  {exp.summary ? <p>{exp.summary}</p> : null}
+                </div>
+              </SketchCard>
+            ))}
+          </div>
+        ) : (
+          <div className="home-explore-grid">
+            <SketchCard
+              interactive
+              rotation="c"
+              onClick={() => onOpenHistory(historyStory?.id)}
+              className="home-explore-card"
+            >
+              <span className="home-explore-illustration" aria-hidden>
+                <SketchIllustration name="history" size={44} />
+              </span>
+              <div className="home-explore-copy">
+                <SketchBadge tone="orange">历史精选</SketchBadge>
+                <strong>{historyTitle}</strong>
+                <p>{historySummary}</p>
+              </div>
+            </SketchCard>
+            <SketchCard
+              interactive
+              rotation="b"
+              onClick={() => onOpenGeography(geoEntity?.id)}
+              className="home-explore-card"
+            >
+              <span className="home-explore-illustration" aria-hidden>
+                <SketchIllustration name="geography" size={44} />
+              </span>
+              <div className="home-explore-copy">
+                <SketchBadge tone="green">地理百科</SketchBadge>
+                <strong>{placeName}</strong>
+                <p>{placeSummary}</p>
+              </div>
+            </SketchCard>
+          </div>
+        )}
+      </section>
 
-          <section className="home-hub-group">
-            <h3>探索领域</h3>
-            <ul>
-              <li>
-                <button type="button" onClick={() => onOpenHistory()}>
-                  <Clock size={15} />
-                  <span>历史时空</span>
-                </button>
-              </li>
-              <li>
-                <button type="button" onClick={() => onOpenGeography()}>
-                  <MapPin size={15} />
-                  <span>地理百科</span>
-                </button>
-              </li>
-              <li>
-                <button type="button" onClick={() => onOpenLanguage()}>
-                  <Translate size={15} />
-                  <span>语言词典</span>
-                </button>
-              </li>
-              {onOpenStudyBoard ? (
-                <li>
-                  <button type="button" onClick={onOpenStudyBoard}>
-                    <NotePencil size={15} />
-                    <span>专题研习</span>
-                  </button>
-                </li>
-              ) : null}
-            </ul>
-          </section>
-
-          <section className="home-hub-group">
-            <h3>我的知识</h3>
-            <ul>
-              <li>
-                <button type="button" onClick={() => onNavigate?.("#knowledge?tab=memory")}>
-                  <Brain size={15} />
-                  <span>Memory</span>
-                </button>
-              </li>
-              <li>
-                <button type="button" onClick={() => onNavigate?.("#knowledge?tab=documents")}>
-                  <FileText size={15} />
-                  <span>Documents</span>
-                </button>
-              </li>
-              <li>
-                <button type="button" onClick={() => onNavigate?.("#knowledge?tab=files")}>
-                  <FolderOpen size={15} />
-                  <span>Files</span>
-                </button>
-              </li>
-            </ul>
-          </section>
-
-          <section className="home-hub-group">
-            <h3>家庭系统</h3>
-            <ul>
-              <li>
-                <button type="button" onClick={() => onOpenServer?.()}>
-                  <HardDrives size={15} />
-                  <span>Server</span>
-                </button>
-              </li>
-              <li>
-                <button type="button" onClick={() => onOpenServer?.()}>
-                  <Wrench size={15} />
-                  <span>Applications</span>
-                </button>
-              </li>
-            </ul>
-          </section>
+      {/* Workspace modules */}
+      <section className="home-block" aria-label="工作区">
+        <SketchSectionHeader title="Workspace" en="All in one place" icon={<FolderSimple size={20} />} />
+        <div className="home-module-grid">
+          <ModuleCard
+            title="学习系统"
+            illustration="review"
+            rotation="a"
+            links={[
+              { label: "复习中心 (SRS)", icon: <Cards size={15} />, onClick: () => onNavigate?.("#review") },
+              { label: "知识图谱", icon: <Brain size={15} />, onClick: () => onNavigate?.("#graph") },
+              { label: "专题合集", icon: <FolderSimple size={15} />, onClick: () => onNavigate?.("#collections") },
+            ]}
+          />
+          <ModuleCard
+            title="探索领域"
+            illustration="geography"
+            rotation="b"
+            links={[
+              { label: "历史时空", icon: <Notebook size={15} />, onClick: () => onOpenHistory() },
+              { label: "地理百科", icon: <MapPin size={15} />, onClick: () => onOpenGeography() },
+              { label: "语言词典", icon: <Translate size={15} />, onClick: () => onOpenLanguage() },
+              ...(onOpenStudyBoard
+                ? [{ label: "专题研习", icon: <NotePencil size={15} />, onClick: onOpenStudyBoard }]
+                : []),
+            ]}
+          />
+          <ModuleCard
+            title="我的知识"
+            illustration="knowledge"
+            rotation="c"
+            links={[
+              {
+                label: "Memory",
+                icon: <Brain size={15} />,
+                onClick: () => onNavigate?.("#knowledge?tab=memory"),
+              },
+              {
+                label: "Documents",
+                icon: <FileText size={15} />,
+                onClick: () => onNavigate?.("#knowledge?tab=documents"),
+              },
+              {
+                label: "Files",
+                icon: <FolderOpen size={15} />,
+                onClick: () => {
+                  if (onOpenKnowledge) onOpenKnowledge("files");
+                  else onNavigate?.("#knowledge?tab=files");
+                },
+              },
+            ]}
+          />
+          <ModuleCard
+            title="家庭系统"
+            illustration="server"
+            rotation="b"
+            links={[
+              { label: "Server", icon: <HardDrives size={15} />, onClick: () => onOpenServer?.() },
+              { label: "Applications", icon: <Wrench size={15} />, onClick: () => onOpenServer?.() },
+            ]}
+          />
         </div>
       </section>
 
-      {/* Story & Context Section */}
-      <main className="home-story-layout">
-        <section className="home-story-column">
-          <article className="home-article-panel">
-            <header className="home-article-meta">
-              <button
-                type="button"
-                className="home-back-link"
-                onClick={onRefreshRss}
-                disabled={rssRefreshing}
-              >
-                <Rss size={16} />
-                <span>{rssRefreshing ? "正在刷新订阅" : "回到订阅源"}</span>
-              </button>
-              <span>
-                {article
-                  ? `${article.feed_title} · ${dateLabel(article)}`
-                  : "RSS · 等待第一篇文章"}
-              </span>
-            </header>
-            <div className="home-article-content">
-              <div className="home-article-copy">
-                <h2>
-                  {article?.title ?? "从一篇文章，开始一次跨领域探索"}
-                </h2>
-                <p className="home-article-lead">{articleLead}</p>
-                <p className="home-article-body">
-                  {article
-                    ? "先读懂这篇文章，再沿着页面提供的地点与历史入口继续展开；每一个入口都保留回到原文的路径。"
-                    : "添加 RSS Feed 后，这里会展示最新文章，并自动提供可验证的继续探索入口。"}
-                </p>
-                <div className="home-article-actions">
-                  <button
-                    type="button"
-                    className="home-primary-link"
-                    onClick={() => article && onOpenArticle(article)}
-                    disabled={!article}
-                  >
-                    阅读全文 <ArrowRight size={16} />
-                  </button>
-                  <span className="home-article-source">
-                    {article
-                      ? `来源：${article.feed_title} · ${formatRelativeTime(article.published_at)}`
-                      : "来源：RSS Reader"}
-                  </span>
-                </div>
-              </div>
-              <section className="home-place-card">
-                <div className="home-place-copy">
-                  {isGeoLinked ? (
-                    <span className="home-association-tag">
-                      <MapPin size={12} weight="fill" /> 本文提及地点
-                    </span>
-                  ) : (
-                    <span>继续探索地点</span>
-                  )}
-                  <strong>{placeName}</strong>
-                  <small>{placeEnglish}</small>
-                  <button
-                    type="button"
-                    onClick={() => onOpenGeography(geoEntity?.id ?? recommendation?.entity_id)}
-                  >
-                    {placeSummary} <ArrowRight size={15} />
-                  </button>
-                </div>
-              </section>
-            </div>
-            <footer className="home-article-footer">
-              <button
-                type="button"
-                onClick={() => article && onOpenArticle(article)}
-                disabled={!article}
-              >
-                <Note size={17} />稍后读
-              </button>
-              <button
-                type="button"
-                onClick={() => onOpenHistory(historyStory?.id)}
-              >
-                <BookOpen size={17} />查看关联知识
-              </button>
-              <button
-                type="button"
-                className="home-note-action"
-                onClick={onNewNote}
-              >
-                <NotePencil size={17} />写笔记
-              </button>
-            </footer>
-          </article>
-
-          <section className="home-history-context">
-            <div className="home-context-icon">
-              <Clock size={21} />
-            </div>
-            <div className="home-context-copy">
-              <div>
-                {isHistoryLinked ? (
-                  <span className="home-association-tag">
-                    <Clock size={12} weight="fill" /> 关联历史溯源
-                  </span>
-                ) : (
-                  <span>历史推荐</span>
-                )}
-                <small>
-                  {historyStory ? "来自本地语义资料库" : "等待历史资料"}
-                </small>
-              </div>
-              <strong>{historyTitle}</strong>
-              <p>{historySummary}</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => onOpenHistory(historyStory?.id)}
-            >
-              了解更多历史 <ArrowRight size={16} />
-            </button>
-          </section>
-        </section>
-
-        <aside className="home-language-panel">
-          <header>
-            <div>
-              <Translate size={18} />
-              <h2>语言学习</h2>
-            </div>
-            <span>{language}</span>
+      {/* Reading & cross-domain */}
+      <section className="home-block home-cross-grid" aria-label="阅读与跨领域">
+        <SketchCard className="home-article-panel">
+          <header className="home-article-meta">
+            <SketchBadge tone="red">
+              <Rss size={12} /> {article?.feed_title ?? "RSS"}
+            </SketchBadge>
+            <span>{article ? dateLabel(article) : "等待第一篇文章"}</span>
           </header>
-          <div className="home-language-inner">
-            <span className="home-language-label">今天待复习</span>
-            <strong>{languageDueCount}</strong>
-            <small>
-              {languageDueCount > 0
-                ? "条到期 · 先把记住的再确认一遍"
-                : "条 · 暂时没有到期的复习"}
-            </small>
-            <div className="home-language-divider" />
-            <div className="home-language-example">
-              <span>怎么开始</span>
-              <p>
-                {languageDueCount > 0
-                  ? "打开 Language，从今天到期的复习开始；答错的会自动进入错题本。"
-                  : "打开 Language 学一课新内容，到复习时间它会自动出现在这里。"}
-              </p>
-            </div>
-            <button
-              type="button"
-              className="home-language-practice"
-              onClick={() => onOpenLanguage()}
+          <h2 className="home-article-title">
+            {article?.title ?? "从一篇文章，开始一次跨领域探索"}
+          </h2>
+          <p className="home-article-lead">{articleLead}</p>
+          <div className="home-article-actions">
+            <SketchButton
+              variant="primary"
+              onClick={() => article && onOpenArticle(article)}
+              disabled={!article}
             >
-              开始学习 <ArrowRight size={17} />
-            </button>
+              阅读全文 <ArrowRight size={15} />
+            </SketchButton>
+            <SketchButton onClick={onNewNote}>
+              <NotePencil size={15} /> 写笔记
+            </SketchButton>
           </div>
-          <button
-            type="button"
-            className="home-language-more"
-            onClick={() => onOpenLanguage()}
-          >
-            查看更多学习内容 <ArrowRight size={15} />
-          </button>
-        </aside>
-      </main>
+          <div className="home-article-footer">
+            <span>
+              {article
+                ? `来源：${article.feed_title} · ${formatRelativeTime(article.published_at)}`
+                : "来源：RSS Reader"}
+            </span>
+          </div>
+        </SketchCard>
 
+        <div className="home-cross-side">
+          <SketchCard interactive rotation="a" onClick={() => onOpenGeography(geoEntity?.id)}>
+            <div className="home-cross-head">
+              <SketchBadge tone="green">
+                <MapPin size={12} /> {isGeoLinked ? "本文提及地点" : "继续探索地点"}
+              </SketchBadge>
+              <CaretRight size={14} />
+            </div>
+            <strong className="home-cross-title">{placeName}</strong>
+            <p className="home-cross-desc">{placeSummary}</p>
+          </SketchCard>
+
+          <SketchCard interactive rotation="b" onClick={() => onOpenHistory(historyStory?.id)}>
+            <div className="home-cross-head">
+              <SketchBadge tone="orange">
+                <Notebook size={12} /> {isHistoryLinked ? "关联历史溯源" : "历史推荐"}
+              </SketchBadge>
+              <CaretRight size={14} />
+            </div>
+            <strong className="home-cross-title">{historyTitle}</strong>
+            <p className="home-cross-desc">{historySummary}</p>
+          </SketchCard>
+
+          <SketchCard interactive rotation="c" onClick={() => onOpenLanguage()}>
+            <div className="home-cross-head">
+              <SketchBadge tone="blue">
+                <Translate size={12} /> 语言学习 · {language}
+              </SketchBadge>
+              <CaretRight size={14} />
+            </div>
+            <strong className="home-cross-title">今天待复习 {languageDueCount} 条</strong>
+            <p className="home-cross-desc">
+              {languageDueCount > 0
+                ? "先从今天到期的复习开始；答错的会自动进入错题本。"
+                : "暂时没有到期的复习，可以学一课新内容。"}
+            </p>
+          </SketchCard>
+        </div>
+      </section>
+
+      {/* Recent activity */}
       <section className="home-activity-grid">
-        <section className="home-activity-section">
-          <HomeSectionHeading
-            eyebrow="WORKSPACE"
+        <SketchCard className="home-activity-section">
+          <SketchSectionHeader
             title="最近笔记"
+            en="Notes"
             action={
-              <button type="button" onClick={onNewNote}>
-                新建 <ArrowRight size={14} />
+              <button type="button" className="home-link-btn" onClick={onNewNote}>
+                新建 <ArrowRight size={13} />
               </button>
             }
           />
           {recentFiles.length === 0 ? (
-            <p className="home-empty">
-              还没有编辑记录，从一篇文章开始写下你的理解。
-            </p>
+            <p className="home-empty">还没有编辑记录，从一篇文章开始写下你的理解。</p>
           ) : (
-            <ul>
+            <ul className="home-mini-list">
               {recentFiles.slice(0, 4).map((filePath) => (
                 <li key={filePath}>
                   <button type="button" onClick={() => onOpenNote(filePath)}>
@@ -734,19 +568,14 @@ export function HomePage({
               ))}
             </ul>
           )}
-        </section>
-        <section className="home-activity-section">
-          <HomeSectionHeading
-            eyebrow="CONTINUE EXPLORING"
-            title="最近探索"
-          />
-          <ul className="home-exploration-list">
+        </SketchCard>
+
+        <SketchCard className="home-activity-section">
+          <SketchSectionHeader title="最近探索" en="Continue Exploring" />
+          <ul className="home-mini-list">
             {geoEntity ? (
               <li>
-                <button
-                  type="button"
-                  onClick={() => onOpenGeography(geoEntity.id)}
-                >
+                <button type="button" onClick={() => onOpenGeography(geoEntity.id)}>
                   <MapPin size={16} />
                   <span>{geoEntity.name}</span>
                   <small>Geography · {geoEntity.entity_type}</small>
@@ -756,11 +585,8 @@ export function HomePage({
             ) : null}
             {historyStory ? (
               <li>
-                <button
-                  type="button"
-                  onClick={() => onOpenHistory(historyStory.id)}
-                >
-                  <Clock size={16} />
+                <button type="button" onClick={() => onOpenHistory(historyStory.id)}>
+                  <Notebook size={16} />
                   <span>{historyStory.title_zh_cn}</span>
                   <small>History · Story</small>
                   <ArrowRight size={14} />
@@ -769,10 +595,7 @@ export function HomePage({
             ) : null}
             {!geoEntity && !historyStory ? (
               <li>
-                <button
-                  type="button"
-                  onClick={() => onOpenGeography()}
-                >
+                <button type="button" onClick={() => onOpenGeography()}>
                   <MapPin size={16} />
                   <span>打开 Geography 开始探索</span>
                   <small>沿着地点与关系继续</small>
@@ -781,13 +604,40 @@ export function HomePage({
               </li>
             ) : null}
           </ul>
-        </section>
+        </SketchCard>
       </section>
-
-      <footer className="home-offline-note">
-        <CheckCircle size={16} />
-        跨模块内容优先使用本地数据；学习进度实时同步至本地 learning.db。
-      </footer>
     </div>
+  );
+}
+
+function ModuleCard({
+  title,
+  links,
+  illustration,
+  rotation,
+}: {
+  title: string;
+  links: Array<{ label: string; icon?: ReactNode; onClick: () => void }>;
+  illustration: SketchIllustrationName;
+  rotation: "a" | "b" | "c";
+}) {
+  return (
+    <article className={`sketch-module sketch-rot-${rotation}`}>
+      <div className="sketch-module-illustration">
+        <SketchIllustration name={illustration} size={72} />
+      </div>
+      <h3 className="sketch-module-title">{title}</h3>
+      <div className="sketch-module-links">
+        {links.map((link) => (
+          <button key={link.label} type="button" className="sketch-module-link" onClick={link.onClick}>
+            {link.icon}
+            <span>{link.label}</span>
+            <span className="sketch-module-arrow" aria-hidden>
+              →
+            </span>
+          </button>
+        ))}
+      </div>
+    </article>
   );
 }
