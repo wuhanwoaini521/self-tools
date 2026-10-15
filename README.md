@@ -25,10 +25,19 @@ DevToolbox 是一款以本地数据为基础的个人知识工作台。它把 AI
 
 ### 环境
 
-- Rust stable，最低版本 1.95（见 `rust-toolchain.toml`）
-- Node.js 20 或更高版本及 npm
+项目工具链由 [mise](https://mise.jdx.dev) 统一管理：
+
+- Node.js 24（见 `mise.toml`，与 CI 一致）
+- Rust stable，最低版本 1.95（版本、组件与 target 见 `rust-toolchain.toml`，mise 直接读取）
 - 桌面构建所需的 Tauri 平台依赖；Windows 使用 MSVC 工具链
-- GNU Make（可选，用于简化命令）
+
+安装 mise 后，在仓库根目录执行：
+
+```bash
+mise trust && mise install
+```
+
+`mise install` 会按 `mise.toml`、`rust-toolchain.toml` 与 `mise.lock` 安装（或校验）工具链。不使用 mise 时，也可以自行准备 Rust stable 与 Node.js 20+。
 
 ### 启动桌面应用
 
@@ -36,25 +45,20 @@ DevToolbox 是一款以本地数据为基础的个人知识工作台。它把 AI
 git clone https://github.com/wuhanwoaini521/self-tools.git
 cd self-tools
 
-# 安装前端依赖
-npm --prefix apps/desktop/ui install
+# 安装前端依赖（mise run dev 会自动执行）
+mise run install
 
 # 启动 Tauri 桌面应用
-npm --prefix apps/desktop/ui exec -- tauri dev
+mise run dev
 ```
 
-安装 GNU Make 后也可以运行：
-
-```bash
-make install
-make dev
-```
+`mise tasks ls` 可查看全部任务；不经过 mise 的等价命令是 `npm --prefix apps/desktop/ui install` 和 `npm --prefix apps/desktop/ui exec -- tauri dev`。安装 GNU Make 后也可以运行 `make install` / `make dev`（Make 目标转发到对应的 mise task）。
 
 仅启动 Vite 前端预览（不启动 Rust/Tauri 后端）：
 
 ```bash
-npm --prefix apps/desktop/ui run dev
-# 或 make dev-web
+mise run dev-web
+# 或 npm --prefix apps/desktop/ui run dev / make dev-web
 ```
 
 浏览器预览用于查看界面；依赖桌面桥接、本地文件或 SQLite 的功能需要在 Tauri 应用中体验。
@@ -62,48 +66,46 @@ npm --prefix apps/desktop/ui run dev
 ### 构建与检查
 
 ```bash
-# 前端类型检查与生产构建
+mise run build     # 前端类型检查与生产构建（tsc --noEmit + vite build）
+mise run package   # 构建桌面安装包（tauri build）
+mise run check     # cargo fmt --check + cargo check --workspace + clippy
+mise run test      # cargo test --workspace
+```
+
+等价的直接命令：
+
+```bash
 npm --prefix apps/desktop/ui run build
-
-# 构建桌面安装包
 npm --prefix apps/desktop/ui exec -- tauri build
-
-# Rust workspace
 cargo check --workspace
 cargo test --workspace
 ```
 
-使用 Make 时，对应命令为 `make build`、`make package` 和 `make test`。
+使用 Make 时，对应命令为 `make build`、`make package`、`make check` 和 `make test`。
 
 ### 自动化回归测试
 
-首次运行先安装桌面端和 UI 依赖：
+首次运行 `mise run install` 安装桌面端和 UI 依赖（`test:*` 任务会自动执行该步骤）。按测试层运行：
 
 ```bash
-npm --prefix apps/desktop ci
-npm --prefix apps/desktop/ui ci
+mise run test          # Rust workspace 业务测试
+mise run test:ui       # 前端单元测试（快捷键注册表、PWA 等）
+mise run test:e2e      # Windows 桌面端 E2E：构建带测试驱动的 Tauri 应用并启动真实窗口
+mise run test:visual   # 五种视口的 UI、可访问名称、溢出和浏览器异常回归
+mise run test:all      # 依次运行 Rust、前端单元与视觉回归测试
 ```
 
-按测试层运行：
+等价的直接命令：
 
 ```bash
-# Rust workspace 业务测试
 cargo test --workspace
-
-# 前端单元测试（快捷键注册表、PWA 等）
 npm --prefix apps/desktop/ui test
-
-# Windows 桌面端 E2E：构建带测试驱动的 Tauri 应用并启动真实窗口
 npm --prefix apps/desktop run test:e2e
-
-# 五种视口的 UI、可访问名称、溢出和浏览器异常回归
 npm --prefix apps/desktop run test:visual
-
-# 依次运行上述全部测试
 npm --prefix apps/desktop run test:all
 ```
 
-桌面 E2E 目前以 Windows 为原生门禁，需要已安装 Rust Windows target、WebView2 和 Edge WebDriver 环境。测试配置把应用数据指向临时目录，使用固定 Markdown fixture 和 Tauri IPC mock，不读取仓库 `config/` 中的个人数据或密钥。测试截图、WDIO 日志及视觉 JSON 报告写入仓库根目录 `output/`（该目录不纳入版本控制）；测试驱动仅由 `e2e` Cargo feature 编入测试构建。
+桌面 E2E 目前以 Windows 为原生门禁，需要 Rust Windows target（`mise install` 会按 `rust-toolchain.toml` 安装）、WebView2 和 Edge WebDriver 环境。测试配置把应用数据指向临时目录，使用固定 Markdown fixture 和 Tauri IPC mock，不读取仓库 `config/` 中的个人数据或密钥。测试截图、WDIO 日志及视觉 JSON 报告写入仓库根目录 `output/`（该目录不纳入版本控制）；测试驱动仅由 `e2e` Cargo feature 编入测试构建。
 
 ## 数据与配置
 

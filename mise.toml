@@ -1,0 +1,92 @@
+# DevToolbox 项目工具链与任务配置（mise）。
+#
+# 首次使用：
+#   mise trust && mise install   # 安装 Node.js 与 Rust 工具链
+#   mise run dev                 # 启动 Tauri 桌面开发模式
+#
+# Rust 版本、profile、组件与 target 由 rust-toolchain.toml 提供（见下方 [settings]），
+# 这样 rustup / CI 不经过 mise 直接构建时行为一致。
+
+[settings]
+# 让 mise 读取 rust-toolchain.toml（channel / profile / components / targets）
+idiomatic_version_file_enable_tools = ["rust"]
+# 随安装创建并维护 mise.lock，锁定解析出的具体版本
+lockfile = true
+
+[tools]
+# 与 .github/workflows/rust-quality.yml 的 setup-node 保持一致
+node = "24"
+
+[tasks.install]
+description = "安装前端依赖（apps/desktop 与 apps/desktop/ui）"
+sources = [
+  "apps/desktop/package.json",
+  "apps/desktop/package-lock.json",
+  "apps/desktop/ui/package.json",
+  "apps/desktop/ui/package-lock.json",
+]
+outputs = ["apps/desktop/node_modules", "apps/desktop/ui/node_modules"]
+run = [
+  "npm --prefix apps/desktop install",
+  "npm --prefix apps/desktop/ui install",
+]
+
+[tasks.dev]
+description = "启动 Tauri 桌面应用开发模式"
+depends = ["install"]
+run = "npm --prefix apps/desktop/ui exec -- tauri dev"
+
+[tasks.dev-web]
+description = "仅启动 Vite 前端（浏览器预览，无 Rust/Tauri）"
+depends = ["install"]
+run = "npm --prefix apps/desktop/ui run dev"
+
+[tasks.build]
+description = "前端类型检查与生产构建（tsc + vite build）"
+depends = ["install"]
+run = "npm --prefix apps/desktop/ui run build"
+
+[tasks.package]
+description = "Tauri release 构建（生成安装包）"
+depends = ["install"]
+run = "npm --prefix apps/desktop/ui exec -- tauri build"
+
+[tasks.fmt]
+description = "格式化 Rust 代码"
+run = "cargo fmt"
+
+[tasks.check]
+description = "Rust 格式检查、编译检查与 clippy（与 CI 一致）"
+run = [
+  "cargo fmt --check",
+  "cargo check --workspace",
+  "cargo clippy --all-targets --all-features -- -D warnings",
+]
+
+[tasks.test]
+description = "Rust workspace 测试"
+run = "cargo test --workspace"
+
+[tasks."test:ui"]
+description = "前端单元测试（vitest）"
+depends = ["install"]
+run = "npm --prefix apps/desktop/ui test"
+
+[tasks."test:e2e"]
+description = "桌面端 E2E（Windows 原生；需要 WebView2 与 Edge WebDriver）"
+depends = ["install"]
+run = "npm --prefix apps/desktop run test:e2e"
+
+[tasks."test:visual"]
+description = "多视口 UI / 可访问性 / 溢出视觉回归"
+depends = ["install"]
+run = "npm --prefix apps/desktop run test:visual"
+
+[tasks."test:all"]
+description = "依次运行 Rust、前端单元与视觉回归测试"
+depends = ["install"]
+run = [
+  "cargo test --workspace",
+  "npm --prefix apps/desktop/ui test",
+  "npm --prefix apps/desktop run test:visual",
+]

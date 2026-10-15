@@ -5,6 +5,12 @@ target/
 node_modules/
 dist/
 
+# mise（本地覆盖文件不提交；mise.toml 与 mise.lock 随仓库提交）
+mise.local.toml
+mise.local.lock
+.mise.local.toml
+.mise.local.lock
+
 # IDE
 .idea/
 .vscode/
