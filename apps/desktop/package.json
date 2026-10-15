@@ -21,6 +21,6 @@
     "@wdio/tauri-plugin": "^1.4.0",
     "@wdio/tauri-service": "^1.4.0",
     "expect-webdriverio": "^6.1.0",
-    "playwright": "^1.63.0"
+    "playwright": "1.62.0"
   }
 }
