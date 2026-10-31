@@ -928,3 +928,40 @@
     transition: none;
   }
 }
+
+/* 跨时期事件密度：时间轴上方一排柱子，宽度跟随该时期的分段，高度=事件数量。
+ * 数据来自后端 periods[].event_count；无计数时不渲染整行。 */
+.history-era-density {
+  position: relative;
+  width: 100%;
+}
+
+.app-shell .history-era-timeline .history-era-card .history-era-density-bar {
+  position: absolute;
+  bottom: 0;
+  min-width: 2px;
+  padding: 0;
+  border: 0;
+  border-radius: 3px 3px 0 0;
+  background: color-mix(in srgb, var(--accent) 32%, transparent);
+  cursor: pointer;
+  transition: background 150ms ease;
+}
+
+.app-shell .history-era-timeline .history-era-card .history-era-density-bar:hover {
+  background: color-mix(in srgb, var(--accent) 62%, transparent);
+}
+
+.app-shell .history-era-timeline .history-era-card .history-era-density-bar.is-current {
+  background: linear-gradient(
+    180deg,
+    var(--accent),
+    color-mix(in srgb, var(--accent) 52%, var(--panel))
+  );
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-shell .history-era-timeline .history-era-card .history-era-density-bar {
+    transition: none;
+  }
+}

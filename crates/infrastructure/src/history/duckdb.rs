@@ -263,13 +263,15 @@ impl HistoryDuckDbRepository {
     pub fn get_periods(&self) -> Result<Vec<PeriodResult>, InfrastructureError> {
         self.with_connection(|connection| {
             let mut statement = connection.prepare(
-                "SELECT id,name_zh_cn,start_year,end_year,date_precision,description_zh_cn,quality_status,source_type,source_ids,name_raw,source_reference
+                "SELECT id,name_zh_cn,start_year,end_year,date_precision,description_zh_cn,quality_status,source_type,source_ids,name_raw,source_reference,
+                        (SELECT COUNT(*) FROM events e WHERE e.period_id = periods.id) AS event_count
                  FROM periods ORDER BY start_year NULLS LAST,id",
             ).map_err(|error| InfrastructureError::DuckDb(error.to_string()))?;
             let rows = statement.query_map([], |row| Ok(PeriodResult {
                 id: row.get(0)?, name_zh_cn: row.get(1)?, start_year: row.get(2)?, end_year: row.get(3)?,
                 date_precision: row.get(4)?, description_zh_cn: row.get(5)?, quality_status: row.get(6)?,
                 source_type: row.get(7)?, source_ids: row.get(8)?, name_raw: row.get(9)?, source_reference: row.get(10)?,
+                event_count: row.get(11)?,
             })).map_err(|error| InfrastructureError::DuckDb(error.to_string()))?;
             rows.map(|row| row.map_err(|error| InfrastructureError::DuckDb(error.to_string()))).collect()
         })

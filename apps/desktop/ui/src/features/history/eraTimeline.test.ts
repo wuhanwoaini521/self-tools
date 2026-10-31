@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { SemanticPeriod } from "./semanticTypes";
 import {
   buildEraTimelineLayout,
+  eraDensityHeight,
   isApproximatePeriod,
   periodRangeLabel,
 } from "./EraTimeline";
@@ -109,5 +110,19 @@ describe("buildEraTimelineLayout", () => {
     );
     expect(layout.segments).toHaveLength(0);
     expect(layout.domain).toBeNull();
+  });
+});
+
+describe("eraDensityHeight", () => {
+  it("无计数或最大值为 0 时不画柱子", () => {
+    expect(eraDensityHeight(0, 10, 24)).toBe(0);
+    expect(eraDensityHeight(null, 10, 24)).toBe(0);
+    expect(eraDensityHeight(5, 0, 24)).toBe(0);
+  });
+
+  it("按事件数归一化，并保留最小可见高度", () => {
+    expect(eraDensityHeight(50, 100, 24)).toBe(12);
+    expect(eraDensityHeight(1, 1000, 24)).toBe(3);
+    expect(eraDensityHeight(100, 100, 24)).toBe(24);
   });
 });

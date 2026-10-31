@@ -31,6 +31,8 @@ const DESKTOP_LANE_HEIGHT = 36;
 const COMPACT_LANE_HEIGHT = 50;
 const DESKTOP_AXIS_HEIGHT = 54;
 const COMPACT_AXIS_HEIGHT = 58;
+const DESKTOP_DENSITY_HEIGHT = 30;
+const COMPACT_DENSITY_HEIGHT = 26;
 const DESKTOP_MIN_TRACK = 640;
 const COMPACT_MIN_TRACK = 1040;
 const COMPACT_QUERY = "(max-width: 1100px)";
@@ -72,6 +74,16 @@ export interface EraTimelineLayout {
 
 function isYear(value: number | null | undefined): value is number {
   return typeof value === "number" && Number.isFinite(value);
+}
+
+/** 密度条高度：按事件数归一化到可用高度；无数据返回 0（不画柱子）。 */
+export function eraDensityHeight(
+  count: number | null | undefined,
+  max: number,
+  height: number,
+): number {
+  if (!count || count <= 0 || max <= 0 || height <= 0) return 0;
+  return Math.max(3, Math.round((count / max) * height));
 }
 
 /** 约略年代：区间边界不是精确断代。 */
@@ -265,6 +277,12 @@ export function EraTimeline({
     [periods, trackWidth, compact],
   );
   const scrollable = measuredWidth > 0 && layout.trackWidth > measuredWidth + 1;
+  const densityHeight = compact ? COMPACT_DENSITY_HEIGHT : DESKTOP_DENSITY_HEIGHT;
+  const maxEventCount = useMemo(
+    () => periods.reduce((max, period) => Math.max(max, period.event_count ?? 0), 0),
+    [periods],
+  );
+  const hasDensity = maxEventCount > 0;
 
   // 当前时期自动进入视野；只滚动横向容器，不劫持页面纵向滚动。
   useEffect(() => {
@@ -337,7 +355,7 @@ export function EraTimeline({
           {hasGeometry
             ? `${periods.length} 个时期 · 按年代跨度等比例 · 重叠时期自动分轨${
                 approximateCount ? " · 虚线为约略年代" : ""
-              }`
+              }${hasDensity ? " · 顶部条高=事件数量" : ""}`
             : `${periods.length} 个时期 · 年代数据待补充，仍可按时序浏览`}
         </small>
       </div>
@@ -351,15 +369,54 @@ export function EraTimeline({
               className="history-era-track"
               style={{
                 width: `${layout.trackWidth}px`,
-                height: `${layout.bandHeight + layout.axisHeight}px`,
+                height: `${
+                  (hasDensity ? densityHeight : 0) +
+                  layout.bandHeight +
+                  layout.axisHeight
+                }px`,
               }}
               onKeyDown={handleKeyDown}
             >
+              {hasDensity ? (
+                <div
+                  className="history-era-density"
+                  style={{ height: `${densityHeight}px` }}
+                  aria-hidden="true"
+                >
+                  {layout.segments.map((segment) => {
+                    const barHeight = eraDensityHeight(
+                      segment.period.event_count,
+                      maxEventCount,
+                      densityHeight - 6,
+                    );
+                    if (!barHeight) return null;
+                    const currentBar = segment.period.id === currentId;
+                    return (
+                      <button
+                        key={`density-${segment.period.id}`}
+                        type="button"
+                        tabIndex={-1}
+                        className={`history-era-density-bar${
+                          currentBar ? " is-current" : ""
+                        }`}
+                        style={{
+                          left: `${segment.left}px`,
+                          width: `${Math.max(2, segment.width)}px`,
+                          height: `${barHeight}px`,
+                        }}
+                        onClick={() => onSelect(segment.period)}
+                        title={`${segment.period.name_zh_cn} · ${segment.period.event_count ?? 0} 个事件`}
+                      />
+                    );
+                  })}
+                </div>
+              ) : null}
               {layout.epochLeft !== null ? (
                 <span
                   className="history-era-epoch-line"
                   style={{
                     left: `${layout.epochLeft}px`,
+                    top: `${hasDensity ? densityHeight : 0}px`,
                     height: `${layout.bandHeight}px`,
                   }}
                   aria-hidden="true"
@@ -434,7 +491,7 @@ export function EraTimeline({
               <div
                 className="history-era-axis"
                 style={{
-                  top: `${layout.bandHeight}px`,
+                  top: `${(hasDensity ? densityHeight : 0) + layout.bandHeight}px`,
                   height: `${layout.axisHeight}px`,
                 }}
               >

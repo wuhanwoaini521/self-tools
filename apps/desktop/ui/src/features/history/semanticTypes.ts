@@ -9,6 +9,8 @@ export interface SemanticPeriod {
   quality_status?: string | null;
   source_type?: string | null;
   source_ids?: string | null;
+  /** 该时期下的事件总数（后端 data-driven 统计，用于跨时期密度）。 */
+  event_count?: number | null;
 }
 
 export interface SemanticRegime {

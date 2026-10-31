@@ -89,6 +89,8 @@ pub struct PeriodResult {
     pub source_ids: Option<String>,
     pub name_raw: Option<String>,
     pub source_reference: Option<String>,
+    /// 该时期下的事件总数（data-driven，用于跨时期密度展示）。
+    pub event_count: i64,
 }
 
 #[derive(Debug, Clone, Serialize)]

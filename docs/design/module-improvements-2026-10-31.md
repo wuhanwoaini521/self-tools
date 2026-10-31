@@ -43,11 +43,13 @@
 | 阶段事件密度条（条宽=跨度、条高=事件数、点击跳转并立即高亮） | `PeriodDetail.tsx`、`era-timeline.css` |
 | 章节滚动只滚历史页容器（不再带动应用外壳） | `PeriodDetail.tsx` |
 | Story 上/下一篇导航（优先首页精选池，可跨时期） | `HistoryPage.tsx`、`era-timeline.css` |
+| 跨时期事件密度（`periods[].event_count` 增量字段 + 时间轴顶部密度柱） | `history_records.rs`、`duckdb.rs`、`semanticTypes.ts`、`EraTimeline.tsx`、`era-timeline.css`、`eraTimeline.test.ts` |
 
 ## 验证证据
 
 - `cd apps/desktop/ui && npx tsc --noEmit` → 0 错误
-- `npx vitest run` → 22 个测试文件 / 131 个测试全过（新增 `eraTimeline.test.ts` 6 个、`geoTimeline.test.ts` 4 个）
+- `npx vitest run` → 22 个测试文件 / 133 个测试全过（新增 `eraTimeline.test.ts` 8 个、`geoTimeline.test.ts` 4 个）
+- `cargo check --workspace --all-targets` 与 `cargo test -p devtoolbox-infrastructure --lib -- history`（11 项）通过
 - `npx vite build` → 通过
 - Playwright（channel=chrome，真实本地数据 `http://127.0.0.1:1422`）：
   - 桌面 1440×900 / 手机 390×844（含 hasTouch）逐页检查：`document.scrollWidth <= innerWidth`、`window.scrollY === 0`
@@ -57,7 +59,7 @@
 
 ## 已知边界 / 后续
 
-1. **跨时期事件密度**：`SemanticPeriod` 没有 `event_count`，目前只在当前时期详情内做阶段密度；跨时期密度需要后端补字段（超出前端范围）。
+1. **跨时期事件密度**：已完成——`PeriodResult`/`SemanticPeriod` 新增 `event_count`（后端 SQL 按 `events.period_id` 统计，纯增量），时代时间轴顶部渲染密度柱；无计数时不渲染。
 2. **Geography 的 `!important` 技术债**：`geography-explore.css` 中约 100+ 处 `!important`，用于退出旧「纸张按钮」皮肤（`.app-shell button:not(...)` 特异性 0,3,1）。彻底收敛需要把组件选择器整体提升特异性，风险较高，留作专项。
 3. **真实数据状态覆盖**：夏/商/周等时期 `stages` 为空、部分时期没有 Story；密度条与 Story 导航按设计在无数据时不渲染。空白行程没有坐标，地图会明确说明不绘制推测路线。
 4. **Travel 跨天拖动**在触屏不可用（抓手隐藏），触屏继续用「安排在 Day X」下拉。

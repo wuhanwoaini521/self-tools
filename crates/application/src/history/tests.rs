@@ -111,6 +111,7 @@ fn period(id: &str) -> PeriodResult {
         source_ids: None,
         name_raw: None,
         source_reference: None,
+        event_count: 0,
     }
 }
 

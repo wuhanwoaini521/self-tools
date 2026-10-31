@@ -77,6 +77,7 @@
 - 新增 `EraTimeline`：按真实 `start_year`/`end_year` 比例分段的时代带；公元前负年份、约略年代虚线、开放起点（start_year=null）单独标注；重叠时期按首次适配分轨（31 个时期全部可点）；当前项 accent 高亮 + `aria-current`；方向键/Home/End 键盘导航；手机轨道横向滚动并自动把当前时期滚入视野。
 - PeriodDetail 顶部三卡压缩空白并补「事件/人物/政权」事实；详情桌面左栏粘性玻璃事实卡、右栏正文，≤1100px 单列顺序化。
 - 实现：`features/history/EraTimeline.tsx`、`features/history/era-timeline.css`、`eraTimeline.test.ts`（6 个布局单测）、`HistoryPage.tsx`、`PeriodDetail.tsx`。
+- 第九轮（跨时期密度，FULL STACK 增量）：`PeriodResult` 增加 `event_count`（后端按 `events.period_id` 统计，纯新增字段），时代时间轴上方渲染密度柱：宽度跟随分段、高度=事件数、点击切换时期。前端 133 项测试通过。
 - 第八轮（地理探索小步）：今日探索加「换一个」随机入口；地图选中实体时索引轨道自动横向滚动到对应卡片。
 - 第七轮（跨天拖动 + 行程概览）：拖动支持跨天移动（改 assignedDays 并插入目标天），日程顶部加「天数 / 地点数 / 必去完成度 / 总里程」概览条；数据全部来自本地行程状态。
 - 第六轮（拖动排序）：按 TREK 的 day plan「drag places between positions」模式，在同一天内用左侧抓手拖动重排景点，复用 `selectedKeys` 顺序；抓手对辅助技术隐藏、触屏隐藏，键盘仍用上/下箭头。
