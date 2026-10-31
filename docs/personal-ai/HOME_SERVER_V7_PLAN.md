@@ -1,5 +1,7 @@
 # SELF-TOOLS V7 · HOME SERVER & SAFE AUTOMATION — PLAN
 
+> **Boundary note:** This historical plan records page-oriented AI context and action protocol. For new work follow the repository-root [`AGENTS.md`](../../AGENTS.md); backend capabilities must not depend on frontend page concepts or prescribe UI rendering.
+
 > Gate 0 审计结论 + 五 Track 实施计划。基线：HEAD `3320bbe`(V6 Gate 10)，
 > 工作树干净，`cargo test --workspace` = **508 passed / 0 failed**
 > (application 256 / core 117 / infrastructure 124 / server 7 / desktop 4)。

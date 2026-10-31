@@ -78,9 +78,10 @@ Web/PWA（HTTPS） → Device Session（authenticated）
 | 检查 | 结论 | 证据 |
 | --- | --- | --- |
 | 日志隐私 | PASS | §2.1 |
-| 备份文件权限 | PASS | `chmod 700 home / 600 settings`（DEPLOY_MACOS12） |
-| SQLite 不用裸 copy | PASS | `VACUUM INTO` / Backup API；drill 测试 |
-| 恢复不覆盖真实数据 | PASS | restore 目标隔离 + 路径封闭 |
+| 备份文件权限 | PASS | `backup/<UUID>/` 目录 `0700`、快照文件 `0600`；`settings.json` 与用户数据根不纳入备份 |
+| SQLite 不用裸 copy | PASS | `VACUUM INTO`；应用级恢复在隔离目录验证并跑 `integrity_check` |
+| 恢复提交与回滚 | PASS | 仅干净启动排他锁期间替换；先保留安全快照，journal 中断时回滚 |
+| 备份 API 暴露面 | PASS | `/api/v1/backups` 继承 loopback bind、Host/Origin guard；不提供认证或远程访问 |
 | PWA 缓存不存敏感数据 | PASS | `sw.js` 对 `api/memory/document/file/conversation/study/safe-action/mcp/auth/token/session` 走 network-only |
 | Service Worker 不缓存 token | PASS | 同上（network-only + 不写任何 cache） |
 | 多模态上传隐私 | PASS | 图片默认不进 Memory；保存需显式用户动作（§106） |
@@ -108,6 +109,10 @@ Web/PWA（HTTPS） → Device Session（authenticated）
 
 ## 5. 结论
 
-**0 Critical / 0 High / Medium 全部修复。** 真实外部依赖（Jev key / LLM key /
+**V11 application-path review：0 Critical / 0 High / Medium 全部修复。** 真实外部依赖（Jev key / LLM key /
 OIDC / 证书 / 真机）属部署方输入，本地 architecture / fake / fallback /
-fail-closed / tests / docs 全部完整。
+fail-closed / tests / docs 全部完整。Sprint 11.1 的依赖审计限制见 §6。
+
+## 6. Sprint 11.1 供给链审计（2026-10-30）
+
+`cargo audit --no-fetch` 对更新后的锁文件报告 3 条 ZIP advisory，均命中 `zip@6.0.0`，经 DuckDB bundled build dependency 到达；其构建脚本会解包 DuckDB 归档。应用侧 ZIP 读取器已升级到 `zip@9.1.3`，仅使用 `ZipArchive::by_index()` 读取 JSON，不调用 extraction API。GitHub-reviewed [GHSA-m665-v7pm-7grj](https://github.com/advisories/GHSA-m665-v7pm-7grj)（CVE-2026-115905）另覆盖 `zip <=9.0.4`，在 9.0.5 修复；9.1.3 已修复。锁中的 `zip@6.0.0` 版本命中范围，但该问题描述的利用需要 `ZipStreamReader` 与随机读取解析器混用；当前项目和 DuckDB 构建脚本只观察到 `ZipArchive` 路径。ZIP 6 的构建期 extraction 告警仍需上游修复或经审查的替代构建路径后才能解除分发门禁。审计另报告 9 条 unmaintained notice 和 `glib@0.18.5` 的 1 条 unsound notice（Linux 平台依赖路径）。

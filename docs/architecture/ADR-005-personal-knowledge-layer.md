@@ -17,6 +17,10 @@ PersonalAgent 核心零业务分支、AI 只读。
 约束清单（计划 §1.3/§7）：不引入外部依赖；每域一个 SQLite；检索必须确定性可复现；
 用户数据不出本机（无网络、无远端模型调用发生在检索路径上）。
 
+## Architecture-boundary addendum (2026-10-08)
+
+This ADR records the existing knowledge-layer behavior. For new work, follow the repository-root [`AGENTS.md`](../../AGENTS.md). Rendering a confirmation card is a frontend choice; the backend/API contract should communicate semantic confirmation requirements and outcomes, not prescribe a card or other widget. Existing `UiBlock` renderer kinds are legacy protocol and must not be expanded as a substitute for client-neutral DTOs.
+
 ## 决策
 
 ### 1. 一个域 = 一个 SQLite 库 = 一组端口，共享数据形状上移 core

@@ -1,5 +1,7 @@
 # SELF-TOOLS V5 · PERSONAL AI MODULE EXPANSION — PLAN
 
+> **Boundary note:** This historical plan records the prior UI-context protocol. For new work follow the repository-root [`AGENTS.md`](../../AGENTS.md); do not make backend behavior depend on frontend page/view state.
+
 > 层次：确认以当前仓库代码为准（HEAD `903327f…`，工作区干净）。V4 已验收入库；
 > 本轮目标二：**验证 V4 平台承载多业务模块** + **补齐 History V3.1 按需 AI 富化**。
 > 实施状态见 [`V5_OVERNIGHT_STATUS.md`](V5_OVERNIGHT_STATUS.md)；最终架构见

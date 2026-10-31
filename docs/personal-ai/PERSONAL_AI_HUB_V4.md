@@ -1,5 +1,7 @@
 # SELF-TOOLS V4 · PERSONAL AI HUB — 终版架构
 
+> **Boundary note:** This is a historical implementation record. For new work, follow the repository-root [`AGENTS.md`](../../AGENTS.md). In particular, `page` context, navigation/panel actions, and `ui_blocks` are legacy UI-shaped protocol; do not expand them. New backend contracts must express semantic product context and outcomes, leaving rendering to clients.
+
 > 状态：✅ 已实施（Gates 0-9 PASS，见 [`V4_OVERNIGHT_STATUS.md`](V4_OVERNIGHT_STATUS.md)；
 > 计划与审计见 [`PERSONAL_AI_HUB_V4_PLAN.md`](PERSONAL_AI_HUB_V4_PLAN.md)；
 > 决策记录见 [`docs/architecture/ADR-003-personal-ai-hub.md`](../architecture/ADR-003-personal-ai-hub.md)）。

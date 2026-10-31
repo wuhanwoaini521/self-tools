@@ -1,5 +1,7 @@
 # SELF-TOOLS V6 · PERSONAL KNOWLEDGE LAYER — PLAN
 
+> **Boundary note:** This historical plan records UI-block and page-context contracts. For new work follow the repository-root [`AGENTS.md`](../../AGENTS.md); treat renderer kinds as legacy and keep new API outcomes semantic and client-neutral.
+
 > Gate 0 审计结论 + 四 Track 实施计划。基线：HEAD `3b1a0aa`（V5 Gate 10 收口）+
 > 工作区 27 个已修改文件（V5 收尾/格式/局部行为调整，全部保留）。
 > 基线验证（本次真实执行）：`cargo test --workspace` = **333 passed / 0 failed**

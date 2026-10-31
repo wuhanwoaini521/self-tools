@@ -1,5 +1,7 @@
 # Rust GUI 技术选型
 
+> **Architecture boundary note:** This document records the historical UI toolkit decision. For current and future implementation, the repository-root [`AGENTS.md`](../../AGENTS.md) is authoritative: Tauri IPC is a platform adapter, not permission to put business logic in React or make the product API depend on a particular UI. Replaceable clients must use stable API contracts; the backend remains the product core.
+
 ## 结论
 
 **第一推荐：Tauri 2 + React/TypeScript（UI）+ Rust workspace（核心与桌面命令）。**

@@ -68,12 +68,12 @@ sensitive/backup-required/rebuildable/schema version）。
 
 ## 6. 备份 / 恢复（§66-§70）
 
-- 覆盖：Personal Memory、Documents 数据、Conversation、Study Boards、
-  settings（脱敏导出说明）、其他不可重建用户数据。
-- REBUILDABLE 标记：cache、index、derived enrichment。
-- Manifest：timestamp / app version / schema versions / files / checksums。
+- 覆盖：app-owned SQLite 数据库（Memory、Documents、Conversation、Study Boards、RSS/News、Travel、Language、Geography、Learning、History enrichment、SafeAction audit）。
+- 不纳入：`settings.json`（可能含 provider secrets）、用户选择的文件根目录、下载语料、cache/index、随应用分发的只读 History DuckDB。
+- REBUILDABLE 标记：cache、index、derived enrichment 与可重建的文件索引。
+- Manifest：格式版本 / complete 标记 / timestamp / app version / schema versions / files / checksums。
 - SQLite：禁止 `cp` 运行中的库；用安全 snapshot（VACUUM INTO / Backup API）。
-- Restore drill：fixture → backup → 改 fixture → 恢复到隔离目标 → 校验。
+- Restore：fixture → backup → 改 fixture → 恢复到隔离目标；应用数据恢复只在所有实例退出后的排他启动阶段执行，并先留安全快照。
 
 ## 7. 验收
 

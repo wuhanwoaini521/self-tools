@@ -1,5 +1,7 @@
 # SELF-TOOLS V6 · PERSONAL KNOWLEDGE LAYER — 终版架构
 
+> **Boundary note:** This is a historical implementation record. For new work, follow the repository-root [`AGENTS.md`](../../AGENTS.md). Existing frontend confirmation-card and `UiBlock` rendering choices are not backend presentation requirements; do not add new UI-shaped response kinds.
+
 > 状态：✅ 已实施（Gates 0-10 PASS，测试 499/499，见
 > [`V6_OVERNIGHT_STATUS.md`](V6_OVERNIGHT_STATUS.md)；计划见
 > [`PERSONAL_KNOWLEDGE_V6_PLAN.md`](PERSONAL_KNOWLEDGE_V6_PLAN.md)；决策记录见

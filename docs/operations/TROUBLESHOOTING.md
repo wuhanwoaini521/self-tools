@@ -9,7 +9,7 @@
 | `configuration error: invalid bind address` | `--bind` / `SELF_TOOLS_BIND` 不是 `host:port` | 用 `127.0.0.1:8080` |
 | `configuration error: unknown argument: X` | CLI 参数拼错 | `--help` |
 | `invalid_port` | 端口 0 或非数字 | 1..=65535 |
-| `unsafe_bind` | 生产模式绑定非 loopback 未显式允许 | 设 `SELF_TOOLS_ALLOW_REMOTE=1`（确认已配 HTTPS+身份）或改回 loopback |
+| `configuration error: unauthenticated HTTP server must bind to a loopback address` | HTTP 服务不支持未认证的非 loopback 监听 | 改回 `127.0.0.1:8080`；TLS 或 `SELF_TOOLS_ALLOW_REMOTE` 不能替代认证；远程访问需等待受支持的认证网关 |
 | `invalid_path` / `missing_required_dir` | data/config 目录不可创建或不可写 | 修权限；`mkdir -p`；检查磁盘 |
 | `remote_mcp_without_auth` | `server.mcp.remote_enabled=true` 但无身份提供者 | 关远程，或配置 OIDC |
 | `bad_threshold`（confirmation_ttl / ratios / jev_timeout） | 数值越界 | TTL 30..=120；比率 0..=1；timeout 1..=60 |

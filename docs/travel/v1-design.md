@@ -1,6 +1,8 @@
 # Travel 模块设计档案（V1）
 
-> 状态：已实现（2026-08）。本文档为设计决策记录，供后续扩展参考，不一定与代码逐行同步；以代码为准。
+> 状态：已实现（2026-08）。本文档为历史设计决策记录，供参考，不一定与代码逐行同步。
+>
+> **Boundary note:** For new work, the repository-root [`AGENTS.md`](../../AGENTS.md) is authoritative: Travel UI is replaceable, while trip rules, route planning and persistent business state belong behind stable backend APIs. Do not extend this historical React → Tauri `invoke` path for new clients; use the versioned API contract and record remaining API gaps instead.
 
 ## 核心原则
 

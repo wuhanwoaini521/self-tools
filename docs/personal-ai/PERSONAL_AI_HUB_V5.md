@@ -1,5 +1,7 @@
 # SELF-TOOLS V5 · PERSONAL AI MODULE EXPANSION — 终版架构
 
+> **Boundary note:** This is a historical implementation record. For new work follow the repository-root [`AGENTS.md`](../../AGENTS.md); page/view context and renderer-specific AI output must not be expanded as backend contracts.
+
 > 状态：✅ 已实施（Gates 0-10 PASS，见 [`V5_OVERNIGHT_STATUS.md`](V5_OVERNIGHT_STATUS.md)；
 > 计划见 [`PERSONAL_AI_HUB_V5_PLAN.md`](PERSONAL_AI_HUB_V5_PLAN.md)；
 > Provider 融合记录见 [`V5_PROVIDER_CONSOLIDATION.md`](V5_PROVIDER_CONSOLIDATION.md)；

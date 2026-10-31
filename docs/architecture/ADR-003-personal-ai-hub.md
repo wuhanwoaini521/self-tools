@@ -6,6 +6,10 @@
   [V4 计划](../personal-ai/PERSONAL_AI_HUB_V4_PLAN.md)、[V4 终版架构](../personal-ai/PERSONAL_AI_HUB_V4.md)、
   [V2 Cutover 审计](../migration/09-history-v2-cutover-audit-2026-09-10.md)（V3 依赖基线）
 
+## Architecture-boundary addendum (2026-10-08)
+
+This ADR preserves the accepted V4 implementation history. For new work, the repository-root [`AGENTS.md`](../../AGENTS.md) is authoritative. In particular, the historical `AppContext` page field and AI `UiBlock` / navigation-oriented response protocol are legacy UI-shaped contracts: do not expand them. New or replacement APIs must use client-neutral semantic context, outcomes, and confirmation requirements. This addendum supersedes the historical frontend/backend coupling for future changes without rewriting the original decision record.
+
 ## 背景
 
 self-tools 已有 History / Travel / Geography / Language / Documents 等相对独立的模块。

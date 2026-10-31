@@ -1,5 +1,7 @@
 # SELF-TOOLS V4 · PERSONAL AI HUB — PLAN
 
+> **Boundary note:** This historical plan contains UI-shaped `page`/`ui_blocks` contracts. For new work follow the repository-root [`AGENTS.md`](../../AGENTS.md); do not extend those legacy contracts. Backend APIs must remain client-neutral.
+
 > 定位：`Personal Digital Hub` 的地基。本轮产出**一个 PersonalAgent**、
 > Registry-based 模块接入机制、App Context、Tool Calling 循环、History 标准模块
 > 接入与前端 AI Panel。不实现 Multi-Agent / MCP / 长期记忆。

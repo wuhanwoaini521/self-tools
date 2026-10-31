@@ -98,4 +98,16 @@ ADR-001 完成后，application 已可脱离 infra 编译（History / Geography 
 2. **`application/src/bin/language_data.rs`** 的客户端归属（server / 独立 bin）在此框架内定案；
 3. PWA 前端 `HttpTransport` 实现（Gate 6 的 transport 层已预留接口）。
 
-（全文完）
+## 6. Superseding security note (2026-10-25)
+
+This note supersedes the non-loopback bind guidance in §1 and §4. The HTTP server now rejects every non-loopback bind and validates loopback `Host` values plus loopback `Origin` on unsafe methods. Request bodies are capped at 1 MiB. These are browser/DNS-rebinding defenses, **not authentication**; CORS is not authorization. TLS termination or a loopback reverse proxy alone does not authorize remote access. Do not expose this API to LAN/WAN clients until an authenticated and authorized gateway/API boundary is implemented and verified.
+
+（历史 ADR 正文保留；此安全说明为当前执行规则。）
+
+## 7. Superseding API capability note (2026-10-30)
+
+The original read-only pilot describes the initial History contract. The server now also exposes the additive application backup contract at `/api/v1/backups` and `/api/v1/backups/restore-status`; existing History routes keep their versioned DTOs. The backup routes remain local-only and inherit the server's loopback bind, Host validation, and unsafe-request Origin validation. There is still no user authentication or CORS, so the service must not be exposed to LAN/WAN clients.
+
+`POST /api/v1/backups/{id}/restore` verifies and stages a request; it never replaces databases in the running process. Desktop and server retain a shared lifetime lock for their data directory. The next startup applies a pending request only after obtaining the exclusive lock, creates a pre-restore application snapshot, and uses a journal to roll back an interrupted installation. This additive recovery capability does not create a remote administration boundary or add product behavior through Tauri IPC.
+
+（本节补充历史决策，不改写原始记录；恢复实现和测试见 `docs/operations/BACKUP_RESTORE.md`。）
