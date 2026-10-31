@@ -301,21 +301,21 @@ button.sketch-btn,
 input.sketch-input,
 select.sketch-select,
 textarea.sketch-textarea {
-  border: var(--sketch-border);
-  border-radius: var(--sketch-radius-sm);
-  background: var(--paper-raised);
+  border: 1px solid var(--line);
+  border-radius: var(--control-radius, var(--radius-sm));
+  background: var(--panel-raised);
   color: var(--text);
+  box-shadow: none;
   transition:
-    transform var(--sketch-motion),
-    box-shadow var(--sketch-motion),
-    background-color var(--sketch-motion),
-    border-color var(--sketch-motion);
+    background-color var(--motion-fast, 120ms) var(--motion-ease, ease),
+    border-color var(--motion-fast, 120ms) var(--motion-ease, ease),
+    color var(--motion-fast, 120ms) var(--motion-ease, ease);
 }
 
 .app-shell button:not(.app-nav-item):not(.sketch-raw):hover:not(:disabled) {
-  background: var(--surface-overlay-hover);
-  border-color: var(--pencil-line-strong);
-  transform: translateY(-1px);
+  background: var(--panel-hover);
+  border-color: var(--line-strong);
+  transform: none;
 }
 
 .app-shell input:hover:not(:disabled),
@@ -327,8 +327,8 @@ textarea.sketch-textarea {
 .app-shell input:focus,
 .app-shell select:focus,
 .app-shell textarea:focus {
-  border-color: var(--pencil-blue);
-  box-shadow: 0 0 0 3px var(--pencil-blue-soft);
+  border-color: color-mix(in srgb, var(--accent) 62%, var(--line));
+  box-shadow: var(--shadow-focus);
   outline: none;
 }
 

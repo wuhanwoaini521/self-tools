@@ -9,6 +9,7 @@ import "./theme/pencil.css";
 import "./features/travel/travel.css";
 import "./theme/liquid-glass.css";
 import "./theme/sunrise-glass.css";
+import "./theme/modern-ui.css";
 
 // WebDriver hooks exist only in the dedicated E2E bundle. The production UI
 // neither imports the test bridge nor exposes its Tauri plugin surface.

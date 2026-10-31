@@ -1,0 +1,110 @@
+/* ==========================================================================
+ * Modern UI layer（2026-11-01）
+ *
+ * 目标：把界面从「极光 / 玻璃 / 纸张」装饰层收回到现代、扁平、可读的工作台：
+ *   - 平铺画布，无径向渐变、无发光、无玻璃模糊
+ *   - 控制件统一走 --control-* / --radius-* / --shadow-* 结构 token
+ *   - 卡片：1px 细线 + 16px 圆角 + 白色表面 + 极轻阴影
+ *   - 移动端：单一滚动链路（page-pane 滚动，page-scroll 不再嵌套滚动）+ 安全区
+ *
+ * 只覆盖 paint / 基础控件外观，不改布局契约、路由、数据流与业务逻辑。
+ * 选择器带 `.app-shell.app-shell` 提高特异性，用来压过 pencil 纸张皮肤
+ * （0,3,1）与 sunrise/liquid 玻璃层，避免再引入 !important。
+ * ========================================================================== */
+
+/* ---------- 1. 画布：去掉极光与玻璃 ---------- */
+.app-shell.app-shell {
+  --glass-surface: var(--panel-raised);
+  --glass-surface-strong: var(--panel-raised);
+  --glass-edge: var(--line);
+  --glass-highlight: transparent;
+  --glass-shadow: var(--shadow-sm);
+  --glass-shadow-deep: var(--shadow-md);
+  --aurora-field: none;
+  --aurora-horizon: none;
+
+  background-color: var(--bg);
+  background-image: none;
+}
+
+.app-shell.app-shell::before,
+.app-shell.app-shell::after {
+  display: none;
+}
+
+/* ---------- 2. 外壳：顶栏 / 侧栏 / 底部导航 ---------- */
+.app-shell.app-shell .app-bar {
+  border-bottom: 1px solid var(--line);
+  background: var(--panel-raised);
+}
+
+.app-shell.app-shell .app-nav {
+  border-right: 1px solid var(--line);
+  background: var(--panel-raised);
+}
+
+.app-shell.app-shell .app-bottom-nav {
+  border-top: 1px solid var(--line);
+  background: var(--panel-raised);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.app-shell.app-shell .app-bottom-nav-item {
+  min-height: 52px;
+  border-radius: var(--radius-sm);
+}
+
+.app-shell.app-shell .app-bottom-nav-item.active {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent);
+}
+
+/* ---------- 4. 卡片：扁平化，去掉装饰渐变 ---------- */
+.app-shell.app-shell .app-content [class$="-card"],
+.app-shell.app-shell .app-content [class*="-card"]:not([class*="card-head"]) {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--panel-raised);
+  background-image: none;
+  box-shadow: var(--shadow-xs);
+}
+
+.app-shell.app-shell .app-content [class$="-card"]:hover,
+.app-shell.app-shell .app-content [class*="-card"]:hover:not([class*="card-head"]) {
+  box-shadow: var(--shadow-sm);
+}
+
+/* ---------- 5. 移动端：单一滚动链路 + 安全区 ---------- */
+@media (max-width: 767px) {
+  .app-shell.app-shell {
+    height: 100dvh;
+  }
+
+  .app-shell.app-shell .app-content > .page-pane {
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+  }
+
+  .app-shell.app-shell .app-content > .page-pane > .page-scroll {
+    height: auto;
+    min-height: 0;
+    overflow: visible;
+  }
+
+  .app-shell.app-shell .app-bar {
+    padding: 0 14px;
+  }
+
+  .app-shell.app-shell .app-bottom-nav {
+    min-height: 56px;
+    padding-bottom: calc(4px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-shell.app-shell button {
+    transition: none;
+  }
+}
