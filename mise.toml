@@ -15,7 +15,7 @@ lockfile = true
 
 [tools]
 # 与 .github/workflows/rust-quality.yml 的 setup-node 保持一致
-node = "24"
+node = "24.22.0"
 
 [tasks.install]
 description = "安装前端依赖（apps/desktop 与 apps/desktop/ui）"
@@ -40,6 +40,16 @@ run = "npm --prefix apps/desktop/ui exec -- tauri dev"
 description = "仅启动 Vite 前端（浏览器预览，无 Rust/Tauri）"
 depends = ["install"]
 run = "npm --prefix apps/desktop/ui run dev"
+
+[tasks.web]
+description = "浏览器/PWA 方式启动：本地数据服务(8080) + 网页前端(1420)"
+depends = ["install"]
+run = "bash scripts/self-tools-web.sh"
+
+[tasks.web-lan]
+description = "浏览器/PWA 方式启动，并允许局域网设备访问"
+depends = ["install"]
+run = "bash scripts/self-tools-web.sh --lan"
 
 [tasks.build]
 description = "前端类型检查与生产构建（tsc + vite build）"

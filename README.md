@@ -63,6 +63,36 @@ mise run dev-web
 
 浏览器预览用于查看界面；依赖桌面桥接、本地文件或 SQLite 的功能需要在 Tauri 应用中体验。
 
+### 浏览器 / PWA 方式打开
+
+同时启动本地数据服务（`127.0.0.1:8080`）与网页前端（`127.0.0.1:1420`），网页端通过 `/api` 代理读写同一份 `config/` 数据：
+
+```bash
+mise run web        # 或 make web；Ctrl+C 停止全部
+```
+
+macOS 上也可以直接双击 `scripts/open-self-tools-web.command`（会额外打开浏览器）。页面就绪后在 Chrome/Edge 点地址栏右侧「安装」图标，或用 Safari 的 文件 → 添加到程序坞，即可得到独立窗口的桌面图标。
+
+同一 Wi-Fi 下的手机 / 平板 / 另一台电脑访问：
+
+```bash
+mise run web-lan    # 或 make web-lan；等价于 bash scripts/self-tools-web.sh --lan
+```
+
+启动后会多打印一行本机局域网地址（例如 `http://192.168.1.23:1420`），在手机浏览器里打开即可。数据服务（8080）仍只监听 `127.0.0.1`，请求经 Vite 同源代理转发，**不会**把数据服务暴露到局域网。
+
+> 说明：HTTP 的局域网地址不是安全上下文，浏览器不会注册 Service Worker，所以在手机上**不能**离线使用或「添加到主屏幕」。要在手机上装成 App，需要给 Vite 配 HTTPS（例如 mkcert 自签证书后在 `apps/desktop/ui/vite.config.ts` 的 `server.https` 指向证书，并在手机上信任该根证书）；只在本机使用则 127.0.0.1 本身就算安全上下文，安装不受影响。
+
+### 下载新概念英语教材
+
+运行后会先提示配置本地保存目录，并要求确认，再从 [byuc/NCE-Flow](https://github.com/byuc/NCE-Flow) 下载 NCE1–4 的字幕与音频；已有文件会保留并断点续传：
+
+```bash
+make english download
+```
+
+下载完成后，在桌面应用的 **Language → English → 学习资料** 中选择该目录并导入一次。之后教材数据保存在本地应用目录，无需重复导入。
+
 ### 构建与检查
 
 ```bash
@@ -110,7 +140,7 @@ npm --prefix apps/desktop run test:all
 ## 数据与配置
 
 - 桌面端本地设置和业务数据库位于仓库的 `config/`，该目录已加入 Git 忽略规则。不要把密钥或个人数据库提交到版本库。
-- AI、Jev、地图、搜索、天气、POI 和身份服务均需在设置中按需配置。密钥保存在本地设置中；界面状态只显示是否已配置等必要信息。
+- AI、Jev、地图、搜索、天气、POI 和身份服务均需按需配置。长期规则是 Provider secrets 只由后端持有，API 读取只暴露配置状态，绝不返回密钥值；当前 Settings/AMap 路径尚未完全满足此边界，见 [`前后端耦合审计`](docs/architecture/frontend-backend-coupling-audit.md)，新增集成不得扩大暴露面。
 - History 数据由 [`history-data-pipeline/`](history-data-pipeline/README.md) 维护。桌面应用读取生成的 `history-data-pipeline/dist/history.duckdb`；该产物缺失时历史功能会报告数据不可用，不会静默切换到旧数据。
 - 原始语料和生成数据按各自模块的数据说明管理，不应将本地下载内容或个人资料提交到 Git。
 
@@ -122,7 +152,7 @@ npm --prefix apps/desktop run test:all
 apps/
   desktop/       Tauri 桌面壳与 React 前端
   mcp/           MCP 传输适配器（STDIO / Streamable HTTP）
-  server/        只读 History HTTP 服务试点
+  server/        Axum HTTP API（/api/v1；各业务域 API 覆盖度不同）
 crates/
   core/          领域模型与业务规则
   application/   用例、服务与模块编排
@@ -132,7 +162,11 @@ docs/            架构、运维、数据来源、验收记录与截图
 tests/           共享测试夹具
 ```
 
-依赖方向为 `core ← application ← infrastructure`；桌面、MCP 和 HTTP 服务负责接入具体运行环境。MCP 是工具协议适配层，具体能力由应用服务注册。HTTP History 服务当前是只读试点，默认监听 `127.0.0.1:8080`；MCP 默认使用本地 STDIO，HTTP 模式默认绑定 `127.0.0.1:8787`，远程绑定需要显式启用并配置身份提供者。
+依赖方向为 `core ← application ← infrastructure`；桌面、MCP 和 HTTP 服务负责接入具体运行环境。MCP 是工具协议适配层，具体能力由应用服务注册。`apps/server` 暴露版本化 `/api/v1` HTTP API（History、Language、Knowledge、Learning、Geography、News、Travel 等；不是所有桌面能力都有等价 API，Travel CRUD/优化仍缺失），默认监听 `127.0.0.1:8080`；MCP 默认使用本地 STDIO，HTTP 模式默认绑定 `127.0.0.1:8787`，远程绑定需要显式启用并配置身份提供者。
+
+## 开发架构规则
+
+根目录 [`AGENTS.md`](AGENTS.md) 是所有 Agent 和开发任务必须遵守的长期边界：UI/UX 任务默认 **FRONTEND ONLY**，业务逻辑任务默认 **BACKEND ONLY**；跨层能力必须通过稳定 API Contract。Frontend 是可替换 Client，Backend 是 Product Core。开始架构或 API 工作前查看 [`前后端耦合审计`](docs/architecture/frontend-backend-coupling-audit.md) 与 [`解耦阶段报告`](docs/architecture/frontend-backend-decoupling-report.md)；其中记录的遗留耦合不是新增耦合的许可。
 
 ## 文档与截图
 
