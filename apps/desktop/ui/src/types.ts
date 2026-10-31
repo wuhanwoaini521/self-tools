@@ -8,25 +8,53 @@ export interface TravelSettings {
   search_backend: TravelSearchBackend;
   searxng_url: string | null;
   llm_base_url: string | null;
-  llm_api_key: string | null;
   llm_model: string | null;
-  amap_api_key: string | null;
-  qweather_api_key: string | null;
   qweather_api_host: string | null;
-  baidu_map_api_key: string | null;
 }
 
-export interface GeographySettings {
-  amap_api_key: string | null;
-  amap_security_js_code: string | null;
-}
+/** Geography keys are backend-only; this public settings section is empty. */
+export interface GeographySettings {}
 
 export interface AiSettings {
   provider: string | null;
   model: string | null;
   base_url: string | null;
-  api_key: string | null;
   timeout_secs: number | null;
+}
+
+export type SecretSettingsField =
+  | "ai_api_key"
+  | "travel_llm_api_key"
+  | "travel_amap_api_key"
+  | "travel_qweather_api_key"
+  | "travel_baidu_map_api_key"
+  | "geography_amap_api_key"
+  | "geography_amap_security_js_code"
+  | "jev_api_key";
+
+export interface SecretSettingsStatus {
+  ai_api_key_configured: boolean;
+  travel_llm_api_key_configured: boolean;
+  travel_amap_api_key_configured: boolean;
+  travel_qweather_api_key_configured: boolean;
+  travel_baidu_map_api_key_configured: boolean;
+  geography_amap_api_key_configured: boolean;
+  geography_amap_security_js_code_configured: boolean;
+  jev_api_key_configured: boolean;
+}
+
+export interface SecretSettingsUpdate {
+  updates: Array<{ field: SecretSettingsField; value: string | null }>;
+}
+
+export interface DecisionSettings {
+  mode: string;
+  jev_base_url: string | null;
+  jev_model: string | null;
+  jev_timeout_secs: number;
+  jev_failure_fallback: boolean;
+  multi_agent_enabled: boolean;
+  max_workers: number;
 }
 
 /** 允许根（文件 / 文档索引共用；`enabled=false` 只停用不删数据）。 */
@@ -75,6 +103,10 @@ export interface AppSettings {
   knowledge: KnowledgeSettings;
   /** Home Server 设置（V7；注册表为空 = 无能力，fail-closed） */
   server: ServerSettings;
+  /** 决策层公开配置（Jev key 仅以 configured 状态表示）。 */
+  decision: DecisionSettings;
+  /** 后端返回的密钥状态；永不包含原始凭据。 */
+  secrets: SecretSettingsStatus;
 }
 
 /** 健康阈值（V7 §22）。 */
@@ -272,6 +304,30 @@ export interface TravelResearchEvent {
 export interface TravelDateRange {
   start: string;
   end: string;
+}
+
+export interface TravelPlanContext {
+  city: string;
+  days: number;
+  date_range: TravelDateRange | null;
+}
+
+export interface TravelPlanPlace {
+  name: string;
+  note: string;
+}
+
+export interface TravelPlan {
+  context: TravelPlanContext;
+  title: string;
+  departure: string;
+  notes: string;
+  custom_places: Record<string, TravelPlanPlace>;
+  selected_keys: string[];
+  assigned_days: Record<string, number>;
+  must_visit_keys: string[];
+  revision: number;
+  updated_at: number;
 }
 
 export interface TravelResearchRequest {
@@ -1015,6 +1071,8 @@ export interface UniversalReviewCard {
   options: string[] | null;
   hint: string | null;
   context: string | null;
+  source_title?: string | null;
+  user_note?: string | null;
   due_at: number;
   interval_days: number;
   ease: number;
@@ -1029,6 +1087,16 @@ export interface ReviewQueueItem {
   card: UniversalReviewCard;
   is_overdue: boolean;
   urgency_score: number;
+}
+
+export interface KnowledgeReviewCardDraft {
+  module: "history" | "geography";
+  entity_type: string;
+  entity_id: string;
+  source_title: string;
+  prompt: string;
+  answer: string;
+  user_note?: string | null;
 }
 
 export interface ReviewQueueStats {
@@ -1113,7 +1181,7 @@ export interface CollectionItem {
   entity_id: string;
   title: string;
   note?: string | null;
-  created_at: number;
+  added_at: number;
 }
 
 export interface Collection {
@@ -1121,7 +1189,7 @@ export interface Collection {
   title: string;
   description?: string | null;
   tags: string[];
-  items_count: number;
+  item_count: number;
   created_at: number;
   updated_at: number;
 }
@@ -1244,6 +1312,8 @@ export interface LessonVocab {
   surface: string | null;
   sentence_id: string | null;
   context: string | null;
+  /** 对应教材例句的中文翻译，由课时句库关联得出。 */
+  context_zh?: string | null;
   phonetic: string | null;
   pos: string | null;
   translation_zh: string | null;

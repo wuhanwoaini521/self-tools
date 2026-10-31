@@ -1,27 +1,34 @@
 import {
+  ArrowRight,
   ArrowsClockwise,
   CalendarBlank,
-  CarProfile,
-  CloudSun,
   Compass,
-  ForkKnife,
   MapPin,
   Sparkle,
   Star,
   Tag,
   X,
 } from "@phosphor-icons/react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AppContextPayload } from "../ai/aiTypes";
 import type {
   CityGuide,
   GuideSummary,
   TravelDateRange,
+  TravelPlan,
+  TravelPlanContext,
   TravelResearchEvent,
 } from "../../types";
-import { errorMessage, isTauriRuntime } from "../../utils";
+import { errorMessage } from "../../utils";
 import { TravelGuide } from "./TravelGuide";
 import { TravelProgress } from "./TravelProgress";
+import {
+  clearPendingTravelPlanIfUnchanged,
+  listPendingTravelPlans,
+  travelPlanWriterId,
+  writePendingTravelPlan,
+  type PendingTravelPlanEntry,
+} from "./travelPlanPersistence";
 import { travelClient } from "./travelClient";
 import { learningClient } from "../learning/learningClient";
 
@@ -53,14 +60,103 @@ export const POPULAR_CITIES = [
   { name: "南京", must: ["中山陵", "夫子庙", "玄武湖", "总统府"] },
 ];
 
+/**
+ * 起步行程：第一次打开、还没有任何行程时给出的三个可点击起点。
+ * 只填表单（城市 / 天数 / 偏好），不发请求、不写数据；用户仍然可以改成自己的安排。
+ * 参考 TREK 的 day-plan 起点与 AdventureLog 的 trip 模板做法。
+ */
+export const STARTER_TRIPS: ReadonlyArray<{
+  city: string;
+  kicker: string;
+  days: number;
+  preferences: string[];
+}> = [
+  { city: "杭州", kicker: "第一次去也不慌", days: 3, preferences: ["历史人文", "绝美自然"] },
+  { city: "成都", kicker: "慢慢吃慢慢逛", days: 4, preferences: ["地道美食", "城市漫步"] },
+  { city: "西安", kicker: "两天看一座古都", days: 2, preferences: ["历史人文", "深度文化"] },
+];
+
 interface TravelPageProps {
   active: boolean;
   setNotice: (message: string) => void;
-  amapApiKey?: string | null;
-  amapSecurityJsCode?: string | null;
+  onExploreHistory?: (query: string) => void;
+  onOpenHistoryEvent?: (eventId: string) => void;
+  onExploreGeography?: (query: string, entityId?: string) => void;
+  explorationPlace?: {
+    nonce: string;
+    entityId: string;
+    city: string;
+    name: string;
+    note: string;
+  } | null;
+  planIntent?: { context: TravelPlanContext; nonce: number } | null;
 }
 
 type ResearchState = "idle" | "running" | "done" | "error";
+
+function emptyGuideForManualPlan(
+  cityName: string,
+  dayCount: number,
+  dateRange: TravelDateRange | null,
+): CityGuide {
+  return {
+    city: { name: cityName, name_en: null, province: null, country: null },
+    summary: "",
+    highlights: [],
+    best_time: null,
+    weather: null,
+    districts: [],
+    attractions: [],
+    foods: [],
+    restaurants: [],
+    transport: {
+      overview: null,
+      airport: null,
+      train_station: null,
+      metro: null,
+      bus_taxi: null,
+      tips: [],
+    },
+    accommodation_areas: [],
+    itineraries: { one_day: null, two_days: null, three_days: null },
+    local_tips: [],
+    warnings: [],
+    quick_decisions: {
+      best_area_to_stay: null,
+      signature_food: null,
+      trip_style: null,
+      must_visit: [],
+      main_warning: null,
+    },
+    top_picks: [],
+    alternatives: [],
+    itinerary_days: Array.from({ length: dayCount }, (_, index) => ({
+      day: index + 1,
+      title: `第 ${index + 1} 天`,
+      theme: null,
+      stops: [],
+    })),
+    food_summary: null,
+    stay_areas: [],
+    transport_summary: null,
+    evidence: {
+      source_count: 0,
+      verified_count: 0,
+      snippet_only_count: 0,
+      conflict_count: 0,
+      quality: "",
+    },
+    sources: [],
+    meta: {
+      generated_at: 0,
+      updated_at: 0,
+      days: dayCount,
+      date_range: dateRange,
+      llm_used: false,
+      notes: ["空白手排行程；尚未收集城市资料。"],
+    },
+  };
+}
 
 function inclusiveDays(start: string, end: string): number | null {
   if (!start || !end || start > end) return null;
@@ -74,8 +170,11 @@ export function TravelPage({
   active,
   setNotice,
   onContextChange,
-  amapApiKey,
-  amapSecurityJsCode,
+  onExploreHistory,
+  onOpenHistoryEvent,
+  onExploreGeography,
+  explorationPlace,
+  planIntent,
 }: TravelPageProps & {
   onContextChange?: (ctx: AppContextPayload | null) => void;
 }) {
@@ -91,8 +190,40 @@ export function TravelPage({
   const [guide, setGuide] = useState<CityGuide | null>(null);
   const [error, setError] = useState("");
   const [history, setHistory] = useState<GuideSummary[]>([]);
+  const [savedPlans, setSavedPlans] = useState<TravelPlan[]>([]);
+  const [pendingDrafts, setPendingDrafts] = useState<PendingTravelPlanEntry[]>([]);
   const [fromCache, setFromCache] = useState(false);
+  const [persistInitialPlan, setPersistInitialPlan] = useState(false);
+  const [pendingExplorationPlace, setPendingExplorationPlace] = useState<TravelPageProps["explorationPlace"]>(null);
+  const [activePlanContext, setActivePlanContext] = useState<Record<string, unknown> | null>(null);
+  const handledExplorationPlaceRef = useRef<string | null>(null);
+  const handledPlanIntentRef = useRef<number | null>(null);
   const pollTimer = useRef<number | null>(null);
+
+  /** 行程速览：只在填了城市后出现，用一句话说明「将按什么条件整理」。 */
+  const planSummary = useMemo(() => {
+    const name = city.trim();
+    if (!name) return null;
+    const chips: string[] = [`${days} 天${days > 1 ? ` ${days - 1} 晚` : "往返"}`];
+    if (tripStart && tripEnd) chips.push(`${tripStart} 至 ${tripEnd}`);
+    else if (tripStart) chips.push(`从 ${tripStart} 出发`);
+    if (mustVisits.length) chips.push(`必去 ${mustVisits.length} 处`);
+    if (preferences.length) {
+      chips.push(
+        preferences.length > 2
+          ? `${preferences.slice(0, 2).join("、")} 等 ${preferences.length} 项偏好`
+          : preferences.join("、"),
+      );
+    }
+    return { name, chips };
+  }, [city, days, tripStart, tripEnd, mustVisits.length, preferences]);
+
+  const applyStarter = useCallback((starter: (typeof STARTER_TRIPS)[number]) => {
+    setCity(starter.city);
+    setDays(starter.days);
+    setPreferences(starter.preferences);
+    setState("idle");
+  }, []);
 
   // V5 AppContext 桥：上报当前目的地 / 天数 / 偏好
   useEffect(() => {
@@ -108,26 +239,75 @@ export function TravelPage({
       entity: { kind: "destination", id: name, label: name },
       view_state: {
         days,
+        date_range: tripStart && tripEnd ? { start: tripStart, end: tripEnd } : null,
         must_visits: mustVisits,
         preferences,
         from_cache: fromCache,
+        ...(activePlanContext ?? {}),
       },
     });
-  }, [city, state, guide, days, mustVisits, preferences, fromCache, onContextChange]);
+  }, [city, state, guide, days, tripStart, tripEnd, mustVisits, preferences, fromCache, activePlanContext, onContextChange]);
 
   const reloadHistory = useCallback(async () => {
-    if (!isTauriRuntime()) return;
     try {
-      const list = await travelClient.recentGuides();
-      setHistory(list);
+      setHistory(await travelClient.recentGuides());
     } catch {
-      // 历史加载失败保持安静
+      // Recent plans remain available even if guide history is temporarily unavailable.
     }
   }, []);
+  const reloadPlans = useCallback(async () => {
+    try {
+      setSavedPlans(await travelClient.recentPlans(20));
+    } catch {
+      // Keep the last loaded list visible during a transient service failure.
+    }
+  }, []);
+  const reloadPendingDrafts = useCallback(() => {
+    try {
+      setPendingDrafts(listPendingTravelPlans(window.localStorage));
+    } catch {
+      setPendingDrafts([]);
+    }
+  }, []);
+  const handlePlanSaved = useCallback(() => {
+    void reloadPlans();
+    reloadPendingDrafts();
+  }, [reloadPendingDrafts, reloadPlans]);
 
   useEffect(() => {
+    setActivePlanContext(null);
+  }, [guide?.city.name, guide?.meta.days, guide?.meta.updated_at, guide?.meta.date_range?.start, guide?.meta.date_range?.end]);
+
+  useEffect(() => {
+    if (!active) return;
     void reloadHistory();
-  }, [reloadHistory]);
+    void reloadPlans();
+    reloadPendingDrafts();
+  }, [active, reloadHistory, reloadPendingDrafts, reloadPlans]);
+
+  useEffect(() => {
+    if (!explorationPlace || handledExplorationPlaceRef.current === explorationPlace.nonce) return;
+    handledExplorationPlaceRef.current = explorationPlace.nonce;
+    const targetCity = explorationPlace.city.trim();
+    const currentCity = guide?.city.name.trim() || city.trim();
+    if (currentCity && currentCity !== targetCity) {
+      setNotice(`当前行程是「${currentCity}」，没有更改它。请先打开「${targetCity}」行程，再从 Geography 加入地点。`);
+      return;
+    }
+    setPendingExplorationPlace(explorationPlace);
+    if (guide || state === "running") return;
+
+    const dateRange = tripStart && tripEnd ? { start: tripStart, end: tripEnd } : null;
+    const rangeDays = dateRange ? inclusiveDays(dateRange.start, dateRange.end) : null;
+    const dayCount = rangeDays ?? days;
+    setCity(targetCity);
+    setGuide(emptyGuideForManualPlan(targetCity, dayCount, dateRange));
+    setEvents([]);
+    setError("");
+    setFromCache(false);
+    setPersistInitialPlan(true);
+    setState("done");
+  }, [city, days, explorationPlace, guide, setNotice, state, tripEnd, tripStart]);
 
   // 离开页面时停止轮询
   useEffect(
@@ -182,6 +362,7 @@ export function TravelPage({
   };
 
   const startResearch = async (force: boolean) => {
+    setPersistInitialPlan(false);
     const cityName = city.trim();
     if (!cityName) {
       setNotice("请输入要探索的城市，例如「杭州」");
@@ -277,6 +458,7 @@ export function TravelPage({
               setError(snapshot.error ?? "研究失败，请查看设置后重试。");
             }
             void reloadHistory();
+            void reloadPlans();
           }
         } catch (pollError) {
           stopPolling();
@@ -293,8 +475,113 @@ export function TravelPage({
     }
   };
 
+  const startBlankPlan = () => {
+    const cityName = city.trim();
+    if (!cityName) {
+      setNotice("先填写目的地，再创建空白行程。");
+      return;
+    }
+    if ((tripStart && !tripEnd) || (!tripStart && tripEnd)) {
+      setNotice("请选择完整的起始和结束日期。");
+      return;
+    }
+    const rangeDays = inclusiveDays(tripStart, tripEnd);
+    if ((tripStart || tripEnd) && (!rangeDays || rangeDays > 7)) {
+      setNotice("日期范围需有效，且暂时最多支持 7 天行程。");
+      return;
+    }
+    const dateRange = rangeDays ? { start: tripStart, end: tripEnd } : null;
+    const dayCount = rangeDays ?? days;
+    setPersistInitialPlan(true);
+    setGuide(emptyGuideForManualPlan(cityName, dayCount, dateRange));
+    setEvents([]);
+    setError("");
+    setFromCache(false);
+    setState("done");
+  };
+
+  const openSavedPlan = useCallback(async (plan: TravelPlan) => {
+    const { context } = plan;
+    let loaded: CityGuide | null = null;
+    try {
+      if (!context.date_range) {
+        loaded = await travelClient.loadGuide(
+          context.city,
+          context.days,
+          context.date_range,
+        );
+      }
+    } catch {
+      // A saved itinerary is independently useful when its research guide is unavailable.
+    }
+    setCity(context.city);
+    setDays(context.days);
+    setTripStart(context.date_range?.start ?? "");
+    setTripEnd(context.date_range?.end ?? "");
+    setMustVisits([]);
+    setPersistInitialPlan(false);
+    setGuide(loaded ?? emptyGuideForManualPlan(context.city, context.days, context.date_range));
+    setEvents([]);
+    setError("");
+    setFromCache(false);
+    setState("done");
+  }, []);
+
+  useEffect(() => {
+    if (!active || !planIntent || handledPlanIntentRef.current === planIntent.nonce) return;
+    handledPlanIntentRef.current = planIntent.nonce;
+    const intent = planIntent;
+    void travelClient.getPlan(intent.context).then(
+      (plan) => {
+        if (handledPlanIntentRef.current !== intent.nonce) return;
+        if (!plan) {
+          setNotice(`没有找到「${intent.context.city}」的这份已保存行程。`);
+          return;
+        }
+        void openSavedPlan(plan);
+      },
+      (cause: unknown) => {
+        if (handledPlanIntentRef.current === intent.nonce) setNotice(errorMessage(cause));
+      },
+    );
+  }, [active, openSavedPlan, planIntent, setNotice]);
+
+  const resumePendingPlan = (entry: PendingTravelPlanEntry) => {
+    const currentWriter = travelPlanWriterId();
+    if (entry.writerId !== currentWriter) {
+      try {
+        const storage = window.localStorage;
+        if (!writePendingTravelPlan(storage, entry.contextKey, entry.draft, currentWriter)) {
+          setNotice("无法恢复这份本机草稿；原有草稿仍保留。");
+          return;
+        }
+        clearPendingTravelPlanIfUnchanged(
+          storage,
+          entry.contextKey,
+          entry.draft,
+          entry.writerId,
+        );
+      } catch {
+        setNotice("无法恢复这份本机草稿；原有草稿仍保留。");
+        return;
+      }
+    }
+    const context = entry.draft.plan.context;
+    setCity(context.city);
+    setDays(context.days);
+    setTripStart(context.date_range?.start ?? "");
+    setTripEnd(context.date_range?.end ?? "");
+    setMustVisits([]);
+    setPersistInitialPlan(false);
+    setGuide(emptyGuideForManualPlan(context.city, context.days, context.date_range));
+    setEvents([]);
+    setError("");
+    setFromCache(false);
+    setState("done");
+    reloadPendingDrafts();
+  };
+
   const openHistory = async (summary: GuideSummary) => {
-    if (!isTauriRuntime()) return;
     try {
       const loaded = await travelClient.loadGuide(
         summary.city,
@@ -337,7 +624,7 @@ export function TravelPage({
         </div>
         <h1>探索下一座城市</h1>
         <p>
-          输入目的地、天数与必去景点，自动检索权威信源、整合实时天气、测算景点距离与交通耗时，生成专属深度游路线。
+          先查看已有城市资料，再按自己的节奏安排地点、日期与备注。模型、天气或地图资料不可用时，仍可手动编排和保存行程；缺失的信息会明确留空。
         </p>
 
         {/* 热门城市快捷推荐 */}
@@ -379,12 +666,21 @@ export function TravelPage({
                 disabled={state === "running"}
               />
               <button
+                type="button"
                 className="travel-submit-btn"
                 disabled={state === "running" || !city.trim()}
                 onClick={() => void startResearch(false)}
               >
                 <Compass size={17} weight="bold" />
-                {state === "running" ? "智能研究中…" : "开始探索城市"}
+                {state === "running" ? "研究中…" : "查看城市资料"}
+              </button>
+              <button
+                type="button"
+                className="travel-create-manual"
+                disabled={state === "running" || !city.trim()}
+                onClick={startBlankPlan}
+              >
+                创建空白行程
               </button>
               {state === "done" && guide ? (
                 <button
@@ -550,6 +846,87 @@ export function TravelPage({
         </div>
       </section>
 
+      {planSummary ? (
+        <section className="travel-plan-summary" aria-label="行程速览">
+          <div className="travel-plan-summary-main">
+            <span className="travel-plan-summary-kicker">行程速览</span>
+            <strong>{planSummary.name}</strong>
+            <ul className="travel-plan-summary-chips">
+              {planSummary.chips.map((chip) => (
+                <li key={chip}>{chip}</li>
+              ))}
+            </ul>
+          </div>
+          <p className="travel-plan-summary-hint">
+            点「查看城市资料」会按这些条件整理攻略；也可以直接创建空白行程手动编排。
+          </p>
+        </section>
+      ) : null}
+
+      {state === "idle" && !city.trim() && savedPlans.length === 0 && pendingDrafts.length === 0 && history.length === 0 ? (
+        <section className="travel-starters" aria-label="起步行程">
+          <header className="travel-starters-head">
+            <h2>从一条现成的起步行程开始</h2>
+            <p>点选后自动填好城市、天数与偏好，再按自己的节奏改。</p>
+          </header>
+          <div className="travel-starter-grid">
+            {STARTER_TRIPS.map((starter) => (
+              <button
+                key={starter.city}
+                type="button"
+                className="travel-starter"
+                onClick={() => applyStarter(starter)}
+              >
+                <span className="travel-starter-kicker">{starter.kicker}</span>
+                <strong>{starter.city}</strong>
+                <span className="travel-starter-meta">
+                  {starter.days} 天 · {starter.preferences.join(" · ")}
+                </span>
+                <span className="travel-starter-action">
+                  填入表单 <ArrowRight size={14} />
+                </span>
+              </button>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      {savedPlans.length > 0 || pendingDrafts.length > 0 ? (
+        <section className="travel-saved-plan-rail" aria-label="最近行程和待同步草稿">
+          <h2>最近行程</h2>
+          {savedPlans.length > 0 ? (
+            <ul className="travel-saved-plan-list">
+              {savedPlans.slice(0, 8).map((plan) => (
+                <li key={`${plan.context.city}-${plan.context.days}-${plan.context.date_range?.start ?? "any"}`}>
+                  <button type="button" onClick={() => void openSavedPlan(plan)}>
+                    <span className="saved-plan-title">{plan.title.trim() || `${plan.context.city}行程`}</span>
+                    <small>
+                      {plan.context.city} · {plan.context.date_range
+                        ? `${plan.context.date_range.start} 至 ${plan.context.date_range.end}`
+                        : `${plan.context.days} 天`}
+                    </small>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          {pendingDrafts.length > 0 ? (
+            <div className="travel-pending-draft-list">
+              {pendingDrafts.map((entry) => (
+                <button
+                  type="button"
+                  key={`${entry.writerId}-${entry.contextKey}`}
+                  onClick={() => resumePendingPlan(entry)}
+                >
+                  <span>{entry.draft.plan.title.trim() || `${entry.draft.plan.context.city}行程`}</span>
+                  <small>有尚未同步的修改 · 点击恢复</small>
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </section>
+      ) : null}
+
       {history.length > 0 ? (
         <section className="travel-history">
           <h2>
@@ -603,36 +980,24 @@ export function TravelPage({
             key={`${guide.city.name}:${guide.meta.days}:${guide.meta.updated_at}:${guide.meta.date_range?.start ?? ""}:${guide.meta.date_range?.end ?? ""}`}
             guide={guide}
             fromCache={fromCache}
+            persistInitialPlan={persistInitialPlan}
             userMustVisits={mustVisits}
-            amapApiKey={amapApiKey}
-            amapSecurityJsCode={amapSecurityJsCode}
+            onExploreHistory={onExploreHistory}
+            onOpenHistoryEvent={onOpenHistoryEvent}
+            onExploreGeography={onExploreGeography}
+            explorationPlace={pendingExplorationPlace}
+            onPlanContextChange={setActivePlanContext}
+            onPlanSaved={handlePlanSaved}
           />
         </>
       ) : null}
 
       {state === "idle" ? (
-        <div className="travel-feature-intro">
-          <div className="travel-feature-card">
-            <CloudSun className="feature-icon" size={18} />
-            <h3>真实天气与穿衣建议</h3>
-            <p>获取目的地未来逐日天气、温差与降水预警，提供体贴的穿衣携带指南。</p>
-          </div>
-          <div className="travel-feature-card">
-            <MapPin className="feature-icon" size={18} />
-            <h3>景点硬核信息与避坑</h3>
-            <p>多源交叉核验门票、开放时间与预约通道，标注多版本冲突事实。</p>
-          </div>
-          <div className="travel-feature-card">
-            <CarProfile className="feature-icon" size={18} />
-            <h3>距离测算与交通耗时</h3>
-            <p>自动计算各景点间公里数、驾车打车与地铁耗时，合理编排游览节奏。</p>
-          </div>
-          <div className="travel-feature-card">
-            <ForkKnife className="feature-icon" size={18} />
-            <h3>地道风味与路线周边</h3>
-            <p>精选城市代表性美食，并匹配每日路线上最近的特色餐厅。</p>
-          </div>
-        </div>
+        <section className="travel-first-run-note">
+          <h2>从一张可编辑的行程开始</h2>
+          <p>添加自定义地点、安排天数、调整顺序并写下备注。行程写入本机数据服务后，可从最近攻略中重新打开。</p>
+          <span>无需配置 AI · 资料按实际来源显示 · 保存状态始终可见</span>
+        </section>
       ) : null}
     </div>
   );

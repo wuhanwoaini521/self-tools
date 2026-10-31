@@ -34,6 +34,19 @@ import {
   typeSummary,
   yearText,
 } from "./periodDetailHelpers";
+import "./era-timeline.css";
+
+/** 年代精度的人读标签；未知值不翻译、不猜测，直接不展示。 */
+const PRECISION_LABELS: Record<string, string> = {
+  approximate: "约略年代",
+  range: "区间年代",
+  exact: "确切年代",
+};
+
+function precisionLabel(value: string | null | undefined): string | null {
+  if (!value) return null;
+  return PRECISION_LABELS[value] ?? null;
+}
 
 interface PeriodDetailProps {
   period: SemanticPeriod;
@@ -95,7 +108,8 @@ export function PeriodDetail({
           (entry) => entry.isIntersecting && entry.intersectionRatio > 0,
         );
         if (!visible.length) {
-          setActiveStage(null);
+          // 章节之间的空隙（或刚滚动到目标位置）不应清空高亮：
+          // 保留上一个 active，避免点击阶段/密度条后高亮闪一下又消失。
           return;
         }
         // 视野帯内占用像素面积最大的章节为 active（章节高度差异大，
@@ -117,10 +131,16 @@ export function PeriodDetail({
   const scrollToChapter = (index: number) => {
     const node = chapterRefs.current.get(index);
     if (!node) return;
-    node.scrollIntoView({
-      behavior: reduceMotion ? "auto" : "smooth",
-      block: "start",
-    });
+    const behavior = reduceMotion ? "auto" : "smooth";
+    // 只滚动历史页自己的滚动容器：scrollIntoView 会连应用外壳（顶栏）一起滚走。
+    const pane = node.closest<HTMLElement>(".page-pane");
+    if (pane) {
+      const paneRect = pane.getBoundingClientRect();
+      const nodeRect = node.getBoundingClientRect();
+      pane.scrollBy({ top: nodeRect.top - paneRect.top - 12, behavior });
+      return;
+    }
+    node.scrollIntoView({ behavior, block: "start" });
   };
 
   const earliest = useMemo(
@@ -138,6 +158,8 @@ export function PeriodDetail({
     [events],
   );
 
+  const precision = precisionLabel(period.date_precision);
+
   return (
     <main className="history-v2-period">
       <EraNavigator
@@ -146,18 +168,56 @@ export function PeriodDetail({
         prev={prev}
         next={next}
         railOpen={railOpen}
+        facts={{
+          events: events.length,
+          people: detail.people.length,
+          regimes: detail.regimes.length,
+        }}
         onToggleRail={() => setRailOpen((value) => !value)}
         onSelectPeriod={onSelectPeriod}
       />
-      <header className="history-v2-period-header">
-        <div className="history-v2-period-title">
-          <span className="history-v2-kicker">CHINA HISTORY · 时代详情</span>
-          <h1>{period.name_zh_cn}</h1>
-          <p className="history-v2-period-range">
-            {rangeText(period.start_year, period.end_year)}
-          </p>
-        </div>
-        <div className="history-v2-period-context">
+      <div className="history-era-detail">
+        <aside className="history-era-facts" aria-label="时期事实">
+          <div className="history-era-facts-inner">
+            <span className="history-v2-kicker">
+              CHINA HISTORY · 时代详情
+            </span>
+            <h1>{period.name_zh_cn}</h1>
+            <p className="history-era-facts-range">
+              {rangeText(period.start_year, period.end_year)}
+            </p>
+            {precision ? (
+              <span className="history-era-precision">{precision}</span>
+            ) : null}
+            <dl className="history-era-facts-grid">
+              <div>
+                <dt>事件</dt>
+                <dd>{events.length}</dd>
+              </div>
+              <div>
+                <dt>人物</dt>
+                <dd>{detail.people.length}</dd>
+              </div>
+              <div>
+                <dt>政权</dt>
+                <dd>{detail.regimes.length}</dd>
+              </div>
+              <div>
+                <dt>历史阶段</dt>
+                <dd>{detail.stages.length}</dd>
+              </div>
+              <div>
+                <dt>关键转折</dt>
+                <dd>{criticalEvents.length}</dd>
+              </div>
+              <div>
+                <dt>Story</dt>
+                <dd>{detail.stories.length}</dd>
+              </div>
+            </dl>
+          </div>
+        </aside>
+        <div className="history-era-detail-main">
           {period.description_zh_cn ? (
             <p className="history-v2-period-intro">
               {period.description_zh_cn}
@@ -170,56 +230,54 @@ export function PeriodDetail({
               {yearText(latest.start_year)}）。
             </p>
           ) : null}
-          <p className="history-v2-period-stats">
-            {events.length} 个事件 · {detail.people.length} 位人物 ·{" "}
-            {detail.regimes.length} 个政权
-            {criticalEvents.length
-              ? ` · ${criticalEvents.length} 个关键转折`
-              : ""}
-          </p>
+
+          {detail.stages.length ? (
+            <StageNavigator
+              stages={detail.stages}
+              events={events}
+              activeStage={activeStage}
+              onSelectStage={(index) => {
+                // 先标记当前阶段再滚动，点击密度条/阶段行立即有反馈；
+                // 之后仍由 IntersectionObserver 跟随滚动位置更新。
+                setActiveStage(index);
+                scrollToChapter(index);
+              }}
+            />
+          ) : null}
+
+          {criticalEvents.length ? (
+            <TurningPoints
+              events={criticalEvents}
+              relations={detail.relations}
+              onOpenEvent={onOpenEvent}
+            />
+          ) : null}
+
+          {detail.people.length ? (
+            <PeopleSection
+              people={detail.people}
+              expanded={expandedPeople}
+              onToggle={() => setExpandedPeople((value) => !value)}
+              onOpenPerson={onOpenPerson}
+            />
+          ) : null}
+
+          {detail.regimes.length ? (
+            <RegimeAxis period={period} regimes={detail.regimes} />
+          ) : null}
+
+          <ChapterTimeline
+            period={period}
+            stages={detail.stages}
+            events={events}
+            primaryByEvent={primaryByEvent}
+            chapterRefs={chapterRefs}
+            activeStage={activeStage}
+            onSelectStage={scrollToChapter}
+            onOpenEvent={onOpenEvent}
+          />
         </div>
-      </header>
-
-      {detail.stages.length ? (
-        <StageNavigator
-          stages={detail.stages}
-          events={events}
-          activeStage={activeStage}
-          onSelectStage={scrollToChapter}
-        />
-      ) : null}
-
-      {criticalEvents.length ? (
-        <TurningPoints
-          events={criticalEvents}
-          relations={detail.relations}
-          onOpenEvent={onOpenEvent}
-        />
-      ) : null}
-
-      {detail.people.length ? (
-        <PeopleSection
-          people={detail.people}
-          expanded={expandedPeople}
-          onToggle={() => setExpandedPeople((value) => !value)}
-          onOpenPerson={onOpenPerson}
-        />
-      ) : null}
-
-      {detail.regimes.length ? (
-        <RegimeAxis period={period} regimes={detail.regimes} />
-      ) : null}
-
-      <ChapterTimeline
-        period={period}
-        stages={detail.stages}
-        events={events}
-        primaryByEvent={primaryByEvent}
-        chapterRefs={chapterRefs}
-        activeStage={activeStage}
-        onSelectStage={scrollToChapter}
-        onOpenEvent={onOpenEvent}
-      />
+      </div>
     </main>
   );
 }
@@ -244,6 +302,7 @@ function EraNavigator({
   prev,
   next,
   railOpen,
+  facts,
   onToggleRail,
   onSelectPeriod,
 }: {
@@ -252,12 +311,15 @@ function EraNavigator({
   prev: SemanticPeriod | null;
   next: SemanticPeriod | null;
   railOpen: boolean;
+  facts: { events: number; people: number; regimes: number };
   onToggleRail: () => void;
   onSelectPeriod: (period: SemanticPeriod) => void;
 }) {
   return (
     <section className="history-v2-era" aria-label="前后时代导航">
-      <div className="history-v2-era-row">
+      <div
+        className={`history-v2-era-row${!prev ? " is-first-period" : ""}${!next ? " is-last-period" : ""}`}
+      >
         {prev ? (
           <button
             type="button"
@@ -278,6 +340,9 @@ function EraNavigator({
           <span className="history-v2-era-direction">当前时期</span>
           <strong>{period.name_zh_cn}</strong>
           <small>{rangeText(period.start_year, period.end_year)}</small>
+          <span className="history-era-factsline">
+            {facts.events} 事件 · {facts.people} 人物 · {facts.regimes} 政权
+          </span>
         </div>
         {next ? (
           <button
@@ -356,6 +421,52 @@ function EraRail({
   );
 }
 
+// ---------- Stage density（阶段事件密度条） ----------
+// 参考 ybogdanov/history-timeline 的「横向时间带 + 密度」思路：宽度=年代跨度，
+// 条高=事件数量；只使用 periodDetail.stages 已有的 start/end/event_count，不额外请求。
+function StageDensityStrip({
+  stages,
+  activeStage,
+  onSelectStage,
+}: {
+  stages: SemanticPeriodStage[];
+  activeStage: number | null;
+  onSelectStage: (index: number) => void;
+}) {
+  if (stages.length < 2) return null;
+  const maxCount = Math.max(...stages.map((stage) => stage.event_count), 1);
+  return (
+    <div className="history-stage-density">
+      <div className="history-stage-density-head">
+        <span>阶段事件密度</span>
+        <small>条宽 = 年代跨度 · 条高 = 事件数量 · 点击跳到该阶段</small>
+      </div>
+      <div className="history-stage-density-track" role="group" aria-label="阶段事件密度">
+        {stages.map((stage) => {
+          const span = Math.max(1, (stage.end_year ?? stage.start_year) - stage.start_year);
+          const ratio = stage.event_count / maxCount;
+          const active = activeStage === stage.index;
+          return (
+            <button
+              key={stage.index}
+              type="button"
+              className={`history-stage-density-seg${active ? " is-active" : ""}`}
+              style={{ flexGrow: span, flexBasis: 0 }}
+              onClick={() => onSelectStage(stage.index)}
+              aria-current={active ? "true" : undefined}
+              aria-label={`阶段 ${stage.index}：${yearText(stage.start_year)} 至 ${yearText(stage.end_year)}，${stage.event_count} 个事件`}
+              title={`${stage.opening_event_name || "阶段"} · ${stage.event_count} 个事件`}
+            >
+              <i style={{ height: `${Math.max(12, Math.round(ratio * 100))}%` }} aria-hidden="true" />
+              {ratio >= 0.5 ? <b aria-hidden="true">{stage.event_count}</b> : null}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ---------- Historical Stages（阶段导航，与 Timeline 章节同源） ----------
 
 function StageNavigator({
@@ -380,6 +491,11 @@ function StageNavigator({
         </span>
         <small>{stages.length} 个阶段 · 从关键节点分段</small>
       </div>
+      <StageDensityStrip
+        stages={stages}
+        activeStage={activeStage}
+        onSelectStage={onSelectStage}
+      />
       <ol className="history-v2-stage-spine">
         {stages.map((stage) => {
           const stageEvents = eventsForStage(events, stage);

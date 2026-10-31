@@ -26,8 +26,13 @@ export interface AppContextPayload {
  view_state?: unknown;
 }
 
+export type AgentContentPart =
+ | { type: "text"; text: string }
+ | { type: "image"; data: string; mime: string; source: string; caption?: string | null };
+
 export interface AgentRequest {
  message: string;
+ parts?: AgentContentPart[];
  session_id?: string | null;
  app_context: AppContextPayload;
  /** 启用的模块列表（status.modules[].id）；空 = 全部 */
@@ -127,6 +132,7 @@ export type AgentStageName =
   | "failed";
 
 export interface AgentProgressEvent {
+  trace_id?: string | null;
   stage: AgentStageName;
   /** 阶段内细节（策略名 / 耗时 / 失败原因）。 */
   detail?: string | null;
@@ -247,8 +253,32 @@ export interface AgentUsage {
  tool_rounds: number;
 }
 
+export type AgentCitationRole = "current_entity" | "verified_association" | "story_context" | "evidence";
+
+export interface AgentCitation {
+ module: string;
+ entity_type: string;
+ entity_id: string;
+ title: string;
+ role: AgentCitationRole;
+ source_ids?: string[];
+}
+
+export interface AgentProposedChange {
+ id: string;
+ operation: string;
+ title: string;
+ expires_at: number;
+ expected_revision?: number | null;
+ before: unknown;
+ after: unknown;
+}
+
 export interface AgentResponse {
  session_id: string;
+ trace_id?: string | null;
+ citations?: AgentCitation[];
+ proposed_changes?: AgentProposedChange[];
  message: string;
  actions: AgentAction[];
  ui_blocks: UiBlock[];

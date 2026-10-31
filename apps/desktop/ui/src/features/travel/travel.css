@@ -1,0 +1,856 @@
+/* Sprint 2: a working paper itinerary, not a metrics dashboard. */
+.travel-guide-immersive {
+  gap: 16px;
+}
+.travel-hero-poster {
+  border: 1px solid var(--pencil-line, var(--line));
+  border-radius: var(--sketch-radius-lg, 18px);
+  background: var(--paper-card, var(--panel-raised));
+  color: var(--graphite-900, var(--text));
+  padding: clamp(18px, 2.6vw, 32px);
+  box-shadow: var(--sketch-shadow-paper, var(--shadow-xs));
+}
+.poster-backdrop-overlay { display: none; }
+.poster-content { gap: 12px; }
+.poster-kicker { min-height: 20px; }
+.cache-badge {
+  background: var(--pencil-yellow-soft, var(--panel-hover));
+  border: 1px solid var(--pencil-line-soft, var(--line));
+  color: var(--graphite-700, var(--text-secondary));
+}
+.time-badge,
+.poster-city-info .city-en { color: var(--graphite-500, var(--muted)); }
+.poster-city-info h1 {
+  color: var(--graphite-900, var(--text));
+  font: var(--text-hand-xl, 700 30px/1.3 var(--font-hand));
+}
+.city-region {
+  color: var(--graphite-700, var(--text-secondary));
+  flex-wrap: wrap;
+}
+.trip-duration-pill,
+.trip-dates-pill {
+  background: var(--paper-sunken, var(--panel-hover));
+  color: var(--graphite-700, var(--text-secondary));
+}
+.poster-weather-widget {
+  min-width: min(320px, 100%);
+  background: var(--paper-sunken, var(--panel-hover));
+  border: 1px solid var(--pencil-line-soft, var(--line));
+  border-radius: var(--sketch-radius, 12px);
+  color: var(--graphite-900, var(--text));
+  backdrop-filter: none;
+}
+.weather-temp-wrap strong,
+.weather-mini-day b { color: var(--graphite-900, var(--text)); }
+.weather-temp-wrap span,
+.weather-mini-day small,
+.weather-mini-day span { color: var(--graphite-700, var(--text-secondary)); }
+.weather-advice {
+  background: var(--pencil-blue-soft, var(--panel-hover));
+  color: var(--graphite-700, var(--text-secondary));
+}
+.weather-mini-list { border-color: var(--pencil-line-soft, var(--line)); }
+.poster-city-summary {
+  max-width: 72ch;
+  color: var(--graphite-700, var(--text-secondary));
+}
+
+.travel-plan-status {
+  min-height: 46px;
+  padding: 9px 14px;
+  border: 1px solid var(--pencil-line-soft, var(--line));
+  border-radius: var(--sketch-radius-sm, 9px);
+  background: var(--paper-raised, var(--panel-raised));
+  color: var(--graphite-700, var(--text-secondary));
+}
+.travel-plan-status-copy {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.travel-plan-status strong {
+  color: var(--graphite-900, var(--text));
+  font-variant-numeric: tabular-nums;
+}
+.travel-plan-status[data-state="saved"] strong { color: #52643e; }
+.travel-plan-status[data-state="draft"] strong { color: var(--graphite-500, var(--muted)); }
+.travel-plan-status[data-state="failed"] {
+  border-color: var(--pencil-red, var(--line));
+  background: var(--pencil-red-soft, var(--panel-raised));
+  color: var(--graphite-900, var(--text));
+}
+.travel-plan-status[data-state="conflict"] {
+  border-color: var(--pencil-orange, var(--line-strong));
+  background: var(--pencil-orange-soft, var(--panel-raised));
+  color: var(--graphite-900, var(--text));
+}
+.travel-plan-status button,
+.travel-conflict-actions button,
+.travel-add-stop-controls button,
+.travel-create-manual {
+  min-height: 36px;
+  border: 1px solid var(--pencil-line, var(--line));
+  border-radius: var(--sketch-radius-sm, 9px);
+  background: var(--paper-raised, var(--panel-raised));
+  color: var(--graphite-900, var(--text));
+  font: inherit;
+  cursor: pointer;
+}
+.travel-plan-status button:hover,
+.travel-conflict-actions button:hover,
+.travel-add-stop-controls button:hover,
+.travel-create-manual:hover { background: var(--paper-sticky, var(--panel-hover)); }
+.travel-plan-status button:focus-visible,
+.travel-conflict-actions button:focus-visible,
+.travel-add-stop-controls button:focus-visible,
+.travel-create-manual:focus-visible,
+.travel-context-bridge button:focus-visible,
+.travel-plan-notebook :focus-visible,
+.btn-reorder-stop:focus-visible {
+  outline: 2px solid var(--pencil-blue, var(--accent));
+  outline-offset: 2px;
+}
+.travel-local-draft-warning,
+.travel-conflict-error {
+  margin: 0;
+  color: var(--graphite-900, var(--text));
+  font-size: 13px;
+}
+.travel-local-draft-warning {
+  padding: 9px 12px;
+  border: 1px solid var(--pencil-orange, var(--line));
+  border-radius: var(--sketch-radius-sm, 9px);
+  background: var(--pencil-orange-soft, var(--panel-hover));
+}
+.travel-conflict-panel {
+  display: grid;
+  gap: 14px;
+  padding: 16px 18px;
+  border: 1px solid var(--pencil-orange, var(--line-strong));
+  border-radius: var(--sketch-radius, 12px);
+  background: var(--pencil-orange-soft, var(--panel-hover));
+}
+.travel-conflict-panel h2,
+.travel-context-heading h2,
+.travel-first-run-note h2,
+.travel-saved-plan-rail h2 {
+  margin: 0;
+  color: var(--graphite-900, var(--text));
+  font: var(--text-hand-md, 700 19px/1.35 var(--font-hand));
+}
+.travel-conflict-panel p {
+  max-width: 75ch;
+  margin: 5px 0 0;
+  color: var(--graphite-700, var(--text-secondary));
+  line-height: 1.55;
+}
+.travel-conflict-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.travel-conflict-actions .travel-primary-action {
+  background: var(--pencil-yellow-soft, var(--panel-hover));
+  font-weight: 700;
+}
+
+.travel-plan-notebook {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
+  gap: 18px 24px;
+  padding: 18px;
+  border: 1px solid var(--pencil-line-soft, var(--line));
+  border-radius: var(--sketch-radius, 12px);
+  background: var(--paper-card, var(--panel-raised));
+}
+.travel-plan-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  align-content: start;
+}
+.travel-plan-fields label,
+.travel-add-stop-form {
+  display: grid;
+  gap: 6px;
+  color: var(--graphite-700, var(--text-secondary));
+  font-size: 12px;
+  font-weight: 650;
+}
+.travel-plan-note-field { grid-column: 1 / -1; }
+.travel-plan-fields input,
+.travel-plan-fields textarea,
+.travel-add-stop-controls input,
+.travel-add-stop-controls select {
+  width: 100%;
+  min-width: 0;
+  padding: 9px 11px;
+  border: 1px solid var(--pencil-line, var(--line));
+  border-radius: var(--sketch-radius-sm, 9px);
+  background: var(--paper-raised, var(--panel-raised));
+  color: var(--graphite-900, var(--text));
+  font: inherit;
+  font-size: 14px;
+}
+.travel-plan-fields textarea { min-height: 64px; resize: vertical; }
+.travel-plan-fields input::placeholder,
+.travel-plan-fields textarea::placeholder,
+.travel-add-stop-controls input::placeholder {
+  color: var(--graphite-500, var(--muted));
+  opacity: 1;
+}
+.travel-add-stop-form { align-content: start; }
+.travel-add-stop-form > label {
+  color: var(--graphite-900, var(--text));
+  font-size: 14px;
+  font-weight: 750;
+}
+.travel-add-stop-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 86px;
+  gap: 8px;
+}
+.travel-add-stop-controls input { grid-column: 1 / -1; }
+.travel-add-stop-controls button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  grid-column: 1 / -1;
+  padding: 0 12px;
+  background: var(--pencil-yellow-soft, var(--panel-hover));
+  font-weight: 700;
+}
+.travel-add-stop-controls button:disabled,
+.travel-create-manual:disabled { cursor: not-allowed; opacity: 0.55; }
+
+.travel-context-bridge {
+  display: grid;
+  gap: 12px;
+  padding: 16px 18px;
+  border-top: 1px solid var(--pencil-line-soft, var(--line));
+  border-bottom: 1px solid var(--pencil-line-soft, var(--line));
+  background: var(--paper-card, var(--panel-raised));
+}
+.travel-context-heading p {
+  margin: 4px 0 0;
+  color: var(--graphite-700, var(--text-secondary));
+  font-size: 12px;
+}
+.travel-context-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+.travel-context-column + .travel-context-column {
+  padding-left: 20px;
+  border-left: 1px solid var(--pencil-line-soft, var(--line));
+}
+.travel-context-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.travel-context-title-row h3 {
+  margin: 0;
+  color: var(--graphite-900, var(--text));
+  font-size: 14px;
+  font-weight: 750;
+}
+.travel-context-bridge button {
+  color: var(--graphite-700, var(--text-secondary));
+  font: inherit;
+  cursor: pointer;
+}
+.travel-context-title-row button {
+  padding: 3px 0;
+  border: 0;
+  background: transparent;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  font-size: 12px;
+}
+.travel-context-column ul {
+  display: grid;
+  gap: 3px;
+  margin: 7px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.travel-context-column li button {
+  display: flex;
+  width: 100%;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 5px 0;
+  border: 0;
+  border-bottom: 1px solid var(--pencil-line-soft, var(--line));
+  background: transparent;
+  text-align: left;
+}
+.travel-context-column li button:hover span {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.travel-context-column li small,
+.travel-context-column > p {
+  color: var(--graphite-500, var(--muted));
+  font-size: 12px;
+}
+.travel-context-column > p { margin: 7px 0 0; line-height: 1.5; }
+.travel-context-warning {
+  margin: 0;
+  color: var(--graphite-700, var(--text-secondary));
+  font-size: 12px;
+}
+.travel-empty-data {
+  margin: 0;
+  padding: 12px 0;
+  color: var(--graphite-500, var(--muted));
+  line-height: 1.55;
+}
+
+/* Preserve contrast for legacy travel controls and itinerary pieces in the paper theme. */
+.travel-page .travel-hero-badge,
+.travel-page .travel-hero > p,
+.travel-page .travel-popular-label,
+.travel-page .travel-must-visit-section > label small,
+.travel-page .quick-spots-label,
+.travel-page .travel-date-range span,
+.travel-page .travel-search-row input::placeholder,
+.travel-page .travel-must-tags input::placeholder {
+  color: var(--graphite-700, var(--text-secondary));
+}
+.travel-guide-immersive .nav-tab:not(.active) .tab-badge {
+  background: var(--paper-sunken, var(--panel-hover));
+  color: var(--graphite-700, var(--text-secondary));
+}
+.travel-guide-immersive .day-filter-btn:not(.active) small {
+  color: var(--graphite-700, var(--text-secondary));
+  opacity: 1;
+}
+.travel-guide-immersive .day-filter-btn.active small {
+  color: var(--paper-raised, #fffdf7);
+  opacity: 1;
+}
+.travel-guide-immersive .day-num-badge {
+  background: #725027;
+  color: var(--paper-raised, #fffdf7);
+}
+.travel-guide-immersive .day-theme-tag,
+.travel-guide-immersive .day-stat-chip {
+  color: var(--graphite-700, var(--text-secondary));
+}
+
+.travel-custom-place-tag {
+  padding: 2px 7px;
+  border-radius: 8px;
+  background: var(--pencil-blue-soft, var(--panel-hover));
+  color: var(--graphite-700, var(--text-secondary));
+  font-size: 11px;
+}
+.travel-custom-place-note {
+  width: min(100%, 560px);
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 1px solid var(--pencil-line-soft, var(--line));
+  border-radius: var(--sketch-radius-sm, 9px);
+  background: var(--paper-raised, var(--panel-raised));
+  color: var(--graphite-900, var(--text));
+  font: inherit;
+  resize: vertical;
+}
+.btn-reorder-stop {
+  display: inline-grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border: 1px solid var(--pencil-line-soft, var(--line));
+  border-radius: 8px;
+  background: var(--paper-raised, var(--panel-raised));
+  color: var(--graphite-700, var(--text-secondary));
+  cursor: pointer;
+}
+.btn-reorder-stop:disabled { opacity: 0.4; cursor: not-allowed; }
+.travel-create-manual { padding: 0 12px; white-space: nowrap; }
+.travel-first-run-note {
+  display: grid;
+  gap: 6px;
+  max-width: 900px;
+  padding: 16px 18px;
+  border: 1px solid var(--pencil-line-soft, var(--line));
+  border-radius: var(--sketch-radius, 12px);
+  background: var(--paper-card, var(--panel-raised));
+}
+.travel-first-run-note p,
+.travel-first-run-note span {
+  margin: 0;
+  color: var(--graphite-700, var(--text-secondary));
+  font-size: 13px;
+  line-height: 1.55;
+}
+.travel-first-run-note span {
+  color: var(--pencil-green, var(--accent));
+  font-weight: 650;
+}
+.travel-saved-plan-rail {
+  display: grid;
+  gap: 9px;
+  padding: 14px 0;
+  border-top: 1px solid var(--pencil-line-soft, var(--line));
+}
+.travel-saved-plan-list,
+.travel-pending-draft-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.travel-saved-plan-list button,
+.travel-pending-draft-list button {
+  display: grid;
+  gap: 2px;
+  min-width: 190px;
+  padding: 8px 11px;
+  border: 1px solid var(--pencil-line-soft, var(--line));
+  border-radius: var(--sketch-radius-sm, 9px);
+  background: var(--paper-card, var(--panel-raised));
+  color: var(--graphite-900, var(--text));
+  text-align: left;
+  cursor: pointer;
+}
+.travel-saved-plan-list button:hover,
+.travel-pending-draft-list button:hover { background: var(--paper-sticky, var(--panel-hover)); }
+.travel-pending-draft-list button {
+  border-style: dashed;
+  background: var(--pencil-orange-soft, var(--panel-hover));
+}
+.saved-plan-title,
+.travel-pending-draft-list span { font-size: 13px; font-weight: 750; }
+.travel-saved-plan-list small,
+.travel-pending-draft-list small {
+  color: var(--graphite-500, var(--muted));
+  font-size: 11px;
+}
+
+@media (max-width: 900px) {
+  .travel-plan-notebook { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 640px) {
+  .travel-plan-fields,
+  .travel-context-columns { grid-template-columns: minmax(0, 1fr); }
+  .travel-plan-note-field { grid-column: auto; }
+  .travel-context-column + .travel-context-column {
+    padding: 12px 0 0;
+    border-left: 0;
+    border-top: 1px solid var(--pencil-line-soft, var(--line));
+  }
+  .travel-add-stop-controls { grid-template-columns: minmax(0, 1fr); }
+  .travel-add-stop-controls input { grid-column: auto; }
+  .travel-conflict-actions button { width: 100%; }
+  .poster-city-info h1 { font-size: 26px; flex-wrap: wrap; }
+  .travel-create-manual { min-height: 40px; }
+}
+
+/* ==========================================================================
+ * 行程速览 / 起步行程（Sunrise Glass）
+ *
+ * 参考开源实现：TREK 的 day-plan 起点（先给一个可编辑的日计划，而不是空表单）、
+ * AdventureLog 的 trip 模板。这里只补两个入口层信息，不改既有表单与行程工作区：
+ *   1) 填了城市后，用一句话+条件 chips 说明「将按什么整理」；
+ *   2) 第一次打开、没有任何行程时，给三条可点击的起步行程。
+ * ========================================================================== */
+.travel-plan-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-top: 16px;
+  padding: 16px 20px;
+  border: 1px solid color-mix(in srgb, var(--line) 62%, transparent);
+  border-radius: 20px;
+  background: linear-gradient(160deg,
+    color-mix(in srgb, var(--panel-raised) 88%, transparent),
+    color-mix(in srgb, var(--panel-raised) 70%, transparent));
+  box-shadow:
+    0 16px 38px color-mix(in srgb, #3a3f6b 10%, transparent),
+    inset 0 1px 0 rgb(255 255 255 / 62%);
+  backdrop-filter: blur(20px) saturate(1.35);
+  -webkit-backdrop-filter: blur(20px) saturate(1.35);
+}
+.travel-plan-summary-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.travel-plan-summary-kicker {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--accent) 72%, var(--muted));
+}
+.travel-plan-summary-main > strong {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+.travel-plan-summary-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.travel-plan-summary-chips li {
+  padding: 3px 10px;
+  border: 1px solid color-mix(in srgb, var(--line) 55%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--panel-raised) 62%, transparent);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+.travel-plan-summary-hint {
+  margin: 0;
+  max-width: 420px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+.travel-starters {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 18px;
+}
+.travel-starters-head h2 {
+  margin: 0;
+  font-size: 16px;
+  color: var(--text);
+}
+.travel-starters-head p {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+.travel-starter-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+.travel-starter {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 16px 18px;
+  border: 1px solid color-mix(in srgb, var(--line) 62%, transparent);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--panel-raised) 72%, transparent);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 58%);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color var(--motion-fast) var(--motion-ease),
+    transform var(--motion-fast) var(--motion-ease);
+}
+.travel-starter:hover {
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--line));
+  transform: translateY(-1px);
+}
+.travel-starter-kicker {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--accent) 70%, var(--muted));
+}
+.travel-starter > strong {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text);
+}
+.travel-starter-meta {
+  font-size: 13px;
+  color: var(--muted);
+}
+.travel-starter-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+@media (max-width: 900px) {
+  .travel-plan-summary {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .travel-plan-summary-hint {
+    max-width: none;
+  }
+}
+@media (max-width: 640px) {
+  .travel-plan-summary {
+    padding: 14px 16px;
+  }
+  .travel-plan-summary-main > strong {
+    font-size: 18px;
+  }
+  .travel-starter {
+    min-height: 44px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .travel-starter {
+    transition: none;
+  }
+  .travel-starter:hover {
+    transform: none;
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .travel-plan-summary,
+  .travel-starter {
+    background: var(--panel-raised);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+/* ==========================================================================
+ * 日程卡片折叠 + 「在地图查看」（Round 3）
+ *
+ * 参考 TREK 的 day plan：每天是一个可折叠单元，长行程可以快速收起；
+ * 每天可直接跳到地图并预选该天。只影响呈现，不改动排序/移动/删除等既有动作。
+ * ========================================================================== */
+.itinerary-days-filter {
+  position: sticky;
+  top: 0;
+  z-index: 6;
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--line) 62%, transparent);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--panel-raised) 80%, transparent);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 62%);
+  backdrop-filter: blur(18px) saturate(1.3);
+  -webkit-backdrop-filter: blur(18px) saturate(1.3);
+}
+
+.day-collapse-all {
+  margin-left: auto;
+  border-style: dashed;
+  color: var(--muted);
+}
+
+.day-header-banner {
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.day-title-left {
+  margin-right: auto;
+}
+.day-stats-right {
+  flex-wrap: wrap;
+}
+
+.day-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.day-map-btn,
+.day-collapse-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 30px;
+  padding: 0 11px;
+  border: 1px solid var(--glass-edge, var(--line));
+  border-radius: 15px;
+  background: color-mix(in srgb, var(--panel-raised) 72%, transparent);
+  color: var(--text-control);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    border-color 150ms ease,
+    background 150ms ease;
+}
+.day-map-btn {
+  border-color: color-mix(in srgb, var(--accent) 30%, var(--line));
+  color: var(--accent);
+}
+.day-map-btn:hover {
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--line));
+  background: color-mix(in srgb, var(--accent) 10%, var(--panel-raised));
+}
+.day-collapse-btn:hover {
+  border-color: var(--line-strong);
+  background: var(--panel-hover);
+}
+.day-collapse-btn svg {
+  transition: transform 150ms ease;
+}
+.day-collapse-btn svg.is-collapsed {
+  transform: rotate(-90deg);
+}
+
+.day-body[hidden] {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .day-header-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+  .day-map-btn,
+  .day-collapse-btn {
+    min-height: 36px;
+    height: auto;
+    padding: 6px 12px;
+  }
+  .day-collapse-all {
+    margin-left: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .day-map-btn,
+  .day-collapse-btn,
+  .day-collapse-btn svg {
+    transition: none;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .itinerary-days-filter {
+    background: var(--panel-raised);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+/* 通用规则 `.app-content [class*="-stat"]` 会把 day-stat-chip 当成统计卡（16px/20px 内边距、
+ * 白色卡片底），这里恢复成行内小徽标；选择器与通用规则同特异性并靠后加载。 */
+.travel-page .day-stat-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  width: auto;
+  min-height: 0;
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+  box-shadow: none;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+.travel-page .day-stat-chip.distance-chip {
+  background: color-mix(in srgb, var(--accent) 8%, var(--panel));
+  border-color: color-mix(in srgb, var(--accent) 22%, var(--line));
+  color: color-mix(in srgb, var(--accent) 70%, var(--muted));
+}
+
+/* 同样的通用 `[class*="-stat"]` 规则也会命中这些“名字里带 stat”的容器/文案，
+ * 把它们误当统计卡；这里还原为无卡片样式。 */
+.travel-page .day-stats-right,
+.travel-page .travel-plan-status-copy {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+/* 拖动排序（Round 6）：抓手在景点卡左侧，拖到另一张卡即重排；触屏隐藏，保留上下箭头。 */
+.stop-drag-handle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  margin-bottom: 2px;
+  border-radius: 6px;
+  color: var(--faint);
+  cursor: grab;
+  transition:
+    color 150ms ease,
+    background 150ms ease;
+}
+.stop-drag-handle:hover {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+.stop-drag-handle:active {
+  cursor: grabbing;
+}
+.stop-drag-handle:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 70%, var(--text));
+  outline-offset: 2px;
+}
+.stop-card.is-dragging {
+  opacity: 0.55;
+}
+.stop-card.is-drop-target {
+  outline: 2px dashed color-mix(in srgb, var(--accent) 60%, transparent);
+  outline-offset: 3px;
+}
+@media (hover: none) {
+  .stop-drag-handle {
+    display: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .stop-drag-handle {
+    transition: none;
+  }
+}
+
+/* 行程概览条（Round 7）：天数 / 地点数 / 必去完成度 / 总里程。 */
+.itinerary-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin: 0 0 12px;
+  padding: 10px 14px;
+  border: 1px solid color-mix(in srgb, var(--line) 62%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--panel-raised) 74%, transparent);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 58%);
+  color: var(--muted);
+  font-size: 12px;
+}
+.itinerary-summary-item b {
+  margin-right: 2px;
+  color: var(--text);
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+}
+@media (max-width: 640px) {
+  .itinerary-summary {
+    gap: 6px 12px;
+    padding: 9px 12px;
+  }
+  .itinerary-summary-item b {
+    font-size: 14px;
+  }
+}

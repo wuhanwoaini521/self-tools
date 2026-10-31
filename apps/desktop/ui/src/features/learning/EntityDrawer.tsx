@@ -265,7 +265,7 @@ export function EntityDrawer({
                 >
                   {collections.map((c) => (
                     <option key={c.id} value={c.id}>
-                      {c.title} ({c.items_count} 项)
+                      {c.title} ({c.item_count} 项)
                     </option>
                   ))}
                 </select>

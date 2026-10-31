@@ -16,70 +16,63 @@
  * 1. 结构 Token（全局唯一，不随主题变化）
  * -------------------------------------------------------------------------- */
 :root {
-  /* 纸张 / 石墨 / 彩铅 调色板（供草图组件直接引用） */
-  --paper-bg: #f5efe1;
-  --paper-bg-secondary: #efe7d5;
-  --paper-card: #fbf8ef;
-  --paper-raised: #fffdf7;
-  --paper-sunken: #f0e8d7;
-  --paper-sticky: #f7ecb5;
+  /* Semantic compatibility tokens: legacy Pencil selectors now follow the active theme. */
+  --paper-bg: var(--bg);
+  --paper-bg-secondary: var(--surface-panel-deep);
+  --paper-card: var(--panel);
+  --paper-raised: var(--panel-raised);
+  --paper-sunken: var(--surface-sunken);
+  --paper-sticky: color-mix(in srgb, var(--accent-soft) 72%, var(--panel));
 
-  --graphite-900: #2a2823;
-  --graphite-700: #454138;
-  --graphite-500: #6d685c;
-  --graphite-300: #9d9789;
-  --graphite-100: #cdc5b3;
+  --graphite-900: var(--text);
+  --graphite-700: var(--text-medium, var(--text));
+  --graphite-500: var(--muted);
+  --graphite-300: var(--faint);
+  --graphite-100: var(--line);
 
-  --pencil-line: #b3a892;
-  --pencil-line-soft: #d9d0be;
-  --pencil-line-strong: #948977;
+  --pencil-line: var(--line-strong);
+  --pencil-line-soft: var(--line-soft);
+  --pencil-line-strong: var(--line-hover);
 
-  --pencil-blue: #6f8fb5;
-  --pencil-blue-soft: #dde7f1;
-  --pencil-green: #87996f;
-  --pencil-green-soft: #e3e8d5;
-  --pencil-orange: #cf9253;
-  --pencil-orange-soft: #f6e5cf;
-  --pencil-red: #bd7566;
-  --pencil-red-soft: #f2dcd6;
-  --pencil-yellow: #e3cd7b;
-  --pencil-yellow-soft: #f8eec4;
-  --pencil-purple: #9a8bb2;
-  --pencil-purple-soft: #e8e2f0;
+  --pencil-blue: #4f75ee;
+  --pencil-blue-soft: color-mix(in srgb, var(--pencil-blue) 18%, var(--panel));
+  --pencil-green: #16896d;
+  --pencil-green-soft: color-mix(in srgb, var(--pencil-green) 16%, var(--panel));
+  --pencil-orange: #c36b18;
+  --pencil-orange-soft: color-mix(in srgb, var(--pencil-orange) 16%, var(--panel));
+  --pencil-red: #c74750;
+  --pencil-red-soft: color-mix(in srgb, var(--pencil-red) 14%, var(--panel));
+  --pencil-yellow: #d0a52b;
+  --pencil-yellow-soft: color-mix(in srgb, var(--pencil-yellow) 20%, var(--panel));
+  --pencil-purple: #7953c8;
+  --pencil-purple-soft: color-mix(in srgb, var(--pencil-purple) 16%, var(--panel));
 
-  /* 手绘描边：不规则圆角制造「手画」观感，但不影响布局对齐 */
-  --sketch-radius: 14px 12px 15px 11px / 12px 15px 11px 15px;
-  --sketch-radius-sm: 9px 8px 10px 7px / 8px 10px 7px 10px;
-  --sketch-radius-lg: 20px 17px 22px 16px / 17px 22px 16px 21px;
-  --sketch-border: 1.6px solid var(--pencil-line);
-  --sketch-border-strong: 1.8px solid var(--pencil-line-strong);
-  --sketch-border-soft: 1.4px solid var(--pencil-line-soft);
-  --sketch-shadow: 2px 3px 0 rgb(83 72 52 / 8%);
-  --sketch-shadow-lift: 3px 6px 14px rgb(83 72 52 / 16%);
-  --sketch-shadow-paper: 1px 2px 0 rgb(83 72 52 / 7%), 0 8px 20px rgb(83 72 52 / 7%);
+  --sketch-radius: 14px;
+  --sketch-radius-sm: 9px;
+  --sketch-radius-lg: 18px;
+  --sketch-border: 1px solid var(--line-soft);
+  --sketch-border-strong: 1px solid var(--line-strong);
+  --sketch-border-soft: 1px solid var(--line-soft);
+  --sketch-shadow: 0 2px 5px color-mix(in srgb, var(--text) 6%, transparent);
+  --sketch-shadow-lift: 0 8px 20px color-mix(in srgb, var(--text) 12%, transparent);
+  --sketch-shadow-paper: 0 6px 18px color-mix(in srgb, var(--text) 7%, transparent);
 
-  /* 字体：手写标题 + 高可读正文 + 等宽数字 */
-  --font-hand: "Bradley Hand", "Chalkboard SE", "Marker Felt", "Xingkai SC",
-    "Kaiti SC", "STKaiti", "KaiTi", "楷体", "Segoe Print", cursive;
-  --font-body: "Manrope", "Segoe UI", -apple-system, system-ui, sans-serif;
+  /* Typography stays readable across scripts; no theme forces a handwriting face. */
+  --font-hand: var(--font-body);
+  --font-body: "Manrope", "Segoe UI", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
   --font-code: "SFMono-Regular", ui-monospace, "Menlo", "Consolas", monospace;
 
-  --text-hand-xl: 700 30px/1.3 var(--font-hand);
-  --text-hand-lg: 700 24px/1.3 var(--font-hand);
-  --text-hand-md: 700 19px/1.35 var(--font-hand);
-  --text-hand-sm: 600 15px/1.4 var(--font-hand);
+  --text-hand-xl: 700 30px/1.25 var(--font-body);
+  --text-hand-lg: 700 24px/1.3 var(--font-body);
+  --text-hand-md: 650 19px/1.35 var(--font-body);
+  --text-hand-sm: 600 15px/1.4 var(--font-body);
 
-  /* 纸张旋转角度：统一三档，避免随机 */
-  --rot-a: -0.6deg;
-  --rot-b: 0.5deg;
-  --rot-c: -0.25deg;
-
-  /* 动效：纸片「拿起来」的感觉 */
-  --sketch-lift: translateY(-3px) rotate(0deg) scale(1.01);
-  --sketch-motion: 240ms cubic-bezier(0.22, 0.8, 0.3, 1);
-
-  /* 手绘边框 SVG（用于 hero / 强调面板） */
-  --paper-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.045'/%3E%3C/svg%3E");
+  --rot-a: 0deg;
+  --rot-b: 0deg;
+  --rot-c: 0deg;
+  --sketch-lift: translateY(-2px);
+  --sketch-motion: 180ms cubic-bezier(0.2, 0, 0.2, 1);
+  --paper-grain: none;
   --paper-grid: none;
 }
 
@@ -89,115 +82,117 @@
  * -------------------------------------------------------------------------- */
 :root[data-theme="pencil"] {
   color-scheme: light;
-  --control-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 4.5 6 8l3.5-3.5' fill='none' stroke='%236d685c' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  --control-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 4.5 6 8l3.5-3.5' fill='none' stroke='%2369695f' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
 
-  --bg: #f2ebdc;
-  --panel: #faf6ec;
-  --panel-raised: #fffdf7;
-  --panel-hover: #efe7d6;
-  --line: #cabfa9;
-  --line-soft: #ddd4c1;
-  --text: #2a2823;
-  --muted: #6d685c;
-  --faint: #9d9789;
-  --accent: #9a6a2f;
-  --accent-hover: #7f5522;
-  --accent-soft: #f0e5d2;
-  --success: #5f7a48;
-  --success-soft: #e6ebd9;
-  --scrollbar-thumb: #cdc3af;
-  --scrollbar-thumb-hover: #b3a892;
+  --bg: #f1f3fc;
+  --panel: #ffffff;
+  --panel-raised: #ffffff;
+  --panel-hover: #f4f6ff;
+  --line: #e3e6f4;
+  --line-soft: #eef0fa;
+  --text: #24262f;
+  --muted: #61657a;
+  --faint: #7a7f93;
+  --accent: #5566e6;
+  --accent-hover: #4354d9;
+  --accent-soft: #eceeff;
+  --success: #2f8a67;
+  --success-soft: #e3f4ec;
+  --scrollbar-thumb: #d8dcf0;
+  --scrollbar-thumb-hover: #c6cbe4;
 
-  --surface-bar: #f9f4e9;
-  --surface-control: #fffdf7;
-  --surface-panel-deep: #ede4d1;
-  --surface-raised: #fffdf7;
-  --surface-chip: #efe7d6;
-  --surface-sunken: #f1e9d8;
-  --surface-overlay: #fffdf7;
-  --surface-overlay-hover: #f3ead8;
+  --surface-bar: #fdfdff;
+  --surface-control: #ffffff;
+  --surface-panel-deep: #f3f5fd;
+  --surface-raised: #ffffff;
+  --surface-chip: #f2f4fd;
+  --surface-sunken: #f7f8fe;
+  --surface-overlay: #ffffff;
+  --surface-overlay-hover: #f4f6ff;
 
-  --line-strong: #b3a892;
-  --line-hover: #a99e87;
-  --line-tab: #ddd4c1;
-  --line-chip: #d4c9b3;
-  --line-toast: #c7bca6;
-  --line-overlay: #d4c9b3;
-  --kbd-border: #cfc4ae;
-  --inset-highlight: rgb(255 253 247 / 60%);
+  --line-strong: #cfd4e8;
+  --line-hover: #bcc2dc;
+  --line-tab: #e9ecf8;
+  --line-chip: #e0e4f4;
+  --line-toast: #e3e6f2;
+  --line-overlay: #e0e4f4;
+  --kbd-border: #dfe3f2;
+  --inset-highlight: rgb(255 255 255 / 88%);
 
-  --text-control: #2a2823;
-  --icon: #57534a;
-  --icon-muted: #8d8779;
-  --icon-dim: #a39d8f;
-  --text-hover: #16150f;
-  --caret: #2a2823;
-  --text-on-accent: #fffdf7;
-  --text-subtle: #6d685c;
-  --text-heading: #57534a;
-  --text-tree: #3d3931;
-  --text-outline: #3d3931;
-  --text-outline-number: #9d9789;
-  --text-status: #6d685c;
-  --text-status-strong: #3d3931;
-  --text-panel-heading: #57534a;
-  --text-tab: #6d685c;
-  --text-bright: #2a2823;
-  --text-soft: #8d8779;
-  --text-medium: #454138;
-  --text-chip-label: #57534a;
-  --text-file: #57534a;
-  --text-list-title: #3d3931;
-  --text-chip: #6d685c;
-  --text-soft-2: #6d685c;
-  --text-kbd: #57534a;
-  --text-toast: #2a2823;
-  --text-input: #2a2823;
-  --text-item: #3d3931;
-  --text-tree-dim: #9d9789;
+  --text-control: #24262f;
+  --icon: #565b6e;
+  --icon-muted: #7d8296;
+  --icon-dim: #848a9d;
+  --text-hover: #14161d;
+  --caret: #24262f;
+  --text-on-accent: #ffffff;
+  --text-subtle: #61657a;
+  --text-heading: #3f4354;
+  --text-tree: #33364a;
+  --text-outline: #33364a;
+  --text-outline-number: #7a7f93;
+  --text-status: #61657a;
+  --text-status-strong: #3a3e50;
+  --text-panel-heading: #3f4354;
+  --text-tab: #61657a;
+  --text-bright: #24262f;
+  --text-soft: #7a7f93;
+  --text-medium: #42465a;
+  --text-chip-label: #3f4354;
+  --text-file: #3f4354;
+  --text-list-title: #33364a;
+  --text-chip: #61657a;
+  --text-soft-2: #61657a;
+  --text-kbd: #3f4354;
+  --text-toast: #24262f;
+  --text-input: #24262f;
+  --text-item: #33364a;
+  --text-tree-dim: #7a7f93;
 
-  --accent-glow: rgb(154 106 47 / 30%);
-  --accent-glow-strong: rgb(154 106 47 / 42%);
-  --accent-border-active: #7f5522;
-  --accent-grad-a: #b07a38;
-  --accent-grad-b: #96652c;
-  --accent-selected: #f8eec4;
-  --accent-selected-text: #2a2823;
-  --accent-selected-border: #d9bf72;
-  --accent-solid: #9a6a2f;
-  --accent-chip-border: #d6bb83;
+  --accent-glow: rgb(85 102 230 / 20%);
+  --accent-glow-strong: rgb(85 102 230 / 32%);
+  --accent-border-active: #4354d9;
+  --accent-grad-a: #7f8cff;
+  --accent-grad-b: #5566e6;
+  --accent-selected: #eceeff;
+  --accent-selected-text: #24262f;
+  --accent-selected-border: #c8cef8;
+  --accent-solid: #5566e6;
+  --accent-chip-border: #d3d8fa;
+  --pencil-yellow: #ffd9a8;
+  --pencil-yellow-soft: color-mix(in srgb, #ffd9a8 42%, var(--panel));
 
-  --success-glow: rgb(95 122 72 / 35%);
-  --success-border: #b6c3a0;
-  --success-strike: rgb(95 122 72 / 55%);
+  --success-glow: rgb(47 138 103 / 35%);
+  --success-border: #a9d3c2;
+  --success-strike: rgb(47 138 103 / 55%);
 
-  --chip-bg: rgb(42 40 35 / 6%);
+  --chip-bg: rgb(36 38 47 / 6%);
 
-  --code-text: #dd6b4b;
-  --code-text-base: #36342d;
-  --code-gutter: #a39d8f;
-  --code-cursor: #2a2823;
-  --code-selection: rgb(154 106 47 / 16%);
-  --code-heading: #8f5720;
-  --code-notation: #a39d8f;
-  --code-block-bg: #f0e9da;
-  --code-block-bar: #d6ccb6;
-  --code-fence-bg: #f3ecdd;
-  --quote-bg: rgb(154 106 47 / 7%);
-  --quote-bar: #cbb083;
-  --quote-text: #6b665a;
-  --code-h1: #b97e1f;
-  --code-h2: #a96f12;
-  --code-h3: #96600e;
-  --code-h4: #825208;
-  --code-h5: #6f460a;
-  --code-h6: #5e3d18;
-  --code-task-todo: #8b867a;
-  --code-task-done-text: #a39d8f;
+  --code-text: #c9553f;
+  --code-text-base: #33364a;
+  --code-gutter: #7a7f93;
+  --code-cursor: #24262f;
+  --code-selection: rgb(85 102 230 / 16%);
+  --code-heading: #4354d9;
+  --code-notation: #7a7f93;
+  --code-block-bg: #f7f8fe;
+  --code-block-bar: #e6e9f7;
+  --code-fence-bg: #fbfbff;
+  --quote-bg: rgb(85 102 230 / 6%);
+  --quote-bar: #b7c0f5;
+  --quote-text: #61657a;
+  --code-h1: #4354d9;
+  --code-h2: #4a5ce0;
+  --code-h3: #5566e6;
+  --code-h4: #6a5fe0;
+  --code-h5: #7a63cf;
+  --code-h6: #8a68b8;
+  --code-task-todo: #7a7f93;
+  --code-task-done-text: #7a7f93;
 
-  --overlay-backdrop: rgb(52 45 32 / 28%);
-  --shadow-overlay: 0 24px 70px rgb(64 55 38 / 24%);
-  --shadow-toast: 0 12px 32px rgb(64 55 38 / 18%);
+  --overlay-backdrop: rgb(24 26 33 / 26%);
+  --shadow-overlay: 0 24px 70px rgb(38 42 66 / 20%);
+  --shadow-toast: 0 12px 32px rgb(38 42 66 / 15%);
 
   --scrollbar-width: 9px;
 }
@@ -2303,7 +2298,10 @@ textarea.sketch-textarea {
     gap: 6px;
   }
   .home-hero-stats .sketch-stat-icon {
-    display: none;
+    display: grid;
+    width: 24px;
+    height: 24px;
+    flex: 0 0 24px;
   }
   .home-hero-stats .sketch-stat-value {
     font-size: 11px;
@@ -2367,8 +2365,15 @@ textarea.sketch-textarea {
 }
 @media (max-width: 767px) {
   .ai-bubble-launch {
-    right: 14px;
+    right: 12px;
     bottom: calc(82px + env(safe-area-inset-bottom));
+    width: 44px;
+    height: 44px;
+    justify-content: center;
+    padding: 0;
+  }
+  .ai-bubble-launch span {
+    display: none;
   }
 }
 @media (min-width: 768px) {
@@ -2447,6 +2452,9 @@ textarea.sketch-textarea {
     white-space: normal;
     line-height: 1.2;
   }
+  .home-hero-stats .sketch-stat {
+    gap: 5px;
+  }
   .home-hero-stats .sketch-stat-label {
     font-size: 9px;
   }
@@ -2492,4 +2500,403 @@ textarea.sketch-textarea {
   --sketch-shadow: 2px 3px 0 rgb(0 0 0 / 15%);
   --sketch-shadow-lift: 3px 6px 14px rgb(0 0 0 / 28%);
   --sketch-shadow-paper: 1px 2px 0 rgb(0 0 0 / 16%), 0 8px 20px rgb(0 0 0 / 18%);
+}
+
+/* --------------------------------------------------------------------------
+ * Visual reconciliation from route screenshots.
+ * Keep the global paper skin deliberately low-specificity so module controls can
+ * retain their intended layouts (for example timeline cards and text buttons).
+ * -------------------------------------------------------------------------- */
+:where(
+  .app-shell button:not(.app-nav-item):not(.sketch-raw),
+  .app-shell input:not([type="range"]),
+  .app-shell select,
+  .app-shell textarea,
+  button.sketch-btn,
+  input.sketch-input,
+  select.sketch-select,
+  textarea.sketch-textarea
+) {
+  border: var(--sketch-border);
+  border-radius: var(--sketch-radius-sm);
+  background: var(--paper-raised);
+  color: var(--text);
+  transition:
+    transform var(--sketch-motion),
+    box-shadow var(--sketch-motion),
+    background-color var(--sketch-motion),
+    border-color var(--sketch-motion);
+}
+:where(.app-shell button:not(.app-nav-item):not(.sketch-raw):hover:not(:disabled)) {
+  background: var(--surface-overlay-hover);
+  border-color: var(--pencil-line-strong);
+  transform: translateY(-1px);
+}
+:where(.app-shell input:hover:not(:disabled), .app-shell select:hover:not(:disabled), .app-shell textarea:hover:not(:disabled)) {
+  border-color: var(--pencil-line-strong);
+}
+:where(.app-shell input:focus, .app-shell select:focus, .app-shell textarea:focus) {
+  border-color: var(--pencil-blue);
+  box-shadow: 0 0 0 3px var(--pencil-blue-soft);
+  outline: none;
+}
+:where(.app-shell button:disabled, .sketch-btn:disabled) {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Home AI: prompt first, then a compact row of illustrated quick actions. */
+.ai-hero {
+  grid-template-areas:
+    "robot main"
+    "assist assist";
+  grid-template-columns: 112px minmax(0, 1fr);
+  gap: 12px 18px;
+  padding: 16px 18px;
+}
+.ai-hero-robot {
+  grid-area: robot;
+}
+.ai-hero-main {
+  grid-area: main;
+}
+.ai-hero-assist {
+  grid-area: assist;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  align-items: stretch;
+  width: auto;
+  max-height: none;
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  opacity: 1;
+  overflow: visible;
+}
+.ai-hero.is-expanded .ai-hero-assist {
+  transform: none;
+}
+.ai-hero-assist-head {
+  min-height: 48px;
+  gap: 6px;
+  padding: 0 8px;
+  border: var(--sketch-border-soft);
+  border-radius: var(--sketch-radius-sm);
+  background: var(--paper-raised);
+}
+.ai-hero-assist-item {
+  min-width: 0;
+  min-height: 48px;
+  gap: 8px;
+  padding: 5px 8px;
+  border: var(--sketch-border-soft);
+  border-radius: var(--sketch-radius-sm);
+  background: var(--paper-raised);
+}
+.ai-hero-assist-item strong {
+  font-size: 12px;
+  line-height: 1.3;
+}
+.ai-hero-assist-item small {
+  display: block;
+  margin-top: 2px;
+  font-size: 10px;
+  line-height: 1.3;
+}
+.ai-hero-assist-icon {
+  flex: 0 0 24px;
+  width: 24px;
+  height: 24px;
+}
+@media (max-width: 1100px) {
+  .ai-hero {
+    grid-template-areas:
+      "robot main"
+      "assist assist";
+    grid-template-columns: 92px minmax(0, 1fr);
+  }
+  .ai-hero-assist {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    flex-direction: initial;
+    flex-wrap: initial;
+  }
+  .ai-hero-assist-head {
+    grid-column: 1 / -1;
+  }
+  .ai-hero-assist-item {
+    flex: initial;
+  }
+}
+@media (max-width: 767px) {
+  .ai-hero {
+    grid-template-areas: "main" "assist";
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
+  .ai-hero-robot {
+    display: none;
+  }
+  .ai-hero-assist {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .ai-hero-assist-head {
+    min-height: 38px;
+  }
+  .ai-hero-assist-item {
+    min-height: 44px;
+  }
+}
+
+/* Travel search: give the multi-step form breathing room and predictable rows. */
+.travel-search-container {
+  gap: 16px;
+  padding: 18px;
+  border-radius: var(--sketch-radius-lg);
+  background-color: var(--paper-card);
+  background-image: var(--paper-grain);
+}
+.travel-search-meta {
+  grid-template-columns: 140px minmax(260px, 300px) minmax(0, 1fr);
+  align-items: start;
+  gap: 16px 20px;
+  padding-top: 16px;
+}
+.travel-meta-item > label {
+  min-height: 20px;
+  margin-bottom: 8px;
+  font-size: 13px;
+}
+.travel-prefs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.travel-prefs button {
+  min-height: 34px;
+  padding: 6px 11px;
+  font-size: 13px;
+}
+@media (max-width: 1179px) {
+  .travel-search-meta {
+    grid-template-columns: minmax(130px, 0.5fr) minmax(250px, 1fr);
+  }
+  .travel-prefs-container {
+    grid-column: 1 / -1;
+  }
+}
+
+/* Language Recent Learning: actions wrap instead of shrinking into tiny pills. */
+.en-home .en-card-head {
+  align-items: center;
+  gap: 12px 20px;
+}
+.en-home .en-card-head h3 {
+  font-size: 18px;
+  line-height: 1.4;
+}
+.en-home .en-row-actions {
+  flex: 1 1 340px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.en-home .en-row-actions button {
+  min-height: 36px;
+  padding: 6px 12px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+.en-home .en-recent-list {
+  gap: 8px;
+}
+.en-home .en-recent-item {
+  min-height: 46px;
+  padding: 10px 13px;
+  gap: 14px;
+  border: var(--sketch-border-soft);
+  border-radius: var(--sketch-radius-sm);
+  background: var(--paper-raised);
+}
+.en-home .en-recent-title {
+  font-size: 14px;
+  line-height: 1.45;
+}
+.en-home .en-recent-meta {
+  gap: 7px;
+  font-size: 12px;
+}
+
+/* History era navigation and timeline: balanced paper cards with readable copy. */
+.history-v2-era {
+  padding: 24px 0 12px;
+}
+.history-v2-era-row {
+  gap: 14px;
+}
+.history-v2-era-row.is-first-period,
+.history-v2-era-row.is-last-period {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+.history-v2-era-neighbor.is-empty {
+  display: none;
+}
+.history-v2-era-neighbor,
+.history-v2-era-current {
+  min-height: 126px;
+  padding: 18px 22px;
+  border: var(--sketch-border);
+  border-radius: var(--sketch-radius);
+  background-color: var(--paper-card);
+  background-image: var(--paper-grain);
+  box-shadow: var(--sketch-shadow);
+}
+.history-v2-era-neighbor.is-prev,
+.history-v2-era-neighbor.is-next {
+  border: var(--sketch-border);
+}
+.history-v2-era-neighbor.is-next {
+  text-align: right;
+}
+.history-v2-era-current {
+  border: var(--sketch-border-strong);
+  background-color: var(--pencil-yellow-soft);
+  box-shadow: var(--sketch-shadow-paper);
+}
+.history-v2-era-current::before {
+  right: 22px;
+  left: 22px;
+  height: 3px;
+  border-radius: 3px;
+}
+.history-v2-era-neighbor strong {
+  font-size: clamp(24px, 2.5vw, 32px);
+  line-height: 1.25;
+}
+.history-v2-era-current strong {
+  font-size: clamp(34px, 3.6vw, 46px);
+  line-height: 1.15;
+}
+.history-v2-era-neighbor small,
+.history-v2-era-current small {
+  font-size: 13px;
+}
+.history-v2-tl-row {
+  grid-template-columns: 82px 28px minmax(0, 1fr);
+  gap: 12px;
+  padding: 16px 0;
+}
+.history-v2-tl-year {
+  padding-top: 14px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.history-v2-tl-main {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+  padding: 13px 16px;
+  border: var(--sketch-border);
+  border-radius: var(--sketch-radius);
+  background: var(--paper-card);
+  box-shadow: var(--sketch-shadow);
+  transition: transform var(--sketch-motion), box-shadow var(--sketch-motion);
+}
+.history-v2-tl-main:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--sketch-shadow-lift);
+}
+.history-v2-tl-name {
+  font-size: 19px;
+  line-height: 1.4;
+}
+.history-v2-tl-row.is-critical .history-v2-tl-name {
+  font-size: 22px;
+}
+.history-v2-tl-summary {
+  display: block;
+  max-width: none;
+  margin-top: 0;
+  overflow: visible;
+  color: var(--history-v2-ink-soft);
+  font-size: 14px;
+  line-height: 1.75;
+  -webkit-line-clamp: unset;
+}
+.history-v2-tl-meta {
+  gap: 14px;
+  margin-top: 0;
+  font-size: 11px;
+}
+.history-v2-period-header {
+  align-items: start;
+  gap: clamp(28px, 5vw, 70px);
+  padding-top: clamp(30px, 4vw, 44px);
+  padding-bottom: 38px;
+}
+
+/* Markdown workbench: let wrapped toolbar grow; never clip its second row. */
+.focus-shell {
+  grid-template-rows: auto minmax(0, 1fr);
+}
+.command-bar {
+  min-height: 59px;
+  height: auto;
+  align-content: center;
+  row-gap: 8px;
+}
+.view-actions,
+.command-actions {
+  max-width: 100%;
+}
+.view-actions button:last-child {
+  width: auto;
+  min-width: 72px;
+  padding: 0 10px;
+}
+@media (max-width: 767px) {
+  .travel-search-container {
+    gap: 14px;
+    padding: 14px;
+  }
+  .travel-search-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .travel-search-row .travel-submit-btn {
+    justify-content: center;
+    width: 100%;
+  }
+  .travel-search-meta {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .travel-prefs-container {
+    grid-column: auto;
+  }
+  .en-home .en-card-head {
+    align-items: stretch;
+  }
+  .en-home .en-row-actions {
+    flex-basis: 100%;
+    justify-content: flex-start;
+  }
+  .en-home .en-recent-item {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .history-v2-era-row,
+  .history-v2-era-row.is-first-period,
+  .history-v2-era-row.is-last-period {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .history-v2-tl-row {
+    grid-template-columns: 64px 22px minmax(0, 1fr);
+    gap: 7px;
+  }
+  .history-v2-tl-main {
+    padding: 12px;
+  }
 }

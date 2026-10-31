@@ -22,7 +22,7 @@ import {
   X,
 } from "@phosphor-icons/react";
 import { openPath } from "@tauri-apps/plugin-opener";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SettingsDialog } from "./SettingsDialog";
 import { HomePage } from "./features/home/HomePage";
 import {
@@ -32,12 +32,12 @@ import {
 import { RssPage, type RssIntent } from "./features/rss/RssPage";
 import { rssClient } from "./features/rss/rssClient";
 import { NewsPage } from "./features/news/NewsPage";
-import { learningClient } from "./features/learning/learningClient";
 import { settingsClient } from "./settingsClient";
 import { HistoryPage } from "./features/history/HistoryPage";
-import { historyClient } from "./features/history/historyClient";
-import { geographyClient } from "./features/geography/geographyClient";
-import { LanguagePage } from "./features/language/LanguagePage";
+import type { SemanticEventDetail } from "./features/history/semanticTypes";
+const LanguagePage = lazy(() =>
+  import("./features/language/LanguagePage").then(({ LanguagePage }) => ({ default: LanguagePage })),
+);
 import { AIPanel } from "./features/ai/AIPanel";
 import { AIBubbleLauncher } from "./features/ai/AIBubble";
 import type { AgentAction, AppContextPayload } from "./features/ai/aiTypes";
@@ -79,9 +79,9 @@ import type {
   AppSettings,
   ArticleDto,
   FeedDto,
-  GeographyHome,
-  SemanticHistoryHome,
-  TodayDashboardData,
+  GeoEntity,
+  TravelPlan,
+  TravelPlanContext,
 } from "./types";
 import { errorMessage, isTauriRuntime } from "./utils";
 
@@ -117,6 +117,32 @@ interface NavItem {
 }
 
 /** 页面 id 集合（hash 路由与导航共用）。 */
+const PAGE_AI_CONTEXT_PAGES: Partial<Record<PageId, readonly string[]>> = {
+  home: ["personal-hub"],
+  review: ["review-center"],
+  graph: ["knowledge-graph"],
+  collections: ["collections"],
+};
+
+const PAGE_AI_MODULES: Record<PageId, readonly string[]> = {
+  home: ["learning"],
+  review: ["learning", "knowledge"],
+  graph: ["learning", "knowledge"],
+  collections: ["learning"],
+  markdown: [],
+  rss: ["rss"],
+  news: ["news"],
+  travel: ["travel"],
+  geography: ["geography"],
+  history: ["history"],
+  language: ["language"],
+  knowledge: ["knowledge", "memory", "documents", "files"],
+  "study-board": ["study-board"],
+  server: ["server"],
+  system: [],
+  search: [],
+};
+
 const PAGE_IDS: PageId[] = [
   "home",
   "review",
@@ -206,19 +232,14 @@ const defaultSettings: AppSettings = {
     search_backend: "auto",
     searxng_url: null,
     llm_base_url: null,
-    llm_api_key: null,
     llm_model: null,
-    amap_api_key: null,
-    qweather_api_key: null,
     qweather_api_host: null,
-    baidu_map_api_key: null,
   },
-  geography: { amap_api_key: null, amap_security_js_code: null },
+  geography: {},
   ai: {
     provider: null,
     model: null,
     base_url: null,
-    api_key: null,
     timeout_secs: null,
   },
   knowledge: {
@@ -252,32 +273,81 @@ const defaultSettings: AppSettings = {
     audit_max_entries: 500,
     audit_retention_days: 30,
   },
+  decision: {
+    mode: "rule",
+    jev_base_url: null,
+    jev_model: null,
+    jev_timeout_secs: 5,
+    jev_failure_fallback: true,
+    multi_agent_enabled: true,
+    max_workers: 4,
+  },
+  secrets: {
+    ai_api_key_configured: false,
+    travel_llm_api_key_configured: false,
+    travel_amap_api_key_configured: false,
+    travel_qweather_api_key_configured: false,
+    travel_baidu_map_api_key_configured: false,
+    geography_amap_api_key_configured: false,
+    geography_amap_security_js_code_configured: false,
+    jev_api_key_configured: false,
+  },
 };
 
 export default function App() {
   const layout = useLayout();
   useDeviceAttribute();
   const [page, setPage] = useState<PageId>("home");
+  const [languagePageVisited, setLanguagePageVisited] = useState(false);
+  const [travelPlanIntent, setTravelPlanIntent] = useState<{
+    context: TravelPlanContext;
+    nonce: number;
+  } | null>(null);
 
   // hash 路由（V11：`#study-board` 等直链必须能打开对应页面）。
   //
   // 顺序很重要：**先读后写**。若分开两个 effect，写 hash 的 effect 会在
   // setPage 生效前用初始值 home 覆盖 URL，直链就永远丢了。
   useEffect(() => {
+    const rawHash = () => window.location.hash.replace(/^#/, "").trim();
     const fromHash = (): PageId | null => {
-      const raw = window.location.hash.replace(/^#/, "").trim();
-      if (!raw) return null;
-      return (PAGE_IDS as string[]).includes(raw) ? (raw as PageId) : null;
+      const path = rawHash().split("?")[0];
+      if (!path) return null;
+      return (PAGE_IDS as string[]).includes(path) ? (path as PageId) : null;
+    };
+    const applyTravelPlanIntent = () => {
+      const [path, query = ""] = rawHash().split("?");
+      if (path !== "travel") return;
+      const params = new URLSearchParams(query);
+      const city = params.get("city");
+      const days = Number(params.get("days"));
+      const start = params.get("date_start");
+      const end = params.get("date_end");
+      if (!city || !Number.isInteger(days) || days < 1) return;
+      setTravelPlanIntent({
+        context: { city, days, date_range: start && end ? { start, end } : null },
+        nonce: Date.now(),
+      });
     };
     const initial = fromHash();
-    if (initial) setPage(initial);
+    if (initial) {
+      setPage(initial);
+      applyTravelPlanIntent();
+    }
     const onHashChange = () => {
       const next = fromHash();
-      if (next) setPage(next);
+      if (next) {
+        setPage(next);
+        applyTravelPlanIntent();
+      }
     };
     window.addEventListener("hashchange", onHashChange);
     return () => window.removeEventListener("hashchange", onHashChange);
   }, []);
+
+  useEffect(() => {
+    if (page === "language") setLanguagePageVisited(true);
+  }, [page]);
 
   // 页面切换时回写 hash（刷新 / 分享链接保持当前页）。
   // 跳过首次执行（首次交给上面的 effect 读，避免互相覆盖）。
@@ -347,28 +417,29 @@ export default function App() {
   /** News 未读（ADR-010：与 RSS 徽标分开计数，两个 context 不串台）。 */
   const [newsUnreadTotal, setNewsUnreadTotal] = useState(0);
   const [latestArticles, setLatestArticles] = useState<ArticleDto[]>([]);
-  const [geographyHome, setGeographyHome] = useState<GeographyHome | null>(
-    null,
-  );
-  const [historyHome, setHistoryHome] = useState<SemanticHistoryHome | null>(
-    null,
-  );
-  // Language 在首页只贡献「待复习条数」这一个数字，而那是**平台** Today 的职责
-  // （`TodayDashboardData.pending_reviews_count` / `review_stats`）。
-  // 此前这里调的是 Language 私有的 `today_plan` / `review_next`——第二套复习队列。
-  const [platformToday, setPlatformToday] = useState<TodayDashboardData | null>(null);
   const [markdownIntent, setMarkdownIntent] = useState<MarkdownIntent | null>(
     null,
   );
   const [rssIntent, setRssIntent] = useState<RssIntent | null>(null);
   const [geographyIntent, setGeographyIntent] = useState<{
-    entityId: string;
+    entityId?: string;
+    query?: string;
     nonce: number;
   } | null>(null);
+  const [geographyReturnTarget, setGeographyReturnTarget] = useState<"travel" | "history" | null>(null);
+  const [historyReturnTarget, setHistoryReturnTarget] = useState<{ entityId: string; name: string } | null>(null);
   const [historyIntent, setHistoryIntent] = useState<{
-    id: string;
+    id?: string;
+    query?: string;
     kind?: "event" | "person" | "story";
     nonce: number;
+  } | null>(null);
+  const [travelPlaceIntent, setTravelPlaceIntent] = useState<{
+    nonce: string;
+    entityId: string;
+    city: string;
+    name: string;
+    note: string;
   } | null>(null);
   const [languageIntent, setLanguageIntent] = useState<{
     id: string;
@@ -426,22 +497,6 @@ export default function App() {
       /* 首页数据加载失败保持安静 */
     }
   }, []);
-
-  const reloadHomeKnowledge = useCallback(async () => {
-    if (!isTauriRuntime()) return;
-    const [geography, history, today] = await Promise.allSettled([
-      geographyClient.home(0),
-      historyClient.home(),
-      learningClient.getToday(),
-    ]);
-    if (geography.status === "fulfilled") setGeographyHome(geography.value);
-    if (history.status === "fulfilled") setHistoryHome(history.value);
-    if (today.status === "fulfilled") setPlatformToday(today.value);
-  }, []);
-
-  useEffect(() => {
-    void reloadHomeKnowledge();
-  }, [reloadHomeKnowledge]);
 
   /** 刷新全部订阅(手动按钮 / 定时任务 / 启动时各一次)。 */
   const refreshFeeds = useCallback(
@@ -526,23 +581,120 @@ export default function App() {
     setRssIntent({ article, nonce: Date.now() });
   }, []);
   const openGeography = useCallback((id?: string) => {
+    setAiContext(null);
+    setGeographyReturnTarget(null);
     setPage("geography");
     if (id) setGeographyIntent({ entityId: id, nonce: Date.now() });
   }, []);
+  const openGeographySearch = useCallback((query: string, entityId?: string) => {
+    setAiContext(null);
+    setGeographyReturnTarget("travel");
+    setPage("geography");
+    setGeographyIntent({
+      ...(entityId ? { entityId } : { query }),
+      nonce: Date.now(),
+    });
+  }, []);
   const openHistory = useCallback(
     (id?: string, kind?: "event" | "person" | "story") => {
+      setAiContext(null);
+      setHistoryReturnTarget(null);
       setPage("history");
       if (id)
         setHistoryIntent({ id, kind: kind ?? "event", nonce: Date.now() });
     },
     [],
   );
+  const openHistorySearch = useCallback((query: string) => {
+    setAiContext(null);
+    setHistoryReturnTarget(null);
+    setPage("history");
+    setHistoryIntent({ query, nonce: Date.now() });
+  }, []);
+  const openHistoryEvent = useCallback((eventId: string) => {
+    setAiContext(null);
+    setHistoryReturnTarget(null);
+    setPage("history");
+    setHistoryIntent({ id: eventId, kind: "event", nonce: Date.now() });
+  }, []);
+  const openHistoryEventFromGeography = useCallback((
+    eventId: string,
+    location: { id: string; name: string },
+  ) => {
+    setAiContext(null);
+    setHistoryReturnTarget({ entityId: location.id, name: location.name });
+    setPage("history");
+    setHistoryIntent({ id: eventId, kind: "event", nonce: Date.now() });
+  }, []);
+  const openHistoryStoryFromGeography = useCallback((
+    storyId: string,
+    location: { id: string; name: string },
+  ) => {
+    setAiContext(null);
+    setHistoryReturnTarget({ entityId: location.id, name: location.name });
+    setPage("history");
+    setHistoryIntent({ id: storyId, kind: "story", nonce: Date.now() });
+  }, []);
+  const returnToGeographyFromHistory = useCallback(() => {
+    setGeographyReturnTarget("history");
+    setHistoryReturnTarget(null);
+    setPage("geography");
+  }, []);
+  const addGeographyPlaceToTravel = useCallback(
+    (entity: GeoEntity, historicalEvent?: SemanticEventDetail) => {
+      const provenance = [
+        ...entity.source_ids.map((id) => `地理来源：${id}`),
+        ...(historicalEvent?.sources.map((source) => `历史来源：${source.id}`) ?? []),
+      ];
+      const linkedHistoryPlace = historicalEvent?.places.find((place) =>
+        place.link_status === "linked" &&
+        ["reviewed", "verified", "curated"].includes(place.quality_status ?? "") &&
+        ["reviewed", "verified", "curated"].includes(place.link_quality_status ?? "") &&
+        Boolean(place.place_id && place.source_id),
+      );
+      const eventYear = historicalEvent?.event.start_year;
+      const historyDate = eventYear == null || eventYear === 0
+        ? "年代待考"
+        : `${eventYear < 0 ? `公元前${Math.abs(eventYear)}` : `公元${eventYear}`}年`;
+      const historyNote = historicalEvent
+        ? [
+            `History 事件：${historicalEvent.event.name_zh_cn}（${historicalEvent.event.id}，${historyDate}）`,
+            `Geography ID：${entity.id}`,
+            `History place ID：${linkedHistoryPlace?.place_id ?? "未匹配"}`,
+            `地点关联审核：${linkedHistoryPlace?.link_quality_status ?? "未确认"}`,
+          ].join("\n")
+        : `仅保存 Geography 地点 ID：${entity.id}；尚无已审核的历史地点关联。`;
+      setTravelPlaceIntent({
+        nonce: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        entityId: entity.id,
+        city: entity.name,
+        name: entity.name,
+        note: [entity.summary, historyNote, ...provenance].filter(Boolean).join("\n"),
+      });
+      setPage("travel");
+    },
+    [],
+  );
+  const returnToTravel = useCallback(() => {
+    setGeographyReturnTarget(null);
+    setPage("travel");
+  }, []);
+  const returnToHistory = useCallback(() => {
+    setGeographyReturnTarget(null);
+    setPage("history");
+  }, []);
+  const openGeographyFromHistory = useCallback((entityId: string) => {
+    openGeography(entityId);
+    setGeographyReturnTarget("history");
+  }, [openGeography]);
   const openLanguage = useCallback((id?: string) => {
+    setAiContext(null);
     setPage("language");
     if (id) setLanguageIntent({ id, nonce: Date.now() });
   }, []);
 
   const openKnowledge = useCallback((tab?: "memory" | "documents" | "files", docId?: string) => {
+    setAiContext(null);
     setPage("knowledge");
     setKnowledgeIntent({
       tab: tab ?? "memory",
@@ -599,7 +751,23 @@ export default function App() {
         else if (isNew) newNote();
         else setPage("markdown");
       }
-      else if (pathPart === "travel") setPage("travel");
+      else if (pathPart === "travel") {
+        const city = params.get("city");
+        const days = Number(params.get("days"));
+        const start = params.get("date_start");
+        const end = params.get("date_end");
+        if (city && Number.isInteger(days) && days > 0) {
+          setTravelPlanIntent({
+            context: {
+              city,
+              days,
+              date_range: start && end ? { start, end } : null,
+            },
+            nonce: Date.now(),
+          });
+        }
+        setPage("travel");
+      }
       else if (pathPart === "search") setPage("search");
       else if (PAGE_IDS.includes(pathPart as PageId)) setPage(pathPart as PageId);
     },
@@ -658,6 +826,14 @@ export default function App() {
         case "travel":
           setPage("travel");
           break;
+        case "learning":
+          setAiContext({ module: "learning", page: "review-center" });
+          setPage("review");
+          break;
+        case "study-board":
+        case "study_board":
+          setPage("study-board");
+          break;
         case "language":
           if (id) openLanguage(id);
           else setPage("language");
@@ -683,16 +859,25 @@ export default function App() {
     }
   }, [page]);
 
+  const activeAiContext = useMemo(() => {
+    if (!aiContext?.module || !PAGE_AI_MODULES[page].includes(aiContext.module)) return null;
+    const pageScope = PAGE_AI_CONTEXT_PAGES[page];
+    if (pageScope && (!aiContext.page || !pageScope.includes(aiContext.page))) return null;
+    return aiContext;
+  }, [aiContext, page]);
+
   /** 上下文 chip 文案（如 “History · 毛泽东”）；无上下文 = General。 */
   const aiContextLabel = useMemo(() => {
-    if (!aiContext) return null;
-    const moduleName = aiContext.module
-      ? aiContext.module.charAt(0).toUpperCase() + aiContext.module.slice(1)
-      : null;
-    const entityName = aiContext.entity?.label ?? aiContext.entity?.id ?? null;
+    if (!activeAiContext) return null;
+    const module = activeAiContext.module;
+    const moduleName = module ? module.charAt(0).toUpperCase() + module.slice(1) : null;
+    const entityName = activeAiContext.entity?.label ?? activeAiContext.entity?.id ?? null;
+    const selectionName = activeAiContext.selection?.text ?? activeAiContext.selection?.id ?? null;
+    if (moduleName && entityName && selectionName)
+      return `${moduleName} · ${entityName} · ${selectionName}`;
     if (moduleName && entityName) return `${moduleName} · ${entityName}`;
     return entityName ?? moduleName;
-  }, [aiContext]);
+  }, [activeAiContext]);
 
   return (
     <div className={"app-shell app-shell-" + layout.device}>
@@ -807,25 +992,10 @@ export default function App() {
             className={"page-pane" + (page === "home" ? "" : " page-hidden")}
           >
             <HomePage
+              active={page === "home"}
               recentFiles={settings.recent_files}
-              latestArticles={latestArticles}
-              geographyHome={geographyHome}
-              historyHome={historyHome}
-              platformToday={platformToday}
-              rssRefreshing={rssRefreshing}
               onOpenNote={openNote}
-              onOpenArticle={openArticle}
-              onOpenGeography={openGeography}
-              onOpenHistory={openHistory}
-              onOpenLanguage={openLanguage}
               onNewNote={newNote}
-              onRefreshRss={() => void refreshFeeds()}
-              onAskAi={(prompt) =>
-                prompt ? deliverToAi(prompt) : setAiOpen(true)
-              }
-              onOpenServer={() => setPage("server")}
-              onOpenStudyBoard={() => setPage("study-board")}
-              onOpenKnowledge={(tab) => openKnowledge(tab)}
               onNavigate={navigateToHash}
             />
           </section>
@@ -833,8 +1003,9 @@ export default function App() {
             className={"page-pane" + (page === "review" ? "" : " page-hidden")}
           >
             <ReviewCenterPage
+              active={page === "review"}
               onNavigate={navigateToHash}
-              onAskAi={(prompt) => deliverToAi(prompt)}
+              onAskAi={(prompt) => deliverToAi(prompt, { module: "learning", page: "review-center" })}
             />
           </section>
           <section
@@ -843,15 +1014,16 @@ export default function App() {
             <KnowledgeGraphPage
               active={page === "graph"}
               onNavigate={navigateToHash}
-              onAskAi={(prompt) => deliverToAi(prompt)}
+              onAskAi={(prompt) => deliverToAi(prompt, { module: "learning", page: "knowledge-graph" })}
             />
           </section>
           <section
-            className={"page-pane" + (page === "collections" ? "" : " page-hidden")}
+            className={"page-pane collections-pane" + (page === "collections" ? "" : " page-hidden")}
           >
             <CollectionsPage
+              active={page === "collections"}
               onNavigate={navigateToHash}
-              onAskAi={(prompt) => deliverToAi(prompt)}
+              onAskAi={(prompt) => deliverToAi(prompt, { module: "learning", page: "collections" })}
             />
           </section>
           <section
@@ -978,8 +1150,11 @@ export default function App() {
               active={page === "travel"}
               setNotice={setNotice}
               onContextChange={setAiContext}
-              amapApiKey={settings.geography.amap_api_key}
-              amapSecurityJsCode={settings.geography.amap_security_js_code}
+              onExploreHistory={openHistorySearch}
+              onOpenHistoryEvent={openHistoryEvent}
+              onExploreGeography={openGeographySearch}
+              explorationPlace={travelPlaceIntent}
+              planIntent={travelPlanIntent}
             />
           </section>
           <section
@@ -992,9 +1167,12 @@ export default function App() {
               active={page === "geography"}
               setNotice={setNotice}
               onContextChange={setAiContext}
-              amapApiKey={settings.geography.amap_api_key}
-              amapSecurityJsCode={settings.geography.amap_security_js_code}
               intent={geographyIntent}
+              onAddToTravel={addGeographyPlaceToTravel}
+              onOpenHistoryEvent={openHistoryEventFromGeography}
+              onOpenHistoryStory={openHistoryStoryFromGeography}
+              onReturnToTravel={geographyReturnTarget === "travel" ? returnToTravel : undefined}
+              onReturnToHistory={geographyReturnTarget === "history" ? returnToHistory : undefined}
             />
           </section>
           <section
@@ -1009,8 +1187,10 @@ export default function App() {
               intent={historyIntent}
               onContextChange={setAiContext}
               onNavigateToGeography={(request) =>
-                openGeography(request.entityId)
+                openGeographyFromHistory(request.entityId)
               }
+              onReturnToGeography={historyReturnTarget ? returnToGeographyFromHistory : undefined}
+              returnGeographyName={historyReturnTarget?.name ?? null}
             />
           </section>
           <section
@@ -1019,13 +1199,17 @@ export default function App() {
               (page === "language" ? "" : " page-hidden")
             }
           >
-            <LanguagePage
-              active={page === "language"}
-              setNotice={setNotice}
-              intent={languageIntent}
-              onContextChange={setAiContext}
-              onAskAi={(prompt) => deliverToAi(prompt)}
-            />
+            {languagePageVisited ? (
+              <Suspense fallback={<div className="lang-page" role="status">正在加载 Language…</div>}>
+                <LanguagePage
+                  active={page === "language"}
+                  setNotice={setNotice}
+                  intent={languageIntent}
+                  onContextChange={setAiContext}
+                  onAskAi={(prompt) => deliverToAi(prompt)}
+                />
+              </Suspense>
+            ) : null}
           </section>
           <section
             className={
@@ -1079,18 +1263,30 @@ export default function App() {
           <X size={16} />
         </button>
       ) : null}
-      <AIBubbleLauncher onOpen={() => setAiOpen(true)} />
+      <AIBubbleLauncher
+        open={aiOpen}
+        onToggle={() => {
+          if (!aiOpen && page === "home") {
+            setAiContext({ module: "learning", page: "personal-hub" });
+          }
+          setAiOpen((wasOpen) => !wasOpen);
+        }}
+      />
       <AIPanel
         open={aiOpen}
         onClose={() => setAiOpen(false)}
         conversationOpen={conversationOpen}
         onConversationOpenChange={setConversationOpen}
         pendingSend={aiDelivery}
-        context={aiContext}
+        context={activeAiContext}
         contextLabel={aiContextLabel}
         onClearContext={() => setAiContext(null)}
         onNavigate={handleAiNavigate}
         onOpenSettings={() => setSettingsOpen(true)}
+        onTravelPlanConfirmed={(plan) => {
+          setPage("travel");
+          setTravelPlanIntent({ context: plan.context, nonce: Date.now() });
+        }}
         onConfirmMemory={async (target) => {
           if (target.memory_id) {
             await knowledgeClient.memoryConfirm(target.memory_id);
@@ -1151,10 +1347,11 @@ export default function App() {
           onTravelChange={(next) =>
             void updateSettings({ ...settings, travel: next })
           }
-          geography={settings.geography}
-          onGeographyChange={(next) =>
-            void updateSettings({ ...settings, geography: next })
-          }
+          secretStatus={settings.secrets}
+          onSecretsChange={async (update) => {
+            const secrets = await settingsClient.putSecrets(update);
+            setSettings((current) => ({ ...current, secrets }));
+          }}
           ai={settings.ai}
           onAiChange={(next) => void updateSettings({ ...settings, ai: next })}
           knowledge={settings.knowledge}

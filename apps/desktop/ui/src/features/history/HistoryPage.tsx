@@ -19,8 +19,11 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 import type { AppContextPayload } from "../ai/aiTypes";
 import { errorMessage } from "../../utils";
 import { historyClient } from "./historyClient";
+import { explorationClient } from "../exploration/explorationClient";
 import { learningClient } from "../learning/learningClient";
+import { SaveToCollection } from "../learning/SaveToCollection";
 import { EnrichmentPanel } from "./EnrichmentPanel";
+import { EraTimeline } from "./EraTimeline";
 import { PeriodDetail } from "./PeriodDetail";
 import type {
   SemanticEventDetail,
@@ -136,16 +139,22 @@ export function HistoryPage({
   setNotice,
   intent,
   onContextChange,
+  onNavigateToGeography,
+  onReturnToGeography,
+  returnGeographyName,
 }: {
   active: boolean;
   setNotice: (message: string) => void;
   intent?: {
-    id: string;
+    id?: string;
+    query?: string;
     kind?: "event" | "person" | "story";
     nonce: number;
   } | null;
   onContextChange?: (ctx: AppContextPayload | null) => void;
   onNavigateToGeography?: (request: HistoryGeoNavigationRequest) => void;
+  onReturnToGeography?: () => void;
+  returnGeographyName?: string | null;
 }) {
   const [home, setHome] = useState<SemanticHome>(EMPTY_HOME);
   const [homeLoaded, setHomeLoaded] = useState(false);
@@ -237,6 +246,27 @@ export function HistoryPage({
     },
     [setNotice],
   );
+  const navigateToGeographyPlace = useCallback(
+    async (historyPlaceId: string) => {
+      try {
+        const detail = await explorationClient.geographyForHistoryPlace(historyPlaceId);
+        if (!detail) {
+          setNotice("该历史地点没有已审核的 Geography 稳定标识关联。");
+          return;
+        }
+        onNavigateToGeography?.({
+          mode: "history",
+          entityType: "place",
+          entityId: detail.entity.id,
+          entityName: detail.entity.name,
+        });
+      } catch (error) {
+        setNotice(errorMessage(error));
+      }
+    },
+    [onNavigateToGeography, setNotice],
+  );
+
   const loadPerson = useCallback(
     async (personId: string) => {
       setDrawerLoading(true);
@@ -306,6 +336,13 @@ export function HistoryPage({
     if (selectedPeriod) void loadPeriod(selectedPeriod.id);
   }, [selectedPeriod?.id, loadPeriod]);
   useEffect(() => {
+    const searchQuery = intent?.query?.trim();
+    if (!active || !searchQuery) return;
+    setSelectedStory(null);
+    setDrawer(null);
+    setQuery(searchQuery);
+  }, [active, intent?.nonce, intent?.query]);
+  useEffect(() => {
     if (!intent?.id || !active) return;
     if (intent.kind === "person") {
       void loadPerson(intent.id);
@@ -334,7 +371,7 @@ export function HistoryPage({
   ]);
   /** AI AppContext 桥（V4 §24/§40）：Frontend 报告“我在哪”，实体由 History 页维护。 */
   useEffect(() => {
-    if (!onContextChange) return;
+    if (!onContextChange || !active) return;
     if (drawer?.kind === "event") {
       onContextChange({
         module: "history",
@@ -365,10 +402,20 @@ export function HistoryPage({
           label: drawer.data.work.title_zh_cn ?? drawer.data.work.title,
         },
       });
+    } else if (selectedStory) {
+      onContextChange({
+        module: "history",
+        page: "story-detail",
+        entity: {
+          kind: "story",
+          id: selectedStory.story.id,
+          label: selectedStory.story.title_zh_cn,
+        },
+      });
     } else {
       onContextChange({ module: "history" });
     }
-  }, [drawer, onContextChange]);
+  }, [active, drawer, selectedStory, onContextChange]);
   useEffect(() => {
     const text = query.trim();
     if (!text) {
@@ -419,10 +466,35 @@ export function HistoryPage({
     },
     [entityRouteMap],
   );
+  /** 同一时期内的 Story 顺序导航：只在当前 Story 属于该时期列表时提供。 */
+  const storyNav = (() => {
+    if (!selectedStory) return { index: -1, total: 0, prev: null as null | { id: string; title: string }, next: null as null | { id: string; title: string } };
+    // 优先用首页精选 Story 作为导航池（跨时期），否则退回当前时期的 Story。
+    const pool = homeStories.some((story) => story.id === selectedStory.story.id)
+      ? homeStories
+      : stories;
+    const usable = pool.filter((story) => story.usable !== false);
+    const index = usable.findIndex((story) => story.id === selectedStory.story.id);
+    if (index < 0) return { index: -1, total: usable.length, prev: null, next: null };
+    const toNav = (story: (typeof usable)[number]) => ({ id: story.id, title: story.title_zh_cn });
+    return {
+      index,
+      total: usable.length,
+      prev: index > 0 ? toNav(usable[index - 1]) : null,
+      next: index < usable.length - 1 ? toNav(usable[index + 1]) : null,
+    };
+  })();
+
+  const geographyReturnAction = onReturnToGeography ? (
+    <button type="button" className="history-v2-return-map" onClick={onReturnToGeography}>
+      <MapPin size={15} /> 返回 {returnGeographyName ? `${returnGeographyName}地图` : "地理探索"}
+    </button>
+  ) : null;
 
   if (loading)
     return (
       <div className="history-v2-state">
+        {geographyReturnAction}
         <div className="history-v2-spinner" />
         <span>正在载入中国历史时间轴…</span>
       </div>
@@ -430,6 +502,7 @@ export function HistoryPage({
   if (error && !homeStories.length && !periods.length)
     return (
       <div className="history-v2-state history-v2-error-diagnostic">
+        {geographyReturnAction}
         <WarningCircle size={32} />
         <strong style={{ fontSize: "16px", color: "inherit" }}>
           历史数据知识库未就绪
@@ -472,6 +545,7 @@ export function HistoryPage({
             <strong>中国历史</strong>
           </div>
         </div>
+        {geographyReturnAction}
         <div className="history-v2-search-wrap">
           <MagnifyingGlass size={17} />
           <input
@@ -501,6 +575,11 @@ export function HistoryPage({
       {selectedStory ? (
         <StoryReader
           story={selectedStory}
+          storyIndex={storyNav.index}
+          storyTotal={storyNav.total}
+          prevStory={storyNav.prev}
+          nextStory={storyNav.next}
+          onOpenStory={(id) => void loadStory(id)}
           drawer={drawer}
           drawerLoading={drawerLoading}
           onBack={() => {
@@ -516,10 +595,18 @@ export function HistoryPage({
             setDrawer({ kind: "text", data: text, eventName })
           }
           onCloseDrawer={() => setDrawer(null)}
+          onNavigateToGeographyPlace={navigateToGeographyPlace}
           onBackToEvent={(data) => setDrawer({ kind: "event", data })}
         />
       ) : (
         <>
+          {selectedPeriod ? (
+            <EraTimeline
+              periods={periods}
+              currentId={selectedPeriod.id}
+              onSelect={choosePeriod}
+            />
+          ) : null}
           {selectedPeriod && periodDetail?.period?.id === selectedPeriod.id ? (
             <>
               <PeriodDetail
@@ -572,6 +659,7 @@ export function HistoryPage({
                 setDrawer({ kind: "text", data: text, eventName })
               }
               onBackToEvent={() => setDrawer(null)}
+              onNavigateToGeographyPlace={navigateToGeographyPlace}
             />
           ) : null}
         </>
@@ -637,6 +725,11 @@ function StoryCard({
 
 function StoryReader({
   story,
+  storyIndex = -1,
+  storyTotal = 0,
+  prevStory = null,
+  nextStory = null,
+  onOpenStory,
   drawer,
   drawerLoading,
   onBack,
@@ -646,8 +739,14 @@ function StoryReader({
   onOpenText,
   onCloseDrawer,
   onBackToEvent,
+  onNavigateToGeographyPlace,
 }: {
   story: SemanticStoryDetail;
+  storyIndex?: number;
+  storyTotal?: number;
+  prevStory?: { id: string; title: string } | null;
+  nextStory?: { id: string; title: string } | null;
+  onOpenStory?: (id: string) => void;
   drawer: DrawerState;
   drawerLoading: boolean;
   onBack: () => void;
@@ -657,6 +756,7 @@ function StoryReader({
   onOpenText: (text: SemanticHistoricalText, eventName: string) => void;
   onCloseDrawer: () => void;
   onBackToEvent: (data: SemanticEventDetail) => void;
+  onNavigateToGeographyPlace: (historyPlaceId: string) => void;
 }) {
   const people = new Set(story.people.map((person) => person.person_id));
   const places = new Set(
@@ -768,6 +868,42 @@ function StoryReader({
           </div>
         </aside>
       </div>
+      {storyIndex >= 0 && (prevStory || nextStory) ? (
+        <nav className="history-v2-story-nav" aria-label="同一时期的其他 Story">
+          {prevStory && onOpenStory ? (
+            <button
+              type="button"
+              className="history-v2-story-nav-item is-prev"
+              onClick={() => onOpenStory(prevStory.id)}
+            >
+              <ArrowLeft size={15} aria-hidden="true" />
+              <span>
+                <small>
+                  上一篇 · 第 {storyIndex} / {storyTotal} 篇
+                </small>
+                <strong>{prevStory.title}</strong>
+              </span>
+            </button>
+          ) : (
+            <span className="history-v2-story-nav-spacer" aria-hidden="true" />
+          )}
+          {nextStory && onOpenStory ? (
+            <button
+              type="button"
+              className="history-v2-story-nav-item is-next"
+              onClick={() => onOpenStory(nextStory.id)}
+            >
+              <span>
+                <small>
+                  下一篇 · 第 {storyIndex + 2} / {storyTotal} 篇
+                </small>
+                <strong>{nextStory.title}</strong>
+              </span>
+              <ArrowRight size={15} aria-hidden="true" />
+            </button>
+          ) : null}
+        </nav>
+      ) : null}
       {drawer ? (
         <DetailDrawer
           drawer={drawer}
@@ -779,6 +915,7 @@ function StoryReader({
           onOpenPlace={onOpenPlace}
           onOpenText={onOpenText}
           onBackToEvent={onBackToEvent}
+          onNavigateToGeographyPlace={onNavigateToGeographyPlace}
         />
       ) : null}
     </div>
@@ -812,6 +949,7 @@ function DetailDrawer({
   onOpenPlace,
   onOpenText,
   onBackToEvent,
+  onNavigateToGeographyPlace,
 }: {
   drawer: Exclude<DrawerState, null>;
   loading: boolean;
@@ -822,6 +960,7 @@ function DetailDrawer({
   onOpenPlace: (place: SemanticEventPlace, eventName: string) => void;
   onOpenText: (text: SemanticHistoricalText, eventName: string) => void;
   onBackToEvent: (data: SemanticEventDetail) => void;
+  onNavigateToGeographyPlace: (historyPlaceId: string) => void;
 }) {
   const title =
     drawer.kind === "event"
@@ -866,6 +1005,7 @@ function DetailDrawer({
           onOpenEvent={onOpenEvent}
           onOpenPlace={onOpenPlace}
           onOpenText={onOpenText}
+          onNavigateToGeographyPlace={onNavigateToGeographyPlace}
         />
       ) : drawer.kind === "person" ? (
         <PersonPanel data={drawer.data} onOpenEvent={onOpenEvent} />
@@ -892,6 +1032,7 @@ function DetailDrawer({
                   result_zh_cn: event.result_zh_cn,
                   quality_status: event.event_quality_status,
                 },
+                related_stories: [],
                 people: story.people.filter(
                   (item) => item.event_id === event.event_id,
                 ),
@@ -992,12 +1133,14 @@ function EventPanel({
   onOpenEvent,
   onOpenPlace,
   onOpenText,
+  onNavigateToGeographyPlace,
 }: {
   data: SemanticEventDetail;
   onOpenPerson: (id: string) => void;
   onOpenEvent: (id: string) => void;
   onOpenPlace: (place: SemanticEventPlace, eventName: string) => void;
   onOpenText: (text: SemanticHistoricalText, eventName: string) => void;
+  onNavigateToGeographyPlace: (historyPlaceId: string) => void;
 }) {
   const event = data.event;
   const related = buildRelatedEvents(event.id, data.relations);
@@ -1014,6 +1157,12 @@ function EventPanel({
         <h2>{event.name_zh_cn}</h2>
         <p>{event.summary_zh_cn || "事件叙述正在整理中。"}</p>
       </div>
+      <SaveToCollection
+        module="history"
+        entityType="event"
+        entityId={event.id}
+        title={event.name_zh_cn}
+      />
       <DrawerSection title="事件始末" icon={<Clock size={16} />}>
         {narrative.some(([, text]) => text) ? (
           <div className="history-v2-narrative">
@@ -1053,12 +1202,22 @@ function EventPanel({
         {data.places.length ? (
           <div className="history-v2-place-list">
             {data.places.map((place, index) => (
-              <PlaceRow
-                key={`${place.event_id}-${index}`}
-                place={place}
-                eventName={event.name_zh_cn}
-                onOpen={onOpenPlace}
-              />
+              <div className="history-v2-place-wrap" key={`${place.event_id}-${index}`}>
+                <PlaceRow
+                  place={place}
+                  eventName={event.name_zh_cn}
+                  onOpen={onOpenPlace}
+                />
+                {place.place_id && place.link_status === "linked" ? (
+                  <button
+                    type="button"
+                    className="history-v2-place-explore"
+                    onClick={() => onNavigateToGeographyPlace(place.place_id!)}
+                  >
+                    在 Geography 打开对应实体
+                  </button>
+                ) : null}
+              </div>
             ))}
           </div>
         ) : (

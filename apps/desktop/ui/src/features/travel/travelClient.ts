@@ -11,12 +11,15 @@ import type {
   CityGuide,
   GuideSummary,
   TravelDateRange,
+  TravelPlan,
+  TravelPlanContext,
   TravelResearchRequest,
   TravelResearchSnapshot,
 } from "../../types";
 
 export interface TravelClient {
   recentGuides(): Promise<GuideSummary[]>;
+  recentPlans(limit?: number): Promise<TravelPlan[]>;
   researchStart(request: TravelResearchRequest): Promise<string>;
   researchProgress(sessionId: string): Promise<TravelResearchSnapshot | null>;
   loadGuide(
@@ -24,6 +27,8 @@ export interface TravelClient {
     days: number,
     dateRange: TravelDateRange | null,
   ): Promise<CityGuide | null>;
+  getPlan(context: TravelPlanContext): Promise<TravelPlan | null>;
+  savePlan(plan: TravelPlan): Promise<TravelPlan>;
   testLlm(request: {
     baseUrl: string;
     apiKey: string | null;
@@ -39,12 +44,19 @@ export interface TravelClient {
   }): Promise<string>;
 }
 
+export function isTravelPlanConflict(error: unknown): boolean {
+  if (!error || typeof error !== "object" || !("code" in error)) return false;
+  return (error as { code?: unknown }).code === "travel_plan_conflict";
+}
+
 export function createTravelClient(
   transport: CommandTransport = defaultTransport,
 ): TravelClient {
   return {
     recentGuides: () =>
       transport.invoke<GuideSummary[]>("travel_recent_guides"),
+    recentPlans: (limit = 20) =>
+      transport.invoke<TravelPlan[]>("travel_plan_recent", { limit }),
     researchStart: (request) =>
       transport.invoke<string>("travel_research_start", { request }),
     researchProgress: (sessionId) =>
@@ -58,6 +70,10 @@ export function createTravelClient(
         days,
         dateRange,
       }),
+    getPlan: (context) =>
+      transport.invoke<TravelPlan | null>("travel_plan_get", { context }),
+    savePlan: (plan) =>
+      transport.invoke<TravelPlan>("travel_plan_save", { plan }),
     testLlm: (request) =>
       transport.invoke<string>("test_travel_llm", { request }),
     testAmap: (request) =>

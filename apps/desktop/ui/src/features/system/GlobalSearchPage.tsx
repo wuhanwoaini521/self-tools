@@ -23,8 +23,8 @@ import {
   Sparkle,
   Translate,
 } from "@phosphor-icons/react";
-import { invoke } from "@tauri-apps/api/core";
-import { errorMessage, isTauriRuntime } from "../../utils";
+import { defaultTransport } from "../../transport";
+import { errorMessage } from "../../utils";
 
 export type SearchSourceName =
   | "history"
@@ -35,7 +35,8 @@ export type SearchSourceName =
   | "documents"
   | "files"
   | "study_board"
-  | "applications";
+  | "applications"
+  | "collections";
 
 export interface GlobalSearchHitDto {
   source: SearchSourceName;
@@ -63,6 +64,7 @@ const SOURCE_LABELS: Record<string, string> = {
   files: "Files",
   study_board: "Study Board",
   applications: "Applications",
+  collections: "Collections",
 };
 
 export interface QuickActionItem {
@@ -237,10 +239,10 @@ export function GlobalSearchPage({
     setNotice("");
     try {
       // 真实后端命令（V11-O：零 LLM，AI 未配置也能搜）。
-      const response = await invoke<GlobalSearchResultDto>("global_search", {
-        query: trimmed,
-        limit: 8,
-      });
+      const response = await defaultTransport.invoke<GlobalSearchResultDto>(
+        "global_search",
+        { query: trimmed, limit: 8 },
+      );
       setResult(response);
     } catch (error) {
       setResult(null);

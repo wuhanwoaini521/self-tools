@@ -132,9 +132,24 @@ const HTTP_ENDPOINTS: Record<string, (args: Record<string, unknown>) => string> 
   travel_research_progress: (a) =>
     `/api/v1/travel/research/progress?session_id=${encodeURIComponent(String(a.sessionId ?? ""))}`,
   travel_recent_guides: () => "/api/v1/travel/recent-guides",
+  travel_plan_recent: (a) =>
+    `/api/v1/travel/plans/recent?limit=${encodeURIComponent(String(a.limit ?? 20))}`,
   travel_load_guide: (a) =>
     `/api/v1/travel/guide?city=${encodeURIComponent(String(a.city ?? ""))}` +
     `&days=${encodeURIComponent(String(a.days ?? 3))}`,
+  travel_plan_get: (a) => {
+    const context = (a.context ?? {}) as Record<string, unknown>;
+    const range = context.date_range as Record<string, unknown> | null | undefined;
+    const query = [
+      `city=${encodeURIComponent(String(context.city ?? ""))}`,
+      `days=${encodeURIComponent(String(context.days ?? 0))}`,
+    ];
+    if (range) {
+      query.push(`date_start=${encodeURIComponent(String(range.start ?? ""))}`);
+      query.push(`date_end=${encodeURIComponent(String(range.end ?? ""))}`);
+    }
+    return `/api/v1/travel/plans?${query.join("&")}`;
+  },
   language_lesson_audio: (a) =>
     `/api/v1/language/course/lesson/${encodeURIComponent(String(a.lessonId ?? ""))}/audio`,
   language_course_search: (a) =>
@@ -171,10 +186,14 @@ const HTTP_ENDPOINTS: Record<string, (args: Record<string, unknown>) => string> 
     `/api/v1/learning/progress?module=${encodeURIComponent(String(a.moduleFilter ?? ""))}` +
     `&status=${encodeURIComponent(String(a.statusFilter ?? ""))}` +
     `&limit=${encodeURIComponent(String(a.limit ?? 50))}`,
+  learning_get_progress: (a) =>
+    `/api/v1/learning/progress/key?entityKey=${encodeURIComponent(String(a.entityKey ?? ""))}`,
   learning_get_review_queue: (a) =>
     `/api/v1/learning/review/queue?module=${encodeURIComponent(String(a.moduleFilter ?? ""))}` +
     `&limit=${encodeURIComponent(String(a.limit ?? 30))}`,
   learning_get_review_stats: () => "/api/v1/learning/review/stats",
+  learning_get_review_card: (a) =>
+    `/api/v1/learning/review/cards/${encodeURIComponent(String(a.cardId ?? ""))}`,
   learning_get_today: () => "/api/v1/learning/today",
   learning_get_graph: (a) =>
     `/api/v1/learning/graph?rootId=${encodeURIComponent(String(a.rootId ?? ""))}` +
@@ -218,6 +237,10 @@ const HTTP_ENDPOINTS: Record<string, (args: Record<string, unknown>) => string> 
   },
   geography_detail: (a) =>
     `/api/v1/geography/entities/${encodeURIComponent(String(a.id ?? ""))}`,
+  exploration_location_history: (a) =>
+    `/api/v1/exploration/geography/${encodeURIComponent(String(a.id ?? ""))}/history`,
+  exploration_geography_for_history_place: (a) =>
+    `/api/v1/exploration/history-places/${encodeURIComponent(String(a.placeId ?? ""))}/geography`,
 
   // ---- 学习板：同一份用例、同一份 study_boards.db（此前只写 localStorage）----
   study_board_list: (a) =>
@@ -252,8 +275,15 @@ const HTTP_POST_ENDPOINTS: Record<
     `/api/v1/language/lessons/${encodeURIComponent(String(a.lessonId ?? ""))}/position`,
   save_settings: () => "/api/v1/settings",
   personal_ai_chat: () => "/api/v1/ai/chat",
+  personal_ai_cancel_run: (a) =>
+    `/api/v1/ai/runs/${encodeURIComponent(String(a.traceId ?? a.trace_id ?? ""))}/cancel`,
+  personal_ai_confirm_travel_change: (a) =>
+    `/api/v1/ai/travel-changes/${encodeURIComponent(String(a.proposalId ?? a.proposal_id ?? ""))}/confirm`,
+  personal_ai_cancel_travel_change: (a) =>
+    `/api/v1/ai/travel-changes/${encodeURIComponent(String(a.proposalId ?? a.proposal_id ?? ""))}/cancel`,
   learning_record_event: () => "/api/v1/learning/progress",
   travel_research_start: () => "/api/v1/travel/research/start",
+  travel_plan_save: () => "/api/v1/travel/plans",
   language_nce_scan: () => "/api/v1/language/nce/scan",
   language_nce_import: () => "/api/v1/language/nce/import",
   language_dict_import: () => "/api/v1/language/dict/import",
@@ -276,6 +306,7 @@ const HTTP_POST_ENDPOINTS: Record<
     `/api/v1/learning/collections/${encodeURIComponent(String(a.collectionId))}/items`,
   learning_remove_collection_item: () => "/api/v1/learning/collection-items/remove",
   learning_submit_review: () => "/api/v1/learning/review",
+  learning_save_knowledge_review_card: () => "/api/v1/learning/review/cards/from-knowledge",
   language_add_collection_item: (a) =>
     `/api/v1/learning/collections/${encodeURIComponent(String(a.collectionId))}/items`,
   news_add_source: () => "/api/v1/news/sources",
@@ -296,6 +327,27 @@ const HTTP_POST_ENDPOINTS: Record<
     `?maxPerKind=${encodeURIComponent(String(a.maxPerKind ?? 6))}`,
 };
 
+const HTTP_DELETE_ENDPOINTS: Record<string, (args: Record<string, unknown>) => string> = {
+  learning_delete_knowledge_review_card: (a) =>
+    `/api/v1/learning/review/cards/${encodeURIComponent(String(a.cardId ?? ""))}`,
+};
+
+const HTTP_PATCH_ENDPOINTS: Record<string, (args: Record<string, unknown>) => string> = {
+  learning_update_collection_item_note: (a) =>
+    `/api/v1/learning/collection-items/${encodeURIComponent(String(a.itemId ?? ""))}/note`,
+};
+
+export class HttpTransportError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly code: string | null = null,
+  ) {
+    super(message);
+    this.name = "HttpTransportError";
+  }
+}
+
 /** 服务端错误体的可能形状（与 `apps/server` 的错误契约一致）。 */
 function readErrorMessage(payload: unknown, fallback: string): string {
   if (typeof payload === "string" && payload.trim()) return payload;
@@ -309,15 +361,23 @@ function readErrorMessage(payload: unknown, fallback: string): string {
   return fallback;
 }
 
-/** HTTP 实现：把命令映射到本地只读服务的 REST 端点。 */
+function readErrorCode(payload: unknown): string | null {
+  if (!payload || typeof payload !== "object") return null;
+  const code = (payload as Record<string, unknown>).code;
+  return typeof code === "string" ? code : null;
+}
+
+/** HTTP 实现：把命令映射到本地数据服务的 REST 端点。 */
 export const httpTransport: CommandTransport = {
   invoke: async <T,>(command: string, args: Record<string, unknown> = {}): Promise<T> => {
     const post = HTTP_POST_ENDPOINTS[command];
+    const remove = HTTP_DELETE_ENDPOINTS[command];
+    const patch = HTTP_PATCH_ENDPOINTS[command];
     const endpoint = HTTP_ENDPOINTS[command];
-    if (!post && !endpoint) {
+    if (!post && !remove && !patch && !endpoint) {
       throw new Error(`「${command}」尚无网页端接口，请启动桌面应用使用该功能。`);
     }
-    const url = (post ?? endpoint)(args);
+    const url = (post ?? remove ?? patch ?? endpoint)(args);
     let response: Response;
     try {
       response = post !== undefined
@@ -326,7 +386,15 @@ export const httpTransport: CommandTransport = {
             headers: { "Content-Type": "application/json", Accept: "application/json" },
             body: JSON.stringify(args),
           })
-        : await fetch(url, { headers: { Accept: "application/json" } });
+        : remove !== undefined
+          ? await fetch(url, { method: "DELETE", headers: { Accept: "application/json" } })
+          : patch !== undefined
+            ? await fetch(url, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json", Accept: "application/json" },
+                body: JSON.stringify({ note: args.note ?? null }),
+              })
+            : await fetch(url, { headers: { Accept: "application/json" } });
     } catch (error) {
       throw new Error(
         `无法连接本地数据服务（${url}）：${
@@ -347,11 +415,16 @@ export const httpTransport: CommandTransport = {
       // 非 JSON 错误体（开发期 Vite 代理在上游未启动时就是这样）几乎都意味着
       // 「服务没起来」，直接说 500 只会让人以为是数据坏了。
       if (!isJson) {
-        throw new Error(
+        throw new HttpTransportError(
           `无法连接本地数据服务（${response.status}）——请确认它已启动。`,
+          response.status,
         );
       }
-      throw new Error(readErrorMessage(payload, `本地数据服务返回 ${response.status}`));
+      throw new HttpTransportError(
+        readErrorMessage(payload, `本地数据服务返回 ${response.status}`),
+        response.status,
+        readErrorCode(payload),
+      );
     }
     // 二进制响应（课时音频）：按 Content-Type 判断，不能走 json()。
     // Tauri 的 IPC 对同一命令返回 ArrayBuffer，这里保持一致，

@@ -1,10 +1,11 @@
-import React, { useEffect, useState, useCallback, useMemo } from "react";
+import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import {
   Brain,
   CheckCircle,
   Clock,
   Sparkle,
   ArrowRight,
+  ArrowSquareOut,
   ArrowsCounterClockwise,
   BookOpen,
   Globe,
@@ -18,12 +19,18 @@ import {
 import { learningClient } from "./learningClient";
 import { matchAnswer, matchFeedback } from "../language/reviewMatch";
 import type {
+  LearningProgress,
   ReviewQueueItem,
   ReviewQueueStats,
+  ReviewScheduleOutcome,
+  UniversalReviewCard,
   UniversalReviewRating,
 } from "../../types";
+import { sourceRoute } from "./sourceNavigation";
+import "./reviewCenter.css";
 
 interface ReviewCenterPageProps {
+  active: boolean;
   onNavigate?: (route: string) => void;
   onAskAi?: (prompt: string) => void;
 }
@@ -34,6 +41,32 @@ function needsTypedAnswer(card: { card_type: string } | null): boolean {
   return card.card_type === "fill_blank" || card.card_type === "qa";
 }
 
+function newReviewRequestId(): string {
+  return globalThis.crypto?.randomUUID?.() ?? `review-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+function progressStatusLabel(status: LearningProgress["status"]): string {
+  return {
+    not_started: "未开始",
+    learning: "学习中",
+    familiar: "较熟悉",
+    mastered: "已掌握",
+  }[status];
+}
+
+function formatDueAt(timestamp: number): string {
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(timestamp * 1000));
+}
+
+interface ReviewReceipt {
+  card: UniversalReviewCard;
+  outcome: ReviewScheduleOutcome;
+  progress: LearningProgress | null;
+}
+
 const MODULE_NAMES: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
   language: { label: "语言学习", icon: <Translate size={16} />, color: "var(--accent-blue, #3b82f6)" },
   history: { label: "历史时空", icon: <Clock size={16} />, color: "var(--accent-amber, #f59e0b)" },
@@ -42,7 +75,7 @@ const MODULE_NAMES: Record<string, { label: string; icon: React.ReactNode; color
   news: { label: "深度阅读", icon: <Lightbulb size={16} />, color: "var(--accent-rose, #f43f5e)" },
 };
 
-export function ReviewCenterPage({ onNavigate, onAskAi }: ReviewCenterPageProps) {
+export function ReviewCenterPage({ active, onNavigate, onAskAi }: ReviewCenterPageProps) {
   const [stats, setStats] = useState<ReviewQueueStats | null>(null);
   const [queue, setQueue] = useState<ReviewQueueItem[]>([]);
   const [selectedModule, setSelectedModule] = useState<string>("all");
@@ -54,11 +87,18 @@ export function ReviewCenterPage({ onNavigate, onAskAi }: ReviewCenterPageProps)
   // 主观作答（填空 / 问答 / 句子卡）：写了才算「主动回忆」，只看答案不算。
   const [typedAnswer, setTypedAnswer] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState<boolean>(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [pendingRating, setPendingRating] = useState<UniversalReviewRating | null>(null);
+  const [submissionId, setSubmissionId] = useState(newReviewRequestId);
+  const [lastReceipt, setLastReceipt] = useState<ReviewReceipt | null>(null);
   const [sessionCompletedCount, setSessionCompletedCount] = useState<number>(0);
+  const submittingRef = useRef(false);
 
   const loadData = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const [newStats, newQueue] = await Promise.all([
         learningClient.getReviewStats(),
@@ -71,7 +111,13 @@ export function ReviewCenterPage({ onNavigate, onAskAi }: ReviewCenterPageProps)
       setIsHintRevealed(false);
       setSelectedOption(null);
       setTypedAnswer("");
+      setSubmitError(null);
+      setPendingRating(null);
+      setSubmissionId(newReviewRequestId());
     } catch (err) {
+      setStats(null);
+      setQueue([]);
+      setLoadError(err instanceof Error ? err.message : "复习队列暂时无法读取，请重试。");
       console.error("Failed to load review center data:", err);
     } finally {
       setLoading(false);
@@ -79,13 +125,16 @@ export function ReviewCenterPage({ onNavigate, onAskAi }: ReviewCenterPageProps)
   }, [selectedModule]);
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    if (active) void loadData();
+  }, [active, loadData]);
 
   const currentItem = queue[currentIndex] ?? null;
   // `ReviewQueueItem` 是 `{ card, is_overdue, urgency_score }`（后端嵌套形状），
   // 此前这里当成扁平卡片读 `.card_id` / `.prompt`，运行时全部为 undefined。
   const currentCard = currentItem?.card ?? null;
+  const currentSourceRoute = currentCard
+    ? sourceRoute(currentCard.module, currentCard.entity_type, currentCard.entity_id)
+    : null;
   // 作答与参考答案的**词级**比对：句子卡只差一个冠词不该判全错
   // （全等判定会把「主动回忆」变成纯挫败）。
   const typedMatch = useMemo(
@@ -94,31 +143,53 @@ export function ReviewCenterPage({ onNavigate, onAskAi }: ReviewCenterPageProps)
   );
 
   const handleRating = async (rating: UniversalReviewRating) => {
-    if (!currentCard || submitting) return;
+    if (
+      !currentCard ||
+      submittingRef.current ||
+      (pendingRating !== null && pendingRating !== rating)
+    ) return;
+    const reviewedCard = currentCard;
+    const requestId = submissionId;
+    submittingRef.current = true;
     setSubmitting(true);
+    setPendingRating(rating);
+    setSubmitError(null);
     try {
-      await learningClient.submitReview(currentCard.id, rating);
-      setSessionCompletedCount((c) => c + 1);
+      const outcome = await learningClient.submitReview(reviewedCard.id, rating, requestId);
+      const entityKey = `${reviewedCard.module}:${reviewedCard.entity_type}:${reviewedCard.entity_id}`;
+      const [progress, refreshedStats] = await Promise.all([
+        learningClient.getProgress(entityKey).catch(() => null),
+        learningClient.getReviewStats().catch(() => null),
+      ]);
+      setLastReceipt({ card: reviewedCard, outcome, progress });
+      if (refreshedStats) setStats(refreshedStats);
+      setSessionCompletedCount((count) => count + 1);
+      setPendingRating(null);
+      setSubmissionId(newReviewRequestId());
 
       if (currentIndex + 1 < queue.length) {
-        setCurrentIndex((i) => i + 1);
+        setCurrentIndex((index) => index + 1);
         setIsAnswerRevealed(false);
         setIsHintRevealed(false);
         setSelectedOption(null);
-        setTypedAnswer(""); // 换卡时清空作答，别把上一题的答案带过来
+        setTypedAnswer("");
       } else {
-        // Queue finished
         setCurrentIndex(queue.length);
       }
     } catch (err) {
+      setSubmitError(
+        `评分尚未确认保存。可重试同一评分；重复请求会安全去重。${err instanceof Error ? ` ${err.message}` : ""}`,
+      );
       console.error("Failed to submit review rating:", err);
     } finally {
+      submittingRef.current = false;
       setSubmitting(false);
     }
   };
 
   // Keyboard navigation
   useEffect(() => {
+    if (!active) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       if (!currentCard) return;
@@ -135,7 +206,7 @@ export function ReviewCenterPage({ onNavigate, onAskAi }: ReviewCenterPageProps)
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [currentCard, isAnswerRevealed, submitting]);
+  }, [active, currentCard, isAnswerRevealed, submitting, pendingRating, submissionId]);
 
   return (
     <div className="review-center-page page-shell">
@@ -164,35 +235,28 @@ export function ReviewCenterPage({ onNavigate, onAskAi }: ReviewCenterPageProps)
 
       {/* Stats bar */}
       {stats && (
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(4, 1fr)",
-            gap: 16,
-            marginBottom: 24,
-          }}
-        >
+        <div className="review-center-stats">
           <div style={{ background: "var(--surface-secondary, #f9fafb)", padding: 16, borderRadius: 12, border: "1px solid var(--border-subtle, #e5e7eb)" }}>
-            <div style={{ color: "var(--text-tertiary, #9ca3af)", fontSize: 12, fontWeight: 500 }}>今日待复习</div>
-            <div style={{ fontSize: 24, fontWeight: 700, color: (stats.due_count ?? stats.total_due ?? 0) > 0 ? "var(--accent-rose, #ef4444)" : "var(--accent-emerald, #10b981)", marginTop: 4 }}>
+            <div style={{ color: "var(--review-stat-muted)", fontSize: 12, fontWeight: 500 }}>今日待复习</div>
+            <div style={{ fontSize: 24, fontWeight: 700, color: (stats.due_count ?? stats.total_due ?? 0) > 0 ? "var(--review-stat-rose)" : "var(--review-stat-green)", marginTop: 4 }}>
               {stats.due_count ?? stats.total_due ?? 0} 张
             </div>
           </div>
           <div style={{ background: "var(--surface-secondary, #f9fafb)", padding: 16, borderRadius: 12, border: "1px solid var(--border-subtle, #e5e7eb)" }}>
-            <div style={{ color: "var(--text-tertiary, #9ca3af)", fontSize: 12, fontWeight: 500 }}>已掌握知识点</div>
-            <div style={{ fontSize: 24, fontWeight: 700, color: "var(--accent-blue, #3b82f6)", marginTop: 4 }}>
+            <div style={{ color: "var(--review-stat-muted)", fontSize: 12, fontWeight: 500 }}>已掌握知识点</div>
+            <div style={{ fontSize: 24, fontWeight: 700, color: "var(--review-stat-blue)", marginTop: 4 }}>
               {stats.mastered_count ?? 0} 个
             </div>
           </div>
           <div style={{ background: "var(--surface-secondary, #f9fafb)", padding: 16, borderRadius: 12, border: "1px solid var(--border-subtle, #e5e7eb)" }}>
-            <div style={{ color: "var(--text-tertiary, #9ca3af)", fontSize: 12, fontWeight: 500 }}>正在学习中</div>
-            <div style={{ fontSize: 24, fontWeight: 700, color: "var(--accent-amber, #f59e0b)", marginTop: 4 }}>
+            <div style={{ color: "var(--review-stat-muted)", fontSize: 12, fontWeight: 500 }}>正在学习中</div>
+            <div style={{ fontSize: 24, fontWeight: 700, color: "var(--review-stat-amber)", marginTop: 4 }}>
               {stats.learning_count ?? 0} 个
             </div>
           </div>
           <div style={{ background: "var(--surface-secondary, #f9fafb)", padding: 16, borderRadius: 12, border: "1px solid var(--border-subtle, #e5e7eb)" }}>
-            <div style={{ color: "var(--text-tertiary, #9ca3af)", fontSize: 12, fontWeight: 500 }}>本次已完成</div>
-            <div style={{ fontSize: 24, fontWeight: 700, color: "var(--accent-emerald, #10b981)", marginTop: 4 }}>
+            <div style={{ color: "var(--review-stat-muted)", fontSize: 12, fontWeight: 500 }}>本次已完成</div>
+            <div style={{ fontSize: 24, fontWeight: 700, color: "var(--review-stat-green)", marginTop: 4 }}>
               {sessionCompletedCount} 张
             </div>
           </div>
@@ -243,14 +307,49 @@ export function ReviewCenterPage({ onNavigate, onAskAi }: ReviewCenterPageProps)
         })}
       </div>
 
+      {lastReceipt ? (
+        <section className="review-receipt" role="status" aria-live="polite">
+          <div className="review-receipt-copy">
+            <strong>上次复习已保存</strong>
+            <span>
+              {lastReceipt.outcome.interval_days === 0
+                ? "可立即再次复习"
+                : `下次复习约 ${lastReceipt.outcome.interval_days} 天后 · ${formatDueAt(lastReceipt.outcome.due_at)}`}
+            </span>
+            {lastReceipt.progress ? (
+              <span>
+                进度：{progressStatusLabel(lastReceipt.progress.status)} · {lastReceipt.progress.mastery_score.toFixed(1)} 分 · 已复习 {lastReceipt.progress.review_count} 次
+              </span>
+            ) : (
+              <span>复习排期已保存；进度详情暂时不可读取。</span>
+            )}
+          </div>
+          {sourceRoute(lastReceipt.card.module, lastReceipt.card.entity_type, lastReceipt.card.entity_id) ? (
+            <button
+              type="button"
+              className="review-receipt-source"
+              onClick={() => onNavigate?.(sourceRoute(lastReceipt.card.module, lastReceipt.card.entity_type, lastReceipt.card.entity_id)!)}
+            >
+              <ArrowSquareOut size={14} /> 返回「{lastReceipt.card.source_title ?? lastReceipt.card.entity_id}」
+            </button>
+          ) : null}
+        </section>
+      ) : null}
+
       {/* Main Review Card Section */}
       {loading ? (
         <div style={{ textAlign: "center", padding: "80px 0", color: "var(--text-tertiary, #9ca3af)" }}>
           <ArrowsCounterClockwise size={32} className="spin" style={{ marginBottom: 12 }} />
           <div>正在加载复习队列...</div>
         </div>
+      ) : loadError ? (
+        <div role="alert" className="review-submit-error">
+          <strong>复习队列未能加载。</strong> {loadError}
+          <button type="button" className="ui-btn" onClick={() => void loadData()} disabled={loading}>重试读取</button>
+        </div>
       ) : currentCard ? (
         <div
+          className="review-card-shell"
           style={{
             background: "var(--surface-primary, #ffffff)",
             border: "1px solid var(--border-color, #e5e7eb)",
@@ -291,6 +390,15 @@ export function ReviewCenterPage({ onNavigate, onAskAi }: ReviewCenterPageProps)
                 {currentIndex + 1} / {queue.length}
               </div>
             </div>
+            {currentSourceRoute ? (
+              <button
+                type="button"
+                className="review-source-link"
+                onClick={() => onNavigate?.(currentSourceRoute)}
+              >
+                <ArrowSquareOut size={14} /> 原始来源：{currentCard.source_title ?? currentCard.entity_id}
+              </button>
+            ) : null}
 
             {/* Prompt Question */}
             <div style={{ marginBottom: 28 }}>
@@ -329,7 +437,7 @@ export function ReviewCenterPage({ onNavigate, onAskAi }: ReviewCenterPageProps)
 
             {/* Multiple choice options if any */}
             {currentCard.options && currentCard.options.length > 0 && (
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 24 }}>
+              <div className="review-choice-grid">
                 {currentCard.options.map((opt, idx) => {
                   const isSelected = selectedOption === opt;
                   return (
@@ -374,7 +482,9 @@ export function ReviewCenterPage({ onNavigate, onAskAi }: ReviewCenterPageProps)
                   animation: "fadeIn 0.2s ease-in-out",
                 }}
               >
-                <div style={{ fontSize: 12, fontWeight: 700, color: "#2563eb", marginBottom: 6 }}>参考答案</div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#2563eb", marginBottom: 6 }}>
+                  {currentCard.id.startsWith("knowledge:") ? "个人参考答案" : "参考答案"}
+                </div>
                 <div style={{ fontSize: 16, fontWeight: 600, color: "var(--text-primary, #1e293b)", marginBottom: 8 }}>
                   {currentCard.answer}
                 </div>
@@ -396,8 +506,13 @@ export function ReviewCenterPage({ onNavigate, onAskAi }: ReviewCenterPageProps)
                     </div>
                   </div>
                 ) : null}
+                {currentCard.user_note ? (
+                  <div style={{ fontSize: 13, color: "var(--text-secondary, #64748b)", lineHeight: 1.5, marginTop: 8 }}>
+                    <strong>个人备注：</strong>{currentCard.user_note}
+                  </div>
+                ) : null}
                 {(currentCard.context ?? currentCard.hint) && (
-                  <div style={{ fontSize: 13, color: "var(--text-secondary, #64748b)", lineHeight: 1.5 }}>
+                  <div style={{ fontSize: 13, color: "var(--text-secondary, #64748b)", lineHeight: 1.5, marginTop: 8 }}>
                     {currentCard.context ?? currentCard.hint}
                   </div>
                 )}
@@ -489,12 +604,15 @@ export function ReviewCenterPage({ onNavigate, onAskAi }: ReviewCenterPageProps)
           {/* Rating Buttons */}
           {isAnswerRevealed && (
             <div style={{ borderTop: "1px solid var(--border-subtle, #f1f5f9)", paddingTop: 20 }}>
+              {submitError ? (
+                <p className="review-submit-error" role="alert">{submitError}</p>
+              ) : null}
               <div style={{ fontSize: 12, color: "var(--text-tertiary, #9ca3af)", textAlign: "center", marginBottom: 12 }}>
                 选择掌握程度评价（支持键盘数字键 1 - 4）
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
+              <div className="review-rating-grid">
                 <button
-                  disabled={submitting}
+                  disabled={submitting || (pendingRating !== null && pendingRating !== "again")}
                   onClick={() => handleRating("again")}
                   style={{
                     padding: "12px 8px",
@@ -508,12 +626,12 @@ export function ReviewCenterPage({ onNavigate, onAskAi }: ReviewCenterPageProps)
                     textAlign: "center",
                   }}
                 >
-                  <div>1. 重来 (Again)</div>
-                  <div style={{ fontSize: 11, fontWeight: 400, opacity: 0.8, marginTop: 2 }}>遗忘 / 立即复习</div>
+                  <div>{submitError && pendingRating === "again" ? "重试 1. 重来" : "1. 重来 (Again)"}</div>
+                  <div style={{ fontSize: 11, fontWeight: 400, opacity: 0.8, marginTop: 2 }}>遗忘 · 立即再练</div>
                 </button>
 
                 <button
-                  disabled={submitting}
+                  disabled={submitting || (pendingRating !== null && pendingRating !== "hard")}
                   onClick={() => handleRating("hard")}
                   style={{
                     padding: "12px 8px",
@@ -527,12 +645,12 @@ export function ReviewCenterPage({ onNavigate, onAskAi }: ReviewCenterPageProps)
                     textAlign: "center",
                   }}
                 >
-                  <div>2. 困难 (Hard)</div>
-                  <div style={{ fontSize: 11, fontWeight: 400, opacity: 0.8, marginTop: 2 }}>勉强想起 / 1天后</div>
+                  <div>{submitError && pendingRating === "hard" ? "重试 2. 困难" : "2. 困难 (Hard)"}</div>
+                  <div style={{ fontSize: 11, fontWeight: 400, opacity: 0.8, marginTop: 2 }}>费力想起 · 较短间隔</div>
                 </button>
 
                 <button
-                  disabled={submitting}
+                  disabled={submitting || (pendingRating !== null && pendingRating !== "good")}
                   onClick={() => handleRating("good")}
                   style={{
                     padding: "12px 8px",
@@ -546,12 +664,12 @@ export function ReviewCenterPage({ onNavigate, onAskAi }: ReviewCenterPageProps)
                     textAlign: "center",
                   }}
                 >
-                  <div>3. 良好 (Good)</div>
-                  <div style={{ fontSize: 11, fontWeight: 400, opacity: 0.8, marginTop: 2 }}>正常掌握 / 3天后</div>
+                  <div>{submitError && pendingRating === "good" ? "重试 3. 良好" : "3. 良好 (Good)"}</div>
+                  <div style={{ fontSize: 11, fontWeight: 400, opacity: 0.8, marginTop: 2 }}>正常回忆 · 标准间隔</div>
                 </button>
 
                 <button
-                  disabled={submitting}
+                  disabled={submitting || (pendingRating !== null && pendingRating !== "easy")}
                   onClick={() => handleRating("easy")}
                   style={{
                     padding: "12px 8px",
@@ -565,8 +683,8 @@ export function ReviewCenterPage({ onNavigate, onAskAi }: ReviewCenterPageProps)
                     textAlign: "center",
                   }}
                 >
-                  <div>4. 熟练 (Easy)</div>
-                  <div style={{ fontSize: 11, fontWeight: 400, opacity: 0.8, marginTop: 2 }}>轻而易举 / 7天后</div>
+                  <div>{submitError && pendingRating === "easy" ? "重试 4. 熟练" : "4. 熟练 (Easy)"}</div>
+                  <div style={{ fontSize: 11, fontWeight: 400, opacity: 0.8, marginTop: 2 }}>轻松回忆 · 延长间隔</div>
                 </button>
               </div>
             </div>

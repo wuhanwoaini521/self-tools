@@ -109,6 +109,14 @@ export interface SemanticStoryEvent {
   source_ids?: string | null;
 }
 
+export interface SemanticEventStory {
+  event_id: string;
+  story_id: string;
+  sequence: number | null;
+  link_quality_status?: string | null;
+  story: SemanticStory;
+}
+
 export interface SemanticEvent {
   id: string;
   name_zh_cn: string;
@@ -317,6 +325,8 @@ export interface SemanticStoryDetail {
 
 export interface SemanticEventDetail {
   event: SemanticEvent;
+  /** Additive, reviewed story links; never inferred from names or dates. */
+  related_stories: SemanticEventStory[];
   people: SemanticEventPerson[];
   places: SemanticEventPlace[];
   relations: SemanticEventRelation[];

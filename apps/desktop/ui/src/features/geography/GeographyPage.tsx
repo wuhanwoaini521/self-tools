@@ -1,10 +1,14 @@
 import {
+  ArrowClockwise,
   ArrowRight,
   BookmarkSimple,
   BookOpen,
+  CaretLeft,
+  CaretRight,
   Compass,
   GitBranch,
   MagnetStraight,
+  MapPin,
   MapTrifold,
   MagnifyingGlass,
   Question,
@@ -16,6 +20,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import type {
@@ -29,15 +34,21 @@ import type {
 } from "../../types";
 import { errorMessage } from "../../utils";
 import { geographyClient } from "./geographyClient";
+import { explorationClient, type LocationHistoryContext } from "../exploration/explorationClient";
+import type { SemanticEventDetail } from "../history/semanticTypes";
 import { learningClient } from "../learning/learningClient";
+import { SaveToCollection } from "../learning/SaveToCollection";
 import type { AppContextPayload } from "../ai/aiTypes";
 import { AmapRegionMap } from "./AmapRegionMap";
+import { LocationHistoryTimeline } from "./LocationHistoryTimeline";
+import { reviewedLocationEvents } from "./geoTimeline";
 import { GeoMap, type GeoMapLayer } from "./GeoMap";
 import { Landform3DViewer } from "./Landform3DViewer";
 import { LANDFORM_KNOWLEDGE_ENTRIES } from "./landformKnowledgeData";
 import { LANDFORM_VIEWERS } from "./landform3dData";
 import { getRealTerrain } from "./realTerrainData";
 import { ViewerErrorBoundary } from "./ViewerErrorBoundary";
+import "./geography-explore.css";
 
 const RealTerrainViewer = lazy(() =>
   import("./RealTerrainViewer").then((module) => ({
@@ -45,12 +56,21 @@ const RealTerrainViewer = lazy(() =>
   })),
 );
 
+type GeographyHistorySelection = {
+  eventId: string;
+  storyId: string | null;
+  year: number | null;
+};
+
 interface GeographyPageProps {
   active: boolean;
   setNotice: (notice: string) => void;
-  amapApiKey?: string | null;
-  amapSecurityJsCode?: string | null;
-  intent?: { entityId: string; nonce: number } | null;
+  intent?: { entityId?: string; query?: string; nonce: number } | null;
+  onAddToTravel?: (entity: GeoEntity, event?: SemanticEventDetail) => void;
+  onOpenHistoryEvent?: (eventId: string, location: { id: string; name: string }) => void;
+  onOpenHistoryStory?: (storyId: string, location: { id: string; name: string }) => void;
+  onReturnToTravel?: () => void;
+  onReturnToHistory?: () => void;
 }
 
 const TYPE_LABELS: Record<GeoEntityType, string> = {
@@ -330,6 +350,24 @@ function propertyValue(item: GeoEntity, key: string) {
   );
 }
 
+/** 只从实体自身的 properties 读取，用于卡片上的 2–3 条关键属性；不推测缺失字段。 */
+function keyFacts(item: GeoEntity, count: number) {
+  return item.properties.slice(0, count).map((property) => ({
+    key: property.key,
+    label: property.label,
+    value: property.unit ? `${property.value} ${property.unit}` : property.value,
+  }));
+}
+
+const SEARCH_SUGGESTIONS = ["成都", "长江", "青藏高原", "四川盆地"];
+
+interface MapPreviewState {
+  id: string;
+  detail: GeoEntityDetail | null;
+  loading: boolean;
+  error: string | null;
+}
+
 const RELATION_LABELS: Record<string, string> = {
   LOCATED_IN: "位于",
   PART_OF: "属于",
@@ -350,6 +388,12 @@ const RELATION_LABELS: Record<string, string> = {
 
 function relationLabel(kind: string) {
   return RELATION_LABELS[kind] ?? kind;
+}
+
+function historyRelationLabel(kind: string) {
+  if (kind === "historical_event_place_anchor") return "历史事件地点锚点";
+  if (kind === "modern_urban_area_anchor") return "现代城市范围与历史地点锚点";
+  return kind;
 }
 
 function parentRelation(detail: GeoEntityDetail) {
@@ -397,9 +441,11 @@ function learningCue(item: GeoEntity) {
 
 function EntityCard({
   item,
+  favorite = false,
   onOpen,
 }: {
   item: GeoEntity;
+  favorite?: boolean;
   onOpen: (id: string) => void;
 }) {
   return (
@@ -408,12 +454,394 @@ function EntityCard({
       className="geo-entity-card"
       onClick={() => onOpen(item.id)}
     >
-      <span className="geo-card-type">{TYPE_LABELS[item.entity_type]}</span>
+      <span className="geo-card-head">
+        <span className="geo-card-type">{TYPE_LABELS[item.entity_type]}</span>
+        {favorite ? (
+          <span className="geo-card-favorite" title="已收藏">
+            <BookmarkSimple size={13} weight="fill" aria-hidden="true" />
+            <span className="geo-visually-hidden">已收藏</span>
+          </span>
+        ) : null}
+      </span>
       <strong>{item.name}</strong>
       <small>{item.name_en}</small>
       <p>{item.summary}</p>
-      <ArrowRight size={15} />
+      <span className="geo-card-cta">
+        查看详情 <ArrowRight size={14} aria-hidden="true" />
+      </span>
     </button>
+  );
+}
+
+/**
+ * 探索索引：精选地点 / 收藏 横向卡片轨道。
+ * 数据只来自 home.featured 与 home.favorite_ids；收藏里只有 id 的实体不显示名称。
+ */
+function ExploreIndexRail({
+  featured,
+  favoriteIds,
+  onOpen,
+  onLocate,
+  selectedId,
+}: {
+  featured: GeoEntity[];
+  favoriteIds: string[];
+  onOpen: (id: string) => void;
+  onLocate: (id: string) => void;
+  selectedId?: string | null;
+}) {
+  const [tab, setTab] = useState<"featured" | "favorites">("featured");
+  const trackRef = useRef<HTMLUListElement>(null);
+  const favoriteSet = useMemo(() => new Set(favoriteIds), [favoriteIds]);
+  const favoriteItems = featured.filter((item) => favoriteSet.has(item.id));
+  const unknownFavorites = Math.max(0, favoriteIds.length - favoriteItems.length);
+  const items = tab === "featured" ? featured : favoriteItems;
+
+  // 地图选中实体时，把索引轨道里对应的卡片滚进视野（只横向滚动轨道本身）。
+  useEffect(() => {
+    if (!selectedId) return;
+    const track = trackRef.current;
+    const tile = track?.querySelector<HTMLElement>(
+      `[data-entity-id="${selectedId.replace(/"/g, '\\"')}"]`,
+    );
+    if (!track || !tile) return;
+    const trackRect = track.getBoundingClientRect();
+    const tileRect = tile.getBoundingClientRect();
+    if (tileRect.left < trackRect.left || tileRect.right > trackRect.right) {
+      const reduceMotion =
+        typeof window !== "undefined" &&
+        typeof window.matchMedia === "function" &&
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      track.scrollBy({
+        left: tileRect.left - trackRect.left - 12,
+        behavior: reduceMotion ? "auto" : "smooth",
+      });
+    }
+  }, [selectedId]);
+
+  const scrollRail = (direction: 1 | -1) => {
+    const track = trackRef.current;
+    if (!track) return;
+    const reduceMotion =
+      typeof window !== "undefined" &&
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    track.scrollBy({
+      left: direction * Math.max(track.clientWidth * 0.72, 240),
+      behavior: reduceMotion ? "auto" : "smooth",
+    });
+  };
+
+  return (
+    <section className="geo-index-rail" aria-label="探索索引">
+      <header className="geo-index-rail-head">
+        <div>
+          <span className="geo-eyebrow">EXPLORE INDEX</span>
+          <h2>从索引开始</h2>
+          <p>
+            精选来自首页 featured；收藏只显示已知名称的实体，不推测缺失内容。
+            点卡片打开详情，点右上角定位图标在地图上查看。
+          </p>
+        </div>
+        <div className="geo-rail-tabs" aria-label="探索索引分组">
+          <button
+            type="button"
+            className={tab === "featured" ? "selected" : ""}
+            aria-pressed={tab === "featured"}
+            onClick={() => setTab("featured")}
+          >
+            精选地点 <span>{featured.length}</span>
+          </button>
+          <button
+            type="button"
+            className={tab === "favorites" ? "selected" : ""}
+            aria-pressed={tab === "favorites"}
+            onClick={() => setTab("favorites")}
+          >
+            <BookmarkSimple size={13} aria-hidden="true" /> 收藏{" "}
+            <span>{favoriteIds.length}</span>
+          </button>
+        </div>
+      </header>
+      {items.length ? (
+        <div className="geo-rail-window">
+          <button
+            type="button"
+            className="geo-rail-nav prev"
+            aria-label="向左滚动探索索引"
+            onClick={() => scrollRail(-1)}
+          >
+            <CaretLeft size={16} aria-hidden="true" />
+          </button>
+          <ul
+            className="geo-rail-track"
+            ref={trackRef}
+            aria-label={tab === "featured" ? "精选地点" : "已收藏地点"}
+          >
+            {items.map((item) => (
+              <li
+                key={item.id}
+                data-entity-id={item.id}
+                className={`geo-rail-item${selectedId === item.id ? " is-selected" : ""}`}
+              >
+                <button
+                  type="button"
+                  className="geo-rail-tile"
+                  onClick={() => onOpen(item.id)}
+                >
+                  <span className="geo-rail-tile-head">
+                    <span className="geo-rail-tile-type">
+                      {TYPE_LABELS[item.entity_type]}
+                    </span>
+                    {favoriteSet.has(item.id) ? (
+                      <BookmarkSimple
+                        size={13}
+                        weight="fill"
+                        className="geo-rail-tile-favorite"
+                        aria-hidden="true"
+                      />
+                    ) : null}
+                  </span>
+                  <strong>{item.name}</strong>
+                  <small>{item.name_en ?? ""}</small>
+                  <dl className="geo-rail-tile-facts">
+                    {keyFacts(item, 2).map((fact) => (
+                      <div key={fact.key}>
+                        <dt>{fact.label}</dt>
+                        <dd>{fact.value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                </button>
+                <button
+                  type="button"
+                  className="geo-rail-tile-locate"
+                  onClick={() => onLocate(item.id)}
+                  aria-label={`在地图上查看 ${item.name}`}
+                  title="在地图查看"
+                >
+                  <MapPin size={14} aria-hidden="true" />
+                </button>
+              </li>
+            ))}
+          </ul>
+          <button
+            type="button"
+            className="geo-rail-nav next"
+            aria-label="向右滚动探索索引"
+            onClick={() => scrollRail(1)}
+          >
+            <CaretRight size={16} aria-hidden="true" />
+          </button>
+        </div>
+      ) : (
+        <div className="geo-rail-empty" role="status">
+          {tab === "favorites" && favoriteIds.length > 0 ? (
+            <p>
+              <strong>
+                已收藏的 {favoriteIds.length} 个实体不在本期 featured 列表中。
+              </strong>
+              这里只显示已知名称的收藏；缺少名称时不会臆造内容，可用上方搜索查看。
+            </p>
+          ) : (
+            <p>
+              <strong>还没有收藏地点。</strong>
+              打开任意地点的详情页，点「收藏」就会出现在这里。
+            </p>
+          )}
+          <button type="button" onClick={() => setTab("featured")}>
+            浏览精选地点 <ArrowRight size={14} aria-hidden="true" />
+          </button>
+        </div>
+      )}
+      {tab === "favorites" && items.length > 0 && unknownFavorites > 0 ? (
+        <p className="geo-rail-note">
+          另有 {unknownFavorites} 个收藏实体不在本期 featured 列表中；缺少名称的收藏不会被臆造。
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
+function SearchResultsPanel({
+  groups,
+  onOpen,
+  onLocate,
+  onClose,
+  selectedId,
+}: {
+  groups: GeoSearchGroup[];
+  onOpen: (id: string) => void;
+  onLocate: (id: string) => void;
+  onClose: () => void;
+  selectedId?: string | null;
+}) {
+  const total = groups.reduce((sum, group) => sum + group.items.length, 0);
+  return (
+    <section className="geo-search-results" aria-label="搜索结果">
+      <header>
+        <div>
+          <span>SEARCH RESULTS</span>
+          <strong>{total} 个地点</strong>
+          <small>按类型统计 · 打开后可继续沿关系探索</small>
+        </div>
+        <button type="button" onClick={onClose}>
+          <X size={15} aria-hidden="true" /> 关闭
+        </button>
+      </header>
+      <div className="geo-search-body">
+        <aside className="geo-search-group-index" aria-label="结果类型统计">
+          <span className="geo-search-group-index-label">按类型</span>
+          {groups.map((group) => (
+            <div key={group.entity_type}>
+              <b>{TYPE_LABELS[group.entity_type]}</b>
+              <span>{group.items.length}</span>
+            </div>
+          ))}
+        </aside>
+        <div className="geo-search-group-grid">
+          {groups.flatMap((group) =>
+            group.items.map((item) => (
+              <div
+                className={`geo-search-item${selectedId === item.id ? " is-selected" : ""}`}
+                key={item.id}
+              >
+                <button
+                  type="button"
+                  className="geo-search-tile"
+                  onClick={() => onOpen(item.id)}
+                >
+                  <span className="geo-search-tile-type">
+                    {TYPE_LABELS[item.entity_type]}
+                  </span>
+                  <strong>{item.name}</strong>
+                  <small>{item.name_en ?? "—"}</small>
+                  <p>{item.summary}</p>
+                  <span className="geo-search-tile-cta">
+                    查看详情 <ArrowRight size={13} aria-hidden="true" />
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  className="geo-search-tile-locate"
+                  onClick={() => onLocate(item.id)}
+                  aria-label={`在地图上查看 ${item.name}`}
+                  title="在地图查看"
+                >
+                  <MapPin size={14} aria-hidden="true" />
+                </button>
+              </div>
+            )),
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/** 地图上选中实体时的轻量浮动信息卡；不遮挡地图缩放 / 指北控件。 */
+function MapEntityPreview({
+  preview,
+  point,
+  favorite,
+  onOpen,
+  onToggleFavorite,
+  onClose,
+  onRetry,
+}: {
+  preview: MapPreviewState;
+  point: GeoMapPoint | null;
+  favorite: boolean;
+  onOpen: () => void;
+  onToggleFavorite: () => void;
+  onClose: () => void;
+  onRetry: () => void;
+}) {
+  const item = preview.detail?.entity ?? null;
+  const name = item?.name ?? point?.name ?? "正在载入地点…";
+  const type = item?.entity_type ?? point?.entity_type ?? null;
+  const coordinate = item?.coordinates
+    ? `${item.coordinates.latitude.toFixed(2)}° N · ${item.coordinates.longitude.toFixed(2)}° E`
+    : point
+      ? `${point.coordinate.latitude.toFixed(2)}° N · ${point.coordinate.longitude.toFixed(2)}° E`
+      : null;
+  const facts = item ? keyFacts(item, 3) : [];
+  return (
+    <section
+      className="geo-map-preview"
+      aria-label={`选中地点：${name}`}
+      aria-live="polite"
+    >
+      <header className="geo-map-preview-head">
+        <span className="geo-map-preview-type">
+          {type ? TYPE_LABELS[type] : "地点"}
+        </span>
+        {favorite ? (
+          <span className="geo-map-preview-flag">
+            <BookmarkSimple size={12} weight="fill" aria-hidden="true" />
+            已收藏
+          </span>
+        ) : null}
+        <button
+          type="button"
+          className="geo-map-preview-close"
+          onClick={onClose}
+          aria-label="关闭地点预览"
+        >
+          <X size={14} aria-hidden="true" />
+        </button>
+      </header>
+      <h3 className="geo-map-preview-name">{name}</h3>
+      {item?.name_en ? (
+        <p className="geo-map-preview-en">{item.name_en}</p>
+      ) : null}
+      {coordinate ? (
+        <p className="geo-map-preview-coord">
+          <MapPin size={12} aria-hidden="true" /> {coordinate}
+        </p>
+      ) : null}
+      {preview.loading ? (
+        <p className="geo-map-preview-state" role="status">
+          正在读取地点资料…
+        </p>
+      ) : null}
+      {preview.error ? (
+        <div className="geo-map-preview-error" role="alert">
+          <p>地点资料暂时不可用：{preview.error}</p>
+          <button type="button" onClick={onRetry}>
+            <ArrowClockwise size={13} aria-hidden="true" /> 重试
+          </button>
+        </div>
+      ) : null}
+      {facts.length ? (
+        <dl className="geo-map-preview-facts">
+          {facts.map((fact) => (
+            <div key={fact.key}>
+              <dt>{fact.label}</dt>
+              <dd>{fact.value}</dd>
+            </div>
+          ))}
+        </dl>
+      ) : null}
+      <div className="geo-map-preview-actions">
+        <button type="button" className="geo-map-preview-open" onClick={onOpen}>
+          查看详情 <ArrowRight size={14} aria-hidden="true" />
+        </button>
+        <button
+          type="button"
+          className={`geo-map-preview-favorite${favorite ? " selected" : ""}`}
+          aria-pressed={favorite}
+          onClick={onToggleFavorite}
+        >
+          <BookmarkSimple
+            size={14}
+            weight={favorite ? "fill" : "regular"}
+            aria-hidden="true"
+          />
+          {favorite ? "已收藏" : "收藏"}
+        </button>
+      </div>
+    </section>
   );
 }
 
@@ -422,18 +850,50 @@ function EntityDetail({
   onBack,
   onFavorite,
   onOpen,
-  amapApiKey,
-  amapSecurityJsCode,
+  historyContext,
+  historyLoading,
+  historyError,
+  onAddToTravel,
+  onOpenHistoryEvent,
+  onOpenHistoryStory,
+  onHistorySelectionChange,
+  onRetryHistory,
+  onOpenLandforms,
+  onReturnToTravel,
+  onReturnToHistory,
 }: {
   detail: GeoEntityDetail;
   onBack: () => void;
   onFavorite: () => void;
   onOpen: (id: string) => void;
-  amapApiKey?: string | null;
-  amapSecurityJsCode?: string | null;
+  historyContext: LocationHistoryContext | null;
+  historyLoading: boolean;
+  historyError: string | null;
+  onAddToTravel?: (entity: GeoEntity, event?: SemanticEventDetail) => void;
+  onOpenHistoryEvent?: (eventId: string, location: { id: string; name: string }) => void;
+  onOpenHistoryStory?: (storyId: string, location: { id: string; name: string }) => void;
+  onHistorySelectionChange?: (entityId: string, selection: GeographyHistorySelection | null) => void;
+  onRetryHistory?: () => void;
+  onOpenLandforms?: () => void;
+  onReturnToTravel?: () => void;
+  onReturnToHistory?: () => void;
 }) {
   const { entity: item } = detail;
   const parent = parentRelation(detail);
+  const crosswalks = historyContext?.crosswalks?.length
+    ? historyContext.crosswalks
+    : historyContext?.crosswalk
+      ? [historyContext.crosswalk]
+      : [];
+  const verifiedLocationEvents = useMemo(
+    () => reviewedLocationEvents(historyContext?.events ?? [], crosswalks),
+    [crosswalks, historyContext?.events],
+  );
+  const handleTimelineSelection = useCallback(
+    (selection: GeographyHistorySelection | null) =>
+      onHistorySelectionChange?.(item.id, selection),
+    [item.id, onHistorySelectionChange],
+  );
   const cue = learningCue(item);
   const coordinateText = item.coordinates
     ? `${item.coordinates.latitude.toFixed(2)}° N · ${item.coordinates.longitude.toFixed(2)}° E`
@@ -444,6 +904,16 @@ function EntityDetail({
         <button type="button" className="geo-back-button" onClick={onBack}>
           ← 探索首页
         </button>
+        {onReturnToTravel ? (
+          <button type="button" className="geo-back-button" onClick={onReturnToTravel}>
+            返回当前行程
+          </button>
+        ) : null}
+        {onReturnToHistory ? (
+          <button type="button" className="geo-back-button" onClick={onReturnToHistory}>
+            返回 History
+          </button>
+        ) : null}
         <div className="geo-detail-actions">
           <button
             type="button"
@@ -471,6 +941,14 @@ function EntityDetail({
         <div className="geo-coordinate">{coordinateText}</div>
       </div>
       <p className="geo-detail-summary">{item.summary}</p>
+      <div className="geo-detail-save">
+        <SaveToCollection
+          module="geography"
+          entityType={item.entity_type}
+          entityId={item.id}
+          title={item.name}
+        />
+      </div>
       <div className="geo-detail-overview">
         <section className="geo-profile-card">
           <div className="geo-section-label">
@@ -519,10 +997,16 @@ function EntityDetail({
         key={item.id}
         item={item}
         relations={detail.relations}
-        apiKey={amapApiKey}
-        securityJsCode={amapSecurityJsCode}
         onSelect={onOpen}
       />
+      <button type="button" className="geo-landform-jump" onClick={onOpenLandforms}>
+        <span className="geo-landform-jump-mark"><BookOpen size={17} /></span>
+        <span>
+          <strong>继续探索地貌与地形</strong>
+          <small>打开概念地貌模型与可用的真实 DEM；示意模型不代表本地点测绘。</small>
+        </span>
+        <ArrowRight size={16} />
+      </button>
       <div className="geo-detail-grid">
         <section>
           <div className="geo-section-label">关键事实</div>
@@ -574,6 +1058,82 @@ function EntityDetail({
           ))}
         </div>
       </section>
+      <section className="geo-history-bridge" aria-labelledby="geo-history-title">
+        <header>
+          <div>
+            <span className="geo-section-label">HISTORY CROSSWALK</span>
+            <h3 id="geo-history-title">这座城市的历史线索</h3>
+          </div>
+          {crosswalks.length > 0 ? (
+            <span className="geo-history-reviewed">
+              稳定标识 · 已审核{crosswalks.length > 1 ? ` · ${crosswalks.length} 条` : ""}
+            </span>
+          ) : null}
+        </header>
+        {historyLoading ? <p className="geo-history-empty" role="status">正在通过稳定地点标识查询 History…</p> : null}
+        {historyError ? (
+          <div className="geo-history-load-error" role="alert">
+            <p>History 暂时不可用；这不是“没有历史记录”。{historyError}</p>
+            <button type="button" onClick={onRetryHistory}>重新加载关联</button>
+          </div>
+        ) : null}
+        {!historyLoading && !historyError && historyContext && crosswalks.length === 0 ? (
+          <p className="geo-history-empty">暂无已审核的 History 地点关联。不会仅凭城市名称拼接历史资料。</p>
+        ) : null}
+        {!historyLoading && !historyError && historyContext && crosswalks.length > 0 && verifiedLocationEvents.length === 0 ? (
+          <p className="geo-history-empty">已找到已审核的 History 地点标识，但没有通过地点事件审核与证据时间范围的事件。</p>
+        ) : null}
+        {crosswalks.map((link) => (
+          <div className="geo-history-link" key={link.id}>
+            <p className="geo-history-provenance">
+              Geography ID <code>{link.geography_entity_id}</code>
+              <span>↔</span>
+              History place ID <code>{link.history_place_id}</code>
+            </p>
+            <p className="geo-history-link-meta">
+              {historyRelationLabel(link.relation_type ?? "")} · {link.status === "reviewed" ? "已审核" : link.status}
+              {link.evidence_time_scope
+                ? ` · 事件证据时间 ${link.evidence_time_scope.start_year}${link.evidence_time_scope.end_year !== link.evidence_time_scope.start_year ? `–${link.evidence_time_scope.end_year}` : ""} 年（${link.evidence_time_scope.precision}）`
+                : " · 地点有效年代未标注"}
+            </p>
+            {link.provenance?.length ? (
+              <details className="geo-history-evidence">
+                <summary>查看关联依据 · {link.provenance.length} 条来源记录</summary>
+                <ul>
+                  {link.provenance.map((source) => (
+                    <li key={`${source.source_id}:${source.record_id}`}>
+                      <span>{source.source_id} / {source.record_id}</span>
+                      {source.uri?.startsWith("https://") ? (
+                        <a href={source.uri} target="_blank" rel="noreferrer">打开来源 ↗</a>
+                      ) : source.uri ? (
+                        <small>{source.uri}</small>
+                      ) : null}
+                      <p>{source.note}</p>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            ) : null}
+          </div>
+        ))}
+        {verifiedLocationEvents.length > 0 ? (
+          <LocationHistoryTimeline
+            key={item.id}
+            entity={item}
+            context={historyContext}
+            crosswalks={crosswalks}
+            onSelectionChange={handleTimelineSelection}
+            onOpenHistoryEvent={(eventId) => onOpenHistoryEvent?.(eventId, { id: item.id, name: item.name })}
+            onOpenHistoryStory={(storyId) => onOpenHistoryStory?.(storyId, { id: item.id, name: item.name })}
+            onAddToTravel={item.entity_type === "city" ? onAddToTravel : undefined}
+          />
+        ) : null}
+        {item.entity_type === "city" && verifiedLocationEvents.length === 0 ? (
+          <button className="geo-add-to-travel" type="button" onClick={() => onAddToTravel?.(item)}>
+            仅将 {item.name} 地点加入行程（不附加未经审核的历史事件） <ArrowRight size={15} />
+          </button>
+        ) : null}
+      </section>
       <section className="geo-sources">
         <header>
           <span className="geo-section-label">SOURCES</span>
@@ -596,8 +1156,12 @@ function EntityDetail({
 
 function KnowledgePage({
   onOpenEntity,
+  returnEntity,
+  onReturnToExplore,
 }: {
   onOpenEntity: (id: string) => void;
+  returnEntity?: GeoEntity | null;
+  onReturnToExplore?: () => void;
 }) {
   const [selectedId, setSelectedId] = useState(
     LANDFORM_KNOWLEDGE_ENTRIES[0].id,
@@ -629,7 +1193,7 @@ function KnowledgePage({
           <span className="geo-eyebrow">GEOGRAPHY KNOWLEDGE · LANDFORMS</span>
           <h2>先认识地貌，再理解地图</h2>
           <p>
-            按主导营力组织主要地貌单元：先观察形态，再理解形成过程和真实案例。
+            按主导营力组织主要地貌单元。概念模型是教学示意；真实 DEM 只对应标注的示例区域，不代表当前城市测绘。
           </p>
         </div>
         <div className="geo-knowledge-count">
@@ -637,6 +1201,11 @@ function KnowledgePage({
           <span>个主要地貌主题</span>
         </div>
       </header>
+      {returnEntity ? (
+        <button type="button" className="geo-knowledge-return" onClick={onReturnToExplore}>
+          ← 返回 {returnEntity.name} 地图与地点时间线
+        </button>
+      ) : null}
       <div className="geo-knowledge-layout">
         <nav className="geo-knowledge-index" aria-label="地貌知识目录">
           <div className="geo-knowledge-index-head">
@@ -794,25 +1363,50 @@ function KnowledgePage({
 export function GeographyPage({
   active,
   setNotice,
-  amapApiKey,
-  amapSecurityJsCode,
   intent,
   onContextChange,
+  onAddToTravel,
+  onOpenHistoryEvent,
+  onOpenHistoryStory,
+  onReturnToTravel,
+  onReturnToHistory,
 }: GeographyPageProps & {
   onContextChange?: (ctx: AppContextPayload | null) => void;
 }) {
   const [home, setHome] = useState<GeographyHome | null>(null);
+  const [homeError, setHomeError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [searchGroups, setSearchGroups] = useState<GeoSearchGroup[]>([]);
+  const [searchSubmitted, setSearchSubmitted] = useState(false);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const searchRequestRef = useRef(0);
   const [detail, setDetail] = useState<GeoEntityDetail | null>(null);
+  const [locationHistory, setLocationHistory] = useState<LocationHistoryContext | null>(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const [historyRetry, setHistoryRetry] = useState(0);
+  const [selectedHistory, setSelectedHistory] = useState<
+    (GeographyHistorySelection & { entityId: string }) | null
+  >(null);
   const [layer, setLayer] = useState<GeoMapLayer>("terrain");
   const [view, setView] = useState<"explore" | "knowledge">("explore");
+  // 地图上的轻量选择：点击地图实体只打开浮动信息卡，详情仍走原有 openEntity。
+  const [mapSelectionId, setMapSelectionId] = useState<string | null>(null);
+  /** 从索引/搜索结果「在地图查看」时的观察中心；null 表示使用随机起点。 */
+  const [mapFocus, setMapFocus] = useState<{ center: [number, number]; zoom: number } | null>(null);
+  const [mapPreview, setMapPreview] = useState<MapPreviewState | null>(null);
+  const previewCacheRef = useRef(new Map<string, GeoEntityDetail>());
+  const previewRequestRef = useRef(0);
 
   const loadHome = useCallback(async () => {
+    setHomeError(null);
     try {
       setHome(await geographyClient.home(0));
     } catch (error) {
-      setNotice(errorMessage(error));
+      const message = errorMessage(error);
+      setHomeError(message);
+      setNotice(message);
     }
   }, [setNotice]);
   useEffect(() => {
@@ -821,6 +1415,12 @@ export function GeographyPage({
 
   const openEntity = useCallback(
     async (id: string) => {
+      setSelectedHistory((current) => current?.entityId === id ? current : null);
+      setView("explore");
+      // 详情成为主视图时收起地图浮动卡，避免两个信息层同时存在。
+      previewRequestRef.current += 1;
+      setMapSelectionId(null);
+      setMapPreview(null);
       try {
         const res = await geographyClient.detail(id);
         setDetail(res);
@@ -845,10 +1445,46 @@ export function GeographyPage({
     },
     [openEntity],
   );
+  const handleHistorySelectionChange = useCallback(
+    (entityId: string, selection: GeographyHistorySelection | null) => {
+      setSelectedHistory(selection ? { ...selection, entityId } : null);
+    },
+    [],
+  );
+  const retryHistory = useCallback(() => setHistoryRetry((count) => count + 1), []);
+  const openLandforms = useCallback(() => setView("knowledge"), []);
+  const returnToExplore = useCallback(() => setView("explore"), []);
+
+  useEffect(() => {
+    const entityId = detail?.entity.id;
+    if (!entityId) {
+      setLocationHistory(null);
+      setHistoryError(null);
+      setHistoryLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setLocationHistory(null);
+    setHistoryError(null);
+    setHistoryLoading(true);
+    void explorationClient.locationHistory(entityId).then(
+      (context) => {
+        if (!cancelled) setLocationHistory(context);
+      },
+      (error: unknown) => {
+        if (!cancelled) setHistoryError(errorMessage(error));
+      },
+    ).finally(() => {
+      if (!cancelled) setHistoryLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [detail?.entity.id, historyRetry]);
 
   // V5 AppContext 桥：上报当前地点 / 视图
   useEffect(() => {
-    if (!onContextChange) return;
+    if (!onContextChange || !active) return;
     if (!detail) {
       onContextChange({ module: "geography" });
       return;
@@ -861,24 +1497,88 @@ export function GeographyPage({
         id: detail.entity.id,
         label: detail.entity.name,
       },
-      view_state: { layer },
+      selection: selectedHistory?.entityId === detail.entity.id
+        ? {
+            kind: "history-event",
+            id: selectedHistory.eventId,
+            text: selectedHistory.year
+              ? `History event · ${selectedHistory.year}`
+              : `History event · ${selectedHistory.eventId}`,
+          }
+        : null,
+      view_state: {
+        layer,
+        ...(selectedHistory?.entityId === detail.entity.id
+          ? {
+              history_event_id: selectedHistory.eventId,
+              history_story_id: selectedHistory.storyId,
+              history_year: selectedHistory.year,
+            }
+          : {}),
+      },
     });
-  }, [detail, view, layer, onContextChange]);
+  }, [active, detail, view, layer, selectedHistory, onContextChange]);
   useEffect(() => {
     if (active && intent?.entityId) void openEntity(intent.entityId);
   }, [active, intent, openEntity]);
-
-  const submitSearch = useCallback(async () => {
-    if (!query.trim()) {
-      setSearchGroups([]);
+  useEffect(() => {
+    const searchQuery = intent?.query?.trim();
+    if (!active || !searchQuery) {
+      if (!active) searchRequestRef.current += 1;
       return;
     }
-    try {
-      setSearchGroups(await geographyClient.search(query, null, 30));
-    } catch (error) {
-      setNotice(errorMessage(error));
+    const requestId = ++searchRequestRef.current;
+    setDetail(null);
+    setView("explore");
+    setQuery(searchQuery);
+    setSearchSubmitted(true);
+    setSearchLoading(true);
+    setSearchError(null);
+    void geographyClient
+      .search(searchQuery, null, 30)
+      .then((groups) => {
+        if (searchRequestRef.current === requestId) setSearchGroups(groups);
+      })
+      .catch((error: unknown) => {
+        if (searchRequestRef.current === requestId) setSearchError(errorMessage(error));
+      })
+      .finally(() => {
+        if (searchRequestRef.current === requestId) setSearchLoading(false);
+      });
+  }, [active, intent?.nonce, intent?.query, setNotice]);
+
+  const runSearch = useCallback(async (text: string) => {
+    const trimmed = text.trim();
+    const requestId = ++searchRequestRef.current;
+    if (!trimmed) {
+      setSearchGroups([]);
+      setSearchSubmitted(false);
+      setSearchError(null);
+      setSearchLoading(false);
+      return;
     }
-  }, [query, setNotice]);
+    setSearchSubmitted(true);
+    setSearchLoading(true);
+    setSearchError(null);
+    try {
+      const groups = await geographyClient.search(trimmed, null, 30);
+      if (searchRequestRef.current === requestId) setSearchGroups(groups);
+    } catch (error) {
+      if (searchRequestRef.current === requestId) setSearchError(errorMessage(error));
+    } finally {
+      if (searchRequestRef.current === requestId) setSearchLoading(false);
+    }
+  }, []);
+
+  const submitSearch = useCallback(() => runSearch(query), [query, runSearch]);
+
+  const clearSearch = useCallback(() => {
+    searchRequestRef.current += 1;
+    setSearchGroups([]);
+    setSearchSubmitted(false);
+    setSearchLoading(false);
+    setSearchError(null);
+  }, []);
 
   const toggleFavorite = useCallback(async () => {
     if (!detail) return;
@@ -900,8 +1600,164 @@ export function GeographyPage({
     }
   }, [detail, setNotice]);
 
+  // ---- 地图选中实体的浮动信息卡 ----
+  const loadMapPreview = useCallback(async (id: string) => {
+    const cached = previewCacheRef.current.get(id);
+    if (cached) {
+      setMapPreview({ id, detail: cached, loading: false, error: null });
+      return;
+    }
+    const requestId = ++previewRequestRef.current;
+    setMapPreview({ id, detail: null, loading: true, error: null });
+    try {
+      const res = await geographyClient.detail(id);
+      if (previewRequestRef.current !== requestId) return;
+      if (res) previewCacheRef.current.set(id, res);
+      setMapPreview({
+        id,
+        detail: res,
+        loading: false,
+        error: res ? null : "本地资料中没有找到这个地点。",
+      });
+    } catch (error) {
+      if (previewRequestRef.current !== requestId) return;
+      setMapPreview({ id, detail: null, loading: false, error: errorMessage(error) });
+    }
+  }, []);
+
+  const handleMapSelect = useCallback(
+    (id: string) => {
+      // 第一次点击选中并显示浮动卡；再次点击同一实体时直接进入详情，保留原来的快捷路径。
+      if (mapSelectionId === id && mapPreview?.detail) {
+        void openEntity(id);
+        return;
+      }
+      setMapSelectionId(id);
+      setMapPreview((current) =>
+        current?.id === id && !current.error
+          ? current
+          : { id, detail: null, loading: true, error: null },
+      );
+      void loadMapPreview(id);
+    },
+    [loadMapPreview, mapPreview?.detail, mapSelectionId, openEntity],
+  );
+
+  const closeMapPreview = useCallback(() => {
+    previewRequestRef.current += 1;
+    setMapSelectionId(null);
+    setMapPreview(null);
+  }, []);
+
+  const retryMapPreview = useCallback(() => {
+    if (!mapSelectionId) return;
+    previewCacheRef.current.delete(mapSelectionId);
+    void loadMapPreview(mapSelectionId);
+  }, [loadMapPreview, mapSelectionId]);
+
+  const toggleMapPreviewFavorite = useCallback(async () => {
+    const id = mapPreview?.id ?? mapSelectionId;
+    if (!id) return;
+    try {
+      const favorite = await geographyClient.toggleFavorite(id);
+      setHome((current) =>
+        current
+          ? {
+              ...current,
+              favorite_ids: favorite
+                ? [...new Set([...current.favorite_ids, id])]
+                : current.favorite_ids.filter((favoriteId) => favoriteId !== id),
+            }
+          : current,
+      );
+      setMapPreview((current) =>
+        current && current.id === id && current.detail
+          ? { ...current, detail: { ...current.detail, favorite } }
+          : current,
+      );
+      const cached = previewCacheRef.current.get(id);
+      if (cached) previewCacheRef.current.set(id, { ...cached, favorite });
+      setDetail((current) =>
+        current && current.entity.id === id ? { ...current, favorite } : current,
+      );
+    } catch (error) {
+      setNotice(errorMessage(error));
+    }
+  }, [mapPreview?.id, mapSelectionId, setNotice]);
+
+  /** 索引/搜索结果 → 地图：选中并平滑定位，滚动到地图卡片；详情仍在信息卡里打开。 */
+  const locateOnMap = useCallback(
+    (id: string) => {
+      if (!home) return;
+      const point = home.map_points.find((item) => item.entity_id === id) ?? null;
+      const entity = home.featured.find((item) => item.id === id) ?? null;
+      const latitude = point?.coordinate.latitude ?? entity?.coordinates?.latitude ?? null;
+      const longitude = point?.coordinate.longitude ?? entity?.coordinates?.longitude ?? null;
+      if (latitude != null && longitude != null) {
+        setMapFocus({ center: [longitude, latitude], zoom: 5 });
+      }
+      setMapSelectionId(id);
+      setMapPreview((current) =>
+        current?.id === id && !current.error
+          ? current
+          : { id, detail: null, loading: true, error: null },
+      );
+      void loadMapPreview(id);
+      const reduceMotion =
+        typeof window !== "undefined" &&
+        typeof window.matchMedia === "function" &&
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      // 只滚动地理页自己的滚动容器，避免把应用外壳（顶栏）一起滚走。
+      const pane = document.querySelector<HTMLElement>(".page-pane.geography-pane");
+      const card = document.querySelector<HTMLElement>(".geo-map-card");
+      if (pane && card) {
+        const paneRect = pane.getBoundingClientRect();
+        const cardRect = card.getBoundingClientRect();
+        if (cardRect.top < paneRect.top || cardRect.bottom > paneRect.bottom) {
+          pane.scrollBy({
+            top: cardRect.top - paneRect.top - 16,
+            behavior: reduceMotion ? "auto" : "smooth",
+          });
+        }
+      }
+    },
+    [home, loadMapPreview],
+  );
+
+  /** 「换一个」：从当前 featured 里随机挑一个不是今日推荐的地点打开详情。 */
+  const exploreRandom = useCallback(() => {
+    if (!home) return;
+    const pool = home.featured.filter(
+      (item) => item.id !== home.recommendation?.entity_id,
+    );
+    const candidates = pool.length ? pool : home.featured;
+    if (!candidates.length) return;
+    const pick = candidates[Math.floor(Math.random() * candidates.length)];
+    void openEntity(pick.id);
+  }, [home, openEntity]);
+
+  useEffect(() => {
+    if (!mapSelectionId) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeMapPreview();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [mapSelectionId, closeMapPreview]);
+
   // 加载完之前渲染骨架。之前的做法是用一份硬编码的 FALLBACK_HOME 顶着——
   // 那让「真实数据」和「假数据」在界面上无法区分。
+  if (!home && homeError) {
+    return (
+      <div className="page-scroll geography-page">
+        <section className="geo-load-error" role="alert">
+          <h1>暂时无法载入 Geography</h1>
+          <p>地理数据服务没有响应。已保存的本地资料不会被更改；请检查服务后重试。</p>
+          <button type="button" onClick={() => void loadHome()}>重新载入</button>
+        </section>
+      </div>
+    );
+  }
   if (!home) {
     return (
       <div className="page-scroll geography-page">
@@ -919,6 +1775,15 @@ export function GeographyPage({
     );
   }
   const displayedHome = home;
+  const favoriteIdSet = new Set(displayedHome.favorite_ids);
+  const previewPoint = mapSelectionId
+    ? displayedHome.map_points.find((point) => point.entity_id === mapSelectionId) ?? null
+    : null;
+  const previewFavorite = mapPreview?.detail
+    ? mapPreview.detail.favorite
+    : mapSelectionId
+      ? favoriteIdSet.has(mapSelectionId)
+      : false;
   return (
     <div className="page-scroll geography-page">
       <header className="geo-hero">
@@ -957,24 +1822,44 @@ export function GeographyPage({
           知识
         </button>
       </nav>
-      {detail ? (
+      {view === "knowledge" ? (
+        <KnowledgePage
+          onOpenEntity={handleOpenEntity}
+          returnEntity={detail?.entity ?? null}
+          onReturnToExplore={returnToExplore}
+        />
+      ) : detail ? (
         <EntityDetail
           detail={detail}
           onBack={() => setDetail(null)}
           onFavorite={() => void toggleFavorite()}
           onOpen={handleOpenEntity}
-          amapApiKey={amapApiKey}
-          amapSecurityJsCode={amapSecurityJsCode}
+          historyContext={locationHistory}
+          historyLoading={historyLoading}
+          historyError={historyError}
+          onAddToTravel={onAddToTravel}
+          onOpenHistoryEvent={onOpenHistoryEvent}
+          onOpenHistoryStory={onOpenHistoryStory}
+          onHistorySelectionChange={handleHistorySelectionChange}
+          onRetryHistory={retryHistory}
+          onOpenLandforms={openLandforms}
+          onReturnToTravel={onReturnToTravel}
+          onReturnToHistory={onReturnToHistory}
         />
-      ) : view === "knowledge" ? (
-        <KnowledgePage onOpenEntity={handleOpenEntity} />
       ) : (
         <>
           <div className="geo-search-box">
             <MagnifyingGlass size={20} />
             <input
               value={query}
-              onChange={(event) => setQuery(event.target.value)}
+              onChange={(event) => {
+                searchRequestRef.current += 1;
+                setQuery(event.target.value);
+                setSearchSubmitted(false);
+                setSearchLoading(false);
+                setSearchError(null);
+                setSearchGroups([]);
+              }}
               onKeyDown={(event) => {
                 if (event.key === "Enter") void submitSearch();
               }}
@@ -984,33 +1869,58 @@ export function GeographyPage({
               搜索
             </button>
           </div>
-          {searchGroups.length > 0 ? (
-            <section className="geo-search-results">
-              <header>
-                <span>SEARCH RESULTS</span>
-                <button type="button" onClick={() => setSearchGroups([])}>
-                  <X size={15} />
-                  关闭
-                </button>
-              </header>
-              {searchGroups.map((group) => (
-                <div key={group.entity_type}>
-                  <b>{TYPE_LABELS[group.entity_type]}</b>
-                  {group.items.map((item) => (
-                    <button
-                      type="button"
-                      key={item.id}
-                      onClick={() => void openEntity(item.id)}
-                    >
-                      <strong>{item.name}</strong>
-                      <small>{item.name_en}</small>
-                      <ArrowRight size={14} />
-                    </button>
-                  ))}
-                </div>
-              ))}
-            </section>
+          {searchLoading ? (
+            <div className="geo-search-state geo-search-loading" role="status">
+              <span className="geo-search-loading-bar" aria-hidden="true" />
+              正在搜索本地 Geography 实体…
+            </div>
           ) : null}
+          {searchError ? (
+            <div className="geo-search-state geo-search-error" role="alert">
+              <p>搜索暂时失败：{searchError}</p>
+              <button type="button" onClick={() => void runSearch(query)}>
+                重新搜索
+              </button>
+            </div>
+          ) : null}
+          {searchSubmitted && !searchLoading && !searchError && searchGroups.length === 0 ? (
+            <div className="geo-search-empty" role="status">
+              <strong>没有找到“{query}”</strong>
+              <p>
+                搜索只覆盖已载入的本地地理实体，名称相似不会自动建立历史关联。可以换一个更短的关键词，或从下面这些已知地点开始：
+              </p>
+              <div className="geo-search-suggestions">
+                {SEARCH_SUGGESTIONS.map((suggestion) => (
+                  <button
+                    type="button"
+                    key={suggestion}
+                    onClick={() => {
+                      setQuery(suggestion);
+                      void runSearch(suggestion);
+                    }}
+                  >
+                    {suggestion}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
+          {searchGroups.length > 0 ? (
+            <SearchResultsPanel
+              groups={searchGroups}
+              onOpen={handleOpenEntity}
+              onLocate={locateOnMap}
+              onClose={clearSearch}
+              selectedId={mapSelectionId}
+            />
+          ) : null}
+          <ExploreIndexRail
+            featured={displayedHome.featured}
+            favoriteIds={displayedHome.favorite_ids}
+            onOpen={handleOpenEntity}
+            onLocate={locateOnMap}
+            selectedId={mapSelectionId}
+          />
           <div className="geo-explore-grid">
             <section className="geo-discovery-card">
               <div className="geo-section-label">
@@ -1025,44 +1935,76 @@ export function GeographyPage({
                   <span key={tag}>{tag}</span>
                 ))}
               </div>
-              <button
-                type="button"
-                className="geo-outline-button"
-                onClick={() =>
-                  handleOpenEntity(displayedHome.recommendation.entity_id)
-                }
-              >
-                开始探索 <ArrowRight size={16} />
-              </button>
+              <div className="geo-discovery-actions">
+                <button
+                  type="button"
+                  className="geo-outline-button"
+                  onClick={() =>
+                    handleOpenEntity(displayedHome.recommendation.entity_id)
+                  }
+                >
+                  开始探索 <ArrowRight size={16} />
+                </button>
+                <button
+                  type="button"
+                  className="geo-outline-button geo-shuffle-button"
+                  onClick={exploreRandom}
+                  title="从精选地点里随机换一个"
+                >
+                  <ArrowClockwise size={15} aria-hidden="true" /> 换一个
+                </button>
+              </div>
             </section>
             <GeoMap
               points={displayedHome.map_points}
               lines={displayedHome.map_lines}
               layer={layer}
               active={active}
-              onSelect={handleOpenEntity}
+              onSelect={handleMapSelect}
               onLayerChange={setLayer}
+              selectedId={mapSelectionId}
+              focus={mapFocus}
+              overlay={
+                mapPreview ? (
+                  <MapEntityPreview
+                    preview={mapPreview}
+                    point={previewPoint}
+                    favorite={previewFavorite}
+                    onOpen={() => {
+                      if (mapSelectionId) void openEntity(mapSelectionId);
+                    }}
+                    onToggleFavorite={() => void toggleMapPreviewFavorite()}
+                    onClose={closeMapPreview}
+                    onRetry={retryMapPreview}
+                  />
+                ) : null
+              }
             />
           </div>
           <section className="geo-feature-section">
             <header>
               <div>
-                <span className="geo-eyebrow">
-                  START WITH A PLACE OR A QUESTION
-                </span>
-                <h2>继续探索</h2>
+                <span className="geo-eyebrow">RECENTLY EXPLORED</span>
+                <h2>最近查看</h2>
               </div>
-              <span>精选地理线索</span>
+              <span>{displayedHome.recent.length} 个地点</span>
             </header>
-            <div className="geo-card-grid">
-              {displayedHome.featured.map((item) => (
-                <EntityCard
-                  item={item}
-                  key={item.id}
-                  onOpen={(id) => void openEntity(id)}
-                />
-              ))}
-            </div>
+            {displayedHome.recent.length ? (
+              <div className="geo-card-grid">
+                {displayedHome.recent.map((item) => (
+                  <EntityCard
+                    item={item}
+                    key={item.id}
+                    favorite={favoriteIdSet.has(item.id)}
+                    onOpen={handleOpenEntity}
+                  />
+                ))}
+              </div>
+            ) : (
+              <p className="geo-feature-empty">
+                还没有最近查看的地点。打开任意实体后，这里会记录你刚看过的内容。
+              </p>
+            )}
           </section>
         </>
       )}

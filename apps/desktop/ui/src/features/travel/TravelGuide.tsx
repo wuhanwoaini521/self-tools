@@ -1,7 +1,9 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   Airplane,
+  ArrowDown,
   ArrowRight,
+  ArrowUp,
   ArrowSquareOut,
   Bed,
   CalendarBlank,
@@ -12,12 +14,14 @@ import {
   CloudRain,
   CloudSun,
   Compass,
+  DotsSixVertical,
   Footprints,
   ForkKnife,
   House,
   Info,
   MapPin,
   MapTrifold,
+  Plus,
   ShieldCheck,
   ShieldWarning,
   Snowflake,
@@ -30,7 +34,14 @@ import {
   WarningCircle,
   X,
 } from "@phosphor-icons/react";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import type {
   Attraction,
   CityGuide,
@@ -40,17 +51,29 @@ import type {
   Place,
   SourceLevel,
   TravelDateRange,
+  GeoSearchGroup,
+  TravelPlan,
+  TravelPlanContext,
+  TravelPlanPlace,
   TravelSource,
   VerifiedValue,
   WeatherForecast,
 } from "../../types";
-import { formatDateTime, isTauriRuntime } from "../../utils";
+import { errorMessage, formatDateTime, isTauriRuntime } from "../../utils";
+import { geographyClient } from "../geography/geographyClient";
+import { explorationClient, type LocationHistoryContext } from "../exploration/explorationClient";
 import {
-  loadAmap,
-  type AmapMapInstance,
-  type AmapNamespace,
-  type AmapOverlay,
-} from "../geography/AmapMap";
+  clearPendingTravelPlanIfUnchanged,
+  pendingTravelPlanStorageKey,
+  readPendingTravelPlan,
+  reconcilePendingTravelPlan,
+  sameTravelPlanContent,
+  travelPlanWriterId,
+  writePendingTravelPlan,
+  type PendingTravelPlanDraft,
+  type TravelPlanStorage,
+} from "./travelPlanPersistence";
+import { isTravelPlanConflict, travelClient } from "./travelClient";
 
 function openLink(url: string) {
   if (isTauriRuntime()) void openUrl(url);
@@ -250,7 +273,9 @@ function attractionLabel(item: Attraction) {
     item.why_for_this_trip ||
     item.why_go ||
     item.intro ||
-    "已从城市景点数据中找到，可加入行程后安排日期。"
+    (item.id?.startsWith("custom:")
+      ? "你添加的地点；尚无核验资料。"
+      : "当前没有可用的地点说明。")
   );
 }
 
@@ -265,54 +290,39 @@ function uniqueAttractions(items: Attraction[]) {
 }
 
 interface SavedTravelPlan {
+  title: string;
+  departure: string;
+  notes: string;
+  customPlaces: Record<string, TravelPlanPlace>;
   selectedKeys: string[];
   assignedDays: Record<string, number>;
   mustVisitKeys: string[];
 }
 
-function readTravelPlan(
-  key: string,
+function initialMustVisitKeys(catalog: Attraction[], userMustVisits: string[]) {
+  return catalog
+    .filter((item) =>
+      userMustVisits.some(
+        (wish) =>
+          item.name.includes(wish) ||
+          wish.includes(item.name) ||
+          (item.intro && item.intro.includes(wish)),
+      ),
+    )
+    .map(attractionKey);
+}
+
+function defaultTravelPlan(
   catalog: Attraction[],
   initial: Attraction[],
   dayCount: number,
   userMustVisits: string[],
 ): SavedTravelPlan {
-  const initialMustKeys = catalog
-    .filter((c) =>
-      userMustVisits.some(
-        (m) =>
-          c.name.includes(m) ||
-          m.includes(c.name) ||
-          (c.intro && c.intro.includes(m)),
-      ),
-    )
-    .map(attractionKey);
-
-  try {
-    const saved = localStorage.getItem(key);
-    if (saved) {
-      const plan = JSON.parse(saved) as SavedTravelPlan;
-      const validKeys = new Set(catalog.map(attractionKey));
-      return {
-        selectedKeys: plan.selectedKeys.filter((itemKey) => validKeys.has(itemKey)),
-        assignedDays: Object.fromEntries(
-          Object.entries(plan.assignedDays).filter(
-            ([itemKey, day]) =>
-              validKeys.has(itemKey) && day >= 1 && day <= dayCount,
-          ),
-        ),
-        mustVisitKeys: Array.from(
-          new Set([
-            ...(plan.mustVisitKeys || []).filter((k) => validKeys.has(k)),
-            ...initialMustKeys,
-          ]),
-        ),
-      };
-    }
-  } catch {
-    // 本地存储异常保持静默
-  }
   return {
+    title: "",
+    departure: "",
+    notes: "",
+    customPlaces: {},
     selectedKeys: initial.map(attractionKey),
     assignedDays: Object.fromEntries(
       initial.map((item) => [
@@ -322,16 +332,143 @@ function readTravelPlan(
           : 1,
       ]),
     ),
-    mustVisitKeys: initialMustKeys,
+    mustVisitKeys: initialMustVisitKeys(catalog, userMustVisits),
   };
+}
+
+function normalizeSavedTravelPlan(
+  plan: Partial<SavedTravelPlan> | null,
+  catalog: Attraction[],
+  initial: Attraction[],
+  dayCount: number,
+  userMustVisits: string[],
+): SavedTravelPlan {
+  const fallback = defaultTravelPlan(catalog, initial, dayCount, userMustVisits);
+  if (!plan) return fallback;
+  const customPlaces = Object.fromEntries(
+    Object.entries(plan.customPlaces ?? {}).filter(
+      ([key, place]) =>
+        key.startsWith("custom:") &&
+        typeof place?.name === "string" &&
+        place.name.trim().length > 0,
+    ).map(([key, place]) => [key, { name: place.name.trim(), note: place.note ?? "" }]),
+  );
+  const validKeys = new Set([...catalog.map(attractionKey), ...Object.keys(customPlaces)]);
+  const selectedKeys = Array.isArray(plan.selectedKeys)
+    ? Array.from(new Set(plan.selectedKeys.filter((key) => validKeys.has(key))))
+    : fallback.selectedKeys;
+  const assignedDays = Object.fromEntries(
+    Object.entries(plan.assignedDays ?? {}).filter(
+      ([key, day]) => validKeys.has(key) && Number.isInteger(day) && day >= 1 && day <= dayCount,
+    ),
+  );
+  return {
+    title: typeof plan.title === "string" ? plan.title : "",
+    departure: typeof plan.departure === "string" ? plan.departure : "",
+    notes: typeof plan.notes === "string" ? plan.notes : "",
+    customPlaces,
+    selectedKeys,
+    assignedDays,
+    mustVisitKeys: Array.from(
+      new Set([
+        ...(Array.isArray(plan.mustVisitKeys)
+          ? plan.mustVisitKeys.filter((key) => validKeys.has(key))
+          : []),
+        ...fallback.mustVisitKeys,
+      ]),
+    ),
+  };
+}
+
+function readLegacyTravelPlan(key: string): Partial<SavedTravelPlan> | null {
+  try {
+    const saved = localStorage.getItem(key);
+    return saved ? JSON.parse(saved) as Partial<SavedTravelPlan> : null;
+  } catch {
+    return null;
+  }
+}
+
+function toTravelPlan(
+  context: TravelPlanContext,
+  plan: SavedTravelPlan,
+  revision: number,
+): TravelPlan {
+  return {
+    context,
+    title: plan.title,
+    departure: plan.departure,
+    notes: plan.notes,
+    custom_places: plan.customPlaces,
+    selected_keys: plan.selectedKeys,
+    assigned_days: plan.assignedDays,
+    must_visit_keys: plan.mustVisitKeys,
+    revision,
+    updated_at: 0,
+  };
+}
+
+function fromTravelPlan(plan: TravelPlan): Partial<SavedTravelPlan> {
+  return {
+    title: plan.title,
+    departure: plan.departure,
+    notes: plan.notes,
+    customPlaces: plan.custom_places,
+    selectedKeys: plan.selected_keys,
+    assignedDays: plan.assigned_days,
+    mustVisitKeys: plan.must_visit_keys,
+  };
+}
+
+function customAttraction(key: string, place: TravelPlanPlace): Attraction {
+  return {
+    id: key,
+    name: place.name,
+    normalized_name: place.name,
+    poi_id: null,
+    intro: place.note || null,
+    why_go: null,
+    why_for_this_trip: null,
+    area: null,
+    suggested_duration: null,
+    opening_hours: null,
+    ticket: null,
+    reservation: null,
+    tips: [],
+    best_for: [],
+    recommended_day: null,
+    open_status: null,
+    confidence: null,
+    source_ids: [],
+    coordinates: null,
+  };
+}
+
+function localPlanStorage(): TravelPlanStorage | null {
+  try {
+    return window.localStorage;
+  } catch {
+    return null;
+  }
 }
 
 interface TravelGuideProps {
   guide: CityGuide;
   fromCache: boolean;
+  persistInitialPlan?: boolean;
   userMustVisits?: string[];
-  amapApiKey?: string | null;
-  amapSecurityJsCode?: string | null;
+  onPlanSaved?: () => void;
+  onExploreHistory?: (query: string) => void;
+  onOpenHistoryEvent?: (eventId: string) => void;
+  onExploreGeography?: (query: string, entityId?: string) => void;
+  explorationPlace?: {
+    nonce: string;
+    entityId: string;
+    city: string;
+    name: string;
+    note: string;
+  } | null;
+  onPlanContextChange?: (viewState: Record<string, unknown> | null) => void;
 }
 
 type TabKey =
@@ -345,36 +482,411 @@ type TabKey =
 export function TravelGuide({
   guide,
   fromCache,
+  persistInitialPlan = false,
   userMustVisits = [],
-  amapApiKey,
-  amapSecurityJsCode,
+  onPlanSaved,
+  onExploreHistory,
+  onOpenHistoryEvent,
+  onExploreGeography,
+  explorationPlace,
+  onPlanContextChange,
 }: TravelGuideProps) {
   const { city, meta } = guide;
-  const region = [city.province, city.country].filter(Boolean).join(" · ") || "中国";
-  const initialPicks = (
-    guide.top_picks.length > 0 ? guide.top_picks : guide.attractions
-  ).slice(0, 8);
-  const catalog = useMemo(
+  const region = [city.province, city.country].filter(Boolean).join(" · ") || "区域未标注";
+  const initialPicks = useMemo(
+    () => (guide.top_picks.length > 0 ? guide.top_picks : guide.attractions).slice(0, 8),
+    [guide.attractions, guide.top_picks],
+  );
+  const guideCatalog = useMemo(
     () => uniqueAttractions([...guide.attractions, ...guide.top_picks, ...guide.alternatives]),
     [guide],
   );
 
+  const planContext: TravelPlanContext = {
+    city: city.name,
+    days: meta.days,
+    date_range: meta.date_range,
+  };
+  const planContextKey = JSON.stringify(planContext);
+  const userMustVisitsKey = JSON.stringify(userMustVisits);
   const storageKey = `travel-plan:${city.name}:${meta.days}:${meta.date_range?.start ?? ""}:${meta.date_range?.end ?? ""}`;
   const [plan, setPlan] = useState<SavedTravelPlan>(() =>
-    readTravelPlan(storageKey, catalog, initialPicks, meta.days, userMustVisits),
+    defaultTravelPlan(guideCatalog, initialPicks, meta.days, userMustVisits),
   );
+  const catalog = useMemo(
+    () => uniqueAttractions([
+      ...guideCatalog,
+      ...Object.entries(plan.customPlaces).map(([key, place]) => customAttraction(key, place)),
+    ]),
+    [guideCatalog, plan.customPlaces],
+  );
+  const [planReady, setPlanReady] = useState(false);
+  const [hasBackendPlan, setHasBackendPlan] = useState(false);
+  const [planSaving, setPlanSaving] = useState(false);
+  const [planRevision, setPlanRevision] = useState(0);
+  const [planError, setPlanError] = useState<string | null>(null);
+  const [localDraftError, setLocalDraftError] = useState<string | null>(null);
+  const [planConflict, setPlanConflict] = useState(false);
+  const [conflictRemote, setConflictRemote] = useState<TravelPlan | null>(null);
+  const [planLoadAttempt, setPlanLoadAttempt] = useState(0);
+  const [planSaveAttempt, setPlanSaveAttempt] = useState(0);
+  const [customPlaceName, setCustomPlaceName] = useState("");
+  const [customPlaceDay, setCustomPlaceDay] = useState(1);
+  const savedPlanRef = useRef<string | null>(null);
+  const revisionRef = useRef(0);
+  const baseRevisionRef = useRef(0);
+  const conflictRef = useRef(false);
+  const mountedRef = useRef(true);
+  const planRef = useRef(plan);
+  const writerId = useMemo(() => travelPlanWriterId(), []);
+  const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
   const [activeTab, setActiveTab] = useState<TabKey>("itinerary");
+  const [locationContexts, setLocationContexts] = useState<LocationHistoryContext[]>([]);
+  const [geographyContext, setGeographyContext] = useState<GeoSearchGroup[]>([]);
+  const [historyContextError, setHistoryContextError] = useState<string | null>(null);
+  const [geographyContextError, setGeographyContextError] = useState<string | null>(null);
+  const [contextLoading, setContextLoading] = useState(false);
+  const consumedExplorationNonceRef = useRef<string | null>(null);
   const [selectedDayFilter, setSelectedDayFilter] = useState<number | null>(null);
+  /** 收起的日程卡片（默认全部展开）；长行程时用来快速折叠。 */
+  const [collapsedDays, setCollapsedDays] = useState<Set<number>>(() => new Set());
+  /** 「在地图查看」指定的天数：切到地图 Tab 并预选该天。 */
+  const [mapFocusDay, setMapFocusDay] = useState<number | null>(null);
+  /** 拖动排序：正在拖的景点 key 与当前悬停的目标 key（只用于视觉反馈）。 */
+  const [draggingStopKey, setDraggingStopKey] = useState<string | null>(null);
+  const [dragOverStopKey, setDragOverStopKey] = useState<string | null>(null);
   const [attractionSearch, setAttractionSearch] = useState("");
   const [attractionCategory, setAttractionCategory] = useState<string>("all");
 
+  planRef.current = plan;
+
   useEffect(() => {
-    try {
-      localStorage.setItem(storageKey, JSON.stringify(plan));
-    } catch {
-      // 存储异常
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    setPlanReady(false);
+    setHasBackendPlan(false);
+    setPlanSaving(false);
+    setPlanError(null);
+    setPlanConflict(false);
+    setConflictRemote(null);
+    conflictRef.current = false;
+    void (async () => {
+      const remote = await travelClient.getPlan(planContext);
+      if (cancelled) return;
+      setHasBackendPlan(Boolean(remote));
+      const storage = localPlanStorage();
+      if (!storage) {
+        setLocalDraftError("本机恢复副本不可用；行程仍会尝试保存到数据服务。");
+      }
+      const pending = storage
+        ? readPendingTravelPlan(storage, storageKey, writerId)
+        : { ok: true as const, draft: null };
+      if (!pending.ok) {
+        setPlanError(pending.error);
+        return;
+      }
+      const fallback = defaultTravelPlan(
+        guideCatalog,
+        initialPicks,
+        meta.days,
+        userMustVisits,
+      );
+      const serverPlan = remote
+        ? normalizeSavedTravelPlan(
+            fromTravelPlan(remote),
+            guideCatalog,
+            initialPicks,
+            meta.days,
+            userMustVisits,
+          )
+        : fallback;
+      const removeLegacy = () => {
+        try {
+          window.localStorage.removeItem(storageKey);
+        } catch {
+          // 后端已确定来源后，旧缓存清理只是尽力而为。
+        }
+      };
+
+      if (pending.draft) {
+        const reconciliation = reconcilePendingTravelPlan(remote, pending.draft);
+        if (reconciliation.kind === "already_saved") {
+          if (storage) {
+            clearPendingTravelPlanIfUnchanged(
+              storage,
+              storageKey,
+              pending.draft,
+              writerId,
+            );
+          }
+          setPlan(serverPlan);
+          savedPlanRef.current = JSON.stringify(serverPlan);
+          revisionRef.current = remote?.revision ?? 0;
+          baseRevisionRef.current = revisionRef.current;
+          if (remote) removeLegacy();
+        } else {
+          const recovered = normalizeSavedTravelPlan(
+            fromTravelPlan(pending.draft.plan),
+            guideCatalog,
+            initialPicks,
+            meta.days,
+            userMustVisits,
+          );
+          setPlan(recovered);
+          savedPlanRef.current = remote ? JSON.stringify(serverPlan) : null;
+          revisionRef.current = remote?.revision ?? 0;
+          baseRevisionRef.current =
+            reconciliation.kind === "conflict"
+              ? pending.draft.base_revision
+              : revisionRef.current;
+          if (reconciliation.kind === "conflict") {
+            conflictRef.current = true;
+            setPlanConflict(true);
+            setConflictRemote(remote);
+          }
+        }
+        setPlanReady(true);
+        return;
+      }
+
+      if (remote) {
+        setPlan(serverPlan);
+        savedPlanRef.current = JSON.stringify(serverPlan);
+        revisionRef.current = remote.revision;
+        baseRevisionRef.current = remote.revision;
+        removeLegacy();
+      } else {
+        const legacy = readLegacyTravelPlan(storageKey);
+        const hydrated = normalizeSavedTravelPlan(
+          legacy,
+          guideCatalog,
+          initialPicks,
+          meta.days,
+          userMustVisits,
+        );
+        setPlan(hydrated);
+        revisionRef.current = 0;
+        baseRevisionRef.current = 0;
+        savedPlanRef.current = legacy || persistInitialPlan
+          ? null
+          : JSON.stringify(hydrated);
+      }
+      setPlanReady(true);
+    })().catch((error: unknown) => {
+      if (cancelled) return;
+      setPlanError(errorMessage(error));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    guideCatalog,
+    initialPicks,
+    meta.days,
+    planContextKey,
+    planLoadAttempt,
+    persistInitialPlan,
+    storageKey,
+    userMustVisitsKey,
+    writerId,
+  ]);
+
+  useLayoutEffect(() => {
+    if (!planReady || savedPlanRef.current === JSON.stringify(plan)) return;
+    const storage = localPlanStorage();
+    if (!storage) {
+      setLocalDraftError("本机恢复副本不可用；行程仍会尝试保存到数据服务。");
+      return;
     }
-  }, [plan, storageKey]);
+    const revision = baseRevisionRef.current;
+    const draft: PendingTravelPlanDraft = {
+      schema_version: 1,
+      base_revision: revision,
+      plan: toTravelPlan(planContext, plan, revision),
+    };
+    if (writePendingTravelPlan(storage, storageKey, draft, writerId)) {
+      setLocalDraftError(null);
+    } else {
+      setLocalDraftError("本机恢复副本写入失败；请保持页面打开直到显示“已保存”。");
+    }
+  }, [plan, planContextKey, planReady, storageKey, writerId]);
+
+  useEffect(() => {
+    const serialized = JSON.stringify(plan);
+    if (
+      !planReady ||
+      planConflict ||
+      serialized === savedPlanRef.current
+    ) {
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      setPlanSaving(true);
+      setPlanError(null);
+      const snapshot = plan;
+      const save = async () => {
+        if (
+          conflictRef.current ||
+          JSON.stringify(planRef.current) !== serialized
+        ) {
+          if (mountedRef.current) setPlanSaving(false);
+          return;
+        }
+        const storage = localPlanStorage();
+        const baseRevision = revisionRef.current;
+        const payload = toTravelPlan(planContext, snapshot, baseRevision);
+        const sentDraft: PendingTravelPlanDraft = {
+          schema_version: 1,
+          base_revision: baseRevision,
+          plan: payload,
+        };
+        if (storage && !writePendingTravelPlan(storage, storageKey, sentDraft, writerId)) {
+          if (mountedRef.current) {
+            setLocalDraftError("本机恢复副本写入失败；请保持页面打开直到显示“已保存”。");
+          }
+        }
+
+        try {
+          let saved: TravelPlan;
+          try {
+            saved = await travelClient.savePlan(payload);
+          } catch (error) {
+            if (!isTravelPlanConflict(error)) throw error;
+            let latest: TravelPlan | null;
+            try {
+              latest = await travelClient.getPlan(planContext);
+            } catch (reloadError) {
+              conflictRef.current = true;
+              if (mountedRef.current) {
+                setPlanConflict(true);
+                setConflictRemote(null);
+                setPlanError(`保存版本冲突，且无法载入服务器版本：${errorMessage(reloadError)}`);
+              }
+              return;
+            }
+            if (!latest || !sameTravelPlanContent(latest, payload)) {
+              conflictRef.current = true;
+              if (mountedRef.current) {
+                setPlanConflict(true);
+                setConflictRemote(latest);
+              }
+              return;
+            }
+            saved = latest;
+          }
+
+          revisionRef.current = saved.revision;
+          setPlanRevision(saved.revision);
+          baseRevisionRef.current = saved.revision;
+          setHasBackendPlan(true);
+          savedPlanRef.current = serialized;
+          if (storage) {
+            clearPendingTravelPlanIfUnchanged(
+              storage,
+              storageKey,
+              sentDraft,
+              writerId,
+            );
+            try {
+              window.localStorage.removeItem(storageKey);
+            } catch {
+              // The backend copy is authoritative after a successful save.
+            }
+            const current = planRef.current;
+            if (JSON.stringify(current) !== serialized) {
+              const currentDraft: PendingTravelPlanDraft = {
+                schema_version: 1,
+                base_revision: saved.revision,
+                plan: toTravelPlan(planContext, current, saved.revision),
+              };
+              writePendingTravelPlan(storage, storageKey, currentDraft, writerId);
+            }
+          }
+          if (mountedRef.current) {
+            setPlanConflict(false);
+            setConflictRemote(null);
+            setPlanError(null);
+          }
+          // The parent can remain mounted after this guide is replaced or hidden.
+          onPlanSaved?.();
+        } catch (error) {
+          if (mountedRef.current) setPlanError(errorMessage(error));
+        } finally {
+          if (mountedRef.current) setPlanSaving(false);
+        }
+      };
+      saveQueueRef.current = saveQueueRef.current.then(save, save);
+    }, 350);
+    return () => window.clearTimeout(timer);
+  }, [onPlanSaved, plan, planContextKey, planConflict, planReady, planSaveAttempt, storageKey, writerId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setHistoryContextError(null);
+    setGeographyContextError(null);
+    setLocationContexts([]);
+    setContextLoading(true);
+    void geographyClient.search(city.name, null, 10).then(
+      async (groups) => {
+        if (cancelled) return;
+        setGeographyContext(groups);
+        const cities = groups
+          .flatMap((group) => group.items)
+          .filter((item) => item.entity_type === "city")
+          .slice(0, 5);
+        try {
+          const contexts = await Promise.all(
+            cities.map((item) => explorationClient.locationHistory(item.id)),
+          );
+          if (!cancelled) setLocationContexts(contexts.filter((item): item is LocationHistoryContext => Boolean(item)));
+        } catch (error) {
+          if (!cancelled) setHistoryContextError(errorMessage(error));
+        } finally {
+          if (!cancelled) setContextLoading(false);
+        }
+      },
+      (error: unknown) => {
+        if (!cancelled) {
+          setGeographyContextError(errorMessage(error));
+          setHistoryContextError(errorMessage(error));
+          setContextLoading(false);
+        }
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [city.name]);
+
+  useEffect(() => {
+    if (
+      !planReady ||
+      !explorationPlace ||
+      consumedExplorationNonceRef.current === explorationPlace.nonce ||
+      city.name.trim() !== explorationPlace.city.trim()
+    ) return;
+    consumedExplorationNonceRef.current = explorationPlace.nonce;
+    const key = `custom:geography:${explorationPlace.entityId}`;
+    setPlan((previous) => {
+      const alreadySelected = previous.selectedKeys.includes(key);
+      const alreadyStored = Boolean(previous.customPlaces[key]);
+      if (alreadySelected && alreadyStored && previous.assignedDays[key]) return previous;
+      return {
+        ...previous,
+        customPlaces: alreadyStored
+          ? previous.customPlaces
+          : { ...previous.customPlaces, [key]: { name: explorationPlace.name, note: explorationPlace.note } },
+        selectedKeys: alreadySelected ? previous.selectedKeys : [...previous.selectedKeys, key],
+        assignedDays: { ...previous.assignedDays, [key]: previous.assignedDays[key] ?? 1 },
+      };
+    });
+  }, [city.name, explorationPlace, planReady]);
 
   const catalogByKey = useMemo(
     () => new Map(catalog.map((item) => [attractionKey(item), item])),
@@ -399,8 +911,184 @@ export function TravelGuide({
     [plan.assignedDays, selectedAttractions],
   );
 
+  useEffect(() => {
+    if (!planReady) return;
+    onPlanContextChange?.({
+      departure: plan.departure,
+      notes: plan.notes.slice(0, 1200),
+      selected_stops: assignedAttractions.slice(0, 50).map((item) => ({
+        id: attractionKey(item),
+        name: item.name,
+        day: item.recommended_day ?? 1,
+        note: (item.intro || item.why_for_this_trip || "").slice(0, 240),
+      })),
+      must_visit_stops: plan.mustVisitKeys.slice(0, 50),
+      plan_revision: revisionRef.current,
+      plan_persisted: planReady && hasBackendPlan && !planConflict && JSON.stringify(plan) === savedPlanRef.current,
+    });
+  }, [assignedAttractions, hasBackendPlan, onPlanContextChange, plan, plan.departure, plan.mustVisitKeys, plan.notes, planReady, planConflict, planRevision]);
+
   const selectedKeys = new Set(plan.selectedKeys);
   const mustVisitSet = new Set(plan.mustVisitKeys);
+
+  const addCustomStop = () => {
+    const name = customPlaceName.trim();
+    if (!name || !planReady) return;
+    const id = globalThis.crypto?.randomUUID?.() ??
+      `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const key = `custom:${id}`;
+    const day = customPlaceDay;
+    setPlan((previous) => ({
+      ...previous,
+      customPlaces: {
+        ...previous.customPlaces,
+        [key]: { name, note: "" },
+      },
+      selectedKeys: [...previous.selectedKeys, key],
+      assignedDays: { ...previous.assignedDays, [key]: day },
+    }));
+    setCustomPlaceName("");
+  };
+
+  /** 拖动排序：把景点移动到目标天的第 targetIndex 位（同天重排 / 跨天移动共用）。 */
+  const reorderStop = (key: string, targetDay: number, targetIndex: number) => {
+    setPlan((previous) => {
+      const dayOf = (selectedKey: string) =>
+        previous.assignedDays[selectedKey] ?? catalogByKey.get(selectedKey)?.recommended_day ?? 1;
+      const sourceDay = dayOf(key);
+
+      if (sourceDay === targetDay) {
+        const dayKeys = previous.selectedKeys.filter((selectedKey) => dayOf(selectedKey) === targetDay);
+        const from = dayKeys.indexOf(key);
+        if (from < 0) return previous;
+        const clamped = Math.max(0, Math.min(dayKeys.length - 1, targetIndex));
+        if (clamped === from) return previous;
+        const order = dayKeys.slice();
+        order.splice(from, 1);
+        order.splice(clamped, 0, key);
+        let cursor = 0;
+        const selectedKeys = previous.selectedKeys.map((selectedKey) => {
+          if (dayOf(selectedKey) !== targetDay) return selectedKey;
+          return order[cursor++] ?? selectedKey;
+        });
+        return { ...previous, selectedKeys };
+      }
+
+      // 跨天：改 assignedDays，再插到目标天第 targetIndex 位；其它天的顺序保持不变。
+      const assignedDays = { ...previous.assignedDays, [key]: targetDay };
+      const without = previous.selectedKeys.filter((selectedKey) => selectedKey !== key);
+      const dayOfAfter = (selectedKey: string) =>
+        assignedDays[selectedKey] ?? catalogByKey.get(selectedKey)?.recommended_day ?? 1;
+      const targetKeys = without.filter((selectedKey) => dayOfAfter(selectedKey) === targetDay);
+      let insertAt = without.length;
+      if (targetKeys.length > 0) {
+        const clamped = Math.max(0, Math.min(targetKeys.length, targetIndex));
+        insertAt =
+          clamped >= targetKeys.length
+            ? without.indexOf(targetKeys[targetKeys.length - 1]) + 1
+            : without.indexOf(targetKeys[clamped]);
+      }
+      const selectedKeys = [
+        ...without.slice(0, insertAt),
+        key,
+        ...without.slice(insertAt),
+      ];
+      return { ...previous, assignedDays, selectedKeys };
+    });
+  };
+
+  const moveStop = (key: string, day: number, direction: -1 | 1) => {
+    setPlan((previous) => {
+      const dayKeys = previous.selectedKeys.filter((selectedKey) => {
+        const item = catalogByKey.get(selectedKey);
+        return (previous.assignedDays[selectedKey] ?? item?.recommended_day ?? 1) === day;
+      });
+      const index = dayKeys.indexOf(key);
+      const neighbor = dayKeys[index + direction];
+      if (!neighbor) return previous;
+      const selectedKeys = previous.selectedKeys.slice();
+      const first = selectedKeys.indexOf(key);
+      const second = selectedKeys.indexOf(neighbor);
+      [selectedKeys[first], selectedKeys[second]] = [selectedKeys[second], selectedKeys[first]];
+      return { ...previous, selectedKeys };
+    });
+  };
+
+  const loadLatestPlan = async () => {
+    try {
+      const remote = await travelClient.getPlan(planContext);
+      const latest = remote
+        ? normalizeSavedTravelPlan(
+            fromTravelPlan(remote),
+            guideCatalog,
+            initialPicks,
+            meta.days,
+            userMustVisits,
+          )
+        : defaultTravelPlan(guideCatalog, initialPicks, meta.days, userMustVisits);
+      const storage = localPlanStorage();
+      if (storage) {
+        try {
+          storage.removeItem(pendingTravelPlanStorageKey(storageKey, writerId));
+          storage.removeItem(storageKey);
+        } catch {
+          setLocalDraftError("服务器版本已载入，但本机旧草稿未能清除。");
+        }
+      }
+      conflictRef.current = false;
+      setPlanConflict(false);
+      setConflictRemote(null);
+      setPlan(latest);
+      setHasBackendPlan(Boolean(remote));
+      savedPlanRef.current = JSON.stringify(latest);
+      revisionRef.current = remote?.revision ?? 0;
+      baseRevisionRef.current = revisionRef.current;
+      setPlanError(null);
+      setPlanReady(true);
+    } catch (error) {
+      setPlanError(errorMessage(error));
+    }
+  };
+
+  const keepLocalPlan = async () => {
+    try {
+      const remote = await travelClient.getPlan(planContext);
+      const revision = remote?.revision ?? 0;
+      const remoteState = remote
+        ? normalizeSavedTravelPlan(
+            fromTravelPlan(remote),
+            guideCatalog,
+            initialPicks,
+            meta.days,
+            userMustVisits,
+          )
+        : defaultTravelPlan(guideCatalog, initialPicks, meta.days, userMustVisits);
+      revisionRef.current = revision;
+      baseRevisionRef.current = revision;
+      setHasBackendPlan(Boolean(remote));
+      savedPlanRef.current = JSON.stringify(remoteState);
+      const storage = localPlanStorage();
+      if (storage) {
+        const draft: PendingTravelPlanDraft = {
+          schema_version: 1,
+          base_revision: revision,
+          plan: toTravelPlan(planContext, planRef.current, revision),
+        };
+        if (!writePendingTravelPlan(storage, storageKey, draft, writerId)) {
+          setLocalDraftError("本机恢复副本写入失败；请保持页面打开直到显示“已保存”。");
+        }
+      } else {
+        setLocalDraftError("本机恢复副本不可用；行程仍会尝试保存到数据服务。");
+      }
+      conflictRef.current = false;
+      setPlanConflict(false);
+      setConflictRemote(null);
+      setPlanError(null);
+      setPlanSaveAttempt((attempt) => attempt + 1);
+    } catch (error) {
+      setPlanError(errorMessage(error));
+    }
+  };
 
   const toggleMustVisit = (item: Attraction) => {
     const key = attractionKey(item);
@@ -471,7 +1159,7 @@ export function TravelGuide({
           name: spot.name,
           note: spot.why_for_this_trip || spot.why_go || spot.intro,
           time: stopTime,
-          duration: spot.suggested_duration || "约 2 小时",
+          duration: spot.suggested_duration || "时长待定",
           area: spot.area,
           reason: attractionLabel(spot),
           travel_time: transitInfo ? transitInfo.durationText : null,
@@ -498,6 +1186,22 @@ export function TravelGuide({
       };
     });
   }, [assignedAttractions, guide.itinerary_days, meta.days, plan.assignedDays]);
+
+  const toggleDayCollapsed = (day: number) => {
+    setCollapsedDays((current) => {
+      const next = new Set(current);
+      if (next.has(day)) next.delete(day);
+      else next.add(day);
+      return next;
+    });
+  };
+  const allDaysCollapsed =
+    calculatedDays.length > 0 && calculatedDays.every((day) => collapsedDays.has(day.day));
+  const toggleAllDaysCollapsed = () => {
+    setCollapsedDays(
+      allDaysCollapsed ? new Set() : new Set(calculatedDays.map((day) => day.day)),
+    );
+  };
 
   // 全程总公里数估算
   const grandTotalDistanceKm = useMemo(() => {
@@ -533,6 +1237,36 @@ export function TravelGuide({
     () => generateWeatherAdvice(guide.weather),
     [guide.weather],
   );
+  const planIsDirty = planReady && JSON.stringify(plan) !== savedPlanRef.current;
+  const planStatus = !planReady
+    ? planError ? "failed" : "loading"
+    : planConflict
+      ? "conflict"
+      : planError
+        ? "failed"
+        : planSaving
+          ? "saving"
+          : planIsDirty
+            ? "editing"
+            : hasBackendPlan
+              ? "saved"
+              : "draft";
+  const planStatusLabel: Record<string, string> = {
+    loading: "载入中",
+    draft: "Draft · 尚未保存",
+    editing: "Editing · 有修改未同步",
+    saving: "Saving · 正在写入",
+    saved: "Saved · 已保存",
+    failed: "Failed · 保存失败",
+    conflict: "Conflict · 版本不一致",
+  };
+  const historyContextItems = locationContexts.flatMap((context) =>
+    context.events.map((detail) => ({
+      geographyEntityId: context.geography.entity.id,
+      event: detail,
+    })),
+  ).slice(0, 3);
+  const geographyContextItems = geographyContext.flatMap((group) => group.items).slice(0, 3);
 
   return (
     <article className="travel-guide-immersive">
@@ -541,20 +1275,18 @@ export function TravelGuide({
         <div className="poster-backdrop-overlay" />
         <div className="poster-content">
           <div className="poster-kicker">
-            <span className="edition-badge">
-              <Sparkle size={13} weight="fill" />
-              CITY EXPLORER EDITION
-            </span>
-            {fromCache ? <span className="cache-badge">已命中 24h 本地快照</span> : null}
+            {fromCache ? <span className="cache-badge">使用本地缓存攻略</span> : null}
             <span className="time-badge">
-              更新于 {formatDateTime(meta.updated_at)}
+              {meta.updated_at > 0
+                ? `资料更新于 ${formatDateTime(meta.updated_at)}`
+                : "空白手排行程 · 暂无资料快照"}
             </span>
           </div>
 
           <div className="poster-title-row">
             <div className="poster-city-info">
               <h1>
-                {city.name}
+                {plan.title.trim() || city.name}
                 {city.name_en ? <span className="city-en">{city.name_en}</span> : null}
               </h1>
               <p className="city-region">
@@ -577,7 +1309,7 @@ export function TravelGuide({
               <div className="poster-weather-widget">
                 <div className="weather-primary">
                   <WeatherIcon
-                    text={guide.weather.days[0]?.text_day || "晴"}
+                    text={guide.weather.days[0]?.text_day || "天气"}
                     size={32}
                   />
                   <div className="weather-temp-wrap">
@@ -609,103 +1341,188 @@ export function TravelGuide({
             <p className="poster-city-summary">{guide.summary}</p>
           ) : null}
 
-          {/* 城市全景数据指标条 */}
-          <div className="poster-stats-strip">
-            <div className="stat-pill">
-              <span className="stat-num">{selectedAttractions.length}</span>
-              <span className="stat-label">已编排景点</span>
-            </div>
-            <div className="stat-pill">
-              <span className="stat-num">{catalog.length}</span>
-              <span className="stat-label">全城发现地标</span>
-            </div>
-            <div className="stat-pill">
-              <span className="stat-num">{guide.foods.length}</span>
-              <span className="stat-label">地道特色风味</span>
-            </div>
-            <div className="stat-pill">
-              <span className="stat-num">{grandTotalDistanceKm > 0 ? `${grandTotalDistanceKm} km` : "市区集约"}</span>
-              <span className="stat-label">规划路线总里程</span>
-            </div>
-            <div className="stat-pill">
-              <span className="stat-num">{guide.accommodation_areas.length || 2}</span>
-              <span className="stat-label">推荐住宿圈</span>
-            </div>
-          </div>
+
         </div>
       </header>
 
-      {/* 核心结论速览卡片 */}
-      <section className="travel-quick-decisions-grid">
-        <div className="decision-card stay-card">
-          <div className="decision-icon">
-            <House size={18} weight="fill" />
-          </div>
-          <div className="decision-body">
-            <small>建议住哪</small>
-            <b>
-              {guide.quick_decisions.best_area_to_stay ||
-                guide.accommodation_areas[0]?.name ||
-                "近核心地铁站与商圈"}
-            </b>
-            <p>
-              {guide.accommodation_areas[0]?.note ||
-                "出行便利，近主要换乘枢纽与餐饮集聚区。"}
-            </p>
-          </div>
-        </div>
-
-        <div className="decision-card food-card">
-          <div className="decision-icon">
-            <ForkKnife size={18} weight="fill" />
-          </div>
-          <div className="decision-body">
-            <small>必吃美食</small>
-            <b>
-              {guide.quick_decisions.signature_food ||
-                guide.foods[0]?.name ||
-                "本地传统特色菜肴"}
-            </b>
-            <p>
-              {guide.food_summary ||
-                guide.foods[0]?.intro ||
-                "寻味老字号与地道街头小馆。"}
-            </p>
-          </div>
-        </div>
-
-        <div className="decision-card must-card">
-          <div className="decision-icon">
-            <Star size={18} weight="fill" />
-          </div>
-          <div className="decision-body">
-            <small>核心地标</small>
-            <b>
-              {plan.mustVisitKeys.length > 0
-                ? plan.mustVisitKeys
-                    .map((k) => catalogByKey.get(k)?.name)
-                    .filter(Boolean)
-                    .slice(0, 3)
-                    .join(" · ")
-                : guide.quick_decisions.must_visit.slice(0, 3).join(" · ") ||
-                  selectedAttractions.slice(0, 3).map((a) => a.name).join(" · ")}
-            </b>
-            <p>本趟行程的核心灵魂与打卡必到之地。</p>
-          </div>
-        </div>
-
-        {mainWarning ? (
-          <div className="decision-card alert-card">
-            <div className="decision-icon">
-              <ShieldWarning size={18} weight="fill" />
-            </div>
-            <div className="decision-body">
-              <small>行前避坑提醒</small>
-              <b>{mainWarning}</b>
-              <p>门票预约、错峰出行与官方规则留意。</p>
-            </div>
-          </div>
+      <div className={`travel-plan-status ${planStatus}`} data-state={planStatus} role="status" aria-live="polite">
+        <span className="travel-plan-status-copy">
+          <strong>{planStatusLabel[planStatus]}</strong>
+          {planError ? <span>{planError}</span> : null}
+          {!planReady && !planError ? <span>正在载入已保存的行程。</span> : null}
+        </span>
+        {planError ? (
+          <button
+            type="button"
+            onClick={() => planReady
+              ? setPlanSaveAttempt((attempt) => attempt + 1)
+              : setPlanLoadAttempt((attempt) => attempt + 1)}
+          >
+            {planReady ? "重试保存" : "重新载入"}
+          </button>
         ) : null}
+      </div>
+      {localDraftError ? (
+        <p className="travel-local-draft-warning" role="alert">{localDraftError}</p>
+      ) : null}
+
+      {planConflict ? (
+        <section className="travel-conflict-panel" role="alert">
+          <div>
+            <h2>这份行程已在别处更新</h2>
+            <p>
+              你的本机修改仍已保留。载入服务器版本会放弃本机草稿；覆盖操作会用本机内容替换服务器版本。
+              {conflictRemote ? ` 服务器当前版本：${conflictRemote.revision}。` : " 服务器版本暂时无法读取。"}
+            </p>
+            {planError ? <p className="travel-conflict-error">{planError}</p> : null}
+          </div>
+          <div className="travel-conflict-actions">
+            <button type="button" className="travel-secondary-action" onClick={() => void loadLatestPlan()}>
+              载入服务器版本并放弃本机草稿
+            </button>
+            <button type="button" className="travel-primary-action" onClick={() => void keepLocalPlan()}>
+              保留本机版本并覆盖服务器
+            </button>
+          </div>
+        </section>
+      ) : null}
+
+      <section className="travel-plan-notebook" aria-label="编辑行程">
+        <div className="travel-plan-fields">
+          <label>
+            <span>行程名称</span>
+            <input
+              aria-label="行程名称"
+              maxLength={120}
+              disabled={!planReady}
+              value={plan.title}
+              placeholder={`${city.name}行程`}
+              onChange={(event) => setPlan((previous) => ({ ...previous, title: event.target.value }))}
+            />
+          </label>
+          <label>
+            <span>从哪里出发</span>
+            <input
+              aria-label="出发地"
+              maxLength={120}
+              disabled={!planReady}
+              value={plan.departure}
+              placeholder="例如：杭州东站"
+              onChange={(event) => setPlan((previous) => ({ ...previous, departure: event.target.value }))}
+            />
+          </label>
+          <label className="travel-plan-note-field">
+            <span>行程备注</span>
+            <textarea
+              aria-label="行程备注"
+              maxLength={4000}
+              rows={2}
+              disabled={!planReady}
+              value={plan.notes}
+              placeholder="写下同行人、节奏或需要记住的事"
+              onChange={(event) => setPlan((previous) => ({ ...previous, notes: event.target.value }))}
+            />
+          </label>
+        </div>
+
+        <form
+          className="travel-add-stop-form"
+          onSubmit={(event) => {
+            event.preventDefault();
+            addCustomStop();
+          }}
+        >
+          <label htmlFor="travel-custom-stop">添加一个地点</label>
+          <div className="travel-add-stop-controls">
+            <input
+              id="travel-custom-stop"
+              maxLength={200}
+              disabled={!planReady}
+              value={customPlaceName}
+              onChange={(event) => setCustomPlaceName(event.target.value)}
+              placeholder="景点、餐馆、街区都可以"
+            />
+            <select
+              aria-label="新地点安排日期"
+              disabled={!planReady}
+              value={customPlaceDay}
+              onChange={(event) => setCustomPlaceDay(Number(event.target.value))}
+            >
+              {Array.from({ length: meta.days }, (_, index) => (
+                <option key={index + 1} value={index + 1}>Day {index + 1}</option>
+              ))}
+            </select>
+            <button type="submit" disabled={!planReady || !customPlaceName.trim()}>
+              <Plus size={16} /> 加入行程
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <section className="travel-context-bridge" aria-label="历史与地理资料">
+        <div className="travel-context-heading">
+          <h2>把城市放进更大的脉络</h2>
+          <p>只显示本机资料库中实际匹配的内容；没有匹配时会明确说明。</p>
+        </div>
+        <div className="travel-context-columns">
+          <div className="travel-context-column">
+            <div className="travel-context-title-row">
+              <h3>历史线索</h3>
+              <button type="button" onClick={() => onExploreHistory?.(city.name)}>
+                在历史中继续搜索
+              </button>
+            </div>
+            {historyContextError ? <p>{historyContextError}</p> : null}
+            {historyContextItems.length > 0 ? (
+              <ul>
+                {historyContextItems.map((item) => (
+                  <li key={`${item.geographyEntityId}-${item.event.event.id}`}>
+                    <button type="button" onClick={() => onOpenHistoryEvent?.(item.event.event.id)}>
+                      <span>{item.event.event.name_zh_cn}</span>
+                      <small>
+                        {item.event.event.start_year ?? "年代待考"} · 已审核地点关联
+                      </small>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : !historyContextError ? (
+              <p>
+                {contextLoading
+                  ? "正在按地理实体的稳定标识查询历史关联…"
+                  : locationContexts.some((context) => context.crosswalk)
+                    ? "已找到对应历史地点，但当前没有可展示的已审核事件。"
+                    : locationContexts.length
+                      ? "有地理城市资料；尚无已审核的 History 地点关联，不按名称猜测。"
+                      : "地理资料库没有返回可关联的城市实体；历史资料保持未匹配。"}
+              </p>
+            ) : null}
+          </div>
+          <div className="travel-context-column">
+            <div className="travel-context-title-row">
+              <h3>地理资料</h3>
+              <button type="button" onClick={() => onExploreGeography?.(city.name)}>
+                在地理中搜索
+              </button>
+            </div>
+            {geographyContextError ? <p>{geographyContextError}</p> : null}
+            {geographyContextItems.length > 0 ? (
+              <ul>
+                {geographyContextItems.map((item) => (
+                  <li key={item.id}>
+                    <button type="button" onClick={() => onExploreGeography?.(city.name, item.id)}>
+                      <span>{item.name}</span>
+                      <small>{item.entity_type}</small>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : !geographyContextError ? (
+              <p>地理资料库暂无“{city.name}”的直接匹配项；可以继续浏览已编录的地理背景。</p>
+            ) : null}
+          </div>
+        </div>
+        {mainWarning ? <p className="travel-context-warning">{mainWarning}</p> : null}
       </section>
 
       {/* 沉浸式导航 Tab 切换栏 */}
@@ -784,6 +1601,27 @@ export function TravelGuide({
       {/* ================= Tab 1: 智能日程规划 ================= */}
       {activeTab === "itinerary" && (
         <div className="travel-tab-pane tab-itinerary-pane">
+          {/* 行程概览：天数 / 地点数 / 必去完成度 / 总里程 */}
+          <div className="itinerary-summary" aria-label="行程概览">
+            <span className="itinerary-summary-item">
+              <b>{meta.days}</b> 天
+            </span>
+            <span className="itinerary-summary-item">
+              <b>{assignedAttractions.length}</b> 个地点
+            </span>
+            {plan.mustVisitKeys.length ? (
+              <span className="itinerary-summary-item">
+                必去 <b>{plan.mustVisitKeys.filter((mustKey) => selectedKeys.has(mustKey)).length}</b>
+                /{plan.mustVisitKeys.length}
+              </span>
+            ) : null}
+            {grandTotalDistanceKm > 0 ? (
+              <span className="itinerary-summary-item">
+                约 <b>{grandTotalDistanceKm}</b> km
+              </span>
+            ) : null}
+          </div>
+
           {/* 天数快速切换器 */}
           <div className="itinerary-days-filter">
             <button
@@ -804,6 +1642,16 @@ export function TravelGuide({
                 <small>{d.theme.slice(0, 6)}</small>
               </button>
             ))}
+            {calculatedDays.length > 1 ? (
+              <button
+                type="button"
+                className="day-filter-btn day-collapse-all"
+                aria-pressed={allDaysCollapsed}
+                onClick={toggleAllDaysCollapsed}
+              >
+                {allDaysCollapsed ? "展开全部" : "收起全部"}
+              </button>
+            ) : null}
           </div>
 
           <div className="itinerary-timeline-days">
@@ -831,19 +1679,91 @@ export function TravelGuide({
                         </span>
                       ) : null}
                     </div>
+                    <div className="day-header-actions">
+                      <button
+                        type="button"
+                        className="day-map-btn"
+                        onClick={() => {
+                          setMapFocusDay(dayData.day);
+                          setActiveTab("map");
+                        }}
+                      >
+                        <MapTrifold size={13} /> 在地图查看
+                      </button>
+                      <button
+                        type="button"
+                        className="day-collapse-btn"
+                        aria-expanded={!collapsedDays.has(dayData.day)}
+                        aria-controls={`day-body-${dayData.day}`}
+                        onClick={() => toggleDayCollapsed(dayData.day)}
+                      >
+                        <CaretDown
+                          size={14}
+                          className={collapsedDays.has(dayData.day) ? "is-collapsed" : ""}
+                        />
+                        {collapsedDays.has(dayData.day) ? "展开" : "收起"}
+                      </button>
+                    </div>
                   </header>
 
+                  <div
+                    className="day-body"
+                    id={`day-body-${dayData.day}`}
+                    hidden={collapsedDays.has(dayData.day)}
+                  >
                   {dayData.stops.length > 0 ? (
                     <div className="day-stops-flow">
                       {dayData.stops.map((stop, stopIdx) => {
                         const attraction = stop.attractionRef;
-                        const isMust = attraction ? mustVisitSet.has(attractionKey(attraction)) : false;
+                        const stopKey = attraction ? attractionKey(attraction) : "";
+                        const isCustomPlace = Boolean(attraction?.id?.startsWith("custom:"));
+                        const isMust = attraction ? mustVisitSet.has(stopKey) : false;
 
                         return (
                           <div key={`${stop.name}-${stopIdx}`} className="timeline-stop-node">
                             {/* 景点卡片主体 */}
-                            <div className="stop-card">
+                            <div
+                              className={`stop-card${draggingStopKey === stopKey ? " is-dragging" : ""}${dragOverStopKey === stopKey ? " is-drop-target" : ""}`}
+                              onDragOver={(event) => {
+                                if (!draggingStopKey || !attraction) return;
+                                event.preventDefault();
+                                event.dataTransfer.dropEffect = "move";
+                                if (dragOverStopKey !== stopKey) setDragOverStopKey(stopKey);
+                              }}
+                              onDragLeave={() => {
+                                if (dragOverStopKey === stopKey) setDragOverStopKey(null);
+                              }}
+                              onDrop={(event) => {
+                                event.preventDefault();
+                                const sourceKey =
+                                  event.dataTransfer.getData("text/plain") || draggingStopKey;
+                                if (sourceKey && attraction && sourceKey !== stopKey) {
+                                  reorderStop(sourceKey, dayData.day, stopIdx);
+                                }
+                                setDraggingStopKey(null);
+                                setDragOverStopKey(null);
+                              }}
+                            >
                               <div className="stop-badge-column">
+                                {attraction ? (
+                                  <span
+                                    className="stop-drag-handle"
+                                    draggable={planReady}
+                                    aria-hidden="true"
+                                    title="拖动排序（键盘请用上/下箭头）"
+                                    onDragStart={(event) => {
+                                      event.dataTransfer.setData("text/plain", stopKey);
+                                      event.dataTransfer.effectAllowed = "move";
+                                      setDraggingStopKey(stopKey);
+                                    }}
+                                    onDragEnd={() => {
+                                      setDraggingStopKey(null);
+                                      setDragOverStopKey(null);
+                                    }}
+                                  >
+                                    <DotsSixVertical size={14} aria-hidden="true" />
+                                  </span>
+                                ) : null}
                                 <span className="stop-order-num">
                                   {String(stopIdx + 1).padStart(2, "0")}
                                 </span>
@@ -860,6 +1780,7 @@ export function TravelGuide({
                                         必去心愿
                                       </span>
                                     )}
+                                    {isCustomPlace ? <span className="travel-custom-place-tag">自定义 · 未核验</span> : null}
                                     {stop.area && (
                                       <span className="stop-area-tag">
                                         <MapPin size={11} />
@@ -877,9 +1798,30 @@ export function TravelGuide({
                                   {/* 景点调整与操作 */}
                                   {attraction && (
                                     <div className="stop-actions">
+                                      <button
+                                        type="button"
+                                        className="btn-reorder-stop"
+                                        aria-label={`将${stop.name}上移`}
+                                        title="上移"
+                                        disabled={!planReady || stopIdx === 0}
+                                        onClick={() => moveStop(stopKey, dayData.day, -1)}
+                                      >
+                                        <ArrowUp size={13} />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        className="btn-reorder-stop"
+                                        aria-label={`将${stop.name}下移`}
+                                        title="下移"
+                                        disabled={!planReady || stopIdx === dayData.stops.length - 1}
+                                        onClick={() => moveStop(stopKey, dayData.day, 1)}
+                                      >
+                                        <ArrowDown size={13} />
+                                      </button>
                                       <label>
                                         <span>安排在</span>
                                         <select
+                                          disabled={!planReady}
                                           value={dayData.day}
                                           onChange={(e) => {
                                             const newDay = Number(e.target.value);
@@ -903,12 +1845,13 @@ export function TravelGuide({
                                       <button
                                         type="button"
                                         className="btn-remove-stop"
+                                        disabled={!planReady}
                                         title="从行程中移出"
+                                        aria-label={`从行程中移出${stop.name}`}
                                         onClick={() => {
-                                          const key = attractionKey(attraction);
                                           setPlan((prev) => ({
                                             ...prev,
-                                            selectedKeys: prev.selectedKeys.filter((k) => k !== key),
+                                            selectedKeys: prev.selectedKeys.filter((k) => k !== stopKey),
                                           }));
                                         }}
                                       >
@@ -918,9 +1861,28 @@ export function TravelGuide({
                                   )}
                                 </div>
 
-                                {stop.reason && (
+                                {isCustomPlace && attraction ? (
+                                  <textarea
+                                    className="travel-custom-place-note"
+                                    aria-label={`${stop.name}备注`}
+                                    maxLength={4000}
+                                    disabled={!planReady}
+                                    value={plan.customPlaces[stopKey]?.note ?? ""}
+                                    placeholder="为这个地点记一条备注"
+                                    onChange={(event) => setPlan((previous) => ({
+                                      ...previous,
+                                      customPlaces: {
+                                        ...previous.customPlaces,
+                                        [stopKey]: {
+                                          ...previous.customPlaces[stopKey],
+                                          note: event.target.value,
+                                        },
+                                      },
+                                    }))}
+                                  />
+                                ) : stop.reason ? (
                                   <p className="stop-reason">{stop.reason}</p>
-                                )}
+                                ) : null}
 
                                 {/* 硬核事实标签：开放时间、门票、预约 */}
                                 {attraction &&
@@ -995,9 +1957,10 @@ export function TravelGuide({
                   ) : (
                     <div className="day-empty-box">
                       <Compass size={24} />
-                      <p>这一天暂无安排景点，可以从「全城景点图鉴」中添加喜欢的地标。</p>
+                      <p>这一天还没有地点。可在上方添加自定义地点，或从景点图鉴中选择。</p>
                     </div>
                   )}
+                  </div>
                 </div>
               ))}
           </div>
@@ -1010,8 +1973,7 @@ export function TravelGuide({
           <GuideInteractiveMap
             attractions={assignedAttractions}
             days={calculatedDays}
-            apiKey={amapApiKey}
-            securityJsCode={amapSecurityJsCode}
+            focusDay={mapFocusDay}
           />
         </div>
       )}
@@ -1107,6 +2069,7 @@ export function TravelGuide({
                       <button
                         type="button"
                         className={`btn-toggle-must ${isMust ? "active" : ""}`}
+                        disabled={!planReady}
                         title={isMust ? "取消必去标记" : "设为必去景点"}
                         onClick={() => toggleMustVisit(item)}
                       >
@@ -1163,6 +2126,7 @@ export function TravelGuide({
                           <label>
                             <span>安排在</span>
                             <select
+                              disabled={!planReady}
                               value={assignedDay}
                               onChange={(e) => {
                                 const newDay = Number(e.target.value);
@@ -1185,6 +2149,7 @@ export function TravelGuide({
                           <button
                             type="button"
                             className="btn-secondary-remove"
+                            disabled={!planReady}
                             onClick={() => {
                               setPlan((prev) => ({
                                 ...prev,
@@ -1199,6 +2164,7 @@ export function TravelGuide({
                         <button
                           type="button"
                           className="btn-primary-add"
+                          disabled={!planReady}
                           onClick={() => {
                             setPlan((prev) => ({
                               ...prev,
@@ -1223,7 +2189,9 @@ export function TravelGuide({
           ) : (
             <div className="attractions-empty-state">
               <Compass size={32} />
-              <p>没有找到符合条件的景点，可以尝试搜索其他关键词。</p>
+              <p>{catalog.length === 0
+                ? "当前攻略没有可编排的地点。可先在上方手动添加一个。"
+                : "没有找到符合条件的地点，可以尝试搜索其他关键词。"}</p>
             </div>
           )}
         </div>
@@ -1237,16 +2205,13 @@ export function TravelGuide({
               <ForkKnife size={24} weight="fill" />
             </div>
             <div className="food-banner-text">
-              <h3>{city.name} 风味寻味地图</h3>
-              <p>
-                {guide.food_summary ||
-                  "先认准本地最具代表性的经典吃法，再结合当天行程路线，就近打卡口碑餐厅与街头小馆。"}
-              </p>
+              <h3>{city.name}的美食资料</h3>
+              <p>{guide.food_summary || "当前攻略未提供可核验的美食资料。"}</p>
             </div>
           </div>
 
           {/* 代表性美食特产 */}
-          {guide.foods.length > 0 && (
+          {guide.foods.length > 0 ? (
             <Section title="城市代表性美食" eyebrow="SIGNATURE FLAVORS" icon={<Sparkle size={16} />}>
               <div className="foods-grid">
                 {guide.foods.map((food, fIdx) => (
@@ -1268,6 +2233,8 @@ export function TravelGuide({
                 ))}
               </div>
             </Section>
+          ) : (
+            <p className="travel-empty-data">当前攻略没有可核验的美食资料；你仍可把餐馆作为自定义地点加入行程。</p>
           )}
 
           {/* 路线沿途精选餐厅 */}
@@ -1297,7 +2264,7 @@ export function TravelGuide({
                         </div>
                       )}
                       <p className="restaurant-why">
-                        {place.why_pick || place.note || "适合作为当天游览路线上的就餐补给点。"}
+                        {place.why_pick || place.note || "当前资料未说明它与行程路线的关联。"}
                       </p>
                     </div>
                   </div>
@@ -1325,23 +2292,10 @@ export function TravelGuide({
                       )}
                     </div>
                     {area.note && <p className="stay-note">{area.note}</p>}
-                    <div className="stay-features">
-                      <span>✓ 交通便利</span>
-                      <span>✓ 餐饮集中</span>
-                      <span>✓ 靠近核心游览区</span>
-                    </div>
                   </div>
                 ))
               ) : (
-                <div className="stay-area-card">
-                  <div className="stay-card-header">
-                    <h4>市区中心 / 地铁枢纽商圈</h4>
-                    <span className="budget-tag">中端 / 舒适</span>
-                  </div>
-                  <p className="stay-note">
-                    建议选择靠近城市核心地铁交汇站（如 1、2 号线换乘枢纽），往返景点与火车站最省时。
-                  </p>
-                </div>
+                <p className="travel-empty-data">当前攻略没有提供可核验的住宿区域建议。</p>
               )}
             </div>
           </Section>
@@ -1349,39 +2303,27 @@ export function TravelGuide({
           {/* 全城交通指南 */}
           <Section title="抵达与全城交通" eyebrow="GETTING AROUND" icon={<Airplane size={16} />}>
             <div className="transport-guide-grid">
-              <div className="transport-card">
-                <div className="transport-head">
-                  <Airplane size={18} />
-                  <h4>机场与大交通</h4>
+              {guide.transport.airport ? (
+                <div className="transport-card">
+                  <div className="transport-head"><Airplane size={18} /><h4>机场与大交通</h4></div>
+                  <p>{guide.transport.airport}</p>
                 </div>
-                <p>
-                  {guide.transport.airport ||
-                    "各大枢纽机场均配备机场快轨或大巴专线直达市中心核心区域。"}
-                </p>
-              </div>
-
-              <div className="transport-card">
-                <div className="transport-head">
-                  <Train size={18} />
-                  <h4>火车站 / 高铁抵达</h4>
+              ) : null}
+              {guide.transport.train_station ? (
+                <div className="transport-card">
+                  <div className="transport-head"><Train size={18} /><h4>火车站 / 高铁抵达</h4></div>
+                  <p>{guide.transport.train_station}</p>
                 </div>
-                <p>
-                  {guide.transport.train_station ||
-                    "高铁枢纽通常无缝接驳城市地铁主力线路，出站刷码乘车最便捷。"}
-                </p>
-              </div>
-
-              <div className="transport-card">
-                <div className="transport-head">
-                  <Car size={18} />
-                  <h4>市内地铁与公交打车</h4>
+              ) : null}
+              {guide.transport.metro || guide.transport.bus_taxi ? (
+                <div className="transport-card">
+                  <div className="transport-head"><Car size={18} /><h4>市内交通</h4></div>
+                  <p>{guide.transport.metro || guide.transport.bus_taxi}</p>
                 </div>
-                <p>
-                  {guide.transport.metro ||
-                    guide.transport.bus_taxi ||
-                    "推荐使用支付宝/微信乘车码乘坐地铁与公交；主要景点间打车起步价经济实惠。"}
-                </p>
-              </div>
+              ) : null}
+              {!guide.transport.airport && !guide.transport.train_station && !guide.transport.metro && !guide.transport.bus_taxi ? (
+                <p className="travel-empty-data">当前攻略没有提供可核验的抵达或市内交通资料。</p>
+              ) : null}
             </div>
 
             {guide.transport.tips.length > 0 && (
@@ -1421,9 +2363,9 @@ export function TravelGuide({
                 <div className="warning-card">
                   <div className="warning-head">
                     <ShieldCheck size={18} weight="fill" />
-                    <h4>暂无重大突发警示</h4>
+                    <h4>当前没有已收集的行前提醒</h4>
                   </div>
-                  <p>主要景点运营平稳，建议出发前通过官方微信小程序确认实时开放与预约排队情况。</p>
+                  <p>这不代表目的地没有风险；出发前请核对景点官方公告与预约规则。</p>
                 </div>
               )}
             </div>
@@ -1444,7 +2386,9 @@ export function TravelGuide({
           )}
 
           {/* 权威数据源报告 */}
-          {guide.sources.length > 0 && (
+          {guide.sources.length === 0 ? (
+            <p className="travel-empty-data">当前攻略没有可展示的来源记录；请勿把未核验信息当作事实。</p>
+          ) : (
             <Section title="事实交叉验证与数据信源" eyebrow="EVIDENCE & CITATIONS" icon={<ShieldCheck size={16} />}>
               <div className="evidence-summary-bar">
                 <div className="evidence-item">
@@ -1502,8 +2446,7 @@ export function TravelGuide({
 function GuideInteractiveMap({
   attractions,
   days,
-  apiKey,
-  securityJsCode,
+  focusDay = null,
 }: {
   attractions: Attraction[];
   days: {
@@ -1516,13 +2459,15 @@ function GuideInteractiveMap({
       transitToNext?: ReturnType<typeof estimateTransitInfo> | null;
     }[];
   }[];
-  apiKey?: string | null;
-  securityJsCode?: string | null;
+  /** 从日程卡片「在地图查看」传入的天数；变化时切到该天。 */
+  focusDay?: number | null;
 }) {
   const [selectedDay, setSelectedDay] = useState<number | null>(days[0]?.day ?? null);
+  useEffect(() => {
+    if (focusDay == null) return;
+    setSelectedDay(focusDay);
+  }, [focusDay]);
   const [activeStopIndex, setActiveStopIndex] = useState<number | null>(null);
-  const [mapError, setMapError] = useState<string | null>(null);
-  const mapContainer = useRef<HTMLDivElement>(null);
 
   // 筛选当前展示的 POI 点位
   const currentStops = useMemo(() => {
@@ -1539,7 +2484,6 @@ function GuideInteractiveMap({
       .filter((item): item is Attraction => Boolean(item && item.coordinates));
   }, [currentStops]);
 
-  const hasMapConfig = Boolean(apiKey?.trim() && securityJsCode?.trim());
   const mapUrl = `https://uri.amap.com/marker?${new URLSearchParams({
     markers: points
       .map(
@@ -1550,49 +2494,6 @@ function GuideInteractiveMap({
     src: "self-tools",
     callnative: "0",
   })}`;
-
-  useEffect(() => {
-    const container = mapContainer.current;
-    if (!container || !hasMapConfig || points.length === 0) return;
-    let cancelled = false;
-    let map: AmapMapInstance | null = null;
-    setMapError(null);
-
-    void loadAmap(apiKey!, securityJsCode!)
-      .then((amap: AmapNamespace) => {
-        if (cancelled) return;
-        const first = points[0].coordinates!;
-        map = new amap.Map(container, {
-          center: [first.longitude, first.latitude],
-          zoom: 12,
-          viewMode: "2D",
-          resizeEnable: true,
-          mapStyle: "amap://styles/normal",
-        });
-
-        const markers: AmapOverlay[] = points.map((point, index) => {
-          const marker = new amap.Marker({
-            position: [point.coordinates!.longitude, point.coordinates!.latitude],
-            title: point.name,
-            content: `<div class="travel-amap-marker ${activeStopIndex === index ? "active" : ""}">${index + 1}</div>`,
-            offset: [-14, -14],
-          });
-          return marker;
-        });
-
-        map.add(markers);
-        map.setFitView(markers, false, [50, 50, 50, 50], 14);
-      })
-      .catch((error: unknown) => {
-        if (!cancelled)
-          setMapError(error instanceof Error ? error.message : "高德地图加载失败");
-      });
-
-    return () => {
-      cancelled = true;
-      map?.destroy();
-    };
-  }, [activeStopIndex, apiKey, hasMapConfig, points, securityJsCode]);
 
   return (
     <Section title="行程路线与节点分布" eyebrow="ROUTE MAP" icon={<MapTrifold size={16} />}>
@@ -1627,30 +2528,18 @@ function GuideInteractiveMap({
         {/* 地图与路线左右布局 */}
         <div className="travel-map-layout">
           <div className="travel-map-canvas-container">
-            {hasMapConfig ? (
-              <div
-                ref={mapContainer}
-                className="travel-map-canvas"
-                role="img"
-                aria-label="行程 POI 高德地图"
-              />
-            ) : (
-              <div className="travel-map-unconfigured-box">
-                <Compass size={32} />
-                <h4>配置高德地图 API 后可显示真实矢量底图与缩放</h4>
-                <p>可在「设置 → Geography」中填入高德 Web Key 与安全密钥。</p>
-              </div>
-            )}
-            {mapError && (
-              <div className="travel-map-status" role="alert">
-                地图加载提示：{mapError}
-              </div>
-            )}
+            <div className="travel-map-unconfigured-box">
+              <Compass size={32} />
+              <h4>{points.length > 0 ? "交互底图暂不可用" : "还没有可定位的地点"}</h4>
+              <p>{points.length > 0
+                ? "为避免把地图凭据发送到浏览器，这里不加载第三方底图；下方列出已定位地点。"
+                : "当前地点没有可用坐标，因此不会绘制推测路线。你仍可编辑行程顺序和日期。"}</p>
+            </div>
           </div>
 
           {/* 右侧节点距离列表 */}
           <div className="travel-map-nodes-sidebar">
-            <h4>路线节点与距离测算</h4>
+            <h4>已编排行程地点</h4>
             {currentStops.length > 0 ? (
               <div className="route-nodes-list">
                 {currentStops.map((stop, idx) => {
@@ -1686,7 +2575,7 @@ function GuideInteractiveMap({
                 })}
               </div>
             ) : (
-              <p className="no-nodes-hint">当前所选日期无节点点位。</p>
+              <p className="no-nodes-hint">当前所选日期还没有已编排的地点。</p>
             )}
 
             {points.length > 0 && (
@@ -1696,7 +2585,7 @@ function GuideInteractiveMap({
                 onClick={() => openLink(mapUrl)}
               >
                 <ArrowSquareOut size={14} />
-                在高德地图中打开全景路线
+                在高德地图查看已定位地点
               </button>
             )}
           </div>

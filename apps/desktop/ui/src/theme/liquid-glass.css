@@ -1,0 +1,1299 @@
+/*
+ * Shared frame, Home, and global AI styles.
+ * Final scoped overrides keep theme tokens and behavior intact.
+ */
+.app-shell {
+  --glass-surface: color-mix(in srgb, var(--panel-raised) 82%, transparent);
+  --glass-surface-solid: color-mix(in srgb, var(--panel-raised) 94%, transparent);
+  --glass-edge: color-mix(in srgb, var(--text) 12%, transparent);
+  --glass-highlight: color-mix(in srgb, var(--text) 14%, transparent);
+  --glass-shadow: 0 12px 32px color-mix(in srgb, var(--text) 10%, transparent);
+  background:
+    radial-gradient(1000px 620px at 78% -10%, color-mix(in srgb, var(--accent) 12%, transparent), transparent 72%),
+    radial-gradient(760px 520px at 4% 100%, color-mix(in srgb, var(--success) 7%, transparent), transparent 72%),
+    var(--bg);
+}
+
+.app-shell .app-bar {
+  position: relative;
+  z-index: 30;
+  border-bottom-color: color-mix(in srgb, var(--line) 64%, transparent);
+  background: color-mix(in srgb, var(--panel-raised) 76%, transparent);
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--text) 5%, transparent);
+  backdrop-filter: blur(26px) saturate(1.35);
+  -webkit-backdrop-filter: blur(26px) saturate(1.35);
+}
+
+.app-shell .app-bar-actions { gap: 8px; }
+.app-shell .app-shell-search {
+  min-height: 38px;
+  border: 1px solid var(--glass-edge);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--panel-raised) 76%, transparent);
+  box-shadow: inset 0 1px 0 var(--glass-highlight);
+  backdrop-filter: blur(18px) saturate(1.2);
+  -webkit-backdrop-filter: blur(18px) saturate(1.2);
+}
+.app-shell .app-shell-search:hover,
+.app-shell .app-bar-gear:hover {
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--line));
+  background: color-mix(in srgb, var(--panel-raised) 92%, transparent);
+}
+.app-shell .app-bar-gear {
+  width: 40px;
+  height: 40px;
+  border-color: var(--glass-edge);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--panel-raised) 72%, transparent);
+  box-shadow: inset 0 1px 0 var(--glass-highlight);
+}
+
+.app-shell .app-body { background: transparent; }
+.app-shell .app-nav {
+  gap: 8px;
+  margin: 12px 8px 12px 12px;
+  padding: 12px 9px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  border: 1px solid var(--glass-edge);
+  border-radius: 22px;
+  background: color-mix(in srgb, var(--panel-raised) 76%, transparent);
+  box-shadow: var(--glass-shadow), inset 0 1px 0 var(--glass-highlight);
+  backdrop-filter: blur(24px) saturate(1.28);
+  -webkit-backdrop-filter: blur(24px) saturate(1.28);
+}
+.app-shell .app-nav-group {
+  gap: 3px;
+  padding: 7px 5px 7px 9px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--nav-hue, var(--accent)) 5%, transparent);
+}
+.app-shell .app-nav-group::before {
+  top: 11px;
+  bottom: 11px;
+  left: 2px;
+  width: 2px;
+  opacity: .72;
+}
+.app-shell .app-nav-group-label {
+  padding: 0 9px 5px;
+  color: color-mix(in srgb, var(--nav-hue, var(--accent)) 72%, var(--text));
+  font-size: 10px;
+  letter-spacing: .035em;
+  opacity: 1;
+}
+.app-shell .app-nav-item {
+  min-height: 40px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  color: var(--text-secondary, var(--muted));
+}
+.app-shell .app-nav-item:hover:not(.disabled) {
+  background: color-mix(in srgb, var(--nav-hue, var(--accent)) 10%, var(--panel-raised));
+  color: var(--text);
+}
+.app-shell .app-nav-item.active {
+  border-color: color-mix(in srgb, var(--nav-hue, var(--accent)) 28%, var(--line));
+  background: color-mix(in srgb, var(--nav-hue, var(--accent)) 15%, var(--panel-raised));
+  box-shadow: inset 0 1px 0 var(--glass-highlight), 0 4px 12px color-mix(in srgb, var(--text) 6%, transparent);
+  color: var(--text-bright, var(--text));
+}
+.app-shell .app-nav-item.active svg { color: var(--nav-hue, var(--accent)); }
+.app-shell .app-nav-divider { background: color-mix(in srgb, var(--line) 72%, transparent); }
+.app-shell .app-nav-footer { padding-inline: 9px; }
+
+.app-shell .app-content,
+.app-shell .app-content:has(.personal-hub-page) {
+  background: transparent;
+}
+.app-shell .personal-hub-page {
+  gap: 20px;
+  background: transparent;
+}
+.app-shell .personal-hub-page .hub-header h1 {
+  letter-spacing: -.035em;
+}
+.app-shell .personal-hub-page .hub-header-actions { gap: 9px; }
+.app-shell .personal-hub-page .hub-button {
+  min-height: 44px;
+  border-radius: 14px;
+  backdrop-filter: blur(12px) saturate(1.18);
+  -webkit-backdrop-filter: blur(12px) saturate(1.18);
+}
+.app-shell .personal-hub-page .hub-button:not(.hub-button-primary) {
+  border-color: var(--glass-edge);
+  background: var(--glass-surface);
+  box-shadow: inset 0 1px 0 var(--glass-highlight);
+}
+.app-shell .personal-hub-page .hub-section {
+  border: 1px solid color-mix(in srgb, var(--section-hue, var(--accent)) 22%, var(--line));
+  border-radius: 22px;
+  box-shadow: var(--glass-shadow), inset 0 1px 0 var(--glass-highlight);
+  backdrop-filter: blur(18px) saturate(1.22);
+  -webkit-backdrop-filter: blur(18px) saturate(1.22);
+}
+.app-shell .personal-hub-page .hub-learning-section {
+  --section-hue: var(--hub-learning);
+  background: color-mix(in srgb, var(--hub-learning) 7%, var(--glass-surface-solid));
+}
+.app-shell .personal-hub-page .hub-knowledge-section {
+  --section-hue: var(--hub-knowledge);
+  background: color-mix(in srgb, var(--hub-knowledge) 7%, var(--glass-surface-solid));
+}
+.app-shell .personal-hub-page .hub-travel-section {
+  --section-hue: var(--hub-travel);
+  background: color-mix(in srgb, var(--hub-travel) 7%, var(--glass-surface-solid));
+}
+.app-shell .personal-hub-page .hub-reading-section {
+  --section-hue: var(--hub-reading);
+  background: color-mix(in srgb, var(--hub-reading) 6%, var(--glass-surface-solid));
+}
+.app-shell .personal-hub-page .hub-notes-section {
+  --section-hue: var(--hub-notes);
+  background: color-mix(in srgb, var(--hub-notes) 6%, var(--glass-surface-solid));
+}
+.app-shell .personal-hub-page .hub-focus-card {
+  border-color: color-mix(in srgb, var(--hub-learning) 34%, var(--line));
+  border-radius: 20px;
+  background: linear-gradient(135deg,
+    color-mix(in srgb, var(--hub-learning) 18%, var(--glass-surface-solid)),
+    var(--glass-surface));
+  box-shadow: var(--glass-shadow), inset 0 1px 0 var(--glass-highlight);
+  backdrop-filter: blur(18px) saturate(1.25);
+  -webkit-backdrop-filter: blur(18px) saturate(1.25);
+}
+.app-shell .personal-hub-page .hub-stat-card {
+  border-color: var(--glass-edge);
+  border-radius: 20px;
+  background: var(--glass-surface-solid);
+  box-shadow: var(--glass-shadow), inset 0 1px 0 var(--glass-highlight);
+  backdrop-filter: blur(16px) saturate(1.2);
+  -webkit-backdrop-filter: blur(16px) saturate(1.2);
+}
+.app-shell .personal-hub-page .hub-continue-item,
+.app-shell .personal-hub-page .hub-saved-item,
+.app-shell .personal-hub-page .hub-travel-card,
+.app-shell .personal-hub-page .hub-headline {
+  border-color: color-mix(in srgb, var(--line) 75%, transparent);
+  background: color-mix(in srgb, var(--panel-raised) 72%, transparent);
+  backdrop-filter: blur(10px) saturate(1.12);
+  -webkit-backdrop-filter: blur(10px) saturate(1.12);
+}
+.app-shell .personal-hub-page :is(button, a, [tabindex]):focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 80%, var(--text));
+  outline-offset: 3px;
+}
+
+/* The assistant capsule stays centered in the desktop title bar and opens below it. */
+.app-shell .ai-bubble-launch {
+  top: 7px;
+  right: auto;
+  bottom: auto;
+  left: 50%;
+  z-index: 61;
+  min-width: 144px;
+  min-height: 40px;
+  justify-content: center;
+  gap: 9px;
+  padding: 0 15px;
+  border: 1px solid rgb(255 255 255 / 18%);
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgb(43 49 61 / 98%), rgb(21 25 33 / 97%));
+  box-shadow: 0 8px 22px rgb(14 18 26 / 24%), inset 0 1px 0 rgb(255 255 255 / 16%);
+  color: #f5f7fb;
+  font: 650 12px/1 var(--font-sans, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
+  transform: translateX(-50%);
+  backdrop-filter: blur(26px) saturate(1.42);
+  -webkit-backdrop-filter: blur(26px) saturate(1.42);
+  transition: box-shadow 180ms cubic-bezier(.2, .8, .2, 1), transform 180ms cubic-bezier(.2, .8, .2, 1), border-color 180ms cubic-bezier(.2, .8, .2, 1);
+}
+.app-shell .ai-bubble-launch:hover {
+  border-color: rgb(255 255 255 / 34%);
+  box-shadow: 0 10px 26px rgb(14 18 26 / 30%), inset 0 1px 0 rgb(255 255 255 / 18%);
+  transform: translate(-50%, -1px);
+}
+.app-shell .ai-bubble-launch svg { color: #b7d4ff; }
+.app-shell .ai-island-indicator {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: #8be0ba;
+  box-shadow: 0 0 0 3px rgb(139 224 186 / 14%);
+}
+.app-shell .ai-bubble-launch.is-open .ai-island-indicator {
+  background: #f6c36b;
+  box-shadow: 0 0 0 3px rgb(246 195 107 / 16%);
+}
+.app-shell:has(.ai-panel) .ai-bubble-launch {
+  top: 7px;
+  right: auto;
+  bottom: auto;
+  left: 50%;
+  border-radius: 999px;
+  transform: translateX(-50%);
+}
+.app-shell:has(.ai-panel) .ai-bubble-launch:hover { transform: translate(-50%, -1px); }
+
+/* The legacy Pencil theme raises the launcher above toasts from the bottom.
+   Desktop's island is top-anchored, so clear that offset instead of stretching it. */
+@media (min-width: 961px) {
+  body:has(.toast) .app-shell .ai-bubble-launch {
+    top: 7px;
+    right: auto;
+    bottom: auto;
+    left: 50%;
+  }
+}
+
+.app-shell:has(.ai-panel) .ai-panel {
+  inset: 56px auto auto 50%;
+  z-index: 60;
+  width: min(440px, calc(100vw - 32px));
+  height: min(680px, calc(100dvh - 72px));
+  border: 1px solid color-mix(in srgb, var(--line) 78%, transparent);
+  border-radius: 24px;
+  background: color-mix(in srgb, var(--panel-raised) 92%, transparent);
+  box-shadow: 0 18px 52px color-mix(in srgb, var(--text) 22%, transparent), inset 0 1px 0 var(--glass-highlight);
+  transform: translateX(-50%);
+  backdrop-filter: blur(28px) saturate(1.3);
+  -webkit-backdrop-filter: blur(28px) saturate(1.3);
+  animation: liquid-island-open 240ms cubic-bezier(.18, .82, .22, 1) both;
+}
+@media (min-width: 768px) and (max-width: 960px) {
+  .app-shell .ai-bubble-launch,
+  .app-shell:has(.ai-panel) .ai-bubble-launch {
+    top: auto;
+    right: 24px;
+    bottom: 24px;
+    left: auto;
+    min-height: 48px;
+    transform: none;
+  }
+  .app-shell .ai-bubble-launch:hover,
+  .app-shell:has(.ai-panel) .ai-bubble-launch:hover {
+    transform: translateY(-1px);
+  }
+  .app-shell:has(.ai-panel) .ai-panel {
+    inset: auto 24px calc(84px + env(safe-area-inset-bottom)) auto;
+    width: min(420px, calc(100vw - 48px));
+    height: min(680px, calc(100dvh - 112px));
+    transform: none;
+    animation-name: liquid-tablet-panel-open;
+  }
+}
+@keyframes liquid-tablet-panel-open {
+  from { opacity: 0; transform: translateY(9px) scale(.98); filter: blur(5px); }
+  to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+}
+
+@keyframes liquid-island-open {
+  from { opacity: 0; transform: translate(-50%, -9px) scale(.98); filter: blur(5px); }
+  to { opacity: 1; transform: translate(-50%, 0) scale(1); filter: blur(0); }
+}
+
+.app-shell :where(button, a, [tabindex]):focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 80%, var(--text));
+  outline-offset: 3px;
+}
+.app-shell ::selection {
+  background: color-mix(in srgb, var(--accent) 32%, transparent);
+  color: var(--text);
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .app-shell .app-bar,
+  .app-shell .app-nav,
+  .app-shell .app-shell-search,
+  .app-shell .app-bar-gear,
+  .app-shell .personal-hub-page .hub-section,
+  .app-shell .personal-hub-page .hub-focus-card,
+  .app-shell .personal-hub-page .hub-stat-card,
+  .app-shell .personal-hub-page .hub-continue-item,
+  .app-shell .personal-hub-page .hub-saved-item,
+  .app-shell .personal-hub-page .hub-travel-card,
+  .app-shell .personal-hub-page .hub-headline,
+  .app-shell:has(.ai-panel) .ai-panel {
+    background-color: var(--panel-raised);
+  }
+}
+
+@media (max-width: 1100px) and (min-width: 768px) {
+  .app-shell .app-nav { margin: 10px 6px 10px 10px; }
+  .app-shell .personal-hub-page { padding-inline: 22px; }
+  .app-shell .personal-hub-page .hub-main-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-width: 767px) {
+  .app-shell .app-bar { padding-inline: 10px; }
+  .app-shell .app-bar-gear { width: 44px; height: 44px; }
+  .app-shell .app-nav { display: none; }
+  .app-shell .app-bottom-nav {
+    border-top-color: color-mix(in srgb, var(--line) 68%, transparent);
+    background: color-mix(in srgb, var(--panel-raised) 88%, transparent);
+    box-shadow: 0 -8px 24px color-mix(in srgb, var(--text) 8%, transparent);
+    backdrop-filter: blur(22px) saturate(1.28);
+    -webkit-backdrop-filter: blur(22px) saturate(1.28);
+  }
+  .app-shell .personal-hub-page { gap: 16px; padding: 18px 14px 112px; }
+  .app-shell .personal-hub-page .hub-header { align-items: flex-start; }
+  .app-shell .personal-hub-page .hub-header-actions { flex-wrap: wrap; }
+  .app-shell .personal-hub-page .hub-focus-card,
+  .app-shell .personal-hub-page .hub-stat-card { border-radius: 18px; }
+  .app-shell .ai-bubble-launch {
+    top: auto;
+    right: 14px;
+    bottom: calc(66px + env(safe-area-inset-bottom));
+    left: auto;
+    width: 48px;
+    min-width: 48px;
+    min-height: 48px;
+    height: 48px;
+    padding: 0;
+    border-radius: 50%;
+    transform: none;
+  }
+  .app-shell .ai-bubble-launch:hover { transform: none; }
+  .app-shell .ai-bubble-launch .ai-bubble-label,
+  .app-shell .ai-bubble-launch .ai-island-shortcut { display: none; }
+  .app-shell .ai-bubble-launch .ai-island-indicator { display: block; }
+  .app-shell:has(.ai-panel) .ai-bubble-launch {
+    top: auto;
+    right: 14px;
+    bottom: calc(66px + env(safe-area-inset-bottom));
+    left: auto;
+    transform: none;
+  }
+  .app-shell:has(.ai-panel) .ai-bubble-launch:hover { transform: none; }
+  .app-shell:has(.ai-panel) .ai-panel {
+    inset: 60px 0 calc(64px + env(safe-area-inset-bottom)) 0;
+    width: 100%;
+    height: auto;
+    border-radius: 22px 22px 0 0;
+    transform: none;
+    animation-name: liquid-ai-sheet-open;
+  }
+}
+@keyframes liquid-ai-sheet-open {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-shell .ai-bubble-launch { transition: none; }
+  .app-shell .ai-bubble-launch:hover,
+  .app-shell:has(.ai-panel) .ai-bubble-launch:hover { transform: translateX(-50%); }
+  .app-shell:has(.ai-panel) .ai-panel { animation: none; }
+  .app-shell .personal-hub-page .hub-focus-card,
+  .app-shell .personal-hub-page .hub-travel-card,
+  .app-shell .personal-hub-page .hub-continue-item,
+  .app-shell .personal-hub-page .hub-headline { transition: none; }
+}
+@media (max-width: 767px) and (prefers-reduced-motion: reduce) {
+  .app-shell .ai-bubble-launch:hover,
+  .app-shell:has(.ai-panel) .ai-bubble-launch:hover { transform: none; }
+}
+@media (min-width: 768px) and (max-width: 960px) and (prefers-reduced-motion: reduce) {
+  .app-shell .ai-bubble-launch:hover,
+  .app-shell:has(.ai-panel) .ai-bubble-launch:hover { transform: none; }
+  .app-shell:has(.ai-panel) .ai-panel { animation: none; }
+}
+
+/* Liquid Glass AI capsule: override Pencil's generic button baseline. */
+.app-shell button.ai-bubble-launch:not(.app-nav-item):not(.sketch-raw) {
+  min-width: 144px;
+  min-height: 40px;
+  justify-content: center;
+  gap: 9px;
+  padding: 0 15px;
+  border: 1px solid rgb(255 255 255 / 18%);
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgb(43 49 61 / 98%), rgb(21 25 33 / 97%));
+  box-shadow: 0 8px 22px rgb(14 18 26 / 24%), inset 0 1px 0 rgb(255 255 255 / 16%);
+  color: #f5f7fb;
+  font: 650 12px/1 var(--font-sans, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
+  backdrop-filter: blur(26px) saturate(1.42);
+  -webkit-backdrop-filter: blur(26px) saturate(1.42);
+  transition: box-shadow 180ms cubic-bezier(.2, .8, .2, 1), transform 180ms cubic-bezier(.2, .8, .2, 1), border-color 180ms cubic-bezier(.2, .8, .2, 1);
+}
+.app-shell button.ai-bubble-launch:not(.app-nav-item):not(.sketch-raw):hover:not(:disabled) {
+  border-color: rgb(255 255 255 / 34%);
+  box-shadow: 0 10px 26px rgb(14 18 26 / 30%), inset 0 1px 0 rgb(255 255 255 / 18%);
+  transform: translate(-50%, -1px);
+}
+@media (min-width: 768px) and (max-width: 960px) {
+  .app-shell button.ai-bubble-launch:not(.app-nav-item):not(.sketch-raw),
+  .app-shell:has(.ai-panel) button.ai-bubble-launch:not(.app-nav-item):not(.sketch-raw) {
+    top: auto;
+    right: 24px;
+    bottom: 24px;
+    left: auto;
+    min-height: 48px;
+    transform: none;
+  }
+  body:has(.toast) .app-shell button.ai-bubble-launch:not(.app-nav-item):not(.sketch-raw) {
+    bottom: 100px;
+  }
+  .app-shell button.ai-bubble-launch:not(.app-nav-item):not(.sketch-raw):hover:not(:disabled),
+  .app-shell:has(.ai-panel) button.ai-bubble-launch:not(.app-nav-item):not(.sketch-raw):hover:not(:disabled) {
+    transform: translateY(-1px);
+  }
+}
+@media (max-width: 767px) {
+  .app-shell button.ai-bubble-launch:not(.app-nav-item):not(.sketch-raw),
+  .app-shell:has(.ai-panel) button.ai-bubble-launch:not(.app-nav-item):not(.sketch-raw) {
+    top: auto;
+    right: 14px;
+    bottom: calc(66px + env(safe-area-inset-bottom));
+    left: auto;
+    width: 48px;
+    min-width: 48px;
+    min-height: 48px;
+    height: 48px;
+    padding: 0;
+    border-radius: 50%;
+    transform: none;
+  }
+  .app-shell button.ai-bubble-launch:not(.app-nav-item):not(.sketch-raw):hover:not(:disabled),
+  .app-shell:has(.ai-panel) button.ai-bubble-launch:not(.app-nav-item):not(.sketch-raw):hover:not(:disabled) {
+    transform: none;
+  }
+  .app-shell .ai-bubble-launch .ai-bubble-label,
+  .app-shell .ai-bubble-launch .ai-island-shortcut { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .app-shell button.ai-bubble-launch:not(.app-nav-item):not(.sketch-raw) { transition: none; }
+  .app-shell button.ai-bubble-launch:not(.app-nav-item):not(.sketch-raw):hover:not(:disabled) {
+    transform: translateX(-50%);
+  }
+}
+@media (max-width: 767px) and (prefers-reduced-motion: reduce) {
+  .app-shell button.ai-bubble-launch:not(.app-nav-item):not(.sketch-raw):hover:not(:disabled) {
+    transform: none;
+  }
+}
+@media (min-width: 768px) and (max-width: 960px) and (prefers-reduced-motion: reduce) {
+  .app-shell button.ai-bubble-launch:not(.app-nav-item):not(.sketch-raw):hover:not(:disabled) {
+    transform: none;
+  }
+}
+
+@media (max-width: 767px) {
+  body:has(.toast) .toast {
+    bottom: calc(66px + env(safe-area-inset-bottom));
+  }
+  body:has(.toast) .app-shell button.ai-bubble-launch:not(.app-nav-item):not(.sketch-raw) {
+    bottom: calc(146px + env(safe-area-inset-bottom));
+  }
+}
+
+/* Quiet Reference Index: final, scoped pass over the frame, Home, and AI. */
+.app-shell {
+  background: var(--bg);
+}
+.app-shell .app-bar {
+  border-bottom: 1px solid var(--line);
+  background: var(--panel-raised);
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.app-shell .app-bar-brand svg { color: var(--text); }
+.app-shell .brand-sticker,
+.app-shell .brand-tag { display: none; }
+.app-shell .app-bar-actions { gap: 8px; }
+.app-shell .app-shell-search {
+  min-height: 36px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.app-shell .app-shell-search:hover,
+.app-shell .app-bar-gear:hover {
+  border-color: var(--accent);
+  background: var(--panel-hover);
+}
+.app-shell .app-bar-gear {
+  width: 36px;
+  height: 36px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  box-shadow: none;
+}
+
+@media (min-width: 1101px) {
+  .app-shell .app-body { grid-template-columns: 248px minmax(0, 1fr); }
+}
+.app-shell .app-nav {
+  margin: 0;
+  padding: 18px 12px;
+  border: 0;
+  border-right: 1px solid var(--line);
+  border-radius: 0;
+  background: var(--panel);
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.app-shell .app-nav-group + .app-nav-group {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line-soft);
+}
+.app-shell .app-nav-group-title {
+  padding-inline: 10px;
+  color: var(--muted);
+  font: 600 11px/1.4 var(--font-sans, sans-serif);
+  letter-spacing: 0;
+}
+.app-shell .app-nav-group-title::before,
+.app-shell .app-nav-group-title::after,
+.app-shell .app-nav-item::before,
+.app-shell .app-nav-item::after { content: none; }
+.app-shell .app-nav-item {
+  min-height: 38px;
+  padding-inline: 10px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--muted);
+  transform: none;
+  transition: color 140ms ease, background-color 140ms ease, border-color 140ms ease;
+}
+.app-shell .app-nav-item:hover {
+  border-color: var(--line-soft);
+  background: var(--panel-hover);
+  color: var(--text);
+  transform: none;
+}
+.app-shell .app-nav-item.active {
+  border-color: var(--line);
+  background: color-mix(in srgb, var(--accent) 10%, var(--panel));
+  box-shadow: none;
+  color: var(--accent);
+  transform: none;
+}
+.app-shell .app-nav-item svg { color: currentColor; }
+.app-shell .app-nav-group { --nav-hue: var(--accent); }
+
+.app-shell .app-content:has(.personal-hub-page) { background: var(--bg); }
+.app-shell .personal-hub-page {
+  --hub-learning: var(--accent);
+  --hub-knowledge: var(--accent);
+  --hub-travel: var(--accent);
+  --hub-reading: var(--accent);
+  --hub-notes: var(--accent);
+  width: 100%;
+  max-width: 1440px;
+  gap: 26px;
+  margin-inline: auto;
+  padding: 30px clamp(20px, 3vw, 42px) 44px;
+  background: transparent;
+}
+.app-shell .personal-hub-page .hub-header {
+  align-items: center;
+  gap: 24px;
+}
+.app-shell .personal-hub-page .hub-date {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+.app-shell .personal-hub-page .hub-header h1 {
+  margin: 7px 0 6px;
+  color: var(--text-bright);
+  font-size: 28px;
+  font-weight: 650;
+  letter-spacing: -0.025em;
+  line-height: 1.25;
+}
+.app-shell .personal-hub-page .hub-header p {
+  max-width: 68ch;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.app-shell .personal-hub-page .hub-header-actions { gap: 8px; }
+.app-shell .personal-hub-page .hub-button {
+  min-height: 38px;
+  padding-inline: 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.app-shell .personal-hub-page .hub-button-primary { box-shadow: none; }
+.app-shell .personal-hub-page .hub-button-primary:hover { transform: none; }
+
+.app-shell .personal-hub-page .hub-focus-grid {
+  grid-template-columns: minmax(0, 1.7fr) repeat(2, minmax(145px, 0.65fr));
+  align-items: center;
+  gap: 10px;
+}
+.app-shell .personal-hub-page .hub-focus-card {
+  min-height: 84px;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel-raised);
+  box-shadow: none;
+  transition: border-color 140ms ease, background-color 140ms ease;
+}
+.app-shell .personal-hub-page .hub-focus-card:hover {
+  border-color: var(--accent);
+  background: var(--panel-hover);
+  transform: none;
+}
+.app-shell .personal-hub-page .hub-focus-icon,
+.app-shell .personal-hub-page .hub-row-icon,
+.app-shell .personal-hub-page .hub-review-mark {
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+}
+.app-shell .personal-hub-page .hub-focus-icon { color: var(--accent); }
+.app-shell .personal-hub-page .hub-focus-copy { gap: 4px; }
+.app-shell .personal-hub-page .hub-focus-copy small,
+.app-shell .personal-hub-page .hub-stat-card small,
+.app-shell .personal-hub-page .hub-review-banner small {
+  color: var(--muted);
+  font: 500 12px/1.35 var(--font-sans, sans-serif);
+  letter-spacing: 0;
+}
+.app-shell .personal-hub-page .hub-focus-copy strong {
+  color: var(--text-bright);
+  font-size: 18px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+.app-shell .personal-hub-page .hub-focus-copy > span {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+.app-shell .personal-hub-page .hub-stat-card {
+  min-height: 66px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-content: center;
+  gap: 4px 10px;
+  padding: 10px 14px;
+  border: 0;
+  border-left: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.app-shell .personal-hub-page .hub-stat-icon { display: none; }
+.app-shell .personal-hub-page .hub-stat-card small { grid-column: 1; grid-row: 1; }
+.app-shell .personal-hub-page .hub-stat-card strong {
+  grid-column: 2;
+  grid-row: 1;
+  color: var(--text-bright);
+  font-size: 17px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+.app-shell .personal-hub-page .hub-stat-card > span:last-child {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.app-shell .personal-hub-page .hub-main-grid {
+  grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr);
+  gap: 30px;
+}
+.app-shell .personal-hub-page .hub-bottom-grid {
+  grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr);
+  gap: 30px;
+}
+.app-shell .personal-hub-page .hub-section {
+  min-width: 0;
+  padding: 16px 0 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.app-shell .personal-hub-page .hub-section::before,
+.app-shell .personal-hub-page .hub-section::after { content: none; }
+.app-shell .personal-hub-page .hub-section-heading {
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.app-shell .personal-hub-page .hub-section-heading h2 {
+  margin: 0;
+  color: var(--text-bright);
+  font-size: 16px;
+  font-weight: 650;
+  letter-spacing: -0.015em;
+}
+.app-shell .personal-hub-page .hub-section-heading > button,
+.app-shell .personal-hub-page .hub-empty button,
+.app-shell .personal-hub-page .hub-learning-footer button,
+.app-shell .personal-hub-page .hub-edit-note {
+  min-height: 32px;
+  padding: 4px 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 550;
+  box-shadow: none;
+}
+.app-shell .personal-hub-page .hub-section-heading > button:hover,
+.app-shell .personal-hub-page .hub-empty button:hover,
+.app-shell .personal-hub-page .hub-learning-footer button:hover,
+.app-shell .personal-hub-page .hub-edit-note:hover { text-decoration: underline; text-underline-offset: 3px; }
+.app-shell .personal-hub-page .hub-review-banner {
+  width: 100%;
+  min-height: 54px;
+  gap: 10px;
+  padding: 10px 0;
+  border: 0;
+  border-block: 1px solid var(--line-soft);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text);
+  text-align: left;
+}
+.app-shell .personal-hub-page .hub-review-banner:hover { background: var(--panel-hover); }
+.app-shell .personal-hub-page .hub-review-banner small { display: block; margin-bottom: 3px; }
+.app-shell .personal-hub-page .hub-review-banner strong {
+  color: var(--text-bright);
+  font-size: 13px;
+  font-weight: 600;
+}
+.app-shell .personal-hub-page .hub-review-banner em {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 11px;
+  font-style: normal;
+}
+.app-shell .personal-hub-page .hub-review-banner > svg { color: var(--muted); }
+.app-shell .personal-hub-page .hub-continue-item {
+  min-height: 58px;
+  gap: 10px;
+  padding: 10px 0;
+  border: 0;
+  border-bottom: 1px solid var(--line-soft);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  transition: background-color 140ms ease, color 140ms ease;
+}
+.app-shell .personal-hub-page .hub-continue-item:hover {
+  border-color: var(--line-soft);
+  background: var(--panel-hover);
+  transform: none;
+}
+.app-shell .personal-hub-page .hub-row-copy { gap: 3px; }
+.app-shell .personal-hub-page .hub-row-copy > small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+.app-shell .personal-hub-page .hub-row-copy > strong {
+  color: var(--text-bright);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+.app-shell .personal-hub-page .hub-row-copy > span {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+.app-shell .personal-hub-page .hub-progress-label {
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.app-shell .personal-hub-page .hub-learning-footer {
+  gap: 12px;
+  padding: 10px 0 0;
+  border-top: 1px solid var(--line-soft);
+  color: var(--muted);
+  font-size: 11px;
+}
+.app-shell .personal-hub-page .hub-saved-item {
+  padding: 11px 0;
+  border-bottom: 1px solid var(--line-soft);
+  background: transparent;
+  box-shadow: none;
+}
+.app-shell .personal-hub-page .hub-saved-source { gap: 9px; border: 0; background: transparent; }
+.app-shell .personal-hub-page .hub-source-dot { width: 6px; height: 6px; background: var(--accent); }
+.app-shell .personal-hub-page .hub-edit-note { min-height: 28px; margin: 4px 0 0 15px; }
+.app-shell .personal-hub-page .hub-travel-section { padding-bottom: 0; }
+.app-shell .personal-hub-page .hub-travel-list { grid-template-columns: minmax(0, 1fr); gap: 0; }
+.app-shell .personal-hub-page .hub-travel-card {
+  gap: 10px;
+  padding: 11px 0;
+  border: 0;
+  border-bottom: 1px solid var(--line-soft);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  transition: background-color 140ms ease;
+}
+.app-shell .personal-hub-page .hub-travel-card:hover {
+  border-color: var(--line-soft);
+  background: var(--panel-hover);
+  transform: none;
+}
+.app-shell .personal-hub-page .hub-travel-number { color: var(--muted); }
+.app-shell .personal-hub-page .hub-headline {
+  gap: 5px;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--line-soft);
+  background: transparent;
+  transition: background-color 140ms ease;
+}
+.app-shell .personal-hub-page .hub-headline:hover {
+  background: var(--panel-hover);
+  color: var(--text);
+  transform: none;
+}
+.app-shell .personal-hub-page .hub-headline-meta { color: var(--muted); font-size: 11px; }
+.app-shell .personal-hub-page .hub-headline-meta i {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--accent);
+  font-size: 11px;
+  font-style: normal;
+}
+.app-shell .personal-hub-page .hub-headline > strong {
+  color: var(--text-bright);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+.app-shell .personal-hub-page .hub-headline-summary { color: var(--muted); font-size: 12px; line-height: 1.5; }
+.app-shell .personal-hub-page .hub-note-list li { border-bottom: 1px solid var(--line-soft); }
+.app-shell .personal-hub-page .hub-note-list button {
+  min-height: 48px;
+  grid-template-columns: 20px minmax(0, 1fr) auto 16px;
+  gap: 8px;
+  padding: 8px 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.app-shell .personal-hub-page .hub-note-list button:hover { background: var(--panel-hover); }
+.app-shell .personal-hub-page .hub-note-list button > span { color: var(--muted); }
+.app-shell .personal-hub-page .hub-note-list strong { color: var(--text-bright); font-size: 12px; font-weight: 600; }
+.app-shell .personal-hub-page .hub-note-list small { color: var(--muted); font-size: 10px; }
+.app-shell .personal-hub-page .hub-empty {
+  justify-items: start;
+  gap: 8px;
+  padding: 18px 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  text-align: left;
+}
+.app-shell .personal-hub-page .hub-empty > svg { color: var(--muted); }
+.app-shell .personal-hub-page .hub-empty strong { color: var(--text-bright); font-size: 13px; font-weight: 600; }
+.app-shell .personal-hub-page .hub-empty p { max-width: 60ch; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.app-shell .personal-hub-page .hub-error,
+.app-shell .personal-hub-page .hub-refresh-error {
+  border-radius: 8px;
+  box-shadow: none;
+}
+.app-shell .personal-hub-page .hub-footer {
+  gap: 8px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line-soft);
+  color: var(--muted);
+  font-size: 11px;
+}
+.app-shell .personal-hub-page .hub-footer > svg { color: var(--muted); }
+.app-shell .personal-hub-page .hub-footer button { color: var(--accent); }
+.app-shell .personal-hub-page :is(button, a, [tabindex]):focus-visible,
+.app-shell .app-nav-item:focus-visible,
+.app-shell .app-shell-search:focus-visible,
+.app-shell .app-bar-gear:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.app-shell .personal-hub-page ::selection { background: color-mix(in srgb, var(--accent) 22%, var(--bg)); color: var(--text); }
+.app-shell .app-content::-webkit-scrollbar-thumb { border: 3px solid var(--bg); border-radius: 8px; background: var(--line); }
+
+/* A quiet, rectangular AI control preserves its existing state and shortcut. */
+.app-shell button.ai-bubble-launch:not(.app-nav-item):not(.sketch-raw) {
+  top: 8px;
+  right: auto;
+  bottom: auto;
+  left: 50%;
+  width: auto;
+  min-width: 126px;
+  min-height: 36px;
+  height: 36px;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 11px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-raised);
+  box-shadow: none;
+  color: var(--text);
+  font: 600 12px/1 var(--font-sans, sans-serif);
+  transform: translateX(-50%);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  transition: border-color 140ms ease, background-color 140ms ease, color 140ms ease;
+}
+.app-shell button.ai-bubble-launch:not(.app-nav-item):not(.sketch-raw):hover:not(:disabled),
+.app-shell:has(.ai-panel) button.ai-bubble-launch:not(.app-nav-item):not(.sketch-raw):hover:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--panel-hover);
+  box-shadow: none;
+  color: var(--accent);
+  transform: translateX(-50%);
+}
+.app-shell .ai-bubble-launch svg { color: currentColor; }
+.app-shell .ai-bubble-launch .ai-island-indicator { display: none; }
+.app-shell .ai-bubble-launch .ai-island-shortcut {
+  padding: 3px 5px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--muted);
+  font: 500 10px/1 var(--font-sans, sans-serif);
+}
+.app-shell:has(.ai-panel) button.ai-bubble-launch:not(.app-nav-item):not(.sketch-raw) {
+  top: 8px;
+  right: auto;
+  bottom: auto;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.app-shell:has(.ai-panel) .ai-panel {
+  inset: 52px auto auto 50%;
+  width: min(420px, calc(100vw - 32px));
+  height: min(680px, calc(100dvh - 68px));
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel-raised);
+  box-shadow: 0 14px 32px color-mix(in srgb, var(--text) 16%, transparent);
+  transform: translateX(-50%);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  animation: reference-ai-reveal 180ms ease-out both;
+}
+@keyframes reference-ai-reveal {
+  from { opacity: 0; translate: 0 -4px; }
+  to { opacity: 1; translate: 0 0; }
+}
+
+.app-shell .app-bottom-nav {
+  border-top: 1px solid var(--line);
+  background: var(--panel-raised);
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.app-shell .app-bottom-nav-item { min-height: 56px; border-radius: 8px; color: var(--muted); }
+.app-shell .app-bottom-nav-item.active {
+  background: color-mix(in srgb, var(--accent) 10%, var(--panel));
+  box-shadow: none;
+  color: var(--accent);
+}
+
+@media (max-width: 1100px) and (min-width: 768px) {
+  .app-shell .personal-hub-page { padding-inline: 24px; }
+  .app-shell .personal-hub-page .hub-main-grid { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+  .app-shell .personal-hub-page .hub-bottom-grid { gap: 24px; }
+}
+@media (min-width: 768px) and (max-width: 960px) {
+  .app-shell button.ai-bubble-launch:not(.app-nav-item):not(.sketch-raw),
+  .app-shell:has(.ai-panel) button.ai-bubble-launch:not(.app-nav-item):not(.sketch-raw) {
+    top: auto;
+    right: 20px;
+    bottom: 20px;
+    left: auto;
+    min-height: 48px;
+    height: 48px;
+    transform: none;
+  }
+  .app-shell .ai-bubble-launch:not(.app-nav-item):not(.sketch-raw):hover:not(:disabled),
+  .app-shell:has(.ai-panel) .ai-bubble-launch:not(.app-nav-item):not(.sketch-raw):hover:not(:disabled) { transform: none; }
+  .app-shell:has(.ai-panel) .ai-panel { inset: auto 20px calc(82px + env(safe-area-inset-bottom)) auto; transform: none; }
+}
+@media (max-width: 767px) {
+  .app-shell .app-bar { padding-inline: 10px; }
+  .app-shell .app-bar-gear { width: 44px; height: 44px; }
+  .app-shell .app-nav { display: none; }
+  .app-shell .personal-hub-page { gap: 22px; padding: 20px 16px 112px; }
+  .app-shell .personal-hub-page .hub-header { align-items: flex-start; flex-direction: column; gap: 14px; }
+  .app-shell .personal-hub-page .hub-header h1 { font-size: 24px; }
+  .app-shell .personal-hub-page .hub-header-actions { width: 100%; flex-wrap: wrap; }
+  .app-shell .personal-hub-page .hub-button { min-height: 44px; }
+  .app-shell .personal-hub-page .hub-focus-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .app-shell .personal-hub-page .hub-focus-card { grid-column: 1 / -1; min-height: 76px; }
+  .app-shell .personal-hub-page .hub-stat-card {
+    min-height: 64px;
+    padding: 10px 8px 0;
+    border-top: 1px solid var(--line);
+    border-left: 0;
+  }
+  .app-shell .personal-hub-page .hub-main-grid,
+  .app-shell .personal-hub-page .hub-bottom-grid { grid-template-columns: minmax(0, 1fr); gap: 22px; }
+  .app-shell .personal-hub-page .hub-section-heading > button { min-height: 40px; }
+  .app-shell .personal-hub-page .hub-travel-list { grid-template-columns: minmax(0, 1fr); }
+  .app-shell .personal-hub-page .hub-note-list button { grid-template-columns: 20px minmax(0, 1fr) 16px; }
+  .app-shell .personal-hub-page .hub-note-list small { display: none; }
+  .app-shell .personal-hub-page .hub-footer { align-items: flex-start; flex-wrap: wrap; }
+  .app-shell button.ai-bubble-launch:not(.app-nav-item):not(.sketch-raw),
+  .app-shell:has(.ai-panel) button.ai-bubble-launch:not(.app-nav-item):not(.sketch-raw) {
+    top: auto;
+    right: 14px;
+    bottom: calc(72px + env(safe-area-inset-bottom));
+    left: auto;
+    width: 48px;
+    min-width: 48px;
+    min-height: 48px;
+    height: 48px;
+    justify-content: center;
+    padding: 0;
+    border-radius: 10px;
+    transform: none;
+  }
+  .app-shell .ai-bubble-launch .ai-bubble-label,
+  .app-shell .ai-bubble-launch .ai-island-shortcut,
+  .app-shell .ai-bubble-launch .ai-island-indicator { display: none; }
+  .app-shell .ai-bubble-launch:not(.app-nav-item):not(.sketch-raw):hover:not(:disabled),
+  .app-shell:has(.ai-panel) .ai-bubble-launch:not(.app-nav-item):not(.sketch-raw):hover:not(:disabled) { transform: none; }
+  .app-shell:has(.ai-panel) .ai-panel {
+    inset: 58px 0 calc(64px + env(safe-area-inset-bottom)) 0;
+    width: 100%;
+    height: auto;
+    border-radius: 12px 12px 0 0;
+    transform: none;
+    animation-name: reference-ai-reveal;
+  }
+}
+@media (max-width: 420px) {
+  .app-shell .personal-hub-page { padding-inline: 14px; }
+  .app-shell .personal-hub-page .hub-header-actions .hub-button { flex: 1 1 auto; }
+  .app-shell .personal-hub-page .hub-stat-card > span:last-child { font-size: 10px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .app-shell .personal-hub-page :is(button, a),
+  .app-shell .app-nav-item,
+  .app-shell button.ai-bubble-launch:not(.app-nav-item):not(.sketch-raw) { transition: none; }
+  .app-shell .personal-hub-page :is(.hub-focus-card, .hub-continue-item, .hub-travel-card, .hub-headline):hover,
+  .app-shell .app-nav-item:hover { transform: none; }
+  .app-shell:has(.ai-panel) .ai-panel { animation: none; }
+}
+
+/* Strip the remaining category tint so Home reads as a quiet reference index. */
+.app-shell .app-nav .app-nav-group {
+  border-radius: 0;
+  background: transparent;
+}
+.app-shell .app-nav .app-nav-group::before {
+  display: none;
+  content: none;
+}
+.app-shell .app-nav .app-nav-group-label { color: var(--muted); }
+.app-shell .personal-hub-page .hub-section-heading h2::before {
+  display: none;
+  content: none;
+}
+.app-shell .personal-hub-page .hub-stat-card:nth-child(2),
+.app-shell .personal-hub-page .hub-stat-card:nth-child(3) {
+  border: 0;
+  border-left: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+/* Keep Home rows flat above the global button skin. */
+.app-shell .personal-hub-page button:is(
+  .hub-continue-item,
+  .hub-saved-source,
+  .hub-edit-note,
+  .hub-travel-card,
+  .hub-headline,
+  .hub-review-banner
+):not(.app-nav-item):not(.sketch-raw) {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.app-shell .personal-hub-page button:is(
+  .hub-continue-item,
+  .hub-travel-card,
+  .hub-headline
+):not(.app-nav-item):not(.sketch-raw),
+.app-shell .personal-hub-page .hub-saved-item {
+  border-bottom: 1px solid var(--line-soft);
+}
+.app-shell .personal-hub-page .hub-saved-item {
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.app-shell .personal-hub-page button.hub-review-banner:not(.app-nav-item):not(.sketch-raw) {
+  border-block: 1px solid var(--line-soft);
+}
+.app-shell .personal-hub-page button:is(
+  .hub-continue-item,
+  .hub-saved-source,
+  .hub-travel-card,
+  .hub-headline,
+  .hub-review-banner
+):not(.app-nav-item):not(.sketch-raw):hover:not(:disabled) {
+  border-color: var(--line-soft);
+  background: var(--panel-hover);
+  transform: none;
+}
+.app-shell .personal-hub-page button.hub-edit-note:not(.app-nav-item):not(.sketch-raw):hover:not(:disabled) {
+  background: transparent;
+  transform: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .app-shell .personal-hub-page button:is(
+    .hub-continue-item,
+    .hub-saved-source,
+    .hub-edit-note,
+    .hub-travel-card,
+    .hub-headline,
+    .hub-review-banner
+  ):not(.app-nav-item):not(.sketch-raw) {
+    transition: none;
+  }
+}
+
+/* Soft Butter Frost: pale yellow atmosphere with a few readable glass layers. */
+.app-shell {
+  background-color: var(--bg);
+  background-image: radial-gradient(
+    1200px 520px at 17% -10%,
+    color-mix(in srgb, var(--accent-soft) 36%, transparent),
+    transparent 72%
+  );
+}
+.app-shell .app-content:has(.personal-hub-page) { background: transparent; }
+.app-shell .app-bar {
+  border-bottom-color: var(--line-soft);
+  background: var(--panel-raised);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.app-shell .app-nav {
+  border-right-color: var(--line-soft);
+  background: var(--panel);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.app-shell .app-shell-search,
+.app-shell .app-bar-gear {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.app-shell .personal-hub-page .hub-focus-card {
+  border-color: var(--line-soft);
+  background: var(--panel-raised);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.app-shell button.ai-bubble-launch:not(.app-nav-item):not(.sketch-raw),
+.app-shell:has(.ai-panel) .ai-panel,
+.app-shell .app-bottom-nav {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .app-shell .app-bar {
+    background: color-mix(in srgb, var(--panel-raised) 78%, transparent);
+    box-shadow: 0 1px 0 var(--inset-highlight), 0 6px 18px color-mix(in srgb, var(--text) 4%, transparent);
+    backdrop-filter: blur(14px) saturate(114%);
+    -webkit-backdrop-filter: blur(14px) saturate(114%);
+  }
+  .app-shell .app-nav {
+    background: color-mix(in srgb, var(--panel) 92%, transparent);
+    backdrop-filter: blur(8px) saturate(108%);
+    -webkit-backdrop-filter: blur(8px) saturate(108%);
+  }
+  .app-shell .app-shell-search,
+  .app-shell .app-bar-gear {
+    background: color-mix(in srgb, var(--surface-control) 76%, transparent);
+    box-shadow: inset 0 1px 0 var(--inset-highlight), 0 4px 12px color-mix(in srgb, var(--text) 4%, transparent);
+    backdrop-filter: blur(12px) saturate(112%);
+    -webkit-backdrop-filter: blur(12px) saturate(112%);
+  }
+  .app-shell .personal-hub-page .hub-focus-card {
+    background: color-mix(in srgb, var(--panel-raised) 74%, transparent);
+    box-shadow: 0 8px 24px color-mix(in srgb, var(--text) 5%, transparent), inset 0 1px 0 var(--inset-highlight);
+    backdrop-filter: blur(14px) saturate(112%);
+    -webkit-backdrop-filter: blur(14px) saturate(112%);
+  }
+  .app-shell button.ai-bubble-launch:not(.app-nav-item):not(.sketch-raw) {
+    background: color-mix(in srgb, var(--panel-raised) 76%, transparent);
+    box-shadow: 0 6px 16px color-mix(in srgb, var(--text) 5%, transparent), inset 0 1px 0 var(--inset-highlight);
+    backdrop-filter: blur(12px) saturate(112%);
+    -webkit-backdrop-filter: blur(12px) saturate(112%);
+  }
+  .app-shell:has(.ai-panel) .ai-panel {
+    background: color-mix(in srgb, var(--panel-raised) 84%, transparent);
+    backdrop-filter: blur(18px) saturate(114%);
+    -webkit-backdrop-filter: blur(18px) saturate(114%);
+  }
+  .app-shell .app-bottom-nav {
+    background: color-mix(in srgb, var(--panel-raised) 80%, transparent);
+    box-shadow: 0 -6px 18px color-mix(in srgb, var(--text) 5%, transparent), inset 0 1px 0 var(--inset-highlight);
+    backdrop-filter: blur(14px) saturate(112%);
+    -webkit-backdrop-filter: blur(14px) saturate(112%);
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .app-shell { background-image: none; }
+  .app-shell .app-bar,
+  .app-shell .app-nav,
+  .app-shell .app-shell-search,
+  .app-shell .app-bar-gear,
+  .app-shell .personal-hub-page .hub-focus-card,
+  .app-shell button.ai-bubble-launch:not(.app-nav-item):not(.sketch-raw),
+  .app-shell:has(.ai-panel) .ai-panel,
+  .app-shell .app-bottom-nav {
+    background: var(--panel-raised);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+  .app-shell .app-nav { background: var(--panel); }
+}
+

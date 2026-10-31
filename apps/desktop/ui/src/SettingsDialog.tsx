@@ -2,7 +2,6 @@ import { Database, X } from "@phosphor-icons/react";
 import { useCallback, useEffect, useState } from "react";
 import type {
   AiSettings,
-  GeographySettings,
   KnowledgeRoot,
   KnowledgeSettings,
   McpSettings,
@@ -10,10 +9,12 @@ import type {
   ServerServiceDescriptor,
   ServerSettings,
   SourceInfo,
+  SecretSettingsField,
+  SecretSettingsStatus,
+  SecretSettingsUpdate,
   TravelSearchBackend,
   TravelSettings,
 } from "./types";
-import { loadAmap } from "./features/geography/AmapMap";
 import { languageClient } from "./features/language/languageClient";
 import { travelClient } from "./features/travel/travelClient";
 import { allThemes, getTheme } from "./theme/ThemeManager";
@@ -26,8 +27,8 @@ interface SettingsDialogProps {
   onRefreshMinutesChange: (minutes: number) => void;
   travel: TravelSettings;
   onTravelChange: (travel: TravelSettings) => void;
-  geography: GeographySettings;
-  onGeographyChange: (geography: GeographySettings) => void;
+  secretStatus: SecretSettingsStatus;
+  onSecretsChange: (update: SecretSettingsUpdate) => Promise<void>;
   ai: AiSettings;
   onAiChange: (ai: AiSettings) => void;
   knowledge: KnowledgeSettings;
@@ -58,8 +59,8 @@ export function SettingsDialog({
   onRefreshMinutesChange,
   travel,
   onTravelChange,
-  geography,
-  onGeographyChange,
+  secretStatus,
+  onSecretsChange,
   ai,
   onAiChange,
   knowledge,
@@ -69,23 +70,53 @@ export function SettingsDialog({
   onClose,
 }: SettingsDialogProps) {
   const current = getTheme(themeId);
-  const [testing, setTesting] = useState<
-    "llm" | "amap" | "geography-amap" | "qweather" | null
-  >(null);
+  const canManageSettings = isTauriRuntime();
+  const [testing, setTesting] = useState<"llm" | "amap" | "qweather" | null>(null);
   const [testResults, setTestResults] = useState<
-    Partial<Record<"llm" | "amap" | "geography-amap" | "qweather", string>>
+    Partial<Record<"llm" | "amap" | "qweather", string>>
   >({});
+  const [secretDrafts, setSecretDrafts] = useState<
+    Partial<Record<SecretSettingsField, string>>
+  >({});
+  const [secretNotice, setSecretNotice] = useState("");
+  const [savingSecrets, setSavingSecrets] = useState(false);
   const updateTravel = (patch: Partial<TravelSettings>) =>
     onTravelChange({ ...travel, ...patch });
   const updateAi = (patch: Partial<AiSettings>) =>
     onAiChange({ ...ai, ...patch });
-  const updateGeography = (patch: Partial<GeographySettings>) =>
-    onGeographyChange({ ...geography, ...patch });
   const updateKnowledge = (patch: Partial<KnowledgeSettings>) =>
     onKnowledgeChange({ ...knowledge, ...patch });
-  const runTest = async (
-    kind: "llm" | "amap" | "geography-amap" | "qweather",
-  ) => {
+  const persistSecretUpdates = async (updates: SecretSettingsUpdate["updates"]) => {
+    if (!isTauriRuntime() || updates.length === 0) return;
+    setSavingSecrets(true);
+    setSecretNotice("");
+    try {
+      await onSecretsChange({ updates });
+      const saved = new Set(updates.map((item) => item.field));
+      setSecretDrafts((current) => {
+        const next = { ...current };
+        saved.forEach((field) => delete next[field]);
+        return next;
+      });
+      setSecretNotice("凭据已安全保存到本机后端。");
+    } catch (error) {
+      setSecretNotice(`保存凭据失败：${errorMessage(error)}`);
+    } finally {
+      setSavingSecrets(false);
+    }
+  };
+  const saveSecretFields = (fields: SecretSettingsField[]) =>
+    void persistSecretUpdates(
+      fields
+        .filter((field) => secretDrafts[field] !== undefined)
+        .map((field) => ({ field, value: secretDrafts[field] || null })),
+    );
+  const clearSecret = (field: SecretSettingsField) =>
+    void persistSecretUpdates([{ field, value: null }]);
+  const changeSecretDraft = (field: SecretSettingsField, value: string) =>
+    setSecretDrafts((current) => ({ ...current, [field]: value }));
+
+  const runTest = async (kind: "llm" | "amap" | "qweather") => {
     if (!isTauriRuntime()) return;
     setTesting(kind);
     setTestResults((current) => ({ ...current, [kind]: "" }));
@@ -94,23 +125,18 @@ export function SettingsDialog({
         kind === "llm"
           ? await travelClient.testLlm({
               baseUrl: travel.llm_base_url ?? "",
-              apiKey: travel.llm_api_key,
+              apiKey: secretDrafts.travel_llm_api_key ?? null,
               model: travel.llm_model ?? "",
             })
-          : kind === "geography-amap"
-            ? await loadAmap(
-                geography.amap_api_key ?? "",
-                geography.amap_security_js_code ?? "",
-              ).then(() => "Geography 高德 JS API 加载成功")
-            : kind === "amap"
-              ? await travelClient.testAmap({
-                  apiKey: travel.amap_api_key ?? "",
-                  apiHost: null,
-                })
-              : await travelClient.testQweather({
-                  apiKey: travel.qweather_api_key ?? "",
-                  apiHost: travel.qweather_api_host,
-                });
+          : kind === "amap"
+            ? await travelClient.testAmap({
+                apiKey: secretDrafts.travel_amap_api_key ?? "",
+                apiHost: null,
+              })
+            : await travelClient.testQweather({
+                apiKey: secretDrafts.travel_qweather_api_key ?? "",
+                apiHost: travel.qweather_api_host,
+              });
       setTestResults((current) => ({ ...current, [kind]: result }));
     } catch (error) {
       setTestResults((current) => ({
@@ -140,6 +166,12 @@ export function SettingsDialog({
           </button>
         </header>
         <div className="settings-body">
+          {!canManageSettings ? (
+            <p className="settings-hint" role="status">
+              当前为网页预览：配置更改不会持久化，凭据保存和 Provider 测试仅可在本机桌面应用中使用；服务端认证管理接口尚未启用。
+            </p>
+          ) : null}
+          {secretNotice ? <p className="settings-hint" role="status">{secretNotice}</p> : null}
           <section className="settings-section">
             {/* 主题控件已由 <select> 改为 radiogroup，这里不再有对应的表单 id；
                 保留 htmlFor 会指向不存在的 #ui-theme-select。 */}
@@ -186,61 +218,25 @@ export function SettingsDialog({
             </p>
           </section>
           <section className="settings-section">
-            <label className="settings-label">Geography · 高德地图</label>
+            <label className="settings-label">Geography · 地图服务</label>
             <p className="settings-hint">
-              与 Travel 独立保存。填写高德「Web 端（JS API）」Key
-              和对应安全密钥后，地理探索页使用真实动态地图；留空时使用离线地图。
+              地形图使用 MapLibre 与公开地理数据。高德 JS SDK 需要把 Key 暴露给浏览器，因此当前不在客户端加载；行政区边界服务端代理尚未接入。
             </p>
-            <input
-              className="settings-select"
-              type="password"
-              placeholder="高德 AMAP_JS_API_KEY（Geography 专用）"
-              value={geography.amap_api_key ?? ""}
-              onChange={(event) =>
-                updateGeography({ amap_api_key: event.target.value || null })
-              }
-              style={{ marginTop: 6 }}
-            />
-            <input
-              className="settings-select"
-              type="password"
-              placeholder="高德 securityJsCode（Geography 专用）"
-              value={geography.amap_security_js_code ?? ""}
-              onChange={(event) =>
-                updateGeography({
-                  amap_security_js_code: event.target.value || null,
-                })
-              }
-              style={{ marginTop: 6 }}
-            />
-            <button
-              className="settings-test-button"
-              disabled={
-                testing !== null ||
-                !geography.amap_api_key?.trim() ||
-                !geography.amap_security_js_code?.trim()
-              }
-              onClick={() => void runTest("geography-amap")}
-            >
-              {testing === "geography-amap"
-                ? "正在测试…"
-                : "测试 Geography 高德连接"}
-            </button>
-            {testResults["geography-amap"] ? (
-              <p
-                className={
-                  testResults["geography-amap"]?.startsWith("连接失败")
-                    ? "settings-test-result failed"
-                    : "settings-test-result"
-                }
-              >
-                {testResults["geography-amap"]}
-              </p>
+            {secretStatus.geography_amap_api_key_configured || secretStatus.geography_amap_security_js_code_configured ? (
+              <div>
+                <p className="settings-hint">检测到旧的高德浏览器凭据，仍安全保存在后端且不会传给页面；目前不会被地图使用。</p>
+                <button
+                  className="settings-test-button"
+                  disabled={savingSecrets || !isTauriRuntime()}
+                  onClick={() => void persistSecretUpdates([
+                    { field: "geography_amap_api_key", value: null },
+                    { field: "geography_amap_security_js_code", value: null },
+                  ])}
+                >
+                  清除未使用的高德凭据
+                </button>
+              </div>
             ) : null}
-            <p className="settings-hint" style={{ marginTop: 6 }}>
-              测试会加载高德 JS API；成功后切换到 Geography
-              页面即可看到动态地图。
-            </p>
           </section>
           <section className="settings-section">
             <label className="settings-label" htmlFor="rss-refresh-select">
@@ -354,19 +350,30 @@ export function SettingsDialog({
             <input
               className="settings-select"
               id="travel-llm-key"
+              disabled={!canManageSettings}
               type="password"
-              placeholder="sk-..."
-              value={travel.llm_api_key ?? ""}
-              onChange={(event) =>
-                updateTravel({ llm_api_key: event.target.value || null })
-              }
+              placeholder={secretStatus.travel_llm_api_key_configured ? "已保存；输入新值以替换" : "sk-..."}
+              value={secretDrafts.travel_llm_api_key ?? ""}
+              onChange={(event) => changeSecretDraft("travel_llm_api_key", event.target.value)}
             />
             <button
               className="settings-test-button"
+              disabled={!canManageSettings || savingSecrets || secretDrafts.travel_llm_api_key === undefined}
+              onClick={() => saveSecretFields(["travel_llm_api_key"])}
+            >
+              保存 Travel LLM Key
+            </button>
+            {secretStatus.travel_llm_api_key_configured ? (
+              <button className="settings-test-button" disabled={!canManageSettings || savingSecrets} onClick={() => clearSecret("travel_llm_api_key")}>清除已保存的 Key</button>
+            ) : null}
+            <button
+              className="settings-test-button"
               disabled={
+                !canManageSettings ||
                 testing !== null ||
                 !travel.llm_base_url?.trim() ||
-                !travel.llm_model?.trim()
+                !travel.llm_model?.trim() ||
+                (secretStatus.travel_llm_api_key_configured && !secretDrafts.travel_llm_api_key)
               }
               onClick={() => void runTest("llm")}
             >
@@ -389,8 +396,7 @@ export function SettingsDialog({
             <p className="settings-hint">
               全局 AI 助手配置（OpenAI Compatible：DeepSeek / Qwen / OpenAI /
               本地 Ollama http://localhost:11434/v1）。未配置时 AI
-              面板显示未配置 状态，其余功能不受影响。Key 仅保存在本地
-              settings.json，不会进入 日志或同步到任何服务。
+              面板显示未配置状态，其余功能不受影响。Key 通过本机专用写入操作保存；普通配置读取仅返回 configured 状态，不返回原值，错误和日志也不会输出密钥。
             </p>
             <label className="settings-label" htmlFor="ai-base">
               API Base URL
@@ -432,13 +438,22 @@ export function SettingsDialog({
             <input
               className="settings-select"
               id="ai-key"
+              disabled={!canManageSettings}
               type="password"
-              placeholder="sk-..."
-              value={ai.api_key ?? ""}
-              onChange={(event) =>
-                updateAi({ api_key: event.target.value || null })
-              }
+              placeholder={secretStatus.ai_api_key_configured ? "已保存；输入新值以替换" : "sk-..."}
+              value={secretDrafts.ai_api_key ?? ""}
+              onChange={(event) => changeSecretDraft("ai_api_key", event.target.value)}
             />
+            <button
+              className="settings-test-button"
+              disabled={!canManageSettings || savingSecrets || secretDrafts.ai_api_key === undefined}
+              onClick={() => saveSecretFields(["ai_api_key"])}
+            >
+              保存 AI Key
+            </button>
+            {secretStatus.ai_api_key_configured ? (
+              <button className="settings-test-button" disabled={!canManageSettings || savingSecrets} onClick={() => clearSecret("ai_api_key")}>清除已保存的 Key</button>
+            ) : null}
             <label
               className="settings-label"
               htmlFor="ai-timeout"
@@ -472,16 +487,15 @@ export function SettingsDialog({
             <input
               className="settings-select"
               type="password"
-              placeholder="高德 AMAP_API_KEY（Web服务类型）"
-              value={travel.amap_api_key ?? ""}
-              onChange={(event) =>
-                updateTravel({ amap_api_key: event.target.value || null })
-              }
+              disabled={!canManageSettings}
+              placeholder={secretStatus.travel_amap_api_key_configured ? "已保存；输入新值以替换" : "高德 AMAP_API_KEY（Web服务类型）"}
+              value={secretDrafts.travel_amap_api_key ?? ""}
+              onChange={(event) => changeSecretDraft("travel_amap_api_key", event.target.value)}
               style={{ marginTop: 6 }}
             />
             <button
               className="settings-test-button"
-              disabled={testing !== null || !travel.amap_api_key?.trim()}
+              disabled={!canManageSettings || testing !== null || !secretDrafts.travel_amap_api_key?.trim()}
               onClick={() => void runTest("amap")}
             >
               {testing === "amap" ? "正在测试…" : "测试高德连接"}
@@ -510,18 +524,18 @@ export function SettingsDialog({
             <input
               className="settings-select"
               type="password"
-              placeholder="和风天气 QWEATHER_API_KEY（可选）"
-              value={travel.qweather_api_key ?? ""}
-              onChange={(event) =>
-                updateTravel({ qweather_api_key: event.target.value || null })
-              }
+              disabled={!canManageSettings}
+              placeholder={secretStatus.travel_qweather_api_key_configured ? "已保存；输入新值以替换" : "和风天气 QWEATHER_API_KEY（可选）"}
+              value={secretDrafts.travel_qweather_api_key ?? ""}
+              onChange={(event) => changeSecretDraft("travel_qweather_api_key", event.target.value)}
               style={{ marginTop: 6 }}
             />
             <button
               className="settings-test-button"
               disabled={
+                !canManageSettings ||
                 testing !== null ||
-                !travel.qweather_api_key?.trim() ||
+                !secretDrafts.travel_qweather_api_key?.trim() ||
                 !travel.qweather_api_host?.trim()
               }
               onClick={() => void runTest("qweather")}
@@ -531,13 +545,30 @@ export function SettingsDialog({
             <input
               className="settings-select"
               type="password"
-              placeholder="百度地图 BAIDU_MAP_API_KEY（预留）"
-              value={travel.baidu_map_api_key ?? ""}
-              onChange={(event) =>
-                updateTravel({ baidu_map_api_key: event.target.value || null })
-              }
+              disabled={!canManageSettings}
+              placeholder={secretStatus.travel_baidu_map_api_key_configured ? "已保存；输入新值以替换" : "百度地图 BAIDU_MAP_API_KEY（预留）"}
+              value={secretDrafts.travel_baidu_map_api_key ?? ""}
+              onChange={(event) => changeSecretDraft("travel_baidu_map_api_key", event.target.value)}
               style={{ marginTop: 6 }}
             />
+            <button
+              className="settings-test-button"
+              disabled={!canManageSettings || savingSecrets || ![
+                "travel_amap_api_key",
+                "travel_qweather_api_key",
+                "travel_baidu_map_api_key",
+              ].some((field) => secretDrafts[field as SecretSettingsField] !== undefined)}
+              onClick={() => saveSecretFields([
+                "travel_amap_api_key",
+                "travel_qweather_api_key",
+                "travel_baidu_map_api_key",
+              ])}
+            >
+              保存数据源凭据
+            </button>
+            {secretStatus.travel_amap_api_key_configured ? <button className="settings-test-button" disabled={!canManageSettings || savingSecrets} onClick={() => clearSecret("travel_amap_api_key")}>清除高德 Key</button> : null}
+            {secretStatus.travel_qweather_api_key_configured ? <button className="settings-test-button" disabled={!canManageSettings || savingSecrets} onClick={() => clearSecret("travel_qweather_api_key")}>清除和风天气 Key</button> : null}
+            {secretStatus.travel_baidu_map_api_key_configured ? <button className="settings-test-button" disabled={!canManageSettings || savingSecrets} onClick={() => clearSecret("travel_baidu_map_api_key")}>清除百度地图 Key</button> : null}
             {testResults.qweather ? (
               <p
                 className={

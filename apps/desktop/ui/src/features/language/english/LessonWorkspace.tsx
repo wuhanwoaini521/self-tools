@@ -59,6 +59,13 @@ export function LessonWorkspace({
   aiAvailable = false,
 }: LessonWorkspaceProps) {
   const { lesson, book, sentences, vocab, progress } = detail;
+  const vocabWithExampleTranslations = useMemo(() => {
+    const chineseBySentence = new Map(sentences.map((sentence) => [sentence.id, sentence.chinese]));
+    return vocab.map((word) => ({
+      ...word,
+      context_zh: word.sentence_id ? (chineseBySentence.get(word.sentence_id) ?? null) : null,
+    }));
+  }, [sentences, vocab]);
   const [stage, setStage] = useState<LessonStage>(progress.stage === "done" ? "quiz" : progress.stage);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [audioError, setAudioError] = useState<string | null>(null);
@@ -296,7 +303,7 @@ export function LessonWorkspace({
 
           {stage === "vocabulary" ? (
             <VocabularyStage
-              vocab={vocab}
+              vocab={vocabWithExampleTranslations}
               startIndex={progress.vocab_index}
               onMark={(word, mark) => markWord(word, mark)}
               onProgressIndex={(index) => {

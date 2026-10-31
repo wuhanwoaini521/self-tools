@@ -198,7 +198,12 @@ export function VocabularyStage({
               {card.word.translation_zh ?? "（词典未收录中文释义）"}
             </p>
             {card.word.context ? (
-              <p className="en-wordcard-context">例：{card.word.context}</p>
+              <div className="en-wordcard-example">
+                <p className="en-wordcard-context">例：{card.word.context}</p>
+                {card.word.context_zh ? (
+                  <p className="en-wordcard-context-zh">{card.word.context_zh}</p>
+                ) : null}
+              </div>
             ) : null}
             {card.word.tags.length > 0 ? (
               <div className="en-chip-row">

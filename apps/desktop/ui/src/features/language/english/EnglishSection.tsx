@@ -22,6 +22,7 @@ import { LessonWorkspace } from "./LessonWorkspace";
 import { ReviewHub } from "./ReviewHub";
 import { ProgressView } from "./ProgressView";
 import { RoadmapPage } from "./RoadmapPage";
+import { TravelEnglishSection } from "./TravelEnglishSection";
 import { ImportDialog } from "./ImportDialog";
 import { PlanDialog } from "./PlanDialog";
 
@@ -32,7 +33,8 @@ export type EnglishView =
   | { kind: "lesson"; lessonId: string }
   | { kind: "review" }
   | { kind: "progress" }
-  | { kind: "roadmap" };
+  | { kind: "roadmap" }
+  | { kind: "travel-english" };
 
 export interface EnglishSectionProps {
   /** 打开全局 AI；缺省 / AI 不可用时隐藏 AI 入口。 */
@@ -196,6 +198,10 @@ export function EnglishSection({ onAskAi, aiAvailable = false }: EnglishSectionP
     return <ProgressView onBack={backToHome} />;
   }
 
+  if (view.kind === "travel-english") {
+    return <TravelEnglishSection onBack={backToHome} />;
+  }
+
   if (view.kind === "roadmap") {
     return (
       <RoadmapPage
@@ -221,6 +227,7 @@ export function EnglishSection({ onAskAi, aiAvailable = false }: EnglishSectionP
         onOpenLibrary={() => setView({ kind: "library" })}
         onOpenReview={() => setView({ kind: "review" })}
         onOpenProgress={() => setView({ kind: "progress" })}
+        onOpenTravelEnglish={() => setView({ kind: "travel-english" })}
         onOpenRoadmap={() => setView({ kind: "roadmap" })}
         onOpenImport={() => setShowImport(true)}
         onOpenPlan={() => setShowPlan(true)}

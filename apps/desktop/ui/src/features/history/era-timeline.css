@@ -1,0 +1,930 @@
+/* ==========================================================================
+ * EraTimeline + Period Detail facts rail — 2026-10
+ *
+ * 只用既有 token（--text / --muted / --line / --panel-raised / --accent）与
+ * Sunrise Glass 的玻璃变量，不新增主题、不改全局样式表。
+ *
+ * 三块内容：
+ *   1. 时代时间轴（按年代跨度等比例、重叠时期分轨、年份刻度、当前项高亮）；
+ *   2. PeriodDetail 顶部「上一个 / 当前 / 下一个」卡片压缩 + 事实补充；
+ *   3. PeriodDetail 左侧粘性事实栏（桌面）与移动端顺序化。
+ * ========================================================================== */
+
+/* --------------------------------------------------------------------------
+ * 1. 时代时间轴
+ * -------------------------------------------------------------------------- */
+.history-era-timeline {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding-top: 28px;
+}
+
+.history-era-timeline-label {
+  flex-wrap: wrap;
+  row-gap: 4px;
+}
+
+.history-era-card {
+  position: relative;
+  padding: 14px 16px 12px;
+  border: 1px solid color-mix(in srgb, var(--line) 66%, transparent);
+  border-radius: 22px;
+  background:
+    radial-gradient(
+      120% 150% at 96% 0%,
+      color-mix(in srgb, var(--accent) 9%, transparent),
+      transparent 58%
+    ),
+    linear-gradient(
+      160deg,
+      color-mix(in srgb, var(--panel-raised) 92%, transparent) 0%,
+      color-mix(in srgb, var(--panel-raised) 76%, transparent) 100%
+    );
+  box-shadow:
+    var(--glass-shadow, 0 16px 38px color-mix(in srgb, #3a3f6b 12%, transparent)),
+    inset 0 1px 0 var(--glass-highlight, rgb(255 255 255 / 68%));
+  backdrop-filter: blur(20px) saturate(1.35);
+  -webkit-backdrop-filter: blur(20px) saturate(1.35);
+}
+
+.history-era-viewport {
+  position: relative;
+  min-width: 0;
+}
+
+.history-era-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  padding: 2px 0 4px;
+  border-radius: 14px;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--accent) 34%, transparent) transparent;
+}
+
+.history-era-scroll::-webkit-scrollbar {
+  height: 8px;
+}
+
+.history-era-scroll::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 34%, transparent);
+  background-clip: padding-box;
+}
+
+.history-era-scroll::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--accent) 52%, transparent);
+  background-clip: padding-box;
+}
+
+.history-era-track {
+  position: relative;
+}
+
+/* 公元元年参考线：贯穿时代带的细虚线。 */
+.history-era-epoch-line {
+  position: absolute;
+  top: 0;
+  width: 1px;
+  background-image: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--accent) 34%, transparent) 55%,
+    transparent 55%
+  );
+  background-size: 1px 7px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.history-era-band {
+  position: relative;
+  width: 100%;
+}
+
+/* 分轨参考线：让「并发时期」的多行结构在空档处也读得出来。 */
+.history-era-lane-guides {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  align-content: start;
+  pointer-events: none;
+}
+
+.history-era-lane-guides span {
+  border-top: 1px dashed color-mix(in srgb, var(--line) 62%, transparent);
+}
+
+.history-era-lane-guides span:last-child {
+  border-bottom: 1px dashed color-mix(in srgb, var(--line) 62%, transparent);
+}
+
+.app-shell .history-era-timeline .history-era-card .history-era-segment {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  align-items: flex-start;
+  justify-content: center;
+  min-width: 0;
+  padding: 0 8px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--line) 88%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--panel-raised) 88%, transparent);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 42%, transparent);
+  transition:
+    background-color 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.app-shell .history-era-timeline .history-era-card .history-era-segment:hover {
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--line));
+  background: color-mix(in srgb, var(--accent) 7%, var(--panel-raised));
+}
+
+.app-shell .history-era-timeline .history-era-card .history-era-segment:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  z-index: 6;
+}
+
+.history-era-segment-name {
+  max-width: 100%;
+  overflow: hidden;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  text-overflow: ellipsis;
+}
+
+.history-era-segment-years {
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 9.5px;
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+}
+
+.app-shell .history-era-timeline .history-era-card .history-era-segment.is-tight {
+  padding: 0 3px;
+  align-items: center;
+  text-align: center;
+}
+
+.app-shell .history-era-timeline .history-era-card .history-era-segment.is-tight .history-era-segment-name {
+  overflow: visible;
+  font-size: 10px;
+  line-height: 1.15;
+  text-align: center;
+  text-overflow: clip;
+  white-space: normal;
+  word-break: break-all;
+}
+
+/* 约略年代：虚线边 + 更轻的底色，不假装是精确断代。 */
+.app-shell .history-era-timeline .history-era-card .history-era-segment.is-approximate {
+  border-style: dashed;
+  background:
+    repeating-linear-gradient(
+      135deg,
+      transparent 0 6px,
+      color-mix(in srgb, var(--accent) 6%, transparent) 6px 8px
+    ),
+    color-mix(in srgb, var(--panel-raised) 88%, transparent);
+}
+
+/* 开端年代缺失（如「上古」）：左边框虚化，提示边界之外还有时间。 */
+.app-shell .history-era-timeline .history-era-card .history-era-segment.is-open-start {
+  border-left: 2px dotted color-mix(in srgb, var(--muted) 66%, transparent);
+}
+
+.app-shell .history-era-timeline .history-era-card .history-era-segment.is-current {
+  z-index: 4;
+  border-color: color-mix(in srgb, var(--accent) 66%, var(--line));
+  border-style: solid;
+  background:
+    linear-gradient(
+      140deg,
+      var(--accent) 0%,
+      var(--accent-hover, #4354d9) 100%
+    );
+  color: var(--text-on-accent, #fff);
+  box-shadow:
+    0 8px 20px color-mix(in srgb, var(--accent) 30%, transparent),
+    inset 0 1px 0 rgb(255 255 255 / 30%);
+}
+
+.app-shell .history-era-timeline .history-era-card .history-era-segment.is-current .history-era-segment-years {
+  color: rgb(255 255 255 / 82%);
+}
+
+.app-shell .history-era-timeline .history-era-card .history-era-segment.is-current:hover {
+  border-color: color-mix(in srgb, var(--accent) 78%, var(--line));
+  background:
+    linear-gradient(
+      140deg,
+      var(--accent) 0%,
+      var(--accent-hover, #4354d9) 100%
+    );
+}
+
+/* 年份刻度：横轴 + 竖线 + 公元前/公元分区。 */
+.history-era-axis {
+  position: absolute;
+  right: 0;
+  left: 0;
+  color: var(--muted);
+}
+
+.history-era-axis::before {
+  position: absolute;
+  top: 8px;
+  right: 0;
+  left: 0;
+  height: 1px;
+  background: color-mix(in srgb, var(--line) 92%, transparent);
+  content: "";
+}
+
+.history-era-tick {
+  position: absolute;
+  top: 8px;
+  display: grid;
+  justify-items: center;
+  transform: translateX(-0.5px);
+}
+
+.history-era-tick i {
+  width: 1px;
+  height: 6px;
+  background: color-mix(in srgb, var(--muted) 42%, transparent);
+}
+
+.history-era-tick b {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 9.5px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  transform: translateX(-50%);
+}
+
+.history-era-tick.is-epoch i {
+  width: 1.5px;
+  height: 11px;
+  background: var(--accent);
+}
+
+.history-era-tick.is-epoch b {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.history-era-zone {
+  position: absolute;
+  bottom: 0;
+  color: var(--faint);
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-align: center;
+  opacity: 0.72;
+  pointer-events: none;
+}
+
+.history-era-zone.is-bce {
+  left: 0;
+}
+
+.history-era-zone.is-ce {
+  right: 0;
+}
+
+/* 数据不足（所有时期都缺年份）时的兜底：仍然可浏览、可切换，不退化成空白。 */
+.history-era-fallback {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 6px 0 10px;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--accent) 34%, transparent) transparent;
+}
+
+.history-era-chip {
+  display: grid;
+  flex: 0 0 auto;
+  gap: 2px;
+  min-width: 108px;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid color-mix(in srgb, var(--line) 78%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--panel-raised) 86%, transparent);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.history-era-chip strong {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.history-era-chip small {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.history-era-chip:hover {
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--line));
+}
+
+.history-era-chip.is-current {
+  border-color: color-mix(in srgb, var(--accent) 62%, var(--line));
+  background: color-mix(in srgb, var(--accent) 10%, var(--panel-raised));
+  box-shadow: inset 0 1px 0 var(--glass-highlight, rgb(255 255 255 / 60%));
+}
+
+.history-era-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  align-items: baseline;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line-soft, var(--line));
+  color: var(--muted);
+  font-size: 11.5px;
+  line-height: 1.6;
+}
+
+.history-era-summary-hint {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  margin-left: auto;
+  color: var(--faint);
+  font-size: 10.5px;
+}
+
+.history-era-summary-current {
+  display: inline-flex;
+  gap: 6px;
+  align-items: baseline;
+  color: var(--muted);
+}
+
+.history-era-summary-current i {
+  align-self: center;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+.history-era-summary-current strong {
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.history-era-summary-range {
+  color: color-mix(in srgb, var(--accent) 54%, var(--muted));
+  font-variant-numeric: tabular-nums;
+}
+
+/* --------------------------------------------------------------------------
+ * 2. PeriodDetail：压缩「上一个 / 当前 / 下一个」卡片，补事实
+ * -------------------------------------------------------------------------- */
+.history-v2 .history-v2-era {
+  padding: 20px 0 4px;
+}
+
+.history-v2 .history-v2-era-row {
+  gap: 10px;
+}
+
+.history-v2 .history-v2-era-neighbor,
+.history-v2 .history-v2-era-current {
+  min-height: 0;
+  padding: 13px 17px 12px;
+  border: 1px solid color-mix(in srgb, var(--line) 62%, transparent);
+  border-radius: 18px;
+  background:
+    linear-gradient(
+      160deg,
+      color-mix(in srgb, var(--panel-raised) 88%, transparent) 0%,
+      color-mix(in srgb, var(--panel-raised) 70%, transparent) 100%
+    );
+  box-shadow:
+    inset 0 1px 0 var(--glass-highlight, rgb(255 255 255 / 66%)),
+    0 10px 24px color-mix(in srgb, #3a3f6b 8%, transparent);
+  backdrop-filter: blur(16px) saturate(1.25);
+  -webkit-backdrop-filter: blur(16px) saturate(1.25);
+}
+
+.history-v2 .history-v2-era-neighbor.is-prev,
+.history-v2 .history-v2-era-neighbor.is-next {
+  border: 1px solid color-mix(in srgb, var(--line) 62%, transparent);
+}
+
+.history-v2 .history-v2-era-neighbor:hover {
+  border-color: color-mix(in srgb, var(--accent) 34%, var(--line));
+  background: color-mix(in srgb, var(--accent) 6%, var(--panel-raised));
+}
+
+.history-v2 .history-v2-era-neighbor strong {
+  font-size: clamp(20px, 2vw, 25px);
+  line-height: 1.2;
+}
+
+.history-v2 .history-v2-era-neighbor small,
+.history-v2 .history-v2-era-current small {
+  font-size: 11px;
+}
+
+.history-v2 .history-v2-era-current {
+  border-color: color-mix(in srgb, var(--accent) 32%, var(--line));
+  background:
+    radial-gradient(
+      130% 150% at 92% 0%,
+      color-mix(in srgb, #ffd9a8 40%, transparent),
+      transparent 60%
+    ),
+    linear-gradient(
+      150deg,
+      color-mix(in srgb, var(--accent) 12%, var(--panel-raised)) 0%,
+      color-mix(in srgb, var(--panel-raised) 86%, transparent) 100%
+    );
+  box-shadow:
+    0 12px 26px color-mix(in srgb, #3a3f6b 10%, transparent),
+    inset 0 1px 0 var(--glass-highlight, rgb(255 255 255 / 70%));
+}
+
+.history-v2 .history-v2-era-current strong {
+  font-size: clamp(28px, 3vw, 36px);
+  line-height: 1.12;
+}
+
+.history-v2 .history-v2-era-current .history-v2-era-direction {
+  color: var(--accent-hover, var(--accent));
+}
+
+.history-era-factsline {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px 7px;
+  align-items: baseline;
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+.history-v2 .history-v2-era-railtoggle {
+  margin-top: 10px;
+}
+
+/* --------------------------------------------------------------------------
+ * 3. PeriodDetail 布局：左侧粘性事实栏（桌面）/ 单列顺序（移动）
+ * -------------------------------------------------------------------------- */
+.history-era-detail {
+  display: grid;
+  grid-template-columns: minmax(218px, 252px) minmax(0, 1fr);
+  gap: clamp(26px, 3.6vw, 52px);
+  align-items: start;
+  padding-top: 24px;
+}
+
+.history-era-facts {
+  position: sticky;
+  top: 16px;
+  align-self: start;
+  min-width: 0;
+}
+
+.history-era-facts-inner {
+  display: grid;
+  gap: 6px;
+  padding: 18px 18px 16px;
+  border: 1px solid color-mix(in srgb, var(--line) 60%, transparent);
+  border-radius: 20px;
+  background:
+    radial-gradient(
+      130% 140% at 96% 0%,
+      color-mix(in srgb, var(--accent) 8%, transparent),
+      transparent 56%
+    ),
+    linear-gradient(
+      160deg,
+      color-mix(in srgb, var(--panel-raised) 90%, transparent) 0%,
+      color-mix(in srgb, var(--panel-raised) 74%, transparent) 100%
+    );
+  box-shadow:
+    var(--glass-shadow, 0 16px 38px color-mix(in srgb, #3a3f6b 12%, transparent)),
+    inset 0 1px 0 var(--glass-highlight, rgb(255 255 255 / 68%));
+  backdrop-filter: blur(18px) saturate(1.3);
+  -webkit-backdrop-filter: blur(18px) saturate(1.3);
+}
+
+.history-era-facts-inner .history-v2-kicker {
+  color: var(--faint);
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.13em;
+}
+
+.history-era-facts-inner h1 {
+  margin: 4px 0 0;
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: clamp(38px, 3.6vw, 50px);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1.04;
+}
+
+.history-era-facts-range {
+  margin: 2px 0 0;
+  color: var(--accent-hover, var(--accent));
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.history-era-precision {
+  justify-self: start;
+  display: inline-flex;
+  gap: 5px;
+  align-items: center;
+  margin-top: 6px;
+  padding: 2px 9px;
+  border: 1px dashed color-mix(in srgb, var(--accent) 36%, var(--line));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  color: color-mix(in srgb, var(--accent) 70%, var(--muted));
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+.history-era-facts-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 10px;
+  margin: 10px 0 0;
+  padding-top: 13px;
+  border-top: 1px solid var(--line-soft, var(--line));
+}
+
+.history-era-facts-grid > div {
+  min-width: 0;
+}
+
+.history-era-facts-grid dt {
+  color: var(--faint);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+
+.history-era-facts-grid dd {
+  margin: 2px 0 0;
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 22px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  line-height: 1.1;
+}
+
+.history-era-detail-main {
+  display: grid;
+  align-content: start;
+  min-width: 0;
+}
+
+.history-era-detail-main > .history-v2-period-intro {
+  margin-top: 2px;
+  color: var(--text);
+  font-size: clamp(16px, 1.6vw, 19px);
+  line-height: 1.85;
+}
+
+.history-era-detail-main > .history-v2-stages:first-of-type,
+.history-era-detail-main > .history-v2-turning:first-of-type {
+  padding-top: 34px;
+}
+
+/* --------------------------------------------------------------------------
+ * 4. 响应式
+ * -------------------------------------------------------------------------- */
+@media (max-width: 1100px) {
+  .history-era-detail {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 20px;
+    padding-top: 20px;
+  }
+
+  .history-era-facts {
+    position: static;
+    top: auto;
+  }
+
+  .history-era-facts-inner {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 16px 17px 14px;
+  }
+
+  .history-era-facts-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    margin-top: 6px;
+  }
+
+  .history-era-facts-inner h1 {
+    font-size: clamp(34px, 6vw, 44px);
+  }
+}
+
+@media (max-width: 860px) {
+  .history-era-timeline {
+    padding-top: 20px;
+  }
+
+  .history-era-card {
+    padding: 11px 10px 9px;
+    border-radius: 20px;
+  }
+
+  .history-era-summary {
+    margin-top: 8px;
+    padding-top: 9px;
+  }
+
+  .history-era-summary-hint {
+    margin-left: 0;
+    font-size: 10px;
+  }
+
+  .app-shell .history-era-timeline .history-era-card .history-era-segment {
+    padding: 0 6px;
+  }
+
+  .history-era-segment-name {
+    font-size: 12.5px;
+  }
+
+  .history-v2 .history-v2-era-current {
+    padding: 12px 14px 11px;
+  }
+}
+
+@media (max-width: 520px) {
+  .history-era-timeline-label small {
+    font-size: 9.5px;
+  }
+
+  .history-era-facts-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .history-era-summary {
+    gap: 2px 10px;
+  }
+
+  .history-era-segment-name {
+    font-size: 12px;
+  }
+}
+
+/* --------------------------------------------------------------------------
+ * 5. 偏好：reduced motion / reduced transparency
+ * -------------------------------------------------------------------------- */
+@media (prefers-reduced-transparency: reduce) {
+  .history-era-card,
+  .history-era-facts-inner,
+  .history-v2 .history-v2-era-neighbor,
+  .history-v2 .history-v2-era-current {
+    background: var(--panel-raised);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .app-shell .history-era-timeline .history-era-card .history-era-segment {
+    background: var(--panel-raised);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-shell .history-era-timeline .history-era-card .history-era-segment,
+  .history-era-scroll {
+    transition: none;
+  }
+
+  .history-era-scroll {
+    scroll-behavior: auto;
+  }
+}
+
+/* ==========================================================================
+ * 阶段事件密度条（Round 4）
+ *
+ * 参考 ybogdanov/history-timeline 的「横向时间带 + 密度」：条宽=年代跨度，
+ * 条高=事件数量，点击跳到该阶段。数据只来自 periodDetail.stages，不额外请求。
+ * ========================================================================== */
+.history-stage-density {
+  margin: 10px 0 14px;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--line) 62%, transparent);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--panel-raised) 72%, transparent);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 58%);
+  backdrop-filter: blur(14px) saturate(1.25);
+  -webkit-backdrop-filter: blur(14px) saturate(1.25);
+}
+
+.history-stage-density-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.history-stage-density-head span {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--text);
+}
+.history-stage-density-head small {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.history-stage-density-track {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 56px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scrollbar-width: thin;
+}
+
+.history-stage-density-seg {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  min-width: 10px;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+}
+.history-stage-density-seg > i {
+  display: block;
+  width: 100%;
+  border-radius: 4px 4px 2px 2px;
+  background: color-mix(in srgb, var(--accent) 38%, transparent);
+  transition: background 150ms ease;
+}
+.history-stage-density-seg:hover > i {
+  background: color-mix(in srgb, var(--accent) 62%, transparent);
+}
+.history-stage-density-seg.is-active > i {
+  background: linear-gradient(
+    180deg,
+    var(--accent),
+    color-mix(in srgb, var(--accent) 55%, var(--panel))
+  );
+}
+.history-stage-density-seg > b {
+  position: absolute;
+  top: 1px;
+  font-size: 10px;
+  font-weight: 700;
+  color: color-mix(in srgb, var(--accent) 80%, var(--text));
+  pointer-events: none;
+}
+.history-stage-density-seg:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 78%, var(--text));
+  outline-offset: 2px;
+}
+
+@media (max-width: 767px) {
+  .history-stage-density-head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+  }
+  .history-stage-density-track {
+    height: 48px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .history-stage-density-seg > i {
+    transition: none;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .history-stage-density {
+    background: var(--panel-raised);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+/* 同一时期 Story 的顺序导航（Round 5）：读完一篇可以直接继续，不必回时间轴。 */
+.history-v2-story-nav {
+  display: flex;
+  gap: 12px;
+  margin: 18px 0 10px;
+  flex-wrap: wrap;
+}
+.history-v2-story-nav-item {
+  flex: 1 1 220px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--line) 62%, transparent);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--panel-raised) 74%, transparent);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 58%);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 150ms ease,
+    background 150ms ease;
+}
+.history-v2-story-nav-item:hover {
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--line));
+  background: color-mix(in srgb, var(--panel-raised) 88%, transparent);
+}
+.history-v2-story-nav-item.is-next {
+  justify-content: flex-end;
+  text-align: right;
+}
+.history-v2-story-nav-item > span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.history-v2-story-nav-item small {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.history-v2-story-nav-item strong {
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.history-v2-story-nav-spacer {
+  flex: 1 1 220px;
+}
+@media (max-width: 640px) {
+  .history-v2-story-nav {
+    flex-direction: column;
+  }
+  .history-v2-story-nav-spacer {
+    display: none;
+  }
+  .history-v2-story-nav-item {
+    min-height: 44px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .history-v2-story-nav-item {
+    transition: none;
+  }
+}

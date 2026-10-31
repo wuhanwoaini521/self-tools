@@ -1,0 +1,140 @@
+.collection-save {
+  position: relative;
+  min-width: 0;
+  color: var(--text);
+}
+
+.collection-save-trigger,
+.collection-save-actions button,
+.collection-save-error button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 38px;
+  padding: 7px 11px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-control, 8px);
+  background: var(--surface-control);
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.collection-save-trigger:hover,
+.collection-save-actions button:hover,
+.collection-save-error button:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.collection-save :focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.collection-save-form {
+  display: grid;
+  gap: 12px;
+  box-sizing: border-box;
+  width: min(360px, calc(100vw - 40px));
+  margin-top: 8px;
+  padding: 14px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-control, 8px);
+  background: var(--surface-raised, var(--surface-control));
+  color: var(--text);
+}
+
+.collection-save-form label {
+  display: grid;
+  gap: 6px;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.collection-save-form select,
+.collection-save-form input,
+.collection-save-form textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--line-soft);
+  border-radius: 6px;
+  background: var(--surface-control);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+}
+
+.collection-save-form textarea {
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.collection-save-new-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+}
+
+.collection-save-optional,
+.collection-save-source {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 400;
+}
+
+.collection-save-source {
+  margin: 0;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.collection-save-source code {
+  color: var(--text);
+}
+
+.collection-save-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.collection-save-actions button[type="submit"] {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--surface, #fff);
+  font-weight: 650;
+}
+
+.collection-save-actions button[type="submit"]:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.collection-save-error,
+.collection-save-success {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.collection-save-error {
+  color: var(--danger, #b42318);
+}
+
+.collection-save-success {
+  margin-top: 6px;
+  color: var(--success, #16794b);
+}
+
+@media (max-width: 520px) {
+  .collection-save-form {
+    width: min(100%, calc(100vw - 40px));
+  }
+}

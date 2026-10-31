@@ -36,6 +36,7 @@ export interface EnglishHomeProps {
   onOpenLibrary: () => void;
   onOpenReview: () => void;
   onOpenProgress: () => void;
+  onOpenTravelEnglish: () => void;
   /** 26 周交流路线图（V13 W6）。 */
   onOpenRoadmap: () => void;
   onOpenImport: () => void;
@@ -52,6 +53,7 @@ export function EnglishHome({
   onOpenLibrary,
   onOpenReview,
   onOpenProgress,
+  onOpenTravelEnglish,
   onOpenRoadmap,
   onOpenImport,
   onOpenPlan,
@@ -137,9 +139,14 @@ export function EnglishHome({
     return (
       <div className="en-home">
         <p className="en-inline-error">{error}</p>
-        <button type="button" className="en-link-btn" onClick={onReload}>
-          重试
-        </button>
+        <div className="en-row-actions">
+          <button type="button" className="en-link-btn" onClick={onReload}>
+            重试
+          </button>
+          <button type="button" className="en-link-btn" onClick={onOpenTravelEnglish}>
+            先练旅行英语
+          </button>
+        </div>
       </div>
     );
   }
@@ -149,8 +156,10 @@ export function EnglishHome({
     return (
       <div className="en-home">
         <header className="en-greeting">
-          <p className="en-greeting-hello">{greetingByHour(new Date().getHours())}</p>
-          <h1>Today's English</h1>
+          <div>
+            <p className="en-greeting-hello">{greetingByHour(new Date().getHours())}</p>
+            <h1>Today's English</h1>
+          </div>
         </header>
         <section className="en-card en-onboard">
           <h2>从新概念英语开始</h2>
@@ -166,6 +175,9 @@ export function EnglishHome({
           <div className="en-onboard-actions">
             <button type="button" className="en-primary-btn" onClick={onOpenImport}>
               <Books size={15} /> 导入新概念英语
+            </button>
+            <button type="button" className="en-ghost-btn" onClick={onOpenTravelEnglish}>
+              先练旅行英语
             </button>
           </div>
         </section>
@@ -264,6 +276,21 @@ export function EnglishHome({
           </button>
         </section>
       ) : null}
+
+      {/* ---- 旅行英语：PWA 内容的独立入口（不依赖课程导入） ---- */}
+      <section className="en-card en-travel-entry">
+        <div>
+          <p className="en-travel-eyebrow">Travel English</p>
+          <h3>旅行英语，开口前先练一遍</h3>
+          <p className="en-muted">
+            12 个出行场景、88 个随身词、16 节语法和 8 篇短文；练完的记录会进入统一学习进度。
+          </p>
+        </div>
+        <button type="button" className="en-ghost-btn" onClick={onOpenTravelEnglish}>
+          开始练习
+          <ArrowRight size={15} />
+        </button>
+      </section>
 
       {/* ---- 今日任务清单 ---- */}
       <section className="en-card">

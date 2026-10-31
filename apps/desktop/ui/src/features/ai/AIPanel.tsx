@@ -32,7 +32,8 @@ import {
   type OpenFileTarget,
 } from "../knowledge/knowledgeTypes";
 import type { ConfirmationDto } from "../server/serverTypes";
-import { aiClient } from "./aiClient";
+import { aiClient, capabilitiesForContext } from "./aiClient";
+import type { TravelPlan } from "../../types";
 import { useAgentProgress } from "./aiClient";
 import { ConversationDrawer } from "./ConversationDrawer";
 import {
@@ -42,7 +43,10 @@ import {
   decisionProviderLabel,
   decisionStrategyLabel,
   type AgentAction,
+  type AgentCitation,
+  type AgentContentPart,
   type AgentMessage,
+  type AgentProposedChange,
   type AgentResponse,
   type AppContextPayload,
   type DocumentListItem,
@@ -113,6 +117,8 @@ export interface AIPanelProps {
     confirmation: ConfirmationDto,
     decision: "confirm" | "cancel",
   ) => Promise<void>;
+  /** Refresh the exact saved TravelPlan after a confirmed, version-checked proposal. */
+  onTravelPlanConfirmed?: (plan: TravelPlan) => void;
   onOpenSettings: () => void;
 }
 
@@ -129,6 +135,40 @@ interface SystemConfirmTarget {
 /** 记忆候选的稳定 key（同一候选只渲染一张确认卡）。 */
 function confirmKey(target: ConfirmMemoryTarget): string {
   return target.memory_id ?? `new:${target.category}:${target.content}`;
+}
+
+function citationRoleLabel(role: AgentCitation["role"]): string {
+  switch (role) {
+    case "verified_association": return "已审核关联";
+    case "story_context": return "故事背景（非事件证据）";
+    case "evidence": return "来源证据";
+    default: return "当前实体";
+  }
+}
+
+function proposedStopNames(change: AgentProposedChange, version: "before" | "after"): string[] {
+  const raw = change[version] && typeof change[version] === "object" ? change[version] as Record<string, unknown> : {};
+  return (Array.isArray(raw.stops) ? raw.stops : []).flatMap((stop) => {
+    if (!stop || typeof stop !== "object") return [];
+    const name = (stop as Record<string, unknown>).name;
+    return typeof name === "string" ? [name] : [];
+  });
+}
+
+function proposedAddedStop(change: AgentProposedChange): { day: number; name: string; note: string } | null {
+  const before = change.before && typeof change.before === "object" ? change.before as Record<string, unknown> : {};
+  const after = change.after && typeof change.after === "object" ? change.after as Record<string, unknown> : {};
+  const beforeStops = Array.isArray(before.stops) ? before.stops : [];
+  const afterStops = Array.isArray(after.stops) ? after.stops : [];
+  const priorIds = new Set(beforeStops.map((stop) => stop && typeof stop === "object" ? (stop as Record<string, unknown>).id : null));
+  const added = afterStops.find((stop) => stop && typeof stop === "object" && !priorIds.has((stop as Record<string, unknown>).id));
+  if (!added || typeof added !== "object") return null;
+  const record = added as Record<string, unknown>;
+  return {
+    day: typeof after.day === "number" ? after.day : typeof before.day === "number" ? before.day : 1,
+    name: typeof record.name === "string" ? record.name : change.title,
+    note: typeof record.note === "string" ? record.note : "",
+  };
 }
 
 /** Action / UI Block 里的记忆候选是否形状完整（后端适配器产出，宽松校验）。 */
@@ -191,12 +231,24 @@ export function AIPanel({
   onOpenFile,
   onOpenDocument,
   onConfirmSystemAction,
+  onTravelPlanConfirmed,
   onOpenSettings,
 }: AIPanelProps) {
   const [status, setStatus] = useState<AiPanelState>("ready");
   const [messages, setMessages] = useState<AgentMessage[]>([]);
   const [input, setInput] = useState("");
   const [toolTrace, setToolTrace] = useState<AgentResponse["tool_trace"]>([]);
+  const [citations, setCitations] = useState<AgentCitation[]>([]);
+  const [navigationActions, setNavigationActions] = useState<AgentAction[]>([]);
+  const [proposedChanges, setProposedChanges] = useState<AgentProposedChange[]>([]);
+  const [proposalBusyId, setProposalBusyId] = useState("");
+  const [cancelledMessage, setCancelledMessage] = useState("");
+  const activeTraceIdRef = useRef<string | null>(null);
+  const requestGenerationRef = useRef(0);
+  const contextKey = JSON.stringify(context ?? null);
+  const contextKeyRef = useRef(contextKey);
+  contextKeyRef.current = contextKey;
+  const previousContextKeyRef = useRef(contextKey);
   const [orchestration, setOrchestration] = useState<AgentResponse["orchestration"]>(null);
   /** V11：后端推送的执行阶段（过程可见）。 */
   const [stageLog, setStageLog] = useState<{ stage: AgentStageName; detail?: string | null }[]>([]);
@@ -248,6 +300,32 @@ export function AIPanel({
     );
   }, []);
 
+  const cancelActiveRequest = useCallback((message = "请求已取消。") => {
+    const traceId = activeTraceIdRef.current;
+    if (!traceId) return;
+    activeTraceIdRef.current = null;
+    requestGenerationRef.current += 1;
+    void aiClient.cancelRun(traceId).catch(() => {});
+    setStatus("ready");
+    setCancelledMessage(message);
+    setStageLog((log) => [...log, { stage: "failed", detail: message }]);
+  }, []);
+
+  useEffect(() => {
+    if (previousContextKeyRef.current === contextKey) return;
+    previousContextKeyRef.current = contextKey;
+    cancelActiveRequest("页面上下文已变化，本次 AI 请求已取消。");
+    for (const proposal of proposedChanges) {
+      void aiClient.cancelTravelChange(proposal.id).catch(() => {});
+    }
+    setProposedChanges([]);
+    setNavigationActions([]);
+  }, [contextKey, cancelActiveRequest, proposedChanges]);
+
+  useEffect(() => {
+    if (!open) cancelActiveRequest("AI 面板已关闭，本次请求已取消。");
+  }, [open, cancelActiveRequest]);
+
   /** 打开时拉取状态（No API Key Gate：未配置只是面板提示，App 不崩溃）。 */
   useEffect(() => {
     if (!open) return;
@@ -284,6 +362,7 @@ export function AIPanel({
   // V11：订阅后端进度事件（每次请求阶段推进都会收到）。
   useAgentProgress(
     (progress: AgentProgressEvent) => {
+      if (!activeTraceIdRef.current || progress.trace_id !== activeTraceIdRef.current) return;
       if (progress.stage === "failed") {
         setFailureCode(progress.error_code ?? null);
         setStageLog((log) => [...log, { stage: "failed", detail: progress.detail }]);
@@ -298,10 +377,21 @@ export function AIPanel({
     async (overrideText?: string, parts?: PendingPart[]) => {
       const text = (overrideText ?? input).trim();
       if (!text || status === "loading") return;
+      const traceId = globalThis.crypto?.randomUUID?.() ?? `ai-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      const generation = ++requestGenerationRef.current;
+      const sentContextKey = contextKeyRef.current;
+      activeTraceIdRef.current = traceId;
       setInput("");
       setErrorText("");
+      setCancelledMessage("");
       setStatus("loading");
       setToolTrace([]);
+      setCitations([]);
+      setNavigationActions([]);
+      for (const proposal of proposedChanges) void aiClient.cancelTravelChange(proposal.id).catch(() => {});
+      setProposedChanges([]);
+      setBlocks([]);
+      setOrchestration(null);
       setStageLog([]);
       setFailureCode(null);
       try {
@@ -310,54 +400,85 @@ export function AIPanel({
           ...(parts && parts.length > 0
             ? { parts: parts.map(toWirePart) }
             : {}),
-        session_id: sessionRef.current,
-        app_context: context ?? {},
-        capabilities,
-        locale: "zh-CN",
-      });
-      setMessages(response.messages.slice(-MAX_MESSAGES));
-      setToolTrace(response.tool_trace ?? []);
-      setOrchestration(response.orchestration ?? null);
-      setBlocks(response.ui_blocks ?? []);
-      // V6：知识类 Action —— 确认记忆在面板内联确认，打开文件/文档交给外壳执行。
-      // V7：`confirm_action` 进服务器确认卡（SYSTEM 操作，§56）；`open_app`
-      // 用系统默认浏览器打开注册表内的 URL（§46）。
-      for (const action of response.actions ?? []) {
-        if (action.type === "confirm_memory") {
-          const target = asConfirmTarget(action.target);
-          if (target) enqueueConfirm(target);
-        } else if (action.type === "confirm_action") {
-          const target = asConfirmActionTarget(action.target);
-          if (target) enqueueSystemConfirm(target);
-        } else if (action.type === "open_file" && onOpenFile) {
-          onOpenFile(action.target as unknown as OpenFileTarget);
-        } else if (action.type === "open_document" && onOpenDocument) {
-          onOpenDocument(action.target as unknown as OpenDocumentTarget);
-        } else if (action.type === "open_app") {
-          const target = action.target as { url?: string | null };
-          if (typeof target.url === "string" && target.url) {
-            void openUrl(target.url);
+          session_id: sessionRef.current,
+          app_context: context ?? {},
+          capabilities: capabilitiesForContext(context, capabilities),
+          locale: "zh-CN",
+        }, traceId);
+        if (generation !== requestGenerationRef.current || activeTraceIdRef.current !== traceId || contextKeyRef.current !== sentContextKey) return;
+        activeTraceIdRef.current = null;
+        setMessages(response.messages.slice(-MAX_MESSAGES));
+        setToolTrace(response.tool_trace ?? []);
+        setCitations(response.citations ?? []);
+        setNavigationActions((response.actions ?? []).filter((action) => action.type === "navigate"));
+        setProposedChanges(response.proposed_changes ?? []);
+        setOrchestration(response.orchestration ?? null);
+        setBlocks(response.ui_blocks ?? []);
+        // V6：知识类 Action —— 确认记忆在面板内联确认，打开文件/文档交给外壳执行。
+        // V7：`confirm_action` 进服务器确认卡（SYSTEM 操作，§56）；`open_app`
+        // 用系统默认浏览器打开注册表内的 URL（§46）。
+        for (const action of response.actions ?? []) {
+          if (action.type === "confirm_memory") {
+            const target = asConfirmTarget(action.target);
+            if (target) enqueueConfirm(target);
+          } else if (action.type === "confirm_action") {
+            const target = asConfirmActionTarget(action.target);
+            if (target) enqueueSystemConfirm(target);
+          } else if (action.type === "open_file" && onOpenFile) {
+            onOpenFile(action.target as unknown as OpenFileTarget);
+          } else if (action.type === "open_document" && onOpenDocument) {
+            onOpenDocument(action.target as unknown as OpenDocumentTarget);
+          } else if (action.type === "open_app") {
+            const target = action.target as { url?: string | null };
+            if (typeof target.url === "string" && target.url) void openUrl(target.url);
           }
         }
+        setStageLog((log) => log.filter((entry) => entry.stage !== "done").concat([{ stage: "done" }]));
+        setStatus("ready");
+      } catch (cause) {
+        if (generation !== requestGenerationRef.current || activeTraceIdRef.current !== traceId) return;
+        activeTraceIdRef.current = null;
+        setStatus("error");
+        setErrorText(errorMessage(cause));
+        setFailureCode((code) => code ?? null);
       }
-      setStageLog((log) => log.filter((entry) => entry.stage !== "done").concat([{ stage: "done" }]));
-      setStatus("ready");
-    } catch (cause) {
-      setStatus("error");
-      setErrorText(errorMessage(cause));
-      setFailureCode((code) => code ?? null);
-    }
     },
     [
       input,
       status,
       context,
       capabilities,
+      proposedChanges,
       enqueueConfirm,
+      onNavigate,
       onOpenFile,
       onOpenDocument,
     ],
   );
+
+  const resolveTravelProposal = useCallback(async (proposal: AgentProposedChange, confirm: boolean) => {
+    setProposalBusyId(proposal.id);
+    setErrorText("");
+    try {
+      if (confirm) {
+        const plan = await aiClient.confirmTravelChange(proposal.id);
+        onTravelPlanConfirmed?.(plan);
+      } else {
+        await aiClient.cancelTravelChange(proposal.id);
+      }
+      setProposedChanges((current) => current.filter((item) => item.id !== proposal.id));
+    } catch (cause) {
+      const code = cause && typeof cause === "object" && "code" in cause ? String((cause as { code?: unknown }).code ?? "") : "";
+      setErrorText(code === "travel_plan_conflict"
+        ? "行程版本已变化，未应用此提案。请刷新行程后重新询问。"
+        : code === "travel_plan_proposal_expired"
+          ? "此提案已过期，未修改行程。请重新生成预览。"
+          : errorMessage(cause));
+      setProposedChanges((current) => current.filter((item) => item.id !== proposal.id));
+    } finally {
+      setProposalBusyId("");
+    }
+  }, [onTravelPlanConfirmed]);
 
   /** V11-K：抽屉里点「新对话」→ 本地清空（后端会话由抽屉自己建）。 */
   const handleConversationCreated = useCallback((sessionId: string) => {
@@ -471,6 +592,11 @@ export function AIPanel({
           <span className="ai-context-chip general">General</span>
         )}
       </div>
+      {status !== "unconfigured" ? (
+        <p className="ai-provider-notice">
+          本次提问与当前页上下文会发送到设置中的 AI Provider；工具权限按当前页面限制。AI 不会直接写入行程。
+        </p>
+      ) : null}
 
       {status === "unconfigured" ? (
         <div className="ai-panel-unconfigured">
@@ -519,6 +645,7 @@ export function AIPanel({
               {agentErrorDiagnosis(failureCode, errorText || "发生错误，请重试。")}
             </div>
           ) : null}
+          {cancelledMessage ? <div className="ai-panel-cancelled" role="status">{cancelledMessage}</div> : null}
           {status === "loading" && stageLog.length > 0 ? (
             <ol className="ai-stage-log" aria-live="polite" aria-label="执行进度">
               {stageLog.map((entry, index) => (
@@ -550,6 +677,52 @@ export function AIPanel({
               ))}
             </div>
           ) : null}
+          {navigationActions.length > 0 ? (
+            <div className="ai-navigation-actions" aria-label="AI 建议操作">
+              {navigationActions.map((action, index) => {
+                const label = typeof action.target.label === "string"
+                  ? action.target.label
+                  : action.module === "learning" ? "打开复习中心" : `打开 ${action.module}`;
+                return <button key={`${action.module}-${index}`} onClick={() => onNavigate(action)}>{label}</button>;
+              })}
+            </div>
+          ) : null}
+          {citations.length > 0 ? (
+            <section className="ai-citations" aria-label="可信来源与关联">
+              <h3>本次回答依据</h3>
+              {citations.map((citation, index) => (
+                <button
+                  className="ai-citation"
+                  key={`${citation.module}-${citation.entity_id}-${index}`}
+                  onClick={() => onNavigate({ type: "navigate", module: citation.module, target: { kind: citation.entity_type, id: citation.entity_id } })}
+                  title="打开此来源实体"
+                >
+                  <span className={`ai-citation-role ${citation.role}`}>{citationRoleLabel(citation.role)}</span>
+                  <strong>{citation.title}</strong>
+                  {citation.source_ids?.length ? <small>来源：{citation.source_ids.join("、")}</small> : null}
+                </button>
+              ))}
+            </section>
+          ) : null}
+          {proposedChanges.map((proposal) => {
+            const added = proposedAddedStop(proposal);
+            return (
+              <section className="ai-travel-proposal" key={proposal.id} aria-label="旅行程修改预览">
+                <div className="ai-proposal-heading"><strong>行程修改预览</strong><span>不会自动保存</span></div>
+                <h3>{proposal.title}</h3>
+                <p>当前第 {added?.day ?? 1} 天：{proposedStopNames(proposal, "before").join("、") || "暂无景点"}</p>
+                <p>确认后：{proposedStopNames(proposal, "after").join("、") || added?.name || "—"}</p>
+                {added?.note ? <p className="ai-proposal-note">建议：{added.note}</p> : null}
+                <small>计划版本 {proposal.expected_revision ?? "未知"} · 预览有效至 {new Date(proposal.expires_at * 1000).toLocaleTimeString()}</small>
+                <div className="ai-proposal-actions">
+                  <button disabled={proposalBusyId === proposal.id} onClick={() => void resolveTravelProposal(proposal, false)}>取消</button>
+                  <button className="primary" disabled={proposalBusyId === proposal.id} onClick={() => void resolveTravelProposal(proposal, true)}>
+                    {proposalBusyId === proposal.id ? "处理中…" : "确认并保存"}
+                  </button>
+                </div>
+              </section>
+            );
+          })}
           {blocks.length > 0 ? (
             <div className="ai-panel-blocks">
               {blocks.map((block, index) => (
@@ -620,18 +793,15 @@ export function AIPanel({
               rows={2}
               disabled={status === "loading"}
             />
-            <button
-              className="ai-send"
-              onClick={() => void send()}
-              disabled={!input.trim() || status === "loading"}
-              title="发送"
-            >
-              {status === "loading" ? (
-                <ArrowClockwise size={16} />
-              ) : (
+            {status === "loading" ? (
+              <button className="ai-send ai-cancel-request" onClick={() => cancelActiveRequest()} title="取消请求" aria-label="取消请求">
+                <X size={16} />
+              </button>
+            ) : (
+              <button className="ai-send" onClick={() => void send()} disabled={!input.trim()} title="发送">
                 <PaperPlaneTilt size={16} />
-              )}
-            </button>
+              </button>
+            )}
           </footer>
         </>
       )}
@@ -642,7 +812,7 @@ export function AIPanel({
 /** 预填片段的 wire 形态（与后端 ContentPart 契约一致）。 */
 type PendingPart = NonNullable<Extract<AIPanelProps["pendingSend"], object>["parts"]>[number];
 
-function toWirePart(part: PendingPart): Record<string, unknown> {
+function toWirePart(part: PendingPart): AgentContentPart {
   if (part.type === "text") return { type: "text", text: part.text };
   return {
     type: "image",

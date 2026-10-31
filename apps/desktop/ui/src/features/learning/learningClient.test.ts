@@ -58,6 +58,12 @@ describe("LearningClient 线上契约", () => {
       cardId: "card_123",
       rating: "good",
     });
+    await client.submitReview("card_123", "good", "submission-123");
+    expect(mockInvoke).toHaveBeenLastCalledWith("learning_submit_review", {
+      cardId: "card_123",
+      rating: "good",
+      requestId: "submission-123",
+    });
     expect(outcome.repetition_count).toBe(1);
     expect(outcome.is_correct).toBe(true);
   });
@@ -96,11 +102,45 @@ describe("LearningClient 线上契约", () => {
     });
   });
 
+  it("Knowledge 学习卡读写使用稳定来源与驼峰 API 参数", async () => {
+    const card = { id: "knowledge:history:event:e1", prompt: "问", answer: "答" };
+    const mockInvoke = vi.fn().mockResolvedValue(card);
+    const client = createLearningClient(createMockTransport(mockInvoke));
+    const draft = {
+      module: "history" as const,
+      entity_type: "event",
+      entity_id: "e1",
+      source_title: "事件一",
+      prompt: "问题",
+      answer: "答案",
+      user_note: "个人笔记",
+    };
+
+    await client.getReviewCard(card.id);
+    await client.saveKnowledgeReviewCard(draft);
+    await client.deleteKnowledgeReviewCard(card.id);
+
+    expect(mockInvoke).toHaveBeenNthCalledWith(1, "learning_get_review_card", { cardId: card.id });
+    expect(mockInvoke).toHaveBeenNthCalledWith(2, "learning_save_knowledge_review_card", {
+      draft: {
+        module: "history",
+        entityType: "event",
+        entityId: "e1",
+        sourceTitle: "事件一",
+        prompt: "问题",
+        answer: "答案",
+        userNote: "个人笔记",
+      },
+    });
+    expect(mockInvoke).toHaveBeenNthCalledWith(3, "learning_delete_knowledge_review_card", { cardId: card.id });
+  });
+
   it("合集 CRUD 使用驼峰参数键 collectionId", async () => {
     const mockInvoke = vi.fn().mockResolvedValue(null);
     const client = createLearningClient(createMockTransport(mockInvoke));
 
     await client.addCollectionItem("col_1", "language", "word", "jmdict:1", "駅");
+    await client.updateCollectionItemNote("item_1", "修订备注");
     await client.removeCollectionItem("item_1");
     await client.deleteCollection("col_1");
 
@@ -112,10 +152,14 @@ describe("LearningClient 线上契约", () => {
       title: "駅",
       note: undefined,
     });
-    expect(mockInvoke).toHaveBeenNthCalledWith(2, "learning_remove_collection_item", {
+    expect(mockInvoke).toHaveBeenNthCalledWith(2, "learning_update_collection_item_note", {
+      itemId: "item_1",
+      note: "修订备注",
+    });
+    expect(mockInvoke).toHaveBeenNthCalledWith(3, "learning_remove_collection_item", {
       itemId: "item_1",
     });
-    expect(mockInvoke).toHaveBeenNthCalledWith(3, "learning_delete_collection", {
+    expect(mockInvoke).toHaveBeenNthCalledWith(4, "learning_delete_collection", {
       collectionId: "col_1",
     });
   });

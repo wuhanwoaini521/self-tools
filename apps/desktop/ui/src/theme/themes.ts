@@ -17,20 +17,21 @@ const nordDarkEditor = EditorView.theme({}, { dark: true });
 const catppuccinDarkEditor = EditorView.theme({}, { dark: true });
 
 /**
- * 默认主题 = Pencil Sketch。
+ * 默认主题 = Sunrise Glass。
  *
- * 全站的几何语言（手绘描边、纸张旋转、手写标题）由 pencil.css 统一提供，
- * 主题只负责颜色。保留 id="default" 以兼容历史 settings.json，
- * 但 data-theme 指向 pencil.css 中的 `:root[data-theme="pencil"]` 调色板。
+ * 全站几何语言（玻璃表层、清晰描边、克制动效）由 pencil.css + liquid-glass.css
+ * 统一提供，日出光场与重点表层由 sunrise-glass.css 提供；主题只负责颜色。
+ * 保留 id="default" 以兼容历史 settings.json，data-theme 仍指向
+ * `:root[data-theme="pencil"]` 调色板（主题 ID 与选择行为不变）。
  */
 const defaultTheme: ThemeDefinition = {
   id: DEFAULT_THEME_ID,
-  name: "Pencil Sketch",
-  description: "暖白纸张、手绘描边与彩铅点缀——一本可以操作的知识笔记本。",
+  name: "Sunrise Glass",
+  description: "天空蓝到暖杏的日出光场、通透玻璃表层与清晰石墨文字，明亮但不刺眼。",
   appearance: "light",
   dataTheme: "pencil",
   editorTheme: pixelLightEditor,
-  previewColors: ["#f2ebdc", "#fffdf7", "#9a6a2f"],
+  previewColors: ["#f1f3fc", "#ffffff", "#5566e6"],
 };
 
 const warmEditorial: ThemeDefinition = {

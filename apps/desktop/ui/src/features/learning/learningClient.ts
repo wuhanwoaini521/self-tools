@@ -15,6 +15,7 @@ import type {
   Collection,
   CollectionItem,
   ExploreRecommendation,
+  KnowledgeReviewCardDraft,
   GraphNeighborhood,
   LearningEvent,
   LearningProgress,
@@ -23,6 +24,7 @@ import type {
   ReviewQueueStats,
   ReviewScheduleOutcome,
   TodayDashboardData,
+  UniversalReviewCard,
   UniversalReviewRating,
 } from "../../types";
 
@@ -37,7 +39,14 @@ export interface LearningClient {
   getToday(): Promise<TodayDashboardData>;
   getReviewQueue(moduleFilter?: string, limit?: number): Promise<ReviewQueueItem[]>;
   getReviewStats(): Promise<ReviewQueueStats>;
-  submitReview(cardId: string, rating: UniversalReviewRating): Promise<ReviewScheduleOutcome>;
+  submitReview(
+    cardId: string,
+    rating: UniversalReviewRating,
+    requestId?: string,
+  ): Promise<ReviewScheduleOutcome>;
+  getReviewCard(cardId: string): Promise<UniversalReviewCard | null>;
+  saveKnowledgeReviewCard(draft: KnowledgeReviewCardDraft): Promise<UniversalReviewCard>;
+  deleteKnowledgeReviewCard(cardId: string): Promise<void>;
   getGraph(rootId?: string, hops?: number): Promise<GraphNeighborhood>;
   getExplore(limit?: number): Promise<ExploreRecommendation[]>;
   listCollections(): Promise<Collection[]>;
@@ -55,6 +64,7 @@ export interface LearningClient {
     note?: string
   ): Promise<CollectionItem>;
   listCollectionItems(collectionId: string): Promise<CollectionItem[]>;
+  updateCollectionItemNote(itemId: string, note: string | null): Promise<CollectionItem>;
   removeCollectionItem(itemId: string): Promise<void>;
   deleteCollection(collectionId: string): Promise<void>;
 }
@@ -97,11 +107,28 @@ export function createLearningClient(
       }),
     getReviewStats: () =>
       transport.invoke<ReviewQueueStats>("learning_get_review_stats"),
-    submitReview: (cardId, rating) =>
+    submitReview: (cardId, rating, requestId) =>
       transport.invoke<ReviewScheduleOutcome>("learning_submit_review", {
         cardId,
         rating,
+        ...(requestId ? { requestId } : {}),
       }),
+    getReviewCard: (cardId) =>
+      transport.invoke<UniversalReviewCard | null>("learning_get_review_card", { cardId }),
+    saveKnowledgeReviewCard: (draft) =>
+      transport.invoke<UniversalReviewCard>("learning_save_knowledge_review_card", {
+        draft: {
+          module: draft.module,
+          entityType: draft.entity_type,
+          entityId: draft.entity_id,
+          sourceTitle: draft.source_title,
+          prompt: draft.prompt,
+          answer: draft.answer,
+          userNote: draft.user_note,
+        },
+      }),
+    deleteKnowledgeReviewCard: (cardId) =>
+      transport.invoke<void>("learning_delete_knowledge_review_card", { cardId }),
     getGraph: (rootId, hops) =>
       transport.invoke<GraphNeighborhood>("learning_get_graph", {
         rootId,
@@ -138,6 +165,11 @@ export function createLearningClient(
     listCollectionItems: (collectionId) =>
       transport.invoke<CollectionItem[]>("learning_list_collection_items", {
         collectionId,
+      }),
+    updateCollectionItemNote: (itemId, note) =>
+      transport.invoke<CollectionItem>("learning_update_collection_item_note", {
+        itemId,
+        note,
       }),
     removeCollectionItem: (itemId) =>
       transport.invoke<void>("learning_remove_collection_item", { itemId }),

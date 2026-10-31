@@ -1,0 +1,1366 @@
+/* ==========================================================================
+ * Geography — Explore 体验（2026-10-31）
+ *
+ * 只服务于 features/geography 的 Explore 视图：探索索引轨道、搜索结果卡片、
+ * 地图选中实体的浮动信息卡，以及既有卡片的玻璃化收敛。
+ *
+ * 设计语言：Sunrise Glass。18–22px 圆角、1px 冷色边、内高光、accent #5566e6；
+ * 颜色全部来自当前主题 token，暗色主题下自动跟随。
+ *
+ * 约定：
+ *   1. 本文件在组件里 import，只做 paint 与局部布局，不改路由 / 数据流。
+ *   2. 选择器统一带 .geography-page 前缀，不会外溢到其他页面。
+ *   3. theme/pencil.css 里 `.app-shell button:not(...)` 会给所有按钮套上纸张
+ *      皮肤（1px --line-soft 边 + 9px 圆角 + 纸张底色），那段选择器优先级是
+ *      0,3,1。本文件里需要呈现玻璃质感的按钮（卡片轨道 / 结果卡片 / 胶囊
+ *      控件 / 主操作按钮）因此用 !important 显式退出纸张皮肤；其余属性仍走
+ *      正常层叠。这是本文件唯一使用 !important 的地方。
+ *   4. prefers-reduced-motion / prefers-reduced-transparency 两个偏好都处理。
+ * ========================================================================== */
+
+.geography-page {
+  --geo-glass-edge: var(--glass-edge, color-mix(in srgb, #5a6086 18%, transparent));
+  --geo-glass-edge-bright: var(--glass-edge-bright, color-mix(in srgb, #5a6086 30%, transparent));
+  --geo-glass-highlight: var(--glass-highlight, rgb(255 255 255 / 66%));
+  --geo-glass-surface: color-mix(in srgb, var(--panel-raised) 76%, transparent);
+  --geo-glass-surface-strong: color-mix(in srgb, var(--panel-raised) 90%, transparent);
+  --geo-glass-shadow: var(--glass-shadow, 0 18px 44px color-mix(in srgb, #3a3f6b 13%, transparent));
+  --geo-accent: var(--accent, #5566e6);
+  --geo-card-gradient: linear-gradient(
+    156deg,
+    color-mix(in srgb, var(--panel-raised) 94%, transparent),
+    color-mix(in srgb, var(--geo-accent) 7%, var(--panel-raised))
+  );
+  --geo-card-shadow:
+    inset 0 1px 0 var(--geo-glass-highlight),
+    0 10px 24px color-mix(in srgb, #3a3f6b 9%, transparent);
+  --geo-card-shadow-hover:
+    inset 0 1px 0 var(--geo-glass-highlight),
+    0 16px 32px color-mix(in srgb, #3a3f6b 14%, transparent);
+}
+
+.geo-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* --------------------------------------------------------------------------
+ * 1. 退出纸张按钮皮肤：卡片 / 胶囊 / 主操作
+ * -------------------------------------------------------------------------- */
+.geography-page :is(.geo-rail-tile, .geo-search-tile),
+.geography-page .geo-feature-section .geo-entity-card {
+  border: 1px solid var(--geo-glass-edge) !important;
+  border-radius: 18px !important;
+  background: var(--geo-card-gradient) !important;
+  background-image: var(--geo-card-gradient) !important;
+  box-shadow: var(--geo-card-shadow) !important;
+  color: var(--text) !important;
+}
+
+.geography-page :is(.geo-rail-tile, .geo-search-tile):hover,
+.geography-page .geo-feature-section .geo-entity-card:hover {
+  border-color: color-mix(in srgb, var(--geo-accent) 44%, var(--geo-glass-edge)) !important;
+  box-shadow: var(--geo-card-shadow-hover) !important;
+  transform: translateY(-2px) !important;
+}
+
+/* --------------------------------------------------------------------------
+ * 2. 搜索框 + 搜索状态
+ * -------------------------------------------------------------------------- */
+.geography-page .geo-search-box {
+  border: 1px solid var(--geo-glass-edge);
+  border-radius: 18px;
+  background: var(--geo-glass-surface-strong);
+  box-shadow:
+    var(--geo-glass-shadow),
+    inset 0 1px 0 var(--geo-glass-highlight);
+  backdrop-filter: blur(20px) saturate(1.3);
+  -webkit-backdrop-filter: blur(20px) saturate(1.3);
+}
+
+.geography-page .geo-search-box:focus-within {
+  border-color: color-mix(in srgb, var(--geo-accent) 62%, var(--geo-glass-edge));
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--geo-accent) 18%, transparent),
+    inset 0 1px 0 var(--geo-glass-highlight);
+}
+
+.geography-page .geo-search-box > button {
+  min-height: 38px;
+  border: 1px solid var(--geo-accent-solid, var(--geo-accent)) !important;
+  border-radius: 12px !important;
+  background: var(--geo-accent) !important;
+  color: var(--text-on-accent, #ffffff) !important;
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--geo-accent) 28%, transparent) !important;
+  transform: none !important;
+}
+
+.geography-page .geo-search-box > button:hover {
+  background: var(--accent-hover, var(--geo-accent)) !important;
+}
+
+.geography-page .geo-search-state {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  max-width: 860px;
+  margin: -4px 0 18px;
+  padding: 13px 16px;
+  border: 1px solid var(--geo-glass-edge);
+  border-radius: 16px;
+  background: var(--geo-glass-surface-strong);
+  box-shadow: inset 0 1px 0 var(--geo-glass-highlight);
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.6;
+  text-align: left;
+}
+
+.geography-page .geo-search-state p {
+  flex: 1 1 260px;
+  margin: 0;
+}
+
+.geography-page .geo-search-loading-bar {
+  width: 17px;
+  height: 17px;
+  flex: 0 0 auto;
+  border: 2px solid color-mix(in srgb, var(--geo-accent) 24%, transparent);
+  border-top-color: var(--geo-accent);
+  border-radius: 50%;
+  animation: geo-explore-spin 0.9s linear infinite;
+}
+
+@keyframes geo-explore-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.geography-page .geo-search-error {
+  border-color: color-mix(in srgb, var(--danger, #a54f43) 34%, var(--geo-glass-edge));
+  color: var(--text);
+}
+
+.geography-page :is(.geo-search-error button, .geo-rail-empty button, .geo-search-empty button, .geo-map-preview-error button) {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 6px 13px;
+  border: 1px solid color-mix(in srgb, var(--geo-accent) 40%, var(--geo-glass-edge)) !important;
+  border-radius: 999px !important;
+  background: color-mix(in srgb, var(--panel-raised) 86%, transparent) !important;
+  color: var(--geo-accent) !important;
+  box-shadow: inset 0 1px 0 var(--geo-glass-highlight) !important;
+  cursor: pointer;
+  font-size: 12px;
+  transform: none !important;
+}
+
+.geography-page :is(.geo-search-error button, .geo-rail-empty button, .geo-search-empty button, .geo-map-preview-error button):hover {
+  border-color: var(--geo-accent) !important;
+  background: color-mix(in srgb, var(--geo-accent) 9%, var(--panel-raised)) !important;
+}
+
+/* 空结果：说明覆盖范围 + 可执行的下一步建议。 */
+/* 注意 styles.css 的 .app-content [class*="-empty"] 是 0,2,0，会给所有空态加虚线边框、
+   居中与 panel-raised 底色；这里用 .app-shell 前缀提高优先级并显式左对齐。 */
+.app-shell .geography-page .geo-search-empty {
+  max-width: 860px;
+  margin: -4px 0 18px;
+  padding: 18px 20px;
+  border: 1px dashed color-mix(in srgb, var(--geo-accent) 38%, var(--geo-glass-edge));
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--geo-accent) 5%, var(--geo-glass-surface-strong));
+  text-align: left;
+}
+
+.geography-page .geo-search-empty strong {
+  color: var(--text-bright);
+  font-size: 14px;
+}
+
+.geography-page .geo-search-empty p {
+  margin: 7px 0 12px;
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.7;
+}
+
+.geography-page .geo-search-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* --------------------------------------------------------------------------
+ * 3. 搜索结果：按类型分组的卡片列表
+ * -------------------------------------------------------------------------- */
+.geography-page .geo-search-results {
+  max-width: none;
+  margin: -4px 0 18px;
+  padding: 18px 20px 20px;
+  border: 1px solid var(--geo-glass-edge);
+  border-radius: 22px;
+  background: var(--geo-glass-surface);
+  box-shadow:
+    var(--geo-glass-shadow),
+    inset 0 1px 0 var(--geo-glass-highlight);
+  backdrop-filter: blur(22px) saturate(1.32);
+  -webkit-backdrop-filter: blur(22px) saturate(1.32);
+}
+
+.geography-page .geo-search-results > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.geography-page .geo-search-results > header > div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.geography-page .geo-search-results > header > div > span {
+  color: var(--geo-accent);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.13em;
+}
+
+.geography-page .geo-search-results > header > div > strong {
+  color: var(--text-bright);
+  font-size: 16px;
+  letter-spacing: -0.01em;
+}
+
+.geography-page .geo-search-results > header > div > small {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.geography-page .geo-search-results > header > button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 34px;
+  padding: 6px 13px;
+  border: 1px solid var(--geo-glass-edge) !important;
+  border-radius: 999px !important;
+  background: color-mix(in srgb, var(--panel-raised) 84%, transparent) !important;
+  color: var(--muted) !important;
+  box-shadow: inset 0 1px 0 var(--geo-glass-highlight) !important;
+  cursor: pointer;
+  font-size: 12px;
+  transform: none !important;
+}
+
+.geography-page .geo-search-results > header > button:hover {
+  border-color: var(--geo-accent) !important;
+  color: var(--geo-accent) !important;
+}
+
+/* 覆盖 styles.css 中 .geo-search-results > div 的横向 chip 布局。 */
+.geography-page .geo-search-results > .geo-search-body {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 0;
+  border-top: 0;
+}
+
+.geography-page .geo-search-group-index {
+  display: flex;
+  flex: 0 0 134px;
+  flex-direction: column;
+  gap: 5px;
+  padding: 12px;
+  border: 1px solid var(--geo-glass-edge);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--panel-raised) 58%, transparent);
+  box-shadow: inset 0 1px 0 var(--geo-glass-highlight);
+}
+
+.geography-page .geo-search-group-index-label {
+  color: var(--faint);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.geography-page .geo-search-group-index > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 11.5px;
+}
+
+.geography-page .geo-search-group-index > div > b {
+  color: var(--text);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.geography-page .geo-search-group-index > div > span {
+  color: var(--geo-accent);
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.geography-page .geo-search-group-grid {
+  display: grid;
+  flex: 1 1 auto;
+  grid-template-columns: repeat(auto-fill, minmax(212px, 1fr));
+  gap: 10px;
+  min-width: 0;
+}
+
+.geography-page .geo-search-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-height: 132px;
+  padding: 14px;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.geography-page .geo-search-tile-type,
+.geography-page .geo-rail-tile-type,
+.geography-page .geo-entity-card .geo-card-type {
+  padding: 3px 8px;
+  border: 1px solid color-mix(in srgb, var(--geo-accent) 26%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--geo-accent) 9%, transparent);
+  color: var(--geo-accent);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.geography-page .geo-search-tile strong,
+.geography-page .geo-rail-tile strong {
+  color: var(--text-bright);
+  font-size: 15px;
+  line-height: 1.25;
+}
+
+.geography-page .geo-search-tile > small,
+.geography-page .geo-rail-tile > small {
+  color: var(--faint);
+  font-size: 10px;
+}
+
+.geography-page .geo-search-tile p {
+  display: -webkit-box;
+  margin: 4px 0 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 11.5px;
+  line-height: 1.55;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.geography-page .geo-search-tile-cta,
+.geography-page .geo-card-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--geo-accent);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.geography-page .geo-search-tile-cta {
+  margin-top: auto;
+  padding-top: 8px;
+}
+
+/* --------------------------------------------------------------------------
+ * 4. 探索索引轨道：精选地点 / 收藏
+ * -------------------------------------------------------------------------- */
+.geography-page .geo-index-rail {
+  position: relative;
+  margin: 2px 0 18px;
+  padding: 15px 18px 14px;
+  overflow: hidden;
+  border: 1px solid var(--geo-glass-edge);
+  border-radius: 22px;
+  background: var(--geo-glass-surface);
+  box-shadow:
+    var(--geo-glass-shadow),
+    inset 0 1px 0 var(--geo-glass-highlight);
+  backdrop-filter: blur(24px) saturate(1.35);
+  -webkit-backdrop-filter: blur(24px) saturate(1.35);
+}
+
+.geography-page .geo-index-rail::before {
+  content: "";
+  position: absolute;
+  top: -70px;
+  right: -60px;
+  width: 320px;
+  height: 220px;
+  background: radial-gradient(
+    circle at 60% 40%,
+    color-mix(in srgb, var(--geo-accent) 16%, transparent),
+    transparent 70%
+  );
+  pointer-events: none;
+}
+
+.geography-page .geo-index-rail-head {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 10px;
+}
+
+.geography-page .geo-index-rail-head h2 {
+  margin: 3px 0 2px;
+  color: var(--text-bright);
+  font-size: 17px;
+  letter-spacing: -0.02em;
+}
+
+.geography-page .geo-index-rail-head p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 10.5px;
+  line-height: 1.5;
+}
+
+.geography-page .geo-rail-tabs {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid var(--geo-glass-edge);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--panel-raised) 58%, transparent);
+  box-shadow: inset 0 1px 0 var(--geo-glass-highlight);
+}
+
+.geography-page .geo-rail-tabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 4px 12px;
+  color: var(--muted) !important;
+  font-size: 12px;
+  cursor: pointer;
+  border: 0 !important;
+  border-radius: 999px !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  transform: none !important;
+  transition:
+    background-color 160ms ease,
+    color 160ms ease;
+}
+
+.geography-page .geo-rail-tabs button:hover {
+  background: color-mix(in srgb, var(--geo-accent) 9%, transparent) !important;
+  color: var(--text) !important;
+}
+
+.geography-page .geo-rail-tabs button.selected {
+  background: var(--geo-accent) !important;
+  color: var(--text-on-accent, #ffffff) !important;
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--geo-accent) 34%, transparent) !important;
+}
+
+.geography-page .geo-rail-tabs button > span {
+  display: grid;
+  min-width: 18px;
+  height: 18px;
+  place-items: center;
+  border-radius: 999px;
+  background: color-mix(in srgb, currentColor 16%, transparent);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.geography-page .geo-rail-window {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.geography-page .geo-rail-track {
+  display: flex;
+  flex: 1 1 auto;
+  gap: 10px;
+  min-width: 0;
+  margin: 0;
+  padding: 2px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  list-style: none;
+  scroll-snap-type: x proximity;
+  scrollbar-width: thin;
+}
+
+.geography-page .geo-rail-track > li {
+  display: flex;
+  flex: 0 0 auto;
+  scroll-snap-align: start;
+}
+
+.geography-page .geo-rail-track::-webkit-scrollbar {
+  height: 6px;
+}
+
+.geography-page .geo-rail-track::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--geo-accent) 28%, transparent);
+}
+
+.geography-page .geo-rail-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 192px;
+  min-height: 118px;
+  padding: 11px 13px;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.geography-page .geo-rail-tile-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+
+.geography-page .geo-rail-tile-head .geo-rail-tile-arrow {
+  margin-left: auto;
+  color: var(--geo-accent);
+}
+
+.geography-page .geo-rail-tile-favorite {
+  color: var(--geo-accent);
+}
+
+.geography-page .geo-rail-tile strong {
+  margin-top: 3px;
+  font-size: 16px;
+}
+
+.geography-page .geo-rail-tile-facts {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  width: 100%;
+  margin: 4px 0 0;
+}
+
+.geography-page .geo-rail-tile-facts > div {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  min-width: 0;
+}
+
+.geography-page .geo-rail-tile-facts dt {
+  flex: 0 0 auto;
+  color: var(--faint);
+  font-size: 9.5px;
+  white-space: nowrap;
+}
+
+.geography-page .geo-rail-tile-facts dd {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 10.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.geography-page .geo-rail-nav {
+  display: grid;
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  color: var(--muted) !important;
+  cursor: pointer;
+  border: 1px solid var(--geo-glass-edge) !important;
+  border-radius: 50% !important;
+  background: color-mix(in srgb, var(--panel-raised) 84%, transparent) !important;
+  box-shadow: inset 0 1px 0 var(--geo-glass-highlight) !important;
+  transform: none !important;
+}
+
+.geography-page .geo-rail-nav:hover {
+  border-color: var(--geo-accent) !important;
+  color: var(--geo-accent) !important;
+}
+
+.app-shell .geography-page .geo-rail-empty {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px dashed color-mix(in srgb, var(--geo-accent) 34%, var(--geo-glass-edge));
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--geo-accent) 4%, transparent);
+  text-align: left;
+}
+
+.geography-page .geo-rail-empty p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+
+.geography-page .geo-rail-empty strong {
+  color: var(--text-bright);
+}
+
+.geography-page .geo-rail-note {
+  position: relative;
+  z-index: 1;
+  margin: 9px 0 0;
+  color: var(--faint);
+  font-size: 10.5px;
+  line-height: 1.5;
+}
+
+/* --------------------------------------------------------------------------
+ * 5. 地图选中实体的浮动信息卡
+ * -------------------------------------------------------------------------- */
+.geography-page .geo-map-viewport .geo-map-preview {
+  position: absolute;
+  z-index: 5;
+  left: 22px;
+  bottom: 66px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: min(310px, calc(100% - 44px));
+  max-height: calc(100% - 96px);
+  padding: 14px 15px 13px;
+  overflow-y: auto;
+  border: 1px solid var(--geo-glass-edge-bright);
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--panel-raised) 88%, transparent);
+  box-shadow:
+    0 20px 46px color-mix(in srgb, #23264a 22%, transparent),
+    inset 0 1px 0 var(--geo-glass-highlight);
+  backdrop-filter: blur(20px) saturate(1.4);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  color: var(--text);
+  cursor: auto;
+  user-select: text;
+  touch-action: auto;
+}
+
+.geography-page .geo-map-viewport:has(.geo-map-preview) .geo-map-legend {
+  display: none;
+}
+
+.geography-page .geo-map-preview-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 2px;
+}
+
+.geography-page .geo-map-preview-type {
+  padding: 3px 8px;
+  border: 1px solid color-mix(in srgb, var(--geo-accent) 30%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--geo-accent) 10%, transparent);
+  color: var(--geo-accent);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.geography-page .geo-map-preview-flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--geo-accent);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.geography-page .geo-map-preview-close {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  margin-left: auto;
+  place-items: center;
+  color: var(--muted) !important;
+  cursor: pointer;
+  border: 1px solid transparent !important;
+  border-radius: 50% !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+.geography-page .geo-map-preview-close:hover {
+  border-color: var(--geo-glass-edge) !important;
+  color: var(--text) !important;
+}
+
+.geography-page .geo-map-preview-name {
+  margin: 2px 0 0;
+  color: var(--text-bright);
+  font-size: 18px;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+}
+
+.geography-page .geo-map-preview-en {
+  margin: 0;
+  color: var(--faint);
+  font-size: 10.5px;
+}
+
+.geography-page .geo-map-preview-coord {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.geography-page .geo-map-preview-state {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 11.5px;
+}
+
+.geography-page .geo-map-preview-error {
+  margin-top: 7px;
+  padding: 8px 10px;
+  border: 1px solid color-mix(in srgb, var(--danger, #a54f43) 32%, var(--geo-glass-edge));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--danger, #a54f43) 6%, transparent);
+}
+
+.geography-page .geo-map-preview-error p {
+  margin: 0 0 6px;
+  color: var(--text);
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+.geography-page .geo-map-preview-error button {
+  min-height: 30px;
+  padding: 5px 10px;
+  font-size: 11px;
+}
+
+.geography-page .geo-map-preview-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  gap: 8px;
+  margin: 8px 0 2px;
+}
+
+.geography-page .geo-map-preview-facts dt {
+  color: var(--faint);
+  font-size: 10px;
+}
+
+.geography-page .geo-map-preview-facts dd {
+  margin: 1px 0 0;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.geography-page .geo-map-preview-actions {
+  display: flex;
+  gap: 7px;
+  margin-top: 10px;
+}
+
+.geography-page .geo-map-preview-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 34px;
+  padding: 6px 12px;
+  color: var(--text) !important;
+  cursor: pointer;
+  border: 1px solid var(--geo-glass-edge) !important;
+  border-radius: 11px !important;
+  background: color-mix(in srgb, var(--panel-raised) 86%, transparent) !important;
+  box-shadow: none !important;
+  font-size: 11.5px;
+  transform: none !important;
+}
+
+.geography-page .geo-map-preview-actions .geo-map-preview-open {
+  border-color: var(--geo-accent-solid, var(--geo-accent)) !important;
+  background: var(--geo-accent) !important;
+  color: var(--text-on-accent, #ffffff) !important;
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--geo-accent) 30%, transparent) !important;
+}
+
+.geography-page .geo-map-preview-actions .geo-map-preview-open:hover {
+  background: var(--accent-hover, var(--geo-accent)) !important;
+}
+
+.geography-page .geo-map-preview-actions .geo-map-preview-favorite.selected {
+  border-color: color-mix(in srgb, var(--geo-accent) 46%, var(--geo-glass-edge)) !important;
+  background: color-mix(in srgb, var(--geo-accent) 10%, var(--panel-raised)) !important;
+  color: var(--geo-accent) !important;
+}
+
+/* 离线坐标回退里的选中态（MapLibre 不可用时的键盘可达列表）。 */
+.geography-page .geo-offline-point.selected circle {
+  fill: var(--geo-accent);
+  stroke: var(--geo-accent);
+  stroke-width: 2;
+}
+
+.geography-page .geo-offline-entity-list button.selected {
+  border-color: var(--geo-accent);
+  color: var(--geo-accent);
+}
+
+/* --------------------------------------------------------------------------
+ * 6. 既有控件向玻璃 / 胶囊收敛
+ * -------------------------------------------------------------------------- */
+.geography-page .geo-tabs {
+  display: inline-flex;
+  gap: 3px;
+  margin: 4px 0 16px;
+  padding: 3px;
+  border: 1px solid var(--geo-glass-edge);
+  border-radius: 999px;
+  background: var(--geo-glass-surface-strong);
+  box-shadow: inset 0 1px 0 var(--geo-glass-highlight);
+}
+
+.geography-page .geo-tabs button {
+  min-height: 34px;
+  padding: 6px 16px;
+  color: var(--muted) !important;
+  border: 0 !important;
+  border-radius: 999px !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+.geography-page .geo-tabs button:hover {
+  color: var(--text) !important;
+  background: color-mix(in srgb, var(--geo-accent) 8%, transparent) !important;
+}
+
+.geography-page .geo-tabs button.selected {
+  color: var(--text-on-accent, #ffffff) !important;
+  background: var(--geo-accent) !important;
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--geo-accent) 30%, transparent) !important;
+}
+
+.geography-page .geo-map-controls {
+  padding: 3px;
+  border: 1px solid var(--geo-glass-edge);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--panel-raised) 62%, transparent);
+  box-shadow: inset 0 1px 0 var(--geo-glass-highlight);
+}
+
+.geography-page .geo-map-controls button {
+  min-height: 26px;
+  padding: 4px 9px;
+  color: var(--muted) !important;
+  border: 1px solid transparent !important;
+  border-radius: 999px !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+.geography-page .geo-map-controls button:hover {
+  color: var(--text) !important;
+}
+
+.geography-page .geo-map-controls button.selected {
+  border-color: color-mix(in srgb, var(--geo-accent) 32%, transparent) !important;
+  background: color-mix(in srgb, var(--geo-accent) 12%, var(--panel-raised)) !important;
+  color: var(--geo-accent) !important;
+}
+
+.geography-page .geo-outline-button {
+  border: 1px solid color-mix(in srgb, var(--geo-accent) 52%, var(--geo-glass-edge)) !important;
+  border-radius: 11px !important;
+  background: color-mix(in srgb, var(--geo-accent) 9%, transparent) !important;
+  color: var(--geo-accent) !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+.geography-page .geo-outline-button:hover {
+  background: color-mix(in srgb, var(--geo-accent) 16%, transparent) !important;
+}
+
+/* --------------------------------------------------------------------------
+ * 7. 最近查看 + 既有卡片
+ * -------------------------------------------------------------------------- */
+.geography-page .geo-feature-section {
+  border: 1px solid var(--geo-glass-edge);
+  border-radius: 22px;
+  background: var(--geo-glass-surface);
+  box-shadow:
+    var(--geo-glass-shadow),
+    inset 0 1px 0 var(--geo-glass-highlight);
+  backdrop-filter: blur(20px) saturate(1.3);
+  -webkit-backdrop-filter: blur(20px) saturate(1.3);
+}
+
+.geography-page .geo-card-grid {
+  grid-template-columns: repeat(auto-fill, minmax(196px, 1fr));
+}
+
+.geography-page .geo-feature-section .geo-entity-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-height: 168px;
+  padding: 15px;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.geography-page .geo-entity-card .geo-card-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.geography-page .geo-entity-card .geo-card-favorite {
+  display: inline-flex;
+  color: var(--geo-accent);
+}
+
+.geography-page .geo-entity-card strong {
+  margin-top: 9px;
+  color: var(--text-bright);
+  font-size: 17px;
+  line-height: 1.25;
+}
+
+.geography-page .geo-entity-card p {
+  display: -webkit-box;
+  margin: 7px 0 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 11.5px;
+  line-height: 1.55;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.geography-page .geo-entity-card .geo-card-cta {
+  margin-top: auto;
+  padding-top: 9px;
+}
+
+.app-shell .geography-page .geo-feature-empty {
+  margin: 0;
+  padding: 14px 16px;
+  border: 1px dashed color-mix(in srgb, var(--geo-accent) 30%, var(--geo-glass-edge));
+  border-radius: 16px;
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+
+/* --------------------------------------------------------------------------
+ * 8. 手机：单列、44px 触控、无横向溢出
+ * -------------------------------------------------------------------------- */
+@media (max-width: 720px) {
+  .geography-page .geo-search-box > button {
+    min-height: 44px;
+    padding-inline: 18px;
+  }
+
+  .geography-page .geo-search-box input {
+    font-size: 16px;
+  }
+
+  .geography-page .geo-search-results {
+    padding: 16px;
+    border-radius: 20px;
+  }
+
+  .geography-page .geo-search-results > header {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .geography-page .geo-search-results > header > button {
+    align-self: flex-start;
+    min-height: 44px;
+    padding-inline: 16px;
+  }
+
+  .geography-page .geo-search-group-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .geography-page .geo-search-results > .geo-search-body {
+    flex-direction: column;
+  }
+
+  .geography-page .geo-search-group-index {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    width: 100%;
+    padding: 10px 12px;
+  }
+
+  .geography-page .geo-search-group-index-label {
+    width: 100%;
+  }
+
+  .geography-page .geo-search-group-index > div {
+    gap: 5px;
+    padding: 3px 9px;
+    border: 1px solid color-mix(in srgb, var(--geo-accent) 24%, transparent);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--geo-accent) 8%, transparent);
+  }
+
+  .geography-page .geo-search-group-index > div > b {
+    color: var(--geo-accent);
+    font-size: 10.5px;
+  }
+
+  .geography-page .geo-search-tile {
+    min-height: 0;
+  }
+
+  .geography-page :is(.geo-search-empty button, .geo-search-error button, .geo-rail-empty button, .geo-search-suggestions button, .geo-map-preview-error button) {
+    min-height: 44px;
+  }
+
+  .geography-page .geo-index-rail {
+    padding: 14px;
+    border-radius: 20px;
+  }
+
+  .geography-page .geo-index-rail-head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .geography-page .geo-rail-tabs {
+    width: 100%;
+  }
+
+  .geography-page .geo-rail-tabs button {
+    flex: 1 1 auto;
+    justify-content: center;
+    min-height: 44px;
+  }
+
+  .geography-page .geo-rail-tile {
+    width: 176px;
+  }
+
+  .geography-page .geo-rail-nav {
+    display: none;
+  }
+
+  /* 移动端：卡片底边高于 attribution，最大高度留在缩放控件下方，
+     事实列表内部滚动，操作按钮始终可见。 */
+  .geography-page .geo-map-viewport .geo-map-preview {
+    right: 14px;
+    bottom: 68px;
+    left: 14px;
+    width: auto;
+    max-height: 248px;
+    padding: 13px;
+    border-radius: 18px;
+  }
+
+  .geography-page .geo-map-preview-coord {
+    display: none;
+  }
+
+  .geography-page .geo-map-preview-facts {
+    flex: 0 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  /* 移动端信息卡只保留 2 条关键属性，避免裁切或滚动条破坏阅读。 */
+  .geography-page .geo-map-preview-facts > div:nth-child(n + 3) {
+    display: none;
+  }
+
+  .geography-page .geo-map-preview-head,
+  .geography-page .geo-map-preview-name,
+  .geography-page .geo-map-preview-en,
+  .geography-page .geo-map-preview-actions {
+    flex-shrink: 0;
+  }
+
+  .geography-page .geo-map-preview-close {
+    width: 44px;
+    height: 44px;
+    border-color: var(--geo-glass-edge) !important;
+  }
+
+  .geography-page .geo-map-preview-actions {
+    flex-wrap: wrap;
+  }
+
+  .geography-page .geo-map-preview-actions button {
+    flex: 1 1 128px;
+    min-height: 44px;
+  }
+
+  .geography-page .geo-card-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .geography-page .geo-feature-section {
+    border-radius: 20px;
+  }
+
+  .geography-page .geo-feature-section .geo-entity-card {
+    min-height: 0;
+  }
+
+  /* 既有导航 / 图层按钮在移动端补足触控尺寸。 */
+  .geography-page .geo-tabs button {
+    min-height: 44px;
+  }
+
+  .geography-page .geo-map-controls button {
+    min-height: 44px;
+    padding: 8px 11px;
+  }
+
+  .geography-page .geo-outline-button {
+    min-height: 44px;
+  }
+}
+
+/* --------------------------------------------------------------------------
+ * 9. 偏好：减少动效 / 减少透明
+ * -------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  .geography-page .geo-rail-tile,
+  .geography-page .geo-search-tile,
+  .geography-page .geo-feature-section .geo-entity-card,
+  .geography-page .geo-rail-tabs button,
+  .geography-page .geo-search-box,
+  .geography-page .geo-rail-nav {
+    transition: none;
+  }
+
+  .geography-page :is(.geo-rail-tile, .geo-search-tile):hover,
+  .geography-page .geo-feature-section .geo-entity-card:hover {
+    transform: none !important;
+  }
+
+  .geography-page .geo-search-loading-bar {
+    animation: none;
+  }
+
+  .geography-page .geo-rail-track {
+    scroll-behavior: auto;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .geography-page .geo-index-rail,
+  .geography-page .geo-search-results,
+  .geography-page .geo-search-box,
+  .geography-page .geo-search-state,
+  .geography-page .geo-search-empty,
+  .geography-page .geo-tabs,
+  .geography-page .geo-feature-section,
+  .geography-page .geo-rail-tile,
+  .geography-page .geo-search-tile,
+  .geography-page .geo-entity-card,
+  .geography-page .geo-map-preview {
+    background: var(--panel-raised) !important;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .geography-page .geo-index-rail::before {
+    display: none;
+  }
+}
+
+/* ==========================================================================
+ * 索引 / 搜索结果 ↔ 地图联动（Round 2）
+ *
+ * 参考 TREK 的 Explore「列表与地图互相定位」：索引卡片仍是打开详情的主入口，
+ * 右上角的定位按钮把实体选中到地图并平滑移动过去；地图选中时对应卡片高亮。
+ * 定位按钮与卡片按钮是兄弟节点（合法 HTML），不会互相触发点击。
+ * ========================================================================== */
+.geography-page .geo-rail-item,
+.geography-page .geo-search-item {
+  position: relative;
+  min-width: 0;
+}
+
+.geography-page .geo-search-item {
+  display: flex;
+}
+
+.geography-page .geo-search-item > .geo-search-tile {
+  width: 100%;
+}
+
+.geography-page .geo-rail-tile-head {
+  padding-right: 30px;
+}
+
+.geography-page .geo-rail-tile-locate,
+.geography-page .geo-search-tile-locate {
+  position: absolute;
+  top: 9px;
+  right: 9px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid color-mix(in srgb, var(--geo-accent) 32%, var(--geo-glass-edge)) !important;
+  border-radius: 999px !important;
+  background: color-mix(in srgb, var(--panel-raised) 88%, transparent) !important;
+  color: var(--geo-accent) !important;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 58%);
+  cursor: pointer;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    transform 160ms ease;
+}
+
+.geography-page .geo-rail-tile-locate:hover,
+.geography-page .geo-search-tile-locate:hover {
+  border-color: color-mix(in srgb, var(--geo-accent) 58%, var(--geo-glass-edge)) !important;
+  background: color-mix(in srgb, var(--geo-accent) 16%, var(--panel-raised)) !important;
+  transform: translateY(-1px);
+}
+
+.geography-page .geo-rail-tile-locate:focus-visible,
+.geography-page .geo-search-tile-locate:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--geo-accent) 78%, var(--text));
+  outline-offset: 2px;
+}
+
+/* 地图选中的实体在索引 / 搜索结果里同步高亮。 */
+.geography-page .geo-rail-item.is-selected > .geo-rail-tile,
+.geography-page .geo-search-item.is-selected > .geo-search-tile {
+  border-color: color-mix(in srgb, var(--geo-accent) 62%, var(--geo-glass-edge)) !important;
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--geo-accent) 22%, transparent),
+    var(--geo-card-shadow) !important;
+}
+
+@media (max-width: 640px) {
+  .geography-page .geo-rail-tile-locate,
+  .geography-page .geo-search-tile-locate {
+    width: 32px;
+    height: 32px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .geography-page .geo-rail-tile-locate,
+  .geography-page .geo-search-tile-locate {
+    transition: none;
+  }
+  .geography-page .geo-rail-tile-locate:hover,
+  .geography-page .geo-search-tile-locate:hover {
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .geography-page .geo-rail-tile-locate,
+  .geography-page .geo-search-tile-locate {
+    background: var(--panel-raised) !important;
+  }
+}
+
+/* 「换一个」随机探索（Round 8）：与「开始探索」并排，从精选里换一个地点。 */
+.geo-discovery-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.geo-shuffle-button {
+  color: var(--muted);
+}
+.geo-shuffle-button:hover {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--line));
+}

@@ -16,9 +16,13 @@ import {
   X,
 } from "@phosphor-icons/react";
 import { learningClient } from "./learningClient";
+import { KnowledgeReviewCardEditor } from "./KnowledgeReviewCardEditor";
+import { CollectionItemNoteEditor } from "./CollectionItemNoteEditor";
+import { sourceRoute } from "./sourceNavigation";
 import type { Collection, CollectionItem } from "../../types";
 
 interface CollectionsPageProps {
+  active: boolean;
   onNavigate?: (route: string) => void;
   onAskAi?: (prompt: string) => void;
 }
@@ -31,7 +35,7 @@ const MODULE_ICONS: Record<string, React.ReactNode> = {
   news: <Lightbulb size={16} color="#f43f5e" />,
 };
 
-export function CollectionsPage({ onNavigate, onAskAi }: CollectionsPageProps) {
+export function CollectionsPage({ active, onNavigate, onAskAi }: CollectionsPageProps) {
   const [collections, setCollections] = useState<Collection[]>([]);
   const [selectedCollection, setSelectedCollection] = useState<Collection | null>(null);
   const [items, setItems] = useState<CollectionItem[]>([]);
@@ -46,19 +50,21 @@ export function CollectionsPage({ onNavigate, onAskAi }: CollectionsPageProps) {
     try {
       const list = await learningClient.listCollections();
       setCollections(list);
-      if (list.length > 0 && !selectedCollection) {
-        setSelectedCollection(list[0]);
-      }
+      setSelectedCollection((current) =>
+        current && list.some((collection) => collection.id === current.id)
+          ? list.find((collection) => collection.id === current.id) ?? null
+          : list[0] ?? null,
+      );
     } catch (err) {
       console.error("Failed to load collections:", err);
     } finally {
       setLoading(false);
     }
-  }, [selectedCollection]);
+  }, []);
 
   useEffect(() => {
-    loadCollections();
-  }, [loadCollections]);
+    if (active) void loadCollections();
+  }, [active, loadCollections]);
 
   useEffect(() => {
     if (!selectedCollection) {
@@ -114,7 +120,7 @@ export function CollectionsPage({ onNavigate, onAskAi }: CollectionsPageProps) {
       if (selectedCollection) {
         setSelectedCollection({
           ...selectedCollection,
-          items_count: Math.max(0, selectedCollection.items_count - 1),
+          item_count: Math.max(0, selectedCollection.item_count - 1),
         });
       }
     } catch (err) {
@@ -123,6 +129,11 @@ export function CollectionsPage({ onNavigate, onAskAi }: CollectionsPageProps) {
   };
 
   const handleOpenItem = (item: CollectionItem) => {
+    const route = sourceRoute(item.module, item.entity_type, item.entity_id);
+    if (route) {
+      onNavigate?.(route);
+      return;
+    }
     if (item.module === "history") {
       if (item.entity_type === "person") onNavigate?.(`#history?person=${item.entity_id}`);
       else if (item.entity_type === "event") onNavigate?.(`#history?event=${item.entity_id}`);
@@ -139,6 +150,7 @@ export function CollectionsPage({ onNavigate, onAskAi }: CollectionsPageProps) {
     <div className="collections-shell page-shell" style={{ display: "flex", height: "100%", overflow: "hidden", padding: 0 }}>
       {/* Left Sidebar: Collection List */}
       <div
+        className="collections-sidebar"
         style={{
           width: 320,
           borderRight: "1px solid var(--border-color, #e5e7eb)",
@@ -219,7 +231,7 @@ export function CollectionsPage({ onNavigate, onAskAi }: CollectionsPageProps) {
                     {col.title}
                   </div>
                   <span style={{ fontSize: 11, color: "var(--text-tertiary, #9ca3af)", fontWeight: 500 }}>
-                    {col.items_count} 项
+                    {col.item_count} 项
                   </span>
                 </div>
                 {col.description && (
@@ -252,7 +264,7 @@ export function CollectionsPage({ onNavigate, onAskAi }: CollectionsPageProps) {
       </div>
 
       {/* Right Content Area */}
-      <div style={{ flex: 1, background: "var(--surface-primary, #ffffff)", overflowY: "auto", padding: "32px 40px" }}>
+      <div className="collections-content" style={{ flex: 1, background: "var(--surface-primary, #ffffff)", overflowY: "auto", padding: "32px 40px" }}>
         {selectedCollection ? (
           <div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24 }}>
@@ -373,11 +385,14 @@ export function CollectionsPage({ onNavigate, onAskAi }: CollectionsPageProps) {
                         {item.title}
                       </h3>
 
-                      {item.note && (
-                        <p style={{ fontSize: 13, color: "var(--text-secondary, #4b5563)", margin: 0 }}>
-                          {item.note}
-                        </p>
-                      )}
+                      <CollectionItemNoteEditor
+                        item={item}
+                        onSaved={(updated) =>
+                          setItems((current) =>
+                            current.map((entry) => entry.id === updated.id ? updated : entry),
+                          )
+                        }
+                      />
                     </div>
 
                     <div style={{ marginTop: 14, paddingTop: 10, borderTop: "1px solid var(--border-subtle, #f3f4f6)" }}>
@@ -398,6 +413,7 @@ export function CollectionsPage({ onNavigate, onAskAi }: CollectionsPageProps) {
                       >
                         <ArrowSquareOut size={14} /> 查看详情
                       </button>
+                      <KnowledgeReviewCardEditor item={item} onNavigate={onNavigate} />
                     </div>
                   </div>
                 ))}

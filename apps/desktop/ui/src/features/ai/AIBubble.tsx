@@ -3,7 +3,7 @@
  *
  * - `AIBubbleHero`：Home / Knowledge 等页面的主入口。小型气泡点击后
  *   `scale + fade` 展开成可输入的问句框；未展开时展示 AI 助手卡片。
- * - `AIBubbleLauncher`：全站右下角常驻气泡，任何页面都能唤起 AI。
+ * - `AIBubbleLauncher`：全站 AI 入口；桌面端位于标题栏，平板端为右下角胶囊，移动端位于底部导航上方。
  *
  * 只负责「外观 + 收集意图」，真正的对话仍交给 AIPanel（业务逻辑不重复）。
  */
@@ -173,17 +173,32 @@ export function AIBubbleHero({ onAsk, onOpenFiles, contextLabel }: AIBubbleHeroP
   );
 }
 
-export function AIBubbleLauncher({ onOpen }: { onOpen: () => void }) {
+export function AIBubbleLauncher({
+  open,
+  onToggle,
+}: {
+  open: boolean;
+  onToggle: () => void;
+}) {
+  const isApplePlatform =
+    typeof navigator !== "undefined" && /Mac|iPhone|iPad|iPod/.test(navigator.platform);
+  const shortcut = isApplePlatform ? "⌘/" : "Ctrl + /";
+  const shortcutKey = isApplePlatform ? "Meta+/" : "Control+/";
+
   return (
     <button
       type="button"
-      className="ai-bubble-launch"
-      onClick={onOpen}
-      aria-label="Ask AI"
-      title="Ask AI (⌘/)"
+      className={"ai-bubble-launch" + (open ? " is-open" : "")}
+      onClick={onToggle}
+      aria-label={`${open ? "关闭" : "打开"} AI 助手（${shortcut}）`}
+      aria-expanded={open}
+      aria-keyshortcuts={shortcutKey}
+      title={`AI 助手 (${shortcut})`}
     >
+      <span className="ai-island-indicator" aria-hidden="true" />
       <Sparkle size={18} weight="fill" />
-      <span>Ask AI</span>
+      <span className="ai-bubble-label">{open ? "AI 对话" : "AI 助手"}</span>
+      <kbd className="ai-island-shortcut" aria-hidden="true">{shortcut}</kbd>
     </button>
   );
 }

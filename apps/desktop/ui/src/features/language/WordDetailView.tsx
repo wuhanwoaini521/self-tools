@@ -41,7 +41,7 @@ export function WordDetailView({
     [itemId],
   );
   const [collections, setCollections] = useState<
-    Array<{ id: string; title: string; items_count: number }>
+    Array<{ id: string; title: string; item_count: number }>
   >([]);
   const [collectionId, setCollectionId] = useState<string>("");
   const [note, setNote] = useState<string>("");
@@ -325,7 +325,7 @@ export function WordDetailView({
                     >
                       {collections.map((collection) => (
                         <option key={collection.id} value={collection.id}>
-                          {collection.title}（{collection.items_count}）
+                          {collection.title}（{collection.item_count}）
                         </option>
                       ))}
                     </select>
