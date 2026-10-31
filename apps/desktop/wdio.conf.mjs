@@ -1,15 +1,26 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { spawn } from "node:child_process";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { delimiter, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, "../..");
-const reportDir = join(repoRoot, "output", "desktop-e2e");
+const reportDir = process.env.DEVTOOLBOX_E2E_REPORT_DIR
+  ? resolve(process.env.DEVTOOLBOX_E2E_REPORT_DIR)
+  : join(repoRoot, "output", "desktop-e2e");
+const uiOutDir = process.env.DEVTOOLBOX_E2E_UI_OUT_DIR
+  ? resolve(process.env.DEVTOOLBOX_E2E_UI_OUT_DIR)
+  : undefined;
 const testDataDir = mkdtempSync(join(tmpdir(), "devtoolbox-e2e-"));
 const fixtureDir = join(testDataDir, "fixtures");
 const markdownFixture = join(fixtureDir, "keyboard.md");
+const appBinaryPath = join(
+  repoRoot,
+  "target",
+  "debug",
+  process.platform === "win32" ? "devtoolbox-desktop.exe" : "devtoolbox-desktop",
+);
 const uiDir = resolve(here, "ui");
 const viteCli = join(uiDir, "node_modules", "vite", "bin", "vite.js");
 let previewServer;
@@ -17,7 +28,7 @@ let previewServer;
 // Offline developer machines can pin an already installed, matching EdgeDriver.
 // The service discovers drivers through PATH; keep the override opt-in.
 if (process.env.DEVTOOLBOX_EDGEDRIVER_PATH) {
-  process.env.PATH = `${dirname(process.env.DEVTOOLBOX_EDGEDRIVER_PATH)};${process.env.PATH}`;
+  process.env.PATH = `${dirname(process.env.DEVTOOLBOX_EDGEDRIVER_PATH)}${delimiter}${process.env.PATH}`;
 }
 
 mkdirSync(fixtureDir, { recursive: true });
@@ -39,7 +50,7 @@ export const config = {
   capabilities: [{
     browserName: "tauri",
     "tauri:options": {
-      application: join(repoRoot, "target", "debug", "devtoolbox-desktop.exe"),
+      application: appBinaryPath,
     },
   }],
   logLevel: "warn",
@@ -49,7 +60,7 @@ export const config = {
   connectionRetryTimeout: 120_000,
   connectionRetryCount: 1,
   services: [["@wdio/tauri-service", {
-    appBinaryPath: join(repoRoot, "target", "debug", "devtoolbox-desktop.exe"),
+    appBinaryPath,
     driverProvider: "embedded",
     embeddedPort: Number(process.env.TAURI_WEBDRIVER_PORT),
     captureBackendLogs: true,
@@ -58,7 +69,9 @@ export const config = {
   framework: "mocha",
   reporters: [["spec", { writeStream: join(reportDir, "spec.log") }]],
   onPrepare: async () => {
-    previewServer = spawn(process.execPath, [viteCli, "preview", "--host", "127.0.0.1", "--port", "1421", "--strictPort"], {
+    const previewArgs = [viteCli, "preview", "--host", "127.0.0.1", "--port", "1421", "--strictPort"];
+    if (uiOutDir) previewArgs.push("--outDir", uiOutDir);
+    previewServer = spawn(process.execPath, previewArgs, {
       cwd: uiDir,
       stdio: "ignore",
       windowsHide: true,

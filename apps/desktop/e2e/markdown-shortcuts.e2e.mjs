@@ -54,7 +54,7 @@ describe("Markdown 按键和命令面板", () => {
     await expect(await pageClass("zen-mode")).toBe(false);
   });
 
-  it("打开、编辑、Ctrl+S 保存到隔离的测试文件", async () => {
+  it("打开、编辑并用平台快捷键保存到隔离的测试文件", async () => {
     await expect(typeof markdownPath).toBe("string");
     const selectedPath = await browser.execute((path) => {
       window.__DEVTOOLBOX_E2E_OPEN_DOCUMENT__ = {
@@ -84,15 +84,15 @@ describe("Markdown 按键和命令面板", () => {
     await editor.click();
     await editor.setValue("# Saved by shortcut\n\n- [ ] persist this task");
     await browser.waitUntil(async () => (await editor.getText()).includes("Saved by shortcut"));
-    await browser.keys([Key.Ctrl, "s", Key.NULL]);
+    await browser.waitUntil(async () => (await $(".editor-meta").getText()).includes("Unsaved"));
+    const primaryModifier = process.platform === "darwin" ? Key.Command : Key.Ctrl;
+    await browser.keys([primaryModifier, "s", Key.NULL]);
 
     const savedDocument = await browser.execute(() => window.__DEVTOOLBOX_E2E_SAVED_DOCUMENT__);
     expect(savedDocument?.path).toBe(markdownPath);
+    expect(savedDocument?.content).toContain("Saved by shortcut");
     writeFileSync(markdownPath, savedDocument.content, "utf8");
-    await browser.waitUntil(() => readFileSync(markdownPath, "utf8").includes("Saved by shortcut"), {
-      timeout: 5_000,
-      timeoutMsg: "Ctrl+S 未将编辑内容写入隔离夹具",
-    });
+    expect(readFileSync(markdownPath, "utf8")).toContain("Saved by shortcut");
   });
 
   it("文件选择器取消时保留当前文档", async () => {

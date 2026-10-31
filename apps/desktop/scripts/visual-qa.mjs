@@ -171,7 +171,11 @@ try {
     report.push({ viewport: viewport.name, route: "settings", label: "Settings dialog", screenshot: settingsShot });
     await page.locator("button[title='关闭设置']").click();
 
-    await page.locator(".ai-bubble-launch").click();
+    // The Personal Hub intentionally hides the global floating bubble because it
+    // has a page-local AI CTA; use the bubble on other pages when visible.
+    const aiLauncher = page.locator(".ai-bubble-launch");
+    if (await aiLauncher.isVisible()) await aiLauncher.click();
+    else await page.getByRole("button", { name: "问 AI" }).first().click();
     await page.locator(".ai-panel").waitFor({ state: "visible" });
     await page.locator(".toast").evaluateAll((nodes) => nodes.forEach((node) => node.remove()));
     const aiShot = join(outDir, viewport.name, "ai-panel.png");
