@@ -60,7 +60,7 @@
 ## 已知边界 / 后续
 
 1. **跨时期事件密度**：已完成——`PeriodResult`/`SemanticPeriod` 新增 `event_count`（后端 SQL 按 `events.period_id` 统计，纯增量），时代时间轴顶部渲染密度柱；无计数时不渲染。
-2. **Geography 的 `!important` 技术债**：`geography-explore.css` 中约 100+ 处 `!important`，用于退出旧「纸张按钮」皮肤（`.app-shell button:not(...)` 特异性 0,3,1）。彻底收敛需要把组件选择器整体提升特异性，风险较高，留作专项。
+2. **Geography 的 `!important` 技术债**：已收敛。`geography-explore.css` 的 115 处 `!important` 全部移除，改为统一加 `.app-shell .app-content .geography-page` 前缀，把特异性稳定抬到纸张皮肤之上（`.app-shell button:not(...)` = 0,3,1）。用提交前后计算样式对比（6 个状态 × 12 个属性）核对，剩余差异都是组件自身声明的设计值开始生效（胶囊圆角、Tab 内边距、移动端输入 16px），没有布局或控件消失。
 3. **真实数据状态覆盖**：夏/商/周等时期 `stages` 为空、部分时期没有 Story；密度条与 Story 导航按设计在无数据时不渲染。空白行程没有坐标，地图会明确说明不绘制推测路线。
 4. **Travel 跨天拖动**在触屏不可用（抓手隐藏），触屏继续用「安排在 Day X」下拉。
 5. 浏览器 QA 曾出现 `qa-bridge: unsupported command news_sources` 提示（仅 QA 桥环境，产品运行时不出现）。
