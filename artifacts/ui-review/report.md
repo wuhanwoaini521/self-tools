@@ -20,16 +20,16 @@
 
 | Page | Status | Notes |
 |---|---|---|
-| Home | PASS | Rebuilt as the reference portal: greeting/stats, AI bubble, continue learning, explore, workspace modules, context and recent items. |
+| Home | PASS | Rebuilt as the reference portal; AI suggestion actions now remain fully legible and readable at rest. |
 | Review | PARTIAL | Route/shared skin checked; review-specific visual hierarchy and card states remain. |
-| History | PARTIAL | Shared skin applied; historical timeline/detail visual redesign remains. |
+| History | PARTIAL | Era navigation now uses balanced cards, the first era no longer renders an empty placeholder, period context aligns cleanly, and event summaries are readable; broader History IA and remaining sections still need migration. |
 | Geography | PARTIAL | Shared skin applied; explorer/map-specific redesign remains. |
-| Language | PARTIAL | Shared skin applied; language and English subviews are not fully migrated to Sketch components. |
+| Language | PARTIAL | Recent-learning actions wrap instead of shrinking, and lesson rows have more readable spacing; other language subviews remain on legacy layouts. |
 | Study | PARTIAL | Shared skin applied; study-board-specific workspace redesign remains. |
 | News | PARTIAL | Shared skin applied; clipping/scrapbook-specific redesign remains. |
 | RSS | PARTIAL | Shared skin applied; reading-desk-specific redesign remains. |
-| Travel | PARTIAL | Shared skin applied; full Notebook workspace redesign remains. |
-| Markdown | PARTIAL | Shared skin applied; editor-specific redesign remains. |
+| Travel | PARTIAL | Search form now has consistent inset spacing and responsive preference/date rows; the full Notebook workspace and trip workflows remain incomplete. |
+| Markdown | PARTIAL | Toolbar rows grow instead of clipping, and Split stays visible at desktop/tablet widths; the editor/workspace still needs a dedicated redesign. |
 | Collections | PARTIAL | Shared skin applied; collection-management redesign remains. |
 | Knowledge | PARTIAL | Shared skin applied; knowledge-universe redesign remains. |
 | Graph | PARTIAL | Shared skin applied; graph-canvas and node interactions remain. |
@@ -42,24 +42,24 @@ Applications is a Server sub-area, not a hash route. Settings is a global dialog
 
 ## Functional Regression
 
-- UI unit tests: **PASS** — 13 files, 95 tests (prior run).
-- Rust workspace tests: **PASS** — 678 tests (prior run).
-- UI typecheck/build: **PASS** (prior run).
-- Browser visual QA: **PASS for the scripted route/layout assertions** — 90 states across 5 viewports; this did not cover every page interaction.
+- UI unit tests: **PASS** — 13 files, 95 tests (current run).
+- Rust workspace tests: **PASS** — 678 tests (prior run; not rerun in this pass).
+- UI typecheck/build: **PASS** (current run).
+- Browser visual QA: **PARTIAL** — all 90 states across 5 viewports were rendered; route, navigation, overflow, and accessible-button assertions passed. The harness exited non-zero on a third-party map tile response (`tiles.mapterhorn.com/4/15/6.webp`, HTTP 404) during small-mobile Server capture.
 - Native WebDriver E2E: **NOT RUN**.
 - Lint: **NOT CONFIGURED / NOT RUN**.
 - Live data mutations, provider flows and AI tools: **NOT verified end-to-end**.
 
 ## UI Review
 
-- Desktop: **PARTIAL** — the paper/graphite skin and Home redesign are visible, but non-Home pages retain much of their legacy markup and information hierarchy.
-- Responsive: **PARTIAL** — scripted checks reported no horizontal document overflow; overlays, content visibility and all interactions were not exhaustively checked.
-- Screenshots: [`artifacts/ui-review/`](./), with desktop route captures in `desktop/` and additional viewport captures in their named subdirectories.
+- Desktop: **PARTIAL** — the Home assistant suggestions, History period/timeline controls, Language recent-learning row, Markdown toolbar, and Travel search form received targeted fixes. Most other modules still retain legacy markup and information hierarchy.
+- Responsive: **PARTIAL** — route checks reported no document-level horizontal overflow across five viewports; content visibility, overlays and all interactions were not exhaustively checked.
+- Reviewed post-fix screenshots: [`post-fix/`](./post-fix/) (Home, History, Language, Markdown at desktop/tablet/mobile, Travel at desktop/tablet/mobile).
 
 ## Remaining Issues
 
-- This is an incomplete first redesign pass, not full-project UI acceptance.
-- Non-Home modules mostly retain legacy feature markup and receive global CSS treatment; per-module information architecture, shared component migration, interaction design, and illustration work remain.
+- This remains an incomplete redesign pass, not full-project UI acceptance.
+- Non-Home modules mostly retain legacy feature markup; per-module information architecture, shared component migration, interaction design, and illustration work remain. The screenshot fixes do not imply full module completion.
 - Prior browser screenshots ran without the Rust API, so they represent empty/degraded states rather than live data workflows.
 - Subroutes and in-page states are not fully enumerated in the initial route inventory.
 - Accessibility needs targeted validation for contrast, keyboard traversal, modal focus, and reduced-motion behavior.

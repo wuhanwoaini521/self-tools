@@ -1,0 +1,1210 @@
+{
+  "manifest_version": 1,
+  "snapshot_path": "/var/folders/jn/l50pwhbx1zd3vrnk9dkp73000000gn/T/self-tools-sprint11-rc-src-final-gzed73ej",
+  "archive_path": "artifacts/ui-review/sprint-11/rc-source-snapshot.tar.gz",
+  "archive_sha256": "5f184a1125597edf21ec409a3ee0afd4abfe6a2d94457b9fd7ea63350004e8b3",
+  "archive_bytes": 11153373,
+  "snapshot_file_count": 820,
+  "snapshot_bytes": 29905765,
+  "candidate_id": "5f184a1125597edf",
+  "git": {
+    "branch": "main",
+    "head": "f58efa28734208ea195d586d6b52b49a97f510a7"
+  },
+  "full_worktree_tracked_diff_sha256_including_excluded_artifacts": "065fc182225d0684b4482af98f59dd87ec9003d6fd8578ec5a2f0c2507469262",
+  "tracked_changed_paths": [
+    "Cargo.lock",
+    "FEATURE_MATRIX.md",
+    "Makefile",
+    "README.md",
+    "apps/desktop/e2e/markdown-shortcuts.e2e.mjs",
+    "apps/desktop/e2e/navigation.e2e.mjs",
+    "apps/desktop/scripts/build-ui-e2e.mjs",
+    "apps/desktop/scripts/visual-qa.mjs",
+    "apps/desktop/src/learning.rs",
+    "apps/desktop/src/lib.rs",
+    "apps/desktop/tauri.conf.json",
+    "apps/desktop/ui/package-lock.json",
+    "apps/desktop/ui/src/App.tsx",
+    "apps/desktop/ui/src/SettingsDialog.tsx",
+    "apps/desktop/ui/src/features/ai/AIPanel.tsx",
+    "apps/desktop/ui/src/features/ai/aiClient.ts",
+    "apps/desktop/ui/src/features/ai/aiTypes.ts",
+    "apps/desktop/ui/src/features/geography/AmapMap.tsx",
+    "apps/desktop/ui/src/features/geography/AmapRegionMap.tsx",
+    "apps/desktop/ui/src/features/geography/GeoMap.tsx",
+    "apps/desktop/ui/src/features/geography/GeographyPage.tsx",
+    "apps/desktop/ui/src/features/geography/MapLibreMap.tsx",
+    "apps/desktop/ui/src/features/history/HistoryPage.tsx",
+    "apps/desktop/ui/src/features/history/PeriodDetail.tsx",
+    "apps/desktop/ui/src/features/history/semanticTypes.ts",
+    "apps/desktop/ui/src/features/home/HomePage.tsx",
+    "apps/desktop/ui/src/features/language/WordDetailView.tsx",
+    "apps/desktop/ui/src/features/language/english/LessonWorkspace.tsx",
+    "apps/desktop/ui/src/features/language/english/VocabularyStage.tsx",
+    "apps/desktop/ui/src/features/learning/CollectionsPage.tsx",
+    "apps/desktop/ui/src/features/learning/EntityDrawer.tsx",
+    "apps/desktop/ui/src/features/learning/ReviewCenterPage.tsx",
+    "apps/desktop/ui/src/features/learning/learningClient.test.ts",
+    "apps/desktop/ui/src/features/learning/learningClient.ts",
+    "apps/desktop/ui/src/features/system/GlobalSearchPage.tsx",
+    "apps/desktop/ui/src/features/travel/TravelGuide.tsx",
+    "apps/desktop/ui/src/features/travel/TravelPage.tsx",
+    "apps/desktop/ui/src/features/travel/travelClient.ts",
+    "apps/desktop/ui/src/main.tsx",
+    "apps/desktop/ui/src/settingsClient.ts",
+    "apps/desktop/ui/src/styles.css",
+    "apps/desktop/ui/src/theme/pencil.css",
+    "apps/desktop/ui/src/transport.test.ts",
+    "apps/desktop/ui/src/transport.ts",
+    "apps/desktop/ui/src/types.ts",
+    "apps/desktop/wdio.conf.mjs",
+    "apps/server/src/ai_api.rs",
+    "apps/server/src/knowledge_api.rs",
+    "apps/server/src/learning_api.rs",
+    "apps/server/src/main.rs",
+    "apps/server/src/routes.rs",
+    "apps/server/src/travel_api.rs",
+    "artifacts/ui-review/report.md",
+    "crates/application/Cargo.toml",
+    "crates/application/src/history/ports.rs",
+    "crates/application/src/history/service.rs",
+    "crates/application/src/history/tests.rs",
+    "crates/application/src/language/course.rs",
+    "crates/application/src/language/learning.rs",
+    "crates/application/src/language/tests.rs",
+    "crates/application/src/learning/mod.rs",
+    "crates/application/src/learning/ports.rs",
+    "crates/application/src/learning/service.rs",
+    "crates/application/src/learning/tests.rs",
+    "crates/application/src/lib.rs",
+    "crates/application/src/personal_ai/agent.rs",
+    "crates/application/src/personal_ai/geography.rs",
+    "crates/application/src/personal_ai/geography/geography_tests.rs",
+    "crates/application/src/personal_ai/history.rs",
+    "crates/application/src/personal_ai/history/history_tests.rs",
+    "crates/application/src/personal_ai/memory.rs",
+    "crates/application/src/personal_ai/memory/memory_tests.rs",
+    "crates/application/src/personal_ai/mod.rs",
+    "crates/application/src/personal_ai/prompt.rs",
+    "crates/application/src/personal_ai/registry.rs",
+    "crates/application/src/personal_ai/rss.rs",
+    "crates/application/src/personal_ai/rss/rss_tests.rs",
+    "crates/application/src/personal_ai/runtime.rs",
+    "crates/application/src/personal_ai/study_board.rs",
+    "crates/application/src/personal_ai/study_board/study_board_tests.rs",
+    "crates/application/src/personal_ai/travel.rs",
+    "crates/application/src/personal_ai/travel/travel_tests.rs",
+    "crates/application/src/search/mod.rs",
+    "crates/application/src/search/service.rs",
+    "crates/application/src/search/tests.rs",
+    "crates/application/src/travel/mod.rs",
+    "crates/application/src/travel/ports.rs",
+    "crates/core/src/history_records.rs",
+    "crates/core/src/learning/mod.rs",
+    "crates/core/src/learning/model.rs",
+    "crates/core/src/lib.rs",
+    "crates/core/src/personal_ai/error.rs",
+    "crates/core/src/personal_ai/mod.rs",
+    "crates/core/src/personal_ai/types.rs",
+    "crates/core/src/search/model.rs",
+    "crates/core/src/settings.rs",
+    "crates/core/src/travel/mod.rs",
+    "crates/infrastructure/Cargo.toml",
+    "crates/infrastructure/src/agents/jev_decision.rs",
+    "crates/infrastructure/src/error.rs",
+    "crates/infrastructure/src/geography/store.rs",
+    "crates/infrastructure/src/history/duckdb.rs",
+    "crates/infrastructure/src/learning/store.rs",
+    "crates/infrastructure/src/personal_ai/llm.rs",
+    "crates/infrastructure/src/ports/learning.rs",
+    "crates/infrastructure/src/travel/data_provider.rs",
+    "crates/infrastructure/src/travel/store.rs",
+    "crates/runtime/src/app_core.rs",
+    "crates/runtime/src/composition.rs",
+    "crates/runtime/src/history_query.rs",
+    "crates/runtime/src/personal_ai.rs",
+    "docs/architecture/ADR-002-http-history-pilot.md",
+    "docs/architecture/ADR-003-personal-ai-hub.md",
+    "docs/architecture/ADR-005-personal-knowledge-layer.md",
+    "docs/migration/03-rust-gui-selection.md",
+    "docs/operations/DEPLOY_MACOS12.md",
+    "docs/operations/TROUBLESHOOTING.md",
+    "docs/personal-ai/HOME_SERVER_V7_PLAN.md",
+    "docs/personal-ai/PERSONAL_AI_HUB_V4.md",
+    "docs/personal-ai/PERSONAL_AI_HUB_V4_PLAN.md",
+    "docs/personal-ai/PERSONAL_AI_HUB_V5.md",
+    "docs/personal-ai/PERSONAL_AI_HUB_V5_PLAN.md",
+    "docs/personal-ai/PERSONAL_KNOWLEDGE_V6.md",
+    "docs/personal-ai/PERSONAL_KNOWLEDGE_V6_PLAN.md",
+    "docs/travel/v1-design.md"
+  ],
+  "tracked_changed_paths_in_snapshot": [
+    "Cargo.lock",
+    "FEATURE_MATRIX.md",
+    "Makefile",
+    "README.md",
+    "apps/desktop/e2e/markdown-shortcuts.e2e.mjs",
+    "apps/desktop/e2e/navigation.e2e.mjs",
+    "apps/desktop/scripts/build-ui-e2e.mjs",
+    "apps/desktop/scripts/visual-qa.mjs",
+    "apps/desktop/src/learning.rs",
+    "apps/desktop/src/lib.rs",
+    "apps/desktop/tauri.conf.json",
+    "apps/desktop/ui/package-lock.json",
+    "apps/desktop/ui/src/App.tsx",
+    "apps/desktop/ui/src/SettingsDialog.tsx",
+    "apps/desktop/ui/src/features/ai/AIPanel.tsx",
+    "apps/desktop/ui/src/features/ai/aiClient.ts",
+    "apps/desktop/ui/src/features/ai/aiTypes.ts",
+    "apps/desktop/ui/src/features/geography/AmapMap.tsx",
+    "apps/desktop/ui/src/features/geography/AmapRegionMap.tsx",
+    "apps/desktop/ui/src/features/geography/GeoMap.tsx",
+    "apps/desktop/ui/src/features/geography/GeographyPage.tsx",
+    "apps/desktop/ui/src/features/geography/MapLibreMap.tsx",
+    "apps/desktop/ui/src/features/history/HistoryPage.tsx",
+    "apps/desktop/ui/src/features/history/PeriodDetail.tsx",
+    "apps/desktop/ui/src/features/history/semanticTypes.ts",
+    "apps/desktop/ui/src/features/home/HomePage.tsx",
+    "apps/desktop/ui/src/features/language/WordDetailView.tsx",
+    "apps/desktop/ui/src/features/language/english/LessonWorkspace.tsx",
+    "apps/desktop/ui/src/features/language/english/VocabularyStage.tsx",
+    "apps/desktop/ui/src/features/learning/CollectionsPage.tsx",
+    "apps/desktop/ui/src/features/learning/EntityDrawer.tsx",
+    "apps/desktop/ui/src/features/learning/ReviewCenterPage.tsx",
+    "apps/desktop/ui/src/features/learning/learningClient.test.ts",
+    "apps/desktop/ui/src/features/learning/learningClient.ts",
+    "apps/desktop/ui/src/features/system/GlobalSearchPage.tsx",
+    "apps/desktop/ui/src/features/travel/TravelGuide.tsx",
+    "apps/desktop/ui/src/features/travel/TravelPage.tsx",
+    "apps/desktop/ui/src/features/travel/travelClient.ts",
+    "apps/desktop/ui/src/main.tsx",
+    "apps/desktop/ui/src/settingsClient.ts",
+    "apps/desktop/ui/src/styles.css",
+    "apps/desktop/ui/src/theme/pencil.css",
+    "apps/desktop/ui/src/transport.test.ts",
+    "apps/desktop/ui/src/transport.ts",
+    "apps/desktop/ui/src/types.ts",
+    "apps/desktop/wdio.conf.mjs",
+    "apps/server/src/ai_api.rs",
+    "apps/server/src/knowledge_api.rs",
+    "apps/server/src/learning_api.rs",
+    "apps/server/src/main.rs",
+    "apps/server/src/routes.rs",
+    "apps/server/src/travel_api.rs",
+    "crates/application/Cargo.toml",
+    "crates/application/src/history/ports.rs",
+    "crates/application/src/history/service.rs",
+    "crates/application/src/history/tests.rs",
+    "crates/application/src/language/course.rs",
+    "crates/application/src/language/learning.rs",
+    "crates/application/src/language/tests.rs",
+    "crates/application/src/learning/mod.rs",
+    "crates/application/src/learning/ports.rs",
+    "crates/application/src/learning/service.rs",
+    "crates/application/src/learning/tests.rs",
+    "crates/application/src/lib.rs",
+    "crates/application/src/personal_ai/agent.rs",
+    "crates/application/src/personal_ai/geography.rs",
+    "crates/application/src/personal_ai/geography/geography_tests.rs",
+    "crates/application/src/personal_ai/history.rs",
+    "crates/application/src/personal_ai/history/history_tests.rs",
+    "crates/application/src/personal_ai/memory.rs",
+    "crates/application/src/personal_ai/memory/memory_tests.rs",
+    "crates/application/src/personal_ai/mod.rs",
+    "crates/application/src/personal_ai/prompt.rs",
+    "crates/application/src/personal_ai/registry.rs",
+    "crates/application/src/personal_ai/rss.rs",
+    "crates/application/src/personal_ai/rss/rss_tests.rs",
+    "crates/application/src/personal_ai/runtime.rs",
+    "crates/application/src/personal_ai/study_board.rs",
+    "crates/application/src/personal_ai/study_board/study_board_tests.rs",
+    "crates/application/src/personal_ai/travel.rs",
+    "crates/application/src/personal_ai/travel/travel_tests.rs",
+    "crates/application/src/search/mod.rs",
+    "crates/application/src/search/service.rs",
+    "crates/application/src/search/tests.rs",
+    "crates/application/src/travel/mod.rs",
+    "crates/application/src/travel/ports.rs",
+    "crates/core/src/history_records.rs",
+    "crates/core/src/learning/mod.rs",
+    "crates/core/src/learning/model.rs",
+    "crates/core/src/lib.rs",
+    "crates/core/src/personal_ai/error.rs",
+    "crates/core/src/personal_ai/mod.rs",
+    "crates/core/src/personal_ai/types.rs",
+    "crates/core/src/search/model.rs",
+    "crates/core/src/settings.rs",
+    "crates/core/src/travel/mod.rs",
+    "crates/infrastructure/Cargo.toml",
+    "crates/infrastructure/src/agents/jev_decision.rs",
+    "crates/infrastructure/src/error.rs",
+    "crates/infrastructure/src/geography/store.rs",
+    "crates/infrastructure/src/history/duckdb.rs",
+    "crates/infrastructure/src/learning/store.rs",
+    "crates/infrastructure/src/personal_ai/llm.rs",
+    "crates/infrastructure/src/ports/learning.rs",
+    "crates/infrastructure/src/travel/data_provider.rs",
+    "crates/infrastructure/src/travel/store.rs",
+    "crates/runtime/src/app_core.rs",
+    "crates/runtime/src/composition.rs",
+    "crates/runtime/src/history_query.rs",
+    "crates/runtime/src/personal_ai.rs",
+    "docs/architecture/ADR-002-http-history-pilot.md",
+    "docs/architecture/ADR-003-personal-ai-hub.md",
+    "docs/architecture/ADR-005-personal-knowledge-layer.md",
+    "docs/migration/03-rust-gui-selection.md",
+    "docs/operations/DEPLOY_MACOS12.md",
+    "docs/operations/TROUBLESHOOTING.md",
+    "docs/personal-ai/HOME_SERVER_V7_PLAN.md",
+    "docs/personal-ai/PERSONAL_AI_HUB_V4.md",
+    "docs/personal-ai/PERSONAL_AI_HUB_V4_PLAN.md",
+    "docs/personal-ai/PERSONAL_AI_HUB_V5.md",
+    "docs/personal-ai/PERSONAL_AI_HUB_V5_PLAN.md",
+    "docs/personal-ai/PERSONAL_KNOWLEDGE_V6.md",
+    "docs/personal-ai/PERSONAL_KNOWLEDGE_V6_PLAN.md",
+    "docs/travel/v1-design.md"
+  ],
+  "tracked_artifact_paths_excluded_count": 1,
+  "untracked_source_paths_included": [
+    ".github/copilot-instructions.md",
+    "AGENTS.md",
+    "CLAUDE.md",
+    "apps/desktop/e2e/settings-persistence.e2e.mjs",
+    "apps/desktop/e2e/travel-plan-persistence.e2e.mjs",
+    "apps/desktop/ui/src/features/ai/aiClient.test.ts",
+    "apps/desktop/ui/src/features/exploration/explorationClient.ts",
+    "apps/desktop/ui/src/features/geography/LocationHistoryTimeline.tsx",
+    "apps/desktop/ui/src/features/geography/geoTimeline.test.ts",
+    "apps/desktop/ui/src/features/geography/geoTimeline.ts",
+    "apps/desktop/ui/src/features/home/HomePage.test.ts",
+    "apps/desktop/ui/src/features/learning/CollectionItemNoteEditor.tsx",
+    "apps/desktop/ui/src/features/learning/KnowledgeReviewCardEditor.tsx",
+    "apps/desktop/ui/src/features/learning/SaveToCollection.test.ts",
+    "apps/desktop/ui/src/features/learning/SaveToCollection.tsx",
+    "apps/desktop/ui/src/features/learning/knowledgeReviewCard.css",
+    "apps/desktop/ui/src/features/learning/reviewCenter.css",
+    "apps/desktop/ui/src/features/learning/saveToCollection.css",
+    "apps/desktop/ui/src/features/learning/sourceNavigation.test.ts",
+    "apps/desktop/ui/src/features/learning/sourceNavigation.ts",
+    "apps/desktop/ui/src/features/travel/travel.css",
+    "apps/desktop/ui/src/features/travel/travelClient.test.ts",
+    "apps/desktop/ui/src/features/travel/travelPlanPersistence.test.ts",
+    "apps/desktop/ui/src/features/travel/travelPlanPersistence.ts",
+    "apps/desktop/ui/src/settingsClient.test.ts",
+    "apps/server/src/exploration_api.rs",
+    "apps/server/src/security.rs",
+    "crates/application/src/exploration.rs",
+    "crates/application/src/personal_ai/cancellation.rs",
+    "crates/application/src/personal_ai/exploration.rs",
+    "crates/application/src/personal_ai/learning.rs",
+    "crates/application/src/search/collection_source.rs",
+    "crates/application/src/travel/plan_service.rs",
+    "crates/core/src/exploration.rs",
+    "crates/core/src/travel/plan.rs",
+    "crates/infrastructure/tests/release_recovery.rs",
+    "docs/architecture/frontend-backend-coupling-audit.md",
+    "docs/architecture/frontend-backend-decoupling-report.md",
+    "docs/exploration/EXPLORATION_API_V1.md",
+    "docs/team/HANDOFF.md",
+    "docs/travel/TRAVEL_PLAN_API_V1.md",
+    "scripts/api-smoke/history.mjs",
+    "scripts/download_english.sh"
+  ],
+  "untracked_artifact_paths_excluded_count": 153,
+  "changed_source_file_hashes": [
+    {
+      "path": "Cargo.lock",
+      "sha256": "1b482df9c9d5cd4857ef74e6ae13c3496c60f2398bd6cf33e26b3ecfbfa7c050",
+      "bytes": 162027
+    },
+    {
+      "path": "FEATURE_MATRIX.md",
+      "sha256": "fe13735e3031aaddeb4a960a741d7a2b16864b36f7b1bd77e43264aaf2e609b2",
+      "bytes": 4310
+    },
+    {
+      "path": "Makefile",
+      "sha256": "5d4b1bc5aa465d2e90ada2084f0c79e3c415bded144328fca596f2f05b99fe57",
+      "bytes": 1271
+    },
+    {
+      "path": "README.md",
+      "sha256": "c8a8d07fb7d89b9be2bbd200e5a8c26686ea821f31a215000dce807934dfddbf",
+      "bytes": 8979
+    },
+    {
+      "path": "apps/desktop/e2e/markdown-shortcuts.e2e.mjs",
+      "sha256": "eb9a10a91e2ded8cfa738ab2fd279985d36bc213554c51cb89c179ced70ce1b3",
+      "bytes": 6277
+    },
+    {
+      "path": "apps/desktop/e2e/navigation.e2e.mjs",
+      "sha256": "3a9b1bfe0d46d2d7e4e80325201f99baec5ae46cff0c10d5cf819f4931b137d7",
+      "bytes": 6384
+    },
+    {
+      "path": "apps/desktop/scripts/build-ui-e2e.mjs",
+      "sha256": "9eedfc18927dfa45abbd2569d783853a38f8254563b77564af2600f8c91bf5ed",
+      "bytes": 705
+    },
+    {
+      "path": "apps/desktop/scripts/visual-qa.mjs",
+      "sha256": "ddb6ed49c304ca6680b73e6ba1ee58830f80aa3eddaa0ba6f7c1a05dee38f40a",
+      "bytes": 9889
+    },
+    {
+      "path": "apps/desktop/src/learning.rs",
+      "sha256": "4b4495bf62039295f949a878da9f6fe471dd0a7c33cd1a03d368c6793845b1f7",
+      "bytes": 9591
+    },
+    {
+      "path": "apps/desktop/src/lib.rs",
+      "sha256": "95fe9c8b15ceaabef113903f2966eea8c98a5ed499bfe5b025325ac05ae18b4d",
+      "bytes": 109077
+    },
+    {
+      "path": "apps/desktop/tauri.conf.json",
+      "sha256": "b87d7db5403be8f2dce8edae03daacdbd51773712e7b593b26054d1565afb262",
+      "bytes": 1167
+    },
+    {
+      "path": "apps/desktop/ui/package-lock.json",
+      "sha256": "2b5488e8f3ca2072b146d9cbd8ef2885f4c8c4e353db315a326a434462a38d81",
+      "bytes": 129616
+    },
+    {
+      "path": "apps/desktop/ui/src/App.tsx",
+      "sha256": "a91939eba073cb2ff37ed1e1bb409cf01122597f6aa661fcf91b644bfa774269",
+      "bytes": 47668
+    },
+    {
+      "path": "apps/desktop/ui/src/SettingsDialog.tsx",
+      "sha256": "f90705c66e820b04d310db929b12301b35bb7fa29dbd797866213fabc4007bf6",
+      "bytes": 45738
+    },
+    {
+      "path": "apps/desktop/ui/src/features/ai/AIPanel.tsx",
+      "sha256": "bac8d5b3f4b50bcd4a525dd88473d280552c75bd6df71d7984f73f89c03f9d01",
+      "bytes": 50966
+    },
+    {
+      "path": "apps/desktop/ui/src/features/ai/aiClient.ts",
+      "sha256": "819ae009f95b7c05ae96ece7b49229f5835055f25752c15e46125cbd24011b32",
+      "bytes": 3728
+    },
+    {
+      "path": "apps/desktop/ui/src/features/ai/aiTypes.ts",
+      "sha256": "a14e41d2fc7e5fc3c8bdcedbf786f535111a707735c9acc1acaa065f5947ddb7",
+      "bytes": 13179
+    },
+    {
+      "path": "apps/desktop/ui/src/features/geography/AmapRegionMap.tsx",
+      "sha256": "8249c525b2a42ef636f1d708e096108c0a60e18782ab0d3cbbb1d6b50789191f",
+      "bytes": 4887
+    },
+    {
+      "path": "apps/desktop/ui/src/features/geography/GeoMap.tsx",
+      "sha256": "2fbbe1b81dc39309b5eaafbdd476aa985451acc3c12a0c5093e91e3b6e19dcb1",
+      "bytes": 9448
+    },
+    {
+      "path": "apps/desktop/ui/src/features/geography/GeographyPage.tsx",
+      "sha256": "c10deaf2c5b969689b0cdeeffa6b5e025b65ffe86471339f13b4d39c3786265c",
+      "bytes": 47421
+    },
+    {
+      "path": "apps/desktop/ui/src/features/geography/MapLibreMap.tsx",
+      "sha256": "83c454facaed419045600a56114a93668376edd08cad7a9439adfaedb9fc4250",
+      "bytes": 9560
+    },
+    {
+      "path": "apps/desktop/ui/src/features/history/HistoryPage.tsx",
+      "sha256": "d617b247a09bccc8ef88b9f3b101f90ddf03d25f32246dec70b9adf0f061db32",
+      "bytes": 54472
+    },
+    {
+      "path": "apps/desktop/ui/src/features/history/PeriodDetail.tsx",
+      "sha256": "e538a5913e9cf6a90bf47ea94814a4552b6ea545f7190f2fc268f1d332ae6524",
+      "bytes": 32258
+    },
+    {
+      "path": "apps/desktop/ui/src/features/history/semanticTypes.ts",
+      "sha256": "9dbf8a39595c332b93c78b3a5616a3747df49d94024f7345b645ed49f8e23b37",
+      "bytes": 10353
+    },
+    {
+      "path": "apps/desktop/ui/src/features/home/HomePage.tsx",
+      "sha256": "5705ab93b4b07b251f9829dfb0b409500cd21deb913cd138bbef73fb27663d2a",
+      "bytes": 19055
+    },
+    {
+      "path": "apps/desktop/ui/src/features/language/WordDetailView.tsx",
+      "sha256": "817e2b391083ab4587e11eb37290ade330eaed705c779b6e5ef56279bddf7602",
+      "bytes": 12953
+    },
+    {
+      "path": "apps/desktop/ui/src/features/language/english/LessonWorkspace.tsx",
+      "sha256": "8b926fa8782abacd726e936a1a28205eba2253a425007931f3901eef5f3eafc6",
+      "bytes": 19304
+    },
+    {
+      "path": "apps/desktop/ui/src/features/language/english/VocabularyStage.tsx",
+      "sha256": "fc6de08a4a644265e145e538068e46662bc7cb9c645af99500cfa81ab23d11be",
+      "bytes": 11295
+    },
+    {
+      "path": "apps/desktop/ui/src/features/learning/CollectionsPage.tsx",
+      "sha256": "2c18324a4c42740c4e4e201b3e5c1439fb87aa3bbb72814039958e5e4421439a",
+      "bytes": 23715
+    },
+    {
+      "path": "apps/desktop/ui/src/features/learning/EntityDrawer.tsx",
+      "sha256": "9a35aed50812b4c0981b755e3acca1bd56f03e5adbef87e3ccdd2cd1a79b0aba",
+      "bytes": 12420
+    },
+    {
+      "path": "apps/desktop/ui/src/features/learning/ReviewCenterPage.tsx",
+      "sha256": "320fd7fc2feaf7c844f36ba9bf69dd59d6dcb2c61654c42e23b0e4fbf2e47376",
+      "bytes": 32952
+    },
+    {
+      "path": "apps/desktop/ui/src/features/learning/learningClient.test.ts",
+      "sha256": "24a0539efe9ff92317eda53809d8955a0e2cbbe7971db08db6a90855db1f81ab",
+      "bytes": 6177
+    },
+    {
+      "path": "apps/desktop/ui/src/features/learning/learningClient.ts",
+      "sha256": "81856ad53f0f8f9d1e69a8bc84b9b35a6b83abbb31e43704381b4ea162691312",
+      "bytes": 6276
+    },
+    {
+      "path": "apps/desktop/ui/src/features/system/GlobalSearchPage.tsx",
+      "sha256": "76a411143fdcc33275b63c88e93e7fa1229a2b6e7b6db83b357c57a6c3093627",
+      "bytes": 12845
+    },
+    {
+      "path": "apps/desktop/ui/src/features/travel/TravelGuide.tsx",
+      "sha256": "93d69d1d986dcfbdc3420ff0e02d5d70af6bd5657405d2d735b47cb1a6701eb7",
+      "bytes": 92498
+    },
+    {
+      "path": "apps/desktop/ui/src/features/travel/TravelPage.tsx",
+      "sha256": "756889072c3142bda275b6c8cc3baf87f0c7b0c45daa239e91dbc7361859aed1",
+      "bytes": 32021
+    },
+    {
+      "path": "apps/desktop/ui/src/features/travel/travelClient.ts",
+      "sha256": "bef00a5f29241acc5eb21fde02a4b9c85fb40adbe403bf97449a507b567c16f6",
+      "bytes": 2958
+    },
+    {
+      "path": "apps/desktop/ui/src/main.tsx",
+      "sha256": "7886d7059166b2f2d385c0a6fd9ce24f77b2558eed541eac19bf0c7cdcba116f",
+      "bytes": 3169
+    },
+    {
+      "path": "apps/desktop/ui/src/settingsClient.ts",
+      "sha256": "816a5a3869fcfa7003f2d239327fa9e5bc1d8921fcae20e252a6e40b7f4c9643",
+      "bytes": 1088
+    },
+    {
+      "path": "apps/desktop/ui/src/styles.css",
+      "sha256": "9a024fbcd24290f17a75f31d3dd61595d014cebca3e368aadd74965dfef512ef",
+      "bytes": 495677
+    },
+    {
+      "path": "apps/desktop/ui/src/theme/pencil.css",
+      "sha256": "20303dd8b77bbb891811561498eca2c5c323c0c08ca6fc0ba843bd99efd7d7b1",
+      "bytes": 69498
+    },
+    {
+      "path": "apps/desktop/ui/src/transport.test.ts",
+      "sha256": "47292dd0b1f27a12866b47993ea68ca197b391caf7a788b233862820cef235fb",
+      "bytes": 10224
+    },
+    {
+      "path": "apps/desktop/ui/src/transport.ts",
+      "sha256": "4769c9db4f6e2ffaf36486538b4c07ad527a3aed5007f52dc759d37c6e6fbfc0",
+      "bytes": 23012
+    },
+    {
+      "path": "apps/desktop/ui/src/types.ts",
+      "sha256": "538de1a1993dc5e9997c9af433d9119b7cdb22dae57a0c3921b94c4176b113af",
+      "bytes": 35381
+    },
+    {
+      "path": "apps/desktop/wdio.conf.mjs",
+      "sha256": "618291e2adb5e0b78493e23e547b963d161cecddbe9dcc1a221110eea91a9dd3",
+      "bytes": 4274
+    },
+    {
+      "path": "apps/server/src/ai_api.rs",
+      "sha256": "09610b770ba8dcb3964e2ad0ee3afe045fa98d901f61b405817b326f68057c6b",
+      "bytes": 13709
+    },
+    {
+      "path": "apps/server/src/knowledge_api.rs",
+      "sha256": "df31778993503521826419a172db3d08d60ae0c1481005b7f770fa826ee10a23",
+      "bytes": 10870
+    },
+    {
+      "path": "apps/server/src/learning_api.rs",
+      "sha256": "1078178eee50bf451842fc927035b6276c23595d6609d4310ea905c6b5504db6",
+      "bytes": 21880
+    },
+    {
+      "path": "apps/server/src/main.rs",
+      "sha256": "6f134907a7acae07c0b6858bff48db3f5952fb6921ed1804d4ed94ad89c3cc7b",
+      "bytes": 12204
+    },
+    {
+      "path": "apps/server/src/routes.rs",
+      "sha256": "fce86a0c8787f0a64d30fa9f979023eb25e1a1778cf408e962d54ef24faa659a",
+      "bytes": 87907
+    },
+    {
+      "path": "apps/server/src/travel_api.rs",
+      "sha256": "86611b4e58b9b7f4820ed421bab0cf805531466f0bbd555cc545fd67e3a58b34",
+      "bytes": 11786
+    },
+    {
+      "path": "crates/application/Cargo.toml",
+      "sha256": "a60a9e1c4493e24fbb8106e42385e0924662f258797fbeecb5712b6e7b26cb2a",
+      "bytes": 712
+    },
+    {
+      "path": "crates/application/src/history/ports.rs",
+      "sha256": "806217c866f2295dca18574b75f667a1ac082780421a25487d577ef2dee04979",
+      "bytes": 5559
+    },
+    {
+      "path": "crates/application/src/history/service.rs",
+      "sha256": "cf354d876ede81a3a5f40933b7a4f1cd550e57b8cb54c6a26496e253c618f271",
+      "bytes": 23016
+    },
+    {
+      "path": "crates/application/src/history/tests.rs",
+      "sha256": "37ac9e4c471fbe23231c9a3048b42daea059b8f08554091e35353d6d653be9ba",
+      "bytes": 44440
+    },
+    {
+      "path": "crates/application/src/language/course.rs",
+      "sha256": "7071b1b15fe39ab04f0a46d24d203c815d94205b41937c74286991973b01320f",
+      "bytes": 57161
+    },
+    {
+      "path": "crates/application/src/language/learning.rs",
+      "sha256": "39b6e6d62b4c30f766d6c4dd6d5924d54947eb1b984f8704a438cfce5d572922",
+      "bytes": 24124
+    },
+    {
+      "path": "crates/application/src/language/tests.rs",
+      "sha256": "fe52df0e70ee7ab84293658f84a90d75449557b69f1bef08c30215fc6382cbda",
+      "bytes": 23878
+    },
+    {
+      "path": "crates/application/src/learning/mod.rs",
+      "sha256": "90d4656b11a10f531fe7559dce7b6baa2dd3c731b62e0c1968c3223794815058",
+      "bytes": 216
+    },
+    {
+      "path": "crates/application/src/learning/ports.rs",
+      "sha256": "84cc2c85d0ce849700ecca47fb4e73a762734e7e45005bae229a94ad49b094f3",
+      "bytes": 5178
+    },
+    {
+      "path": "crates/application/src/learning/service.rs",
+      "sha256": "41ee8f36a5b73dcf0c39156cf03e338ef1e36241da9bacdead90baa1ada1b520",
+      "bytes": 29049
+    },
+    {
+      "path": "crates/application/src/learning/tests.rs",
+      "sha256": "0b31eb722f0973c6282d87fd9df9ae58c699a9669d9a01c557a3fa840da5df9a",
+      "bytes": 21186
+    },
+    {
+      "path": "crates/application/src/lib.rs",
+      "sha256": "7f8421fb6c99ab054a6b80573ef0773b640995139c491c3dc610d3fe779a1091",
+      "bytes": 2536
+    },
+    {
+      "path": "crates/application/src/personal_ai/agent.rs",
+      "sha256": "7a6d96ef2aef797c5b2a2589043515ef3a2b1e81e9620034446e118bd94fa0d0",
+      "bytes": 30798
+    },
+    {
+      "path": "crates/application/src/personal_ai/geography.rs",
+      "sha256": "8a558bc4073d721f8b95fc3b9f553d9c25b30c92f372a9f9c8a979087ba8efb7",
+      "bytes": 19685
+    },
+    {
+      "path": "crates/application/src/personal_ai/geography/geography_tests.rs",
+      "sha256": "e83abb690dea5f9ceb959280aaf351a2936080f3ace596410b603134c1d32cee",
+      "bytes": 15637
+    },
+    {
+      "path": "crates/application/src/personal_ai/history.rs",
+      "sha256": "80d26123a93290174241e9eead5542ee7640169e8d0caa398181bffad7231bcc",
+      "bytes": 41886
+    },
+    {
+      "path": "crates/application/src/personal_ai/history/history_tests.rs",
+      "sha256": "b697fd928930fb374cfaae3f11a1f35788034ae1ce2c35082fe70d69a0cbed31",
+      "bytes": 25987
+    },
+    {
+      "path": "crates/application/src/personal_ai/memory.rs",
+      "sha256": "eacfdd2dd914c48202248fd9f83dd51b664eeaa3d1e41b8f844c5f4466786ae0",
+      "bytes": 17371
+    },
+    {
+      "path": "crates/application/src/personal_ai/memory/memory_tests.rs",
+      "sha256": "951054e9b364e761a8ad99cab95bdaf7302e0dcd8e1b9a9f25c3546652b0183a",
+      "bytes": 13634
+    },
+    {
+      "path": "crates/application/src/personal_ai/mod.rs",
+      "sha256": "ae75629e14162b9635de2f0fd1bf05132cb1005fd4fe6534b40d6381d9863ad2",
+      "bytes": 2845
+    },
+    {
+      "path": "crates/application/src/personal_ai/prompt.rs",
+      "sha256": "d164fc25ad1271b9911cba806012ebddae0ee38958dfcaefb0d21d5a24e84ba0",
+      "bytes": 16852
+    },
+    {
+      "path": "crates/application/src/personal_ai/registry.rs",
+      "sha256": "cc6640fecce2fc3fd0a03040f68b9acd3203cc4137f24042fa2a6bad120c151b",
+      "bytes": 21511
+    },
+    {
+      "path": "crates/application/src/personal_ai/rss.rs",
+      "sha256": "06a2441eee76254e76ea566c16b4e9718f1e0951f9e0bbdf1333f7de82200514",
+      "bytes": 16114
+    },
+    {
+      "path": "crates/application/src/personal_ai/rss/rss_tests.rs",
+      "sha256": "45553f3720c834b7fe35b9b43797f6a1f9a31f1d120caec9e5fd4978607af016",
+      "bytes": 15182
+    },
+    {
+      "path": "crates/application/src/personal_ai/runtime.rs",
+      "sha256": "9ebb1f32c7b76572bc56a1e57ada1d16385f22310c4da0ce4b5ae29e9730e1d2",
+      "bytes": 10963
+    },
+    {
+      "path": "crates/application/src/personal_ai/study_board.rs",
+      "sha256": "f4100767697bf4bcded4b7cd15492b076fe14718b9b762a01e2d995d88a74c5d",
+      "bytes": 19214
+    },
+    {
+      "path": "crates/application/src/personal_ai/study_board/study_board_tests.rs",
+      "sha256": "480b1c9da24df59c1705eb1fdfbd8d0cee8fde93d66aba6adb6bfafe75f28404",
+      "bytes": 24119
+    },
+    {
+      "path": "crates/application/src/personal_ai/travel.rs",
+      "sha256": "1c0cacc8e341701176c6b5397cb4c4c0a8cf241bba020c5136a1b20e872375ef",
+      "bytes": 21343
+    },
+    {
+      "path": "crates/application/src/personal_ai/travel/travel_tests.rs",
+      "sha256": "d959e0bf40de5b4419dec5a9d3b909a3e6f18b873e1e2da1f8e2d078b8559319",
+      "bytes": 19231
+    },
+    {
+      "path": "crates/application/src/search/mod.rs",
+      "sha256": "29a959e20d26f3135dffe4e46bcb972bb9bd38db0055bb21cc56bd76de755c8e",
+      "bytes": 1024
+    },
+    {
+      "path": "crates/application/src/search/service.rs",
+      "sha256": "2868ea09f5ae71cdc657b37d53ad5c3a38d7184a7049af3510fe1441c04ef04c",
+      "bytes": 3980
+    },
+    {
+      "path": "crates/application/src/search/tests.rs",
+      "sha256": "a9535507a5bb416ae9511c12c1784ef919209fb66643c13374ecbe7913f19cf4",
+      "bytes": 10826
+    },
+    {
+      "path": "crates/application/src/travel/mod.rs",
+      "sha256": "776d2439fc1454ba8d35167be1285e48a077c428cb2e0bc941de929f0d871029",
+      "bytes": 707
+    },
+    {
+      "path": "crates/application/src/travel/ports.rs",
+      "sha256": "0cf8d611088de8b02046d1cbe0bb3fcdf0e630c42116da5fbf28fdc7fca38045",
+      "bytes": 4253
+    },
+    {
+      "path": "crates/core/src/history_records.rs",
+      "sha256": "bac581fea84cde3a97e84c0d347016010036e8684c39d34e20b7cadd05fdc85b",
+      "bytes": 11827
+    },
+    {
+      "path": "crates/core/src/learning/mod.rs",
+      "sha256": "d250de0144ecbedb4e03d9c642a0a1ccc26c69380e00b699a04dd8331882d123",
+      "bytes": 1038
+    },
+    {
+      "path": "crates/core/src/learning/model.rs",
+      "sha256": "80e3108446b18197cad3248eb5f7c3663ac2e3c52cf035257374c5ac5fcebeb3",
+      "bytes": 23720
+    },
+    {
+      "path": "crates/core/src/lib.rs",
+      "sha256": "3b98601344abff6c98ffc3df8d542427a65e45fc5bd6ee49e253cbd98db3ff03",
+      "bytes": 2503
+    },
+    {
+      "path": "crates/core/src/personal_ai/error.rs",
+      "sha256": "b83e038bbb10eddd52fb316dd38199ef929e6c91835f37c8acfb05662e76a4bf",
+      "bytes": 5064
+    },
+    {
+      "path": "crates/core/src/personal_ai/mod.rs",
+      "sha256": "e4c7636a13e0b0b09c1af68a448af873729af61ba52cf3903b4aefa727a9ddee",
+      "bytes": 1409
+    },
+    {
+      "path": "crates/core/src/personal_ai/types.rs",
+      "sha256": "1cf64eb81f400804ce04702d41dcc4bfafff17fd9007588f308fb96d0bd9d8c4",
+      "bytes": 42415
+    },
+    {
+      "path": "crates/core/src/search/model.rs",
+      "sha256": "a8acd0bf3f653f8ac69ab25618e9aff8548c60dc534ee893582e18db5d593513",
+      "bytes": 8303
+    },
+    {
+      "path": "crates/core/src/settings.rs",
+      "sha256": "811afbadfd84e7aaadbd9cfd220f339f9fe29dbefac3f04389b2188a6ce66e37",
+      "bytes": 33024
+    },
+    {
+      "path": "crates/core/src/travel/mod.rs",
+      "sha256": "4b20e7d31c68911088c4c530c94b66cbae52c57d8b4122b79b2142dac2a21cea",
+      "bytes": 2016
+    },
+    {
+      "path": "crates/infrastructure/Cargo.toml",
+      "sha256": "6cf333249279cdf337afcf8d0c784b6147ec35514141540f01c7c90c04cd3e4f",
+      "bytes": 940
+    },
+    {
+      "path": "crates/infrastructure/src/agents/jev_decision.rs",
+      "sha256": "98f8f5816182f471afed512ea13054b2d39e8ab356b3be4a2b3f6f340062746b",
+      "bytes": 23401
+    },
+    {
+      "path": "crates/infrastructure/src/error.rs",
+      "sha256": "afd15507224e5038bed51690b7098c419617b54ff006483b9af14202656a52b8",
+      "bytes": 1487
+    },
+    {
+      "path": "crates/infrastructure/src/geography/store.rs",
+      "sha256": "f88e4dd5fe0c1c21e1a931f6178a092651160feac7d53fed45ee886c71b7a51a",
+      "bytes": 44972
+    },
+    {
+      "path": "crates/infrastructure/src/history/duckdb.rs",
+      "sha256": "ec9e2e8be8cb82a1e71c4d6f91cfe43b1046eff7f9adb1c3c0d3fc114afd68b7",
+      "bytes": 69106
+    },
+    {
+      "path": "crates/infrastructure/src/learning/store.rs",
+      "sha256": "848f444a3607cbaa36ab5d972fcb2688601dced5880cdd274f3ecff2b6a5536e",
+      "bytes": 75372
+    },
+    {
+      "path": "crates/infrastructure/src/personal_ai/llm.rs",
+      "sha256": "b0f301776c05c8848e5bbf0b48fbe2c168a9dc122fb75f614d5596bf583c4fb2",
+      "bytes": 28853
+    },
+    {
+      "path": "crates/infrastructure/src/ports/learning.rs",
+      "sha256": "ad68cd26ebcf87d6b415886b306e446983be39dfe93e8ff28df5a473b635100d",
+      "bytes": 7100
+    },
+    {
+      "path": "crates/infrastructure/src/travel/data_provider.rs",
+      "sha256": "ca50e674058e089effca5b293be14ac7808a2aded452dfd49accd16e0d608746",
+      "bytes": 19361
+    },
+    {
+      "path": "crates/infrastructure/src/travel/store.rs",
+      "sha256": "5ad9a14ce0530e05c4eada663e569f046be432a6624451e14d318d8b1a9fa98c",
+      "bytes": 35347
+    },
+    {
+      "path": "crates/runtime/src/app_core.rs",
+      "sha256": "17e780962efc997a296cec3324598bc7d4eff0310b6bd4e71b4e3f1f148c4ff9",
+      "bytes": 15228
+    },
+    {
+      "path": "crates/runtime/src/composition.rs",
+      "sha256": "b874688f009774c1515a8975b47b90c3261f424ffbaaa6505a2a22a2b838147c",
+      "bytes": 19758
+    },
+    {
+      "path": "crates/runtime/src/history_query.rs",
+      "sha256": "20f9b34039b81b4b937964a6d669b008abc1cf4f519d92cc1863b597fdcf3256",
+      "bytes": 8563
+    },
+    {
+      "path": "crates/runtime/src/personal_ai.rs",
+      "sha256": "4bd8bd973cb7c391f1f6b8f77d3b780f1fa8cabd2e2d2bc1d9d3917746bc39f3",
+      "bytes": 26571
+    },
+    {
+      "path": "docs/architecture/ADR-002-http-history-pilot.md",
+      "sha256": "26bca4c86b6f5f403c568b0c2e39c63c5a6ac49d3dc7ca7625f11f5709af869f",
+      "bytes": 7105
+    },
+    {
+      "path": "docs/architecture/ADR-003-personal-ai-hub.md",
+      "sha256": "95c7eededf1b9a95a342d45431b76975923ededb4efaa78c5497c3bd201e56a7",
+      "bytes": 4938
+    },
+    {
+      "path": "docs/architecture/ADR-005-personal-knowledge-layer.md",
+      "sha256": "eb71ffdd065c87ad6d9d0da5cb0cc586ec2fbb717775074f7feec22677778a9b",
+      "bytes": 6295
+    },
+    {
+      "path": "docs/migration/03-rust-gui-selection.md",
+      "sha256": "9935fd7311ab7ba3fbda0a65a127e20fc7ee3f9ae4580c516f5993704e3fd6cd",
+      "bytes": 5303
+    },
+    {
+      "path": "docs/operations/DEPLOY_MACOS12.md",
+      "sha256": "3e317d564ff28f618e0503cd66fac8c7e2414db9a1bc831f7e97958e549f8e18",
+      "bytes": 6613
+    },
+    {
+      "path": "docs/operations/TROUBLESHOOTING.md",
+      "sha256": "9917da41796ec1d83eabd7c92853935a77c0055b7a9b61ed37e6d961065b0dfc",
+      "bytes": 5370
+    },
+    {
+      "path": "docs/personal-ai/HOME_SERVER_V7_PLAN.md",
+      "sha256": "27ea5e11931bf7030d99302fca92b8049783e0036512b10c3485b663fa5a0de4",
+      "bytes": 17205
+    },
+    {
+      "path": "docs/personal-ai/PERSONAL_AI_HUB_V4.md",
+      "sha256": "e8f236ac14cbb2b56b93309752feb75425a0cd015956406567267ac785cfbc85",
+      "bytes": 6661
+    },
+    {
+      "path": "docs/personal-ai/PERSONAL_AI_HUB_V4_PLAN.md",
+      "sha256": "e8b03ef7bbddf082394f8557b99d1f6b0a156134a4907ff79563910cc7ed1118",
+      "bytes": 16367
+    },
+    {
+      "path": "docs/personal-ai/PERSONAL_AI_HUB_V5.md",
+      "sha256": "80eac0a2f43e4ecfd0c0cdc55be20b54da20902611b30450a3281f17f3d2d133",
+      "bytes": 6283
+    },
+    {
+      "path": "docs/personal-ai/PERSONAL_AI_HUB_V5_PLAN.md",
+      "sha256": "1d78e5fe799c8fbbca3cb403505cc26ba99e6a4a4bcb350656b0d49b38273087",
+      "bytes": 11113
+    },
+    {
+      "path": "docs/personal-ai/PERSONAL_KNOWLEDGE_V6.md",
+      "sha256": "791c3d5439dbde4d79428f4491a95b67fe1f7c57d7207a1afbd21fe0894ff757",
+      "bytes": 11365
+    },
+    {
+      "path": "docs/personal-ai/PERSONAL_KNOWLEDGE_V6_PLAN.md",
+      "sha256": "9e5777063bdda61f6d4ff3a89d810a8c102708cf0189a69b906e5ea5a0bd0bc4",
+      "bytes": 21667
+    },
+    {
+      "path": "docs/travel/v1-design.md",
+      "sha256": "f8571a4cddcbf604200875e899890477d673d918ebbd8b625b8b8ffb78b6c1c4",
+      "bytes": 7747
+    }
+  ],
+  "untracked_source_file_hashes": [
+    {
+      "path": ".github/copilot-instructions.md",
+      "sha256": "6f6d6807b7154fe527afdcbb854dd994d64096980c1ca3a85f98b38a149da434",
+      "bytes": 344
+    },
+    {
+      "path": "AGENTS.md",
+      "sha256": "b5aaf4c9fdb37d9bf800eec59c9b68e750b8fee9aeb40141b83e1e5c0b9f9ea6",
+      "bytes": 9434
+    },
+    {
+      "path": "CLAUDE.md",
+      "sha256": "e508107341231f95ef14d855bb2fff0e9445c13475292a3311fd5fc9bfbfd198",
+      "bytes": 350
+    },
+    {
+      "path": "apps/desktop/e2e/settings-persistence.e2e.mjs",
+      "sha256": "67c7390ffd10d9a662e962702731ab4042c2ef7ee9a4213a9998a30b0309563b",
+      "bytes": 1120
+    },
+    {
+      "path": "apps/desktop/e2e/travel-plan-persistence.e2e.mjs",
+      "sha256": "e8f619e2afe6125946c721026bed48412ff5eab558771fb680b84fb870c92d95",
+      "bytes": 2524
+    },
+    {
+      "path": "apps/desktop/ui/src/features/ai/aiClient.test.ts",
+      "sha256": "cbcacbbce4d1810003cf28c57736755760e21afa79d6d82b0cd5ec77757e06ca",
+      "bytes": 2426
+    },
+    {
+      "path": "apps/desktop/ui/src/features/exploration/explorationClient.ts",
+      "sha256": "aa78fecec16c5f16ea6d9420a1ac9bba242ce69c6a9fe04db8a4832214dfca0d",
+      "bytes": 1732
+    },
+    {
+      "path": "apps/desktop/ui/src/features/geography/LocationHistoryTimeline.tsx",
+      "sha256": "8c2695d4c2a3a9ec0e365af3c2a94f6794a732577e087952594770e0e05c1453",
+      "bytes": 16180
+    },
+    {
+      "path": "apps/desktop/ui/src/features/geography/geoTimeline.test.ts",
+      "sha256": "693d3f5ba73094d78823129b811f653ba8ea7bd842c010df1bd8288a5c847d09",
+      "bytes": 4708
+    },
+    {
+      "path": "apps/desktop/ui/src/features/geography/geoTimeline.ts",
+      "sha256": "b997198bd2f8a8d7619a6f7250c519c2b29735b1681f121250578b53933eaf67",
+      "bytes": 4765
+    },
+    {
+      "path": "apps/desktop/ui/src/features/home/HomePage.test.ts",
+      "sha256": "5f7e366a5f3bf33af42700848aa0aa367f59535e67d5de56258d1c6233cee58d",
+      "bytes": 1321
+    },
+    {
+      "path": "apps/desktop/ui/src/features/learning/CollectionItemNoteEditor.tsx",
+      "sha256": "27e37443b1a19a42e1ef628e7edf09434dcb146f9467f7ecec02773090a1d4a6",
+      "bytes": 2747
+    },
+    {
+      "path": "apps/desktop/ui/src/features/learning/KnowledgeReviewCardEditor.tsx",
+      "sha256": "7c7b976190a71b11c82142e984136db958b3f417fd23fb5abaa7ec3b35c12a22",
+      "bytes": 8557
+    },
+    {
+      "path": "apps/desktop/ui/src/features/learning/SaveToCollection.test.ts",
+      "sha256": "cfb7504cb08d667237f06734bf6233ec5550a6aea2a73a6578f7737ec1a09b9b",
+      "bytes": 3458
+    },
+    {
+      "path": "apps/desktop/ui/src/features/learning/SaveToCollection.tsx",
+      "sha256": "755741181d6f3c298d9d8f2ed4de8f3f33c302d5cad554a394f07c626c9a6646",
+      "bytes": 8001
+    },
+    {
+      "path": "apps/desktop/ui/src/features/learning/knowledgeReviewCard.css",
+      "sha256": "1c15ede8338b4e4fbe69f1a988f91aa0f3f4f7ff20504b4fddced52e8c4518d8",
+      "bytes": 5828
+    },
+    {
+      "path": "apps/desktop/ui/src/features/learning/reviewCenter.css",
+      "sha256": "5b0d1852fdf62366aa7b6e3fd69ebf7f61685c868c720aec976a47847afa61a4",
+      "bytes": 2844
+    },
+    {
+      "path": "apps/desktop/ui/src/features/learning/saveToCollection.css",
+      "sha256": "676a1b43b66950a2a3acca67cb7cfdd9017bd6cedace083112877b8d0a3559db",
+      "bytes": 2684
+    },
+    {
+      "path": "apps/desktop/ui/src/features/learning/sourceNavigation.test.ts",
+      "sha256": "db7c46a8ae71364bec69dff46fc7917b6d8920a8b190d4c085b9b6191eda54e1",
+      "bytes": 1015
+    },
+    {
+      "path": "apps/desktop/ui/src/features/learning/sourceNavigation.ts",
+      "sha256": "8b57f9515c0e96c3ce389c04dee2dbd5d2f141ecdc0b2cdd142248afdd72a34f",
+      "bytes": 542
+    },
+    {
+      "path": "apps/desktop/ui/src/features/travel/travel.css",
+      "sha256": "8362d791895d8808c7e2b9715ca66d8c1fd891bfb150e1645e293493d2818141",
+      "bytes": 13769
+    },
+    {
+      "path": "apps/desktop/ui/src/features/travel/travelClient.test.ts",
+      "sha256": "6a03bc68cbef1cfbd964df622c8ce5c590ea9cde752d8e76a8eb2f3dd42f2f2b",
+      "bytes": 2054
+    },
+    {
+      "path": "apps/desktop/ui/src/features/travel/travelPlanPersistence.test.ts",
+      "sha256": "9d5e91fa7ad3022ea64f0d10647dcf428016cb7977dd8b254f700ea47960f613",
+      "bytes": 3288
+    },
+    {
+      "path": "apps/desktop/ui/src/features/travel/travelPlanPersistence.ts",
+      "sha256": "1351c114fe2ca136f13c622650840b20551bc0c2afaa68b96495b7697ce69156",
+      "bytes": 6130
+    },
+    {
+      "path": "apps/desktop/ui/src/settingsClient.test.ts",
+      "sha256": "41ed8176eb7d6609964091f7246b19e46b73390f98bdf3cc755a30040928776e",
+      "bytes": 1402
+    },
+    {
+      "path": "apps/server/src/exploration_api.rs",
+      "sha256": "b4ffa5284b69f4eff88d18b4625af0ed8a597c5f02fc24a80b1b2269c91c77b3",
+      "bytes": 1543
+    },
+    {
+      "path": "apps/server/src/security.rs",
+      "sha256": "5e37dcfc32e82333e9fb05de567ca086a795e1a5d52aaaa7f24f09e6c43a58ea",
+      "bytes": 6546
+    },
+    {
+      "path": "crates/application/src/exploration.rs",
+      "sha256": "33e1fb39130090ae11f4ae428b63144bd1d4d6d766ae6382d293dee247631dc6",
+      "bytes": 3279
+    },
+    {
+      "path": "crates/application/src/personal_ai/cancellation.rs",
+      "sha256": "74645aee46fea504a4861aa5cfa6b469d73242d802a33b5609d09a594234eb4b",
+      "bytes": 4352
+    },
+    {
+      "path": "crates/application/src/personal_ai/exploration.rs",
+      "sha256": "0105ad0ae910b4acb07ced11d4a6f001a921b9f48c0aa374ec1c5be57974038b",
+      "bytes": 14743
+    },
+    {
+      "path": "crates/application/src/personal_ai/learning.rs",
+      "sha256": "04673222db98dcf2a1608bc53f3d1fc5b4de29376c70ce5b82f7a19570d2d76c",
+      "bytes": 10448
+    },
+    {
+      "path": "crates/application/src/search/collection_source.rs",
+      "sha256": "8fe07f2099388e9f289129971d4cf27a9e3a35a06adb41506e71ceb825c3207d",
+      "bytes": 2490
+    },
+    {
+      "path": "crates/application/src/travel/plan_service.rs",
+      "sha256": "796cf68f308d75489ac712cbc84a854a92f9538a7c0c18b6c2393fa200ddf3f4",
+      "bytes": 17240
+    },
+    {
+      "path": "crates/core/src/exploration.rs",
+      "sha256": "eaf3b365b90f09bacc8a2fcf751a46178eb91a4fe7cc26ca49e3d3c2116a5d07",
+      "bytes": 9902
+    },
+    {
+      "path": "crates/core/src/travel/plan.rs",
+      "sha256": "2827be0f7dece44b67fba950ee2a4e82c6bc0c6fead11e65bc603acfbbf140f0",
+      "bytes": 10378
+    },
+    {
+      "path": "crates/infrastructure/tests/release_recovery.rs",
+      "sha256": "e8ba88529d6edbfb2a01330ddd496f133464e032bd4ca889bfdf5ba2755200bb",
+      "bytes": 8534
+    },
+    {
+      "path": "docs/architecture/frontend-backend-coupling-audit.md",
+      "sha256": "3f908285ae690f1cb315414a7786bab6663645b333f92c0f003af880efd08612",
+      "bytes": 11157
+    },
+    {
+      "path": "docs/architecture/frontend-backend-decoupling-report.md",
+      "sha256": "a632cc2ab192e26b2ff663cd34ae6eebbd78a7c8efa2f951ba5faea591ce50f3",
+      "bytes": 4579
+    },
+    {
+      "path": "docs/exploration/EXPLORATION_API_V1.md",
+      "sha256": "34490381c04d627a45b59988a434ab2593ebb0256b501e72d1128a97b1176e81",
+      "bytes": 6626
+    },
+    {
+      "path": "docs/team/HANDOFF.md",
+      "sha256": "82d39db5704149196eda1da641916a63fe9e18311c5acd22cfd60c9777a38ce5",
+      "bytes": 10128
+    },
+    {
+      "path": "docs/travel/TRAVEL_PLAN_API_V1.md",
+      "sha256": "a5d6582cda58e4182cbb8c0f76171d177e57d240817fc3600c736c4b285c57ca",
+      "bytes": 4129
+    },
+    {
+      "path": "scripts/api-smoke/history.mjs",
+      "sha256": "69325a9c38fcfc51e972ce218085cb5b388534bd39391af0f0adfc828235dd2a",
+      "bytes": 1989
+    },
+    {
+      "path": "scripts/download_english.sh",
+      "sha256": "09ec0c7ddc95659a542ab1cd40d6110eaad49069040390a9ae07188e8393d130",
+      "bytes": 1182
+    }
+  ],
+  "history_submodule_sha": "e4518b7f54f1f1d02f1ebcf260bcdbc5aeba1591",
+  "history_resource": {
+    "path": "history-data-pipeline/dist/history.duckdb",
+    "sha256": "0b355639c3d0adc5cbc393464f58944a0e88009eed0c7636a1db2204f6353eb0",
+    "bytes": 12333056
+  },
+  "lockfiles": [
+    {
+      "path": "Cargo.lock",
+      "sha256": "1b482df9c9d5cd4857ef74e6ae13c3496c60f2398bd6cf33e26b3ecfbfa7c050",
+      "bytes": 162027
+    },
+    {
+      "path": "apps/desktop/package-lock.json",
+      "sha256": "c9959a8e37f41c280899307c3b7e389de9ff99a67354de88fdb7e246cc881906",
+      "bytes": 254999
+    },
+    {
+      "path": "apps/desktop/ui/package-lock.json",
+      "sha256": "2b5488e8f3ca2072b146d9cbd8ef2885f4c8c4e353db315a326a434462a38d81",
+      "bytes": 129616
+    },
+    {
+      "path": "mise.lock",
+      "sha256": "deeedbcb1491a879a336ba5042b9750977b28168d95a3d118664ca5079dcc64a",
+      "bytes": 1834
+    },
+    {
+      "path": "rust-toolchain.toml",
+      "sha256": "1badcdb412a961bc63c82ed7655bbf2e94bdc5cfe3ebebc9ccae92a68e1bf36c",
+      "bytes": 123
+    }
+  ],
+  "build_environment": {
+    "os": "macOS 12.7.6 (21H1320)",
+    "architecture": "x86_64",
+    "rustc": "1.99.1 (58cf8f9c3 2026-10-13)",
+    "cargo": "1.99.1",
+    "node": "24.21.0",
+    "npm": "11.19.0",
+    "tauri_cli": "2.11.4 (verified in original lock-installed node_modules)",
+    "mise": "2026.9.12",
+    "mise_lockfile": "version 3; unsupported by installed mise (supports up to v2)",
+    "mise_locked_node": "24.22.0; local Node differs",
+    "xcode_select": "/Library/Developer/CommandLineTools",
+    "clang": "Apple clang 14.0.0 (clang-1400.0.29.202)"
+  },
+  "excluded_roots": [
+    "artifacts/ (all review evidence and 112 tracked artifact paths)",
+    "config/",
+    "apps/desktop/config/",
+    "target/",
+    "apps/desktop/node_modules/",
+    "apps/desktop/ui/node_modules/",
+    "apps/desktop/ui/dist/",
+    "output/ (generated visual QA output)",
+    "mise.local.toml",
+    "mise.local.lock",
+    "history-data-pipeline/dist/* except history.duckdb"
+  ],
+  "note": "Standalone source snapshot overlays the full tracked worktree diff and non-artifact untracked source. It deliberately excludes private/generated config and all review artifacts; the source archive is the build input. No raw dirty diff or ignored local data is included. The focused release-recovery test file was rustfmt-formatted after initial test execution; only whitespace changed."
+}

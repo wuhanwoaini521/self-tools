@@ -1,0 +1,78 @@
+{
+  "schema": "self-tools-sprint-11.1-build-evidence/v1",
+  "classification": "Mutable local release candidate overlay; unsigned; not a distribution artifact",
+  "platform": {
+    "os": "macOS 12.7.6",
+    "architecture": "x86_64"
+  },
+  "toolchain": {
+    "node": "24.22.0",
+    "rust": "1.95.0"
+  },
+  "build": {
+    "command": "RUSTUP_TOOLCHAIN=1.95.0 mise exec node@24.22.0 -- npm --prefix apps/desktop/ui exec -- tauri build --bundles app --no-sign",
+    "exitCode": 0,
+    "releaseProfileDuration": "2m 30s",
+    "bundlePath": "target/release/bundle/macos/DevToolbox.app",
+    "binaryPath": "target/release/bundle/macos/DevToolbox.app/Contents/MacOS/devtoolbox-desktop",
+    "bundleIdentifier": "com.ox-tools.devtoolbox",
+    "version": "0.1.0",
+    "architecture": "x86_64",
+    "binarySha256": "b252efca6f7551ecea73080bd5bdbbe2363b07f4203de7ce24567601b2c9c1d8",
+    "binaryBytes": 75969636,
+    "signed": false,
+    "codesign": {
+      "exitCode": 1,
+      "result": "code object is not signed at all"
+    },
+    "gatekeeper": {
+      "exitCode": 3,
+      "result": "rejected: no usable signature"
+    },
+    "validDeveloperIdIdentities": 0,
+    "uiBuild": {
+      "result": "passed",
+      "warning": "Vite reported the 2.67 MB main JavaScript chunk exceeds its 500 kB advisory threshold"
+    }
+  },
+  "checks": {
+    "strictClippy": {
+      "command": "cargo +1.95.0 clippy --workspace --all-targets --all-features --locked -- -D warnings",
+      "result": "passed"
+    },
+    "workspaceTests": {
+      "command": "cargo +1.95.0 test --workspace --locked",
+      "exitCode": 0,
+      "passed": 1358,
+      "failed": 0
+    },
+    "rustFormat": "passed: cargo +1.95.0 fmt --all -- --check",
+    "diffCheck": "passed: git diff --check",
+    "uiTests": {
+      "result": "passed",
+      "files": 21,
+      "tests": 125
+    }
+  },
+  "isolatedStartupProbe": {
+    "home": "/tmp/self-tools-sprint11.1-startup-fixture-20261030/home",
+    "legacySource": "/tmp/self-tools-sprint11.1-startup-fixture-20261029/legacy",
+    "startupLog": "[migration] copied 1 allowlisted items; preserved/skipped 0 existing items",
+    "copiedItems": [
+      "dashboard.db"
+    ],
+    "markerCreated": true,
+    "markerDetails": "complete=true; copied_count=1",
+    "copiedFixtureRow": "isolated-sprint-11.1",
+    "sqliteIntegrityCheck": "source=ok; target=ok",
+    "processStoppedAfterProbe": true,
+    "processExitSignal": "SIGTERM after assertions",
+    "formalUserDataAccessed": false,
+    "aiProviderCalled": false
+  },
+  "distributionLimitations": {
+    "interactiveUiAcceptance": "not verified because the GUI session is locked",
+    "cargoAudit": "3 RustSec ZIP advisories remain on zip@6.0.0 through bundled DuckDB; direct zip@9.1.3 is patched. GHSA-m665-v7pm-7grj (CVE-2026-115905) affects <=9.0.4 and is fixed in 9.0.5; zip9 is fixed, while no mixed ZipStreamReader path was found for zip6. 9 unmaintained notices; 1 unsound notice for glib@0.18.5",
+    "npmAudit": "23 vulnerabilities in desktop E2E/dev tooling (21 high, 2 moderate); production-only UI and desktop audits reported 0"
+  }
+}

@@ -1,0 +1,95 @@
+ M FEATURE_MATRIX.md
+ M Makefile
+ M README.md
+ M apps/desktop/e2e/markdown-shortcuts.e2e.mjs
+ M apps/desktop/e2e/navigation.e2e.mjs
+ M apps/desktop/src/lib.rs
+ M apps/desktop/ui/src/App.tsx
+ M apps/desktop/ui/src/SettingsDialog.tsx
+ D apps/desktop/ui/src/features/geography/AmapMap.tsx
+ M apps/desktop/ui/src/features/geography/AmapRegionMap.tsx
+ M apps/desktop/ui/src/features/geography/GeographyPage.tsx
+ M apps/desktop/ui/src/features/geography/MapLibreMap.tsx
+ M apps/desktop/ui/src/features/history/HistoryPage.tsx
+ M apps/desktop/ui/src/features/history/PeriodDetail.tsx
+ M apps/desktop/ui/src/features/home/HomePage.tsx
+ M apps/desktop/ui/src/features/language/english/LessonWorkspace.tsx
+ M apps/desktop/ui/src/features/language/english/VocabularyStage.tsx
+ M apps/desktop/ui/src/features/travel/TravelGuide.tsx
+ M apps/desktop/ui/src/features/travel/TravelPage.tsx
+ M apps/desktop/ui/src/features/travel/travelClient.ts
+ M apps/desktop/ui/src/main.tsx
+ M apps/desktop/ui/src/settingsClient.ts
+ M apps/desktop/ui/src/styles.css
+ M apps/desktop/ui/src/theme/pencil.css
+ M apps/desktop/ui/src/transport.test.ts
+ M apps/desktop/ui/src/transport.ts
+ M apps/desktop/ui/src/types.ts
+ M apps/desktop/wdio.conf.mjs
+ M apps/server/src/ai_api.rs
+ M apps/server/src/main.rs
+ M apps/server/src/routes.rs
+ M apps/server/src/travel_api.rs
+ M artifacts/ui-review/report.md
+ M crates/application/src/history/ports.rs
+ M crates/application/src/history/service.rs
+ M crates/application/src/history/tests.rs
+ M crates/application/src/lib.rs
+ M crates/application/src/personal_ai/geography.rs
+ M crates/application/src/personal_ai/geography/geography_tests.rs
+ M crates/application/src/personal_ai/history.rs
+ M crates/application/src/personal_ai/history/history_tests.rs
+ M crates/application/src/personal_ai/travel.rs
+ M crates/application/src/personal_ai/travel/travel_tests.rs
+ M crates/core/src/lib.rs
+ M crates/core/src/settings.rs
+ M crates/core/src/travel/mod.rs
+ M crates/infrastructure/Cargo.toml
+ M crates/infrastructure/src/agents/jev_decision.rs
+ M crates/infrastructure/src/error.rs
+ M crates/infrastructure/src/history/duckdb.rs
+ M crates/infrastructure/src/personal_ai/llm.rs
+ M crates/infrastructure/src/travel/data_provider.rs
+ M crates/infrastructure/src/travel/store.rs
+ M crates/runtime/src/history_query.rs
+ M docs/architecture/ADR-002-http-history-pilot.md
+ M docs/architecture/ADR-003-personal-ai-hub.md
+ M docs/architecture/ADR-005-personal-knowledge-layer.md
+ M docs/migration/03-rust-gui-selection.md
+ M docs/operations/DEPLOY_MACOS12.md
+ M docs/operations/TROUBLESHOOTING.md
+ M docs/personal-ai/HOME_SERVER_V7_PLAN.md
+ M docs/personal-ai/PERSONAL_AI_HUB_V4.md
+ M docs/personal-ai/PERSONAL_AI_HUB_V4_PLAN.md
+ M docs/personal-ai/PERSONAL_AI_HUB_V5.md
+ M docs/personal-ai/PERSONAL_AI_HUB_V5_PLAN.md
+ M docs/personal-ai/PERSONAL_KNOWLEDGE_V6.md
+ M docs/personal-ai/PERSONAL_KNOWLEDGE_V6_PLAN.md
+ M docs/travel/v1-design.md
+?? .github/copilot-instructions.md
+?? AGENTS.md
+?? CLAUDE.md
+?? apps/desktop/e2e/settings-persistence.e2e.mjs
+?? apps/desktop/e2e/travel-plan-persistence.e2e.mjs
+?? apps/desktop/ui/src/features/exploration/
+?? apps/desktop/ui/src/features/travel/travel.css
+?? apps/desktop/ui/src/features/travel/travelClient.test.ts
+?? apps/desktop/ui/src/features/travel/travelPlanPersistence.test.ts
+?? apps/desktop/ui/src/features/travel/travelPlanPersistence.ts
+?? apps/desktop/ui/src/settingsClient.test.ts
+?? apps/server/src/exploration_api.rs
+?? apps/server/src/security.rs
+?? artifacts/ui-review/post-fix/
+?? artifacts/ui-review/sprint-2/
+?? artifacts/ui-review/sprint-3/
+?? artifacts/ui-review/sprint-4/
+?? crates/application/src/exploration.rs
+?? crates/core/src/exploration.rs
+?? crates/core/src/travel/plan.rs
+?? docs/architecture/frontend-backend-coupling-audit.md
+?? docs/architecture/frontend-backend-decoupling-report.md
+?? docs/exploration/
+?? docs/team/
+?? docs/travel/TRAVEL_PLAN_API_V1.md
+?? scripts/api-smoke/
+?? scripts/download_english.sh

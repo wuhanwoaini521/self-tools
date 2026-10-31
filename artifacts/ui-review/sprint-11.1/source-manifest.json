@@ -1,0 +1,1054 @@
+{
+  "schema": "self-tools-release-source-manifest/v1",
+  "capturedAt": "2026-10-30T00:06:54.816Z",
+  "classification": "mutable local candidate overlay; not a Git commit or immutable release",
+  "repository": {
+    "root": "/Users/hans/Code/github/self-tools",
+    "branch": "main",
+    "head": "f58efa28734208ea195d586d6b52b49a97f510a7",
+    "submodules": [
+      "e4518b7f54f1f1d02f1ebcf260bcdbc5aeba1591 history-data-pipeline (heads/main)"
+    ]
+  },
+  "worktree": {
+    "statusEntries": 203,
+    "trackedDiffSha256": "19e345b90e8eaddf60ffdb8cb73ed9541448646da89aaed1ad4f7a35727b175c",
+    "stagedChanges": false,
+    "changedInputs": [
+      {
+        "path": ".github/copilot-instructions.md",
+        "status": "??",
+        "sha256": "6f6d6807b7154fe527afdcbb854dd994d64096980c1ca3a85f98b38a149da434"
+      },
+      {
+        "path": ".github/workflows/rust-quality.yml",
+        "status": "M",
+        "sha256": "4f5712acc98e0e82616d00c94bd5a58b318b9f8352202c26b622cd723a7fa352"
+      },
+      {
+        "path": "AGENTS.md",
+        "status": "??",
+        "sha256": "b5aaf4c9fdb37d9bf800eec59c9b68e750b8fee9aeb40141b83e1e5c0b9f9ea6"
+      },
+      {
+        "path": "apps/desktop/e2e/markdown-shortcuts.e2e.mjs",
+        "status": "M",
+        "sha256": "eb9a10a91e2ded8cfa738ab2fd279985d36bc213554c51cb89c179ced70ce1b3"
+      },
+      {
+        "path": "apps/desktop/e2e/navigation.e2e.mjs",
+        "status": "M",
+        "sha256": "3a9b1bfe0d46d2d7e4e80325201f99baec5ae46cff0c10d5cf819f4931b137d7"
+      },
+      {
+        "path": "apps/desktop/e2e/settings-persistence.e2e.mjs",
+        "status": "??",
+        "sha256": "67c7390ffd10d9a662e962702731ab4042c2ef7ee9a4213a9998a30b0309563b"
+      },
+      {
+        "path": "apps/desktop/e2e/travel-plan-persistence.e2e.mjs",
+        "status": "??",
+        "sha256": "e8f619e2afe6125946c721026bed48412ff5eab558771fb680b84fb870c92d95"
+      },
+      {
+        "path": "apps/desktop/gen/schemas/acl-manifests.json",
+        "status": "M",
+        "sha256": "e43e200bf355c4f8f6628f819ae81adef9e14cc50eb48a4118e0e7000626c054"
+      },
+      {
+        "path": "apps/desktop/gen/schemas/capabilities.json",
+        "status": "M",
+        "sha256": "3e9cf43db7d81faaa0529a18393dd81f4bca1697cd43341abacaa0f28a20db71"
+      },
+      {
+        "path": "apps/desktop/gen/schemas/desktop-schema.json",
+        "status": "M",
+        "sha256": "6dc7489183897136a17dd1b7556b9c4cfc8ff626cd2b44752c1a33248a07947d"
+      },
+      {
+        "path": "apps/desktop/gen/schemas/macOS-schema.json",
+        "status": "M",
+        "sha256": "6dc7489183897136a17dd1b7556b9c4cfc8ff626cd2b44752c1a33248a07947d"
+      },
+      {
+        "path": "apps/desktop/scripts/build-ui-e2e.mjs",
+        "status": "M",
+        "sha256": "9eedfc18927dfa45abbd2569d783853a38f8254563b77564af2600f8c91bf5ed"
+      },
+      {
+        "path": "apps/desktop/scripts/visual-qa.mjs",
+        "status": "M",
+        "sha256": "ddb6ed49c304ca6680b73e6ba1ee58830f80aa3eddaa0ba6f7c1a05dee38f40a"
+      },
+      {
+        "path": "apps/desktop/src/learning.rs",
+        "status": "M",
+        "sha256": "4b4495bf62039295f949a878da9f6fe471dd0a7c33cd1a03d368c6793845b1f7"
+      },
+      {
+        "path": "apps/desktop/src/lib.rs",
+        "status": "M",
+        "sha256": "a79709fe62b1bd5bee5393f4f61cc9d47f4ca5dad4daec34758c849b83ee2bc5"
+      },
+      {
+        "path": "apps/desktop/tauri.conf.json",
+        "status": "M",
+        "sha256": "b87d7db5403be8f2dce8edae03daacdbd51773712e7b593b26054d1565afb262"
+      },
+      {
+        "path": "apps/desktop/ui/package-lock.json",
+        "status": "M",
+        "sha256": "2b5488e8f3ca2072b146d9cbd8ef2885f4c8c4e353db315a326a434462a38d81"
+      },
+      {
+        "path": "apps/desktop/ui/src/App.tsx",
+        "status": "M",
+        "sha256": "a91939eba073cb2ff37ed1e1bb409cf01122597f6aa661fcf91b644bfa774269"
+      },
+      {
+        "path": "apps/desktop/ui/src/features/ai/aiClient.test.ts",
+        "status": "??",
+        "sha256": "cbcacbbce4d1810003cf28c57736755760e21afa79d6d82b0cd5ec77757e06ca"
+      },
+      {
+        "path": "apps/desktop/ui/src/features/ai/aiClient.ts",
+        "status": "M",
+        "sha256": "819ae009f95b7c05ae96ece7b49229f5835055f25752c15e46125cbd24011b32"
+      },
+      {
+        "path": "apps/desktop/ui/src/features/ai/AIPanel.tsx",
+        "status": "M",
+        "sha256": "bac8d5b3f4b50bcd4a525dd88473d280552c75bd6df71d7984f73f89c03f9d01"
+      },
+      {
+        "path": "apps/desktop/ui/src/features/ai/aiTypes.ts",
+        "status": "M",
+        "sha256": "a14e41d2fc7e5fc3c8bdcedbf786f535111a707735c9acc1acaa065f5947ddb7"
+      },
+      {
+        "path": "apps/desktop/ui/src/features/exploration/explorationClient.ts",
+        "status": "??",
+        "sha256": "aa78fecec16c5f16ea6d9420a1ac9bba242ce69c6a9fe04db8a4832214dfca0d"
+      },
+      {
+        "path": "apps/desktop/ui/src/features/geography/AmapMap.tsx",
+        "status": "D",
+        "sha256": null
+      },
+      {
+        "path": "apps/desktop/ui/src/features/geography/AmapRegionMap.tsx",
+        "status": "M",
+        "sha256": "8249c525b2a42ef636f1d708e096108c0a60e18782ab0d3cbbb1d6b50789191f"
+      },
+      {
+        "path": "apps/desktop/ui/src/features/geography/GeographyPage.tsx",
+        "status": "M",
+        "sha256": "c10deaf2c5b969689b0cdeeffa6b5e025b65ffe86471339f13b4d39c3786265c"
+      },
+      {
+        "path": "apps/desktop/ui/src/features/geography/GeoMap.tsx",
+        "status": "M",
+        "sha256": "2fbbe1b81dc39309b5eaafbdd476aa985451acc3c12a0c5093e91e3b6e19dcb1"
+      },
+      {
+        "path": "apps/desktop/ui/src/features/geography/geoTimeline.test.ts",
+        "status": "??",
+        "sha256": "693d3f5ba73094d78823129b811f653ba8ea7bd842c010df1bd8288a5c847d09"
+      },
+      {
+        "path": "apps/desktop/ui/src/features/geography/geoTimeline.ts",
+        "status": "??",
+        "sha256": "b997198bd2f8a8d7619a6f7250c519c2b29735b1681f121250578b53933eaf67"
+      },
+      {
+        "path": "apps/desktop/ui/src/features/geography/LocationHistoryTimeline.tsx",
+        "status": "??",
+        "sha256": "8c2695d4c2a3a9ec0e365af3c2a94f6794a732577e087952594770e0e05c1453"
+      },
+      {
+        "path": "apps/desktop/ui/src/features/geography/MapLibreMap.tsx",
+        "status": "M",
+        "sha256": "83c454facaed419045600a56114a93668376edd08cad7a9439adfaedb9fc4250"
+      },
+      {
+        "path": "apps/desktop/ui/src/features/history/HistoryPage.tsx",
+        "status": "M",
+        "sha256": "d617b247a09bccc8ef88b9f3b101f90ddf03d25f32246dec70b9adf0f061db32"
+      },
+      {
+        "path": "apps/desktop/ui/src/features/history/PeriodDetail.tsx",
+        "status": "M",
+        "sha256": "e538a5913e9cf6a90bf47ea94814a4552b6ea545f7190f2fc268f1d332ae6524"
+      },
+      {
+        "path": "apps/desktop/ui/src/features/history/semanticTypes.ts",
+        "status": "M",
+        "sha256": "9dbf8a39595c332b93c78b3a5616a3747df49d94024f7345b645ed49f8e23b37"
+      },
+      {
+        "path": "apps/desktop/ui/src/features/home/HomePage.test.ts",
+        "status": "??",
+        "sha256": "5f7e366a5f3bf33af42700848aa0aa367f59535e67d5de56258d1c6233cee58d"
+      },
+      {
+        "path": "apps/desktop/ui/src/features/home/HomePage.tsx",
+        "status": "M",
+        "sha256": "5705ab93b4b07b251f9829dfb0b409500cd21deb913cd138bbef73fb27663d2a"
+      },
+      {
+        "path": "apps/desktop/ui/src/features/language/english/LessonWorkspace.tsx",
+        "status": "M",
+        "sha256": "8b926fa8782abacd726e936a1a28205eba2253a425007931f3901eef5f3eafc6"
+      },
+      {
+        "path": "apps/desktop/ui/src/features/language/english/VocabularyStage.tsx",
+        "status": "M",
+        "sha256": "fc6de08a4a644265e145e538068e46662bc7cb9c645af99500cfa81ab23d11be"
+      },
+      {
+        "path": "apps/desktop/ui/src/features/language/WordDetailView.tsx",
+        "status": "M",
+        "sha256": "817e2b391083ab4587e11eb37290ade330eaed705c779b6e5ef56279bddf7602"
+      },
+      {
+        "path": "apps/desktop/ui/src/features/learning/CollectionItemNoteEditor.tsx",
+        "status": "??",
+        "sha256": "27e37443b1a19a42e1ef628e7edf09434dcb146f9467f7ecec02773090a1d4a6"
+      },
+      {
+        "path": "apps/desktop/ui/src/features/learning/CollectionsPage.tsx",
+        "status": "M",
+        "sha256": "2c18324a4c42740c4e4e201b3e5c1439fb87aa3bbb72814039958e5e4421439a"
+      },
+      {
+        "path": "apps/desktop/ui/src/features/learning/EntityDrawer.tsx",
+        "status": "M",
+        "sha256": "9a35aed50812b4c0981b755e3acca1bd56f03e5adbef87e3ccdd2cd1a79b0aba"
+      },
+      {
+        "path": "apps/desktop/ui/src/features/learning/knowledgeReviewCard.css",
+        "status": "??",
+        "sha256": "1c15ede8338b4e4fbe69f1a988f91aa0f3f4f7ff20504b4fddced52e8c4518d8"
+      },
+      {
+        "path": "apps/desktop/ui/src/features/learning/KnowledgeReviewCardEditor.tsx",
+        "status": "??",
+        "sha256": "7c7b976190a71b11c82142e984136db958b3f417fd23fb5abaa7ec3b35c12a22"
+      },
+      {
+        "path": "apps/desktop/ui/src/features/learning/learningClient.test.ts",
+        "status": "M",
+        "sha256": "24a0539efe9ff92317eda53809d8955a0e2cbbe7971db08db6a90855db1f81ab"
+      },
+      {
+        "path": "apps/desktop/ui/src/features/learning/learningClient.ts",
+        "status": "M",
+        "sha256": "81856ad53f0f8f9d1e69a8bc84b9b35a6b83abbb31e43704381b4ea162691312"
+      },
+      {
+        "path": "apps/desktop/ui/src/features/learning/reviewCenter.css",
+        "status": "??",
+        "sha256": "5b0d1852fdf62366aa7b6e3fd69ebf7f61685c868c720aec976a47847afa61a4"
+      },
+      {
+        "path": "apps/desktop/ui/src/features/learning/ReviewCenterPage.tsx",
+        "status": "M",
+        "sha256": "320fd7fc2feaf7c844f36ba9bf69dd59d6dcb2c61654c42e23b0e4fbf2e47376"
+      },
+      {
+        "path": "apps/desktop/ui/src/features/learning/saveToCollection.css",
+        "status": "??",
+        "sha256": "676a1b43b66950a2a3acca67cb7cfdd9017bd6cedace083112877b8d0a3559db"
+      },
+      {
+        "path": "apps/desktop/ui/src/features/learning/SaveToCollection.test.ts",
+        "status": "??",
+        "sha256": "cfb7504cb08d667237f06734bf6233ec5550a6aea2a73a6578f7737ec1a09b9b"
+      },
+      {
+        "path": "apps/desktop/ui/src/features/learning/SaveToCollection.tsx",
+        "status": "??",
+        "sha256": "755741181d6f3c298d9d8f2ed4de8f3f33c302d5cad554a394f07c626c9a6646"
+      },
+      {
+        "path": "apps/desktop/ui/src/features/learning/sourceNavigation.test.ts",
+        "status": "??",
+        "sha256": "db7c46a8ae71364bec69dff46fc7917b6d8920a8b190d4c085b9b6191eda54e1"
+      },
+      {
+        "path": "apps/desktop/ui/src/features/learning/sourceNavigation.ts",
+        "status": "??",
+        "sha256": "8b57f9515c0e96c3ce389c04dee2dbd5d2f141ecdc0b2cdd142248afdd72a34f"
+      },
+      {
+        "path": "apps/desktop/ui/src/features/system/GlobalSearchPage.tsx",
+        "status": "M",
+        "sha256": "76a411143fdcc33275b63c88e93e7fa1229a2b6e7b6db83b357c57a6c3093627"
+      },
+      {
+        "path": "apps/desktop/ui/src/features/travel/travel.css",
+        "status": "??",
+        "sha256": "8362d791895d8808c7e2b9715ca66d8c1fd891bfb150e1645e293493d2818141"
+      },
+      {
+        "path": "apps/desktop/ui/src/features/travel/travelClient.test.ts",
+        "status": "??",
+        "sha256": "6a03bc68cbef1cfbd964df622c8ce5c590ea9cde752d8e76a8eb2f3dd42f2f2b"
+      },
+      {
+        "path": "apps/desktop/ui/src/features/travel/travelClient.ts",
+        "status": "M",
+        "sha256": "bef00a5f29241acc5eb21fde02a4b9c85fb40adbe403bf97449a507b567c16f6"
+      },
+      {
+        "path": "apps/desktop/ui/src/features/travel/TravelGuide.tsx",
+        "status": "M",
+        "sha256": "93d69d1d986dcfbdc3420ff0e02d5d70af6bd5657405d2d735b47cb1a6701eb7"
+      },
+      {
+        "path": "apps/desktop/ui/src/features/travel/TravelPage.tsx",
+        "status": "M",
+        "sha256": "756889072c3142bda275b6c8cc3baf87f0c7b0c45daa239e91dbc7361859aed1"
+      },
+      {
+        "path": "apps/desktop/ui/src/features/travel/travelPlanPersistence.test.ts",
+        "status": "??",
+        "sha256": "9d5e91fa7ad3022ea64f0d10647dcf428016cb7977dd8b254f700ea47960f613"
+      },
+      {
+        "path": "apps/desktop/ui/src/features/travel/travelPlanPersistence.ts",
+        "status": "??",
+        "sha256": "1351c114fe2ca136f13c622650840b20551bc0c2afaa68b96495b7697ce69156"
+      },
+      {
+        "path": "apps/desktop/ui/src/main.tsx",
+        "status": "M",
+        "sha256": "7886d7059166b2f2d385c0a6fd9ce24f77b2558eed541eac19bf0c7cdcba116f"
+      },
+      {
+        "path": "apps/desktop/ui/src/settingsClient.test.ts",
+        "status": "??",
+        "sha256": "41ed8176eb7d6609964091f7246b19e46b73390f98bdf3cc755a30040928776e"
+      },
+      {
+        "path": "apps/desktop/ui/src/settingsClient.ts",
+        "status": "M",
+        "sha256": "816a5a3869fcfa7003f2d239327fa9e5bc1d8921fcae20e252a6e40b7f4c9643"
+      },
+      {
+        "path": "apps/desktop/ui/src/SettingsDialog.tsx",
+        "status": "M",
+        "sha256": "f90705c66e820b04d310db929b12301b35bb7fa29dbd797866213fabc4007bf6"
+      },
+      {
+        "path": "apps/desktop/ui/src/styles.css",
+        "status": "M",
+        "sha256": "9a024fbcd24290f17a75f31d3dd61595d014cebca3e368aadd74965dfef512ef"
+      },
+      {
+        "path": "apps/desktop/ui/src/theme/pencil.css",
+        "status": "M",
+        "sha256": "20303dd8b77bbb891811561498eca2c5c323c0c08ca6fc0ba843bd99efd7d7b1"
+      },
+      {
+        "path": "apps/desktop/ui/src/transport.test.ts",
+        "status": "M",
+        "sha256": "47292dd0b1f27a12866b47993ea68ca197b391caf7a788b233862820cef235fb"
+      },
+      {
+        "path": "apps/desktop/ui/src/transport.ts",
+        "status": "M",
+        "sha256": "4769c9db4f6e2ffaf36486538b4c07ad527a3aed5007f52dc759d37c6e6fbfc0"
+      },
+      {
+        "path": "apps/desktop/ui/src/types.ts",
+        "status": "M",
+        "sha256": "538de1a1993dc5e9997c9af433d9119b7cdb22dae57a0c3921b94c4176b113af"
+      },
+      {
+        "path": "apps/desktop/wdio.conf.mjs",
+        "status": "M",
+        "sha256": "618291e2adb5e0b78493e23e547b963d161cecddbe9dcc1a221110eea91a9dd3"
+      },
+      {
+        "path": "apps/server/Cargo.toml",
+        "status": "M",
+        "sha256": "792dc248151a289f555f621ab360c8da3315b6a1fe11de4a0167e9fa1cb6f9a8"
+      },
+      {
+        "path": "apps/server/src/ai_api.rs",
+        "status": "M",
+        "sha256": "09610b770ba8dcb3964e2ad0ee3afe045fa98d901f61b405817b326f68057c6b"
+      },
+      {
+        "path": "apps/server/src/backup_api.rs",
+        "status": "??",
+        "sha256": "eedc408fb5c9ae6a57a88cf0e32e79cfa0e5c37d9daa59933f29776324f2d1c8"
+      },
+      {
+        "path": "apps/server/src/exploration_api.rs",
+        "status": "??",
+        "sha256": "b4ffa5284b69f4eff88d18b4625af0ed8a597c5f02fc24a80b1b2269c91c77b3"
+      },
+      {
+        "path": "apps/server/src/knowledge_api.rs",
+        "status": "M",
+        "sha256": "df31778993503521826419a172db3d08d60ae0c1481005b7f770fa826ee10a23"
+      },
+      {
+        "path": "apps/server/src/learning_api.rs",
+        "status": "M",
+        "sha256": "1078178eee50bf451842fc927035b6276c23595d6609d4310ea905c6b5504db6"
+      },
+      {
+        "path": "apps/server/src/main.rs",
+        "status": "M",
+        "sha256": "c51ef891f0526218cedcd86929d0c4facdd2f9164617e58e8c093684fc28862c"
+      },
+      {
+        "path": "apps/server/src/routes.rs",
+        "status": "M",
+        "sha256": "7f6524d6752b9e5cd145e86cb1955657f65d2a1146185cb8194c29cb4b6fe3f2"
+      },
+      {
+        "path": "apps/server/src/security.rs",
+        "status": "??",
+        "sha256": "5e37dcfc32e82333e9fb05de567ca086a795e1a5d52aaaa7f24f09e6c43a58ea"
+      },
+      {
+        "path": "apps/server/src/travel_api.rs",
+        "status": "M",
+        "sha256": "86611b4e58b9b7f4820ed421bab0cf805531466f0bbd555cc545fd67e3a58b34"
+      },
+      {
+        "path": "Cargo.lock",
+        "status": "M",
+        "sha256": "9ea210e01f7cd426c71d32aa3ce71d66dcc058940456416a043b7b24bbb60a3e"
+      },
+      {
+        "path": "Cargo.toml",
+        "status": "M",
+        "sha256": "2c1b312f9d4b11623b0be1dda3958a2ac9a83f5aa25aad1c2f69304925c9b01b"
+      },
+      {
+        "path": "CLAUDE.md",
+        "status": "??",
+        "sha256": "e508107341231f95ef14d855bb2fff0e9445c13475292a3311fd5fc9bfbfd198"
+      },
+      {
+        "path": "crates/application/Cargo.toml",
+        "status": "M",
+        "sha256": "a60a9e1c4493e24fbb8106e42385e0924662f258797fbeecb5712b6e7b26cb2a"
+      },
+      {
+        "path": "crates/application/src/backup/service.rs",
+        "status": "M",
+        "sha256": "d9aec820d14621b6dd42c8b62af12f25626cc21cce7e6fe041a2eba262a83df3"
+      },
+      {
+        "path": "crates/application/src/exploration.rs",
+        "status": "??",
+        "sha256": "0b83b3e4d4a14e43d815b7308e41db6f382ca52fc1914bddef82758cafce0dde"
+      },
+      {
+        "path": "crates/application/src/history/ports.rs",
+        "status": "M",
+        "sha256": "806217c866f2295dca18574b75f667a1ac082780421a25487d577ef2dee04979"
+      },
+      {
+        "path": "crates/application/src/history/service.rs",
+        "status": "M",
+        "sha256": "cf354d876ede81a3a5f40933b7a4f1cd550e57b8cb54c6a26496e253c618f271"
+      },
+      {
+        "path": "crates/application/src/history/tests.rs",
+        "status": "M",
+        "sha256": "37ac9e4c471fbe23231c9a3048b42daea059b8f08554091e35353d6d653be9ba"
+      },
+      {
+        "path": "crates/application/src/language/course.rs",
+        "status": "M",
+        "sha256": "7071b1b15fe39ab04f0a46d24d203c815d94205b41937c74286991973b01320f"
+      },
+      {
+        "path": "crates/application/src/language/learning.rs",
+        "status": "M",
+        "sha256": "39b6e6d62b4c30f766d6c4dd6d5924d54947eb1b984f8704a438cfce5d572922"
+      },
+      {
+        "path": "crates/application/src/language/tests.rs",
+        "status": "M",
+        "sha256": "fe52df0e70ee7ab84293658f84a90d75449557b69f1bef08c30215fc6382cbda"
+      },
+      {
+        "path": "crates/application/src/learning/mod.rs",
+        "status": "M",
+        "sha256": "90d4656b11a10f531fe7559dce7b6baa2dd3c731b62e0c1968c3223794815058"
+      },
+      {
+        "path": "crates/application/src/learning/ports.rs",
+        "status": "M",
+        "sha256": "84cc2c85d0ce849700ecca47fb4e73a762734e7e45005bae229a94ad49b094f3"
+      },
+      {
+        "path": "crates/application/src/learning/service.rs",
+        "status": "M",
+        "sha256": "41ee8f36a5b73dcf0c39156cf03e338ef1e36241da9bacdead90baa1ada1b520"
+      },
+      {
+        "path": "crates/application/src/learning/tests.rs",
+        "status": "M",
+        "sha256": "0b31eb722f0973c6282d87fd9df9ae58c699a9669d9a01c557a3fa840da5df9a"
+      },
+      {
+        "path": "crates/application/src/lib.rs",
+        "status": "M",
+        "sha256": "7f8421fb6c99ab054a6b80573ef0773b640995139c491c3dc610d3fe779a1091"
+      },
+      {
+        "path": "crates/application/src/personal_ai/agent.rs",
+        "status": "M",
+        "sha256": "9c2205b4e24e0c9e52d8b768e190cf285fa99528ab7b6170121988143d40cfc5"
+      },
+      {
+        "path": "crates/application/src/personal_ai/cancellation.rs",
+        "status": "??",
+        "sha256": "74645aee46fea504a4861aa5cfa6b469d73242d802a33b5609d09a594234eb4b"
+      },
+      {
+        "path": "crates/application/src/personal_ai/exploration.rs",
+        "status": "??",
+        "sha256": "0105ad0ae910b4acb07ced11d4a6f001a921b9f48c0aa374ec1c5be57974038b"
+      },
+      {
+        "path": "crates/application/src/personal_ai/geography.rs",
+        "status": "M",
+        "sha256": "8a558bc4073d721f8b95fc3b9f553d9c25b30c92f372a9f9c8a979087ba8efb7"
+      },
+      {
+        "path": "crates/application/src/personal_ai/geography/geography_tests.rs",
+        "status": "M",
+        "sha256": "e83abb690dea5f9ceb959280aaf351a2936080f3ace596410b603134c1d32cee"
+      },
+      {
+        "path": "crates/application/src/personal_ai/history.rs",
+        "status": "M",
+        "sha256": "80d26123a93290174241e9eead5542ee7640169e8d0caa398181bffad7231bcc"
+      },
+      {
+        "path": "crates/application/src/personal_ai/history/history_tests.rs",
+        "status": "M",
+        "sha256": "b697fd928930fb374cfaae3f11a1f35788034ae1ce2c35082fe70d69a0cbed31"
+      },
+      {
+        "path": "crates/application/src/personal_ai/learning.rs",
+        "status": "??",
+        "sha256": "04673222db98dcf2a1608bc53f3d1fc5b4de29376c70ce5b82f7a19570d2d76c"
+      },
+      {
+        "path": "crates/application/src/personal_ai/memory.rs",
+        "status": "M",
+        "sha256": "eacfdd2dd914c48202248fd9f83dd51b664eeaa3d1e41b8f844c5f4466786ae0"
+      },
+      {
+        "path": "crates/application/src/personal_ai/memory/memory_tests.rs",
+        "status": "M",
+        "sha256": "951054e9b364e761a8ad99cab95bdaf7302e0dcd8e1b9a9f25c3546652b0183a"
+      },
+      {
+        "path": "crates/application/src/personal_ai/mod.rs",
+        "status": "M",
+        "sha256": "ae75629e14162b9635de2f0fd1bf05132cb1005fd4fe6534b40d6381d9863ad2"
+      },
+      {
+        "path": "crates/application/src/personal_ai/prompt.rs",
+        "status": "M",
+        "sha256": "d164fc25ad1271b9911cba806012ebddae0ee38958dfcaefb0d21d5a24e84ba0"
+      },
+      {
+        "path": "crates/application/src/personal_ai/registry.rs",
+        "status": "M",
+        "sha256": "cc6640fecce2fc3fd0a03040f68b9acd3203cc4137f24042fa2a6bad120c151b"
+      },
+      {
+        "path": "crates/application/src/personal_ai/rss.rs",
+        "status": "M",
+        "sha256": "06a2441eee76254e76ea566c16b4e9718f1e0951f9e0bbdf1333f7de82200514"
+      },
+      {
+        "path": "crates/application/src/personal_ai/rss/rss_tests.rs",
+        "status": "M",
+        "sha256": "45553f3720c834b7fe35b9b43797f6a1f9a31f1d120caec9e5fd4978607af016"
+      },
+      {
+        "path": "crates/application/src/personal_ai/runtime.rs",
+        "status": "M",
+        "sha256": "a092b90b3b2b11e01734800d1892c6c7a6a280aea50f614acb0695456ff2eb25"
+      },
+      {
+        "path": "crates/application/src/personal_ai/study_board.rs",
+        "status": "M",
+        "sha256": "f4100767697bf4bcded4b7cd15492b076fe14718b9b762a01e2d995d88a74c5d"
+      },
+      {
+        "path": "crates/application/src/personal_ai/study_board/study_board_tests.rs",
+        "status": "M",
+        "sha256": "480b1c9da24df59c1705eb1fdfbd8d0cee8fde93d66aba6adb6bfafe75f28404"
+      },
+      {
+        "path": "crates/application/src/personal_ai/travel.rs",
+        "status": "M",
+        "sha256": "1c0cacc8e341701176c6b5397cb4c4c0a8cf241bba020c5136a1b20e872375ef"
+      },
+      {
+        "path": "crates/application/src/personal_ai/travel/travel_tests.rs",
+        "status": "M",
+        "sha256": "d959e0bf40de5b4419dec5a9d3b909a3e6f18b873e1e2da1f8e2d078b8559319"
+      },
+      {
+        "path": "crates/application/src/search/collection_source.rs",
+        "status": "??",
+        "sha256": "8fe07f2099388e9f289129971d4cf27a9e3a35a06adb41506e71ceb825c3207d"
+      },
+      {
+        "path": "crates/application/src/search/mod.rs",
+        "status": "M",
+        "sha256": "29a959e20d26f3135dffe4e46bcb972bb9bd38db0055bb21cc56bd76de755c8e"
+      },
+      {
+        "path": "crates/application/src/search/service.rs",
+        "status": "M",
+        "sha256": "2868ea09f5ae71cdc657b37d53ad5c3a38d7184a7049af3510fe1441c04ef04c"
+      },
+      {
+        "path": "crates/application/src/search/tests.rs",
+        "status": "M",
+        "sha256": "a9535507a5bb416ae9511c12c1784ef919209fb66643c13374ecbe7913f19cf4"
+      },
+      {
+        "path": "crates/application/src/travel/mod.rs",
+        "status": "M",
+        "sha256": "776d2439fc1454ba8d35167be1285e48a077c428cb2e0bc941de929f0d871029"
+      },
+      {
+        "path": "crates/application/src/travel/plan_service.rs",
+        "status": "??",
+        "sha256": "796cf68f308d75489ac712cbc84a854a92f9538a7c0c18b6c2393fa200ddf3f4"
+      },
+      {
+        "path": "crates/application/src/travel/ports.rs",
+        "status": "M",
+        "sha256": "0cf8d611088de8b02046d1cbe0bb3fcdf0e630c42116da5fbf28fdc7fca38045"
+      },
+      {
+        "path": "crates/core/src/backup/model.rs",
+        "status": "M",
+        "sha256": "6f1c5f2c54137dad36344c536141cd9bb76594a7513dbadf6f197622f03ae0c9"
+      },
+      {
+        "path": "crates/core/src/exploration.rs",
+        "status": "??",
+        "sha256": "c18d8ab0b6470427edddb9ec9ba9988bfcaf799bf8aeaf252e7789cf8b53fad2"
+      },
+      {
+        "path": "crates/core/src/history_records.rs",
+        "status": "M",
+        "sha256": "bac581fea84cde3a97e84c0d347016010036e8684c39d34e20b7cadd05fdc85b"
+      },
+      {
+        "path": "crates/core/src/learning/mod.rs",
+        "status": "M",
+        "sha256": "d250de0144ecbedb4e03d9c642a0a1ccc26c69380e00b699a04dd8331882d123"
+      },
+      {
+        "path": "crates/core/src/learning/model.rs",
+        "status": "M",
+        "sha256": "80e3108446b18197cad3248eb5f7c3663ac2e3c52cf035257374c5ac5fcebeb3"
+      },
+      {
+        "path": "crates/core/src/lib.rs",
+        "status": "M",
+        "sha256": "3b98601344abff6c98ffc3df8d542427a65e45fc5bd6ee49e253cbd98db3ff03"
+      },
+      {
+        "path": "crates/core/src/personal_ai/error.rs",
+        "status": "M",
+        "sha256": "b83e038bbb10eddd52fb316dd38199ef929e6c91835f37c8acfb05662e76a4bf"
+      },
+      {
+        "path": "crates/core/src/personal_ai/mod.rs",
+        "status": "M",
+        "sha256": "e4c7636a13e0b0b09c1af68a448af873729af61ba52cf3903b4aefa727a9ddee"
+      },
+      {
+        "path": "crates/core/src/personal_ai/types.rs",
+        "status": "M",
+        "sha256": "1cf64eb81f400804ce04702d41dcc4bfafff17fd9007588f308fb96d0bd9d8c4"
+      },
+      {
+        "path": "crates/core/src/search/model.rs",
+        "status": "M",
+        "sha256": "a8acd0bf3f653f8ac69ab25618e9aff8548c60dc534ee893582e18db5d593513"
+      },
+      {
+        "path": "crates/core/src/settings.rs",
+        "status": "M",
+        "sha256": "811afbadfd84e7aaadbd9cfd220f339f9fe29dbefac3f04389b2188a6ce66e37"
+      },
+      {
+        "path": "crates/core/src/travel/mod.rs",
+        "status": "M",
+        "sha256": "4b20e7d31c68911088c4c530c94b66cbae52c57d8b4122b79b2142dac2a21cea"
+      },
+      {
+        "path": "crates/core/src/travel/plan.rs",
+        "status": "??",
+        "sha256": "b5a53a9ce849229b5bbda226bd5e1e4655fe4ee6faf05cb78d87f6fb9710075a"
+      },
+      {
+        "path": "crates/infrastructure/Cargo.toml",
+        "status": "M",
+        "sha256": "6cf333249279cdf337afcf8d0c784b6147ec35514141540f01c7c90c04cd3e4f"
+      },
+      {
+        "path": "crates/infrastructure/src/agents/jev_decision.rs",
+        "status": "M",
+        "sha256": "98f8f5816182f471afed512ea13054b2d39e8ab356b3be4a2b3f6f340062746b"
+      },
+      {
+        "path": "crates/infrastructure/src/error.rs",
+        "status": "M",
+        "sha256": "afd15507224e5038bed51690b7098c419617b54ff006483b9af14202656a52b8"
+      },
+      {
+        "path": "crates/infrastructure/src/geography/store.rs",
+        "status": "M",
+        "sha256": "f88e4dd5fe0c1c21e1a931f6178a092651160feac7d53fed45ee886c71b7a51a"
+      },
+      {
+        "path": "crates/infrastructure/src/history/duckdb.rs",
+        "status": "M",
+        "sha256": "ec9e2e8be8cb82a1e71c4d6f91cfe43b1046eff7f9adb1c3c0d3fc114afd68b7"
+      },
+      {
+        "path": "crates/infrastructure/src/language/import/jmdict.rs",
+        "status": "M",
+        "sha256": "72d9f458c6858778bb5ea4cb20a7e992dbc5412d52291cf3b814561494ab301c"
+      },
+      {
+        "path": "crates/infrastructure/src/language/importing.rs",
+        "status": "M",
+        "sha256": "b779b0a1316bacc3a4211b9f6b60073314ef1cfc58c98de4722a61682ea2fe06"
+      },
+      {
+        "path": "crates/infrastructure/src/learning/store.rs",
+        "status": "M",
+        "sha256": "848f444a3607cbaa36ab5d972fcb2688601dced5880cdd274f3ecff2b6a5536e"
+      },
+      {
+        "path": "crates/infrastructure/src/legacy_config_migration.rs",
+        "status": "??",
+        "sha256": "20c7cd78b6aaf3e7f34fb43d86a5186fff0559fc02f5c3f51a71e1c09d0645dd"
+      },
+      {
+        "path": "crates/infrastructure/src/lib.rs",
+        "status": "M",
+        "sha256": "8ca9391a228465b2c4d55123890d55d91e111c9523d7dbb1d775c6571139aba7"
+      },
+      {
+        "path": "crates/infrastructure/src/personal_ai/llm.rs",
+        "status": "M",
+        "sha256": "b0f301776c05c8848e5bbf0b48fbe2c168a9dc122fb75f614d5596bf583c4fb2"
+      },
+      {
+        "path": "crates/infrastructure/src/ports/learning.rs",
+        "status": "M",
+        "sha256": "ad68cd26ebcf87d6b415886b306e446983be39dfe93e8ff28df5a473b635100d"
+      },
+      {
+        "path": "crates/infrastructure/src/travel/data_provider.rs",
+        "status": "M",
+        "sha256": "ca50e674058e089effca5b293be14ac7808a2aded452dfd49accd16e0d608746"
+      },
+      {
+        "path": "crates/infrastructure/src/travel/store.rs",
+        "status": "M",
+        "sha256": "5ad9a14ce0530e05c4eada663e569f046be432a6624451e14d318d8b1a9fa98c"
+      },
+      {
+        "path": "crates/infrastructure/tests/release_recovery.rs",
+        "status": "??",
+        "sha256": "a959b6395d46181564ae3f111775f3389c63573171462dbe1cffbdc022e10459"
+      },
+      {
+        "path": "crates/runtime/Cargo.toml",
+        "status": "M",
+        "sha256": "b56b15337240ac0fac35b022f404045b25b8c6c28c9c6a71a89f59a7aa579b3e"
+      },
+      {
+        "path": "crates/runtime/src/app_core.rs",
+        "status": "M",
+        "sha256": "52a46ef05a67ffcdf5c7e335c164ce66a27f8c3cabc4a4899ada32225e7af456"
+      },
+      {
+        "path": "crates/runtime/src/backup.rs",
+        "status": "??",
+        "sha256": "0a168ce750ac7e637b578dd4071222dfb4d6f4101ce2de51fd8424e2ed797e3c"
+      },
+      {
+        "path": "crates/runtime/src/composition.rs",
+        "status": "M",
+        "sha256": "b874688f009774c1515a8975b47b90c3261f424ffbaaa6505a2a22a2b838147c"
+      },
+      {
+        "path": "crates/runtime/src/history_query.rs",
+        "status": "M",
+        "sha256": "20f9b34039b81b4b937964a6d669b008abc1cf4f519d92cc1863b597fdcf3256"
+      },
+      {
+        "path": "crates/runtime/src/lib.rs",
+        "status": "M",
+        "sha256": "676b17a57ab6d657d0ccf20617f336ff7dade59b4398683d3d543e93d4b27d0a"
+      },
+      {
+        "path": "crates/runtime/src/personal_ai.rs",
+        "status": "M",
+        "sha256": "4bd8bd973cb7c391f1f6b8f77d3b780f1fa8cabd2e2d2bc1d9d3917746bc39f3"
+      },
+      {
+        "path": "docs/architecture/ADR-002-http-history-pilot.md",
+        "status": "M",
+        "sha256": "9e081bbe4426dab2b9cb7c27f302adf17bd3159500a9e0c202929d7b6004a46f"
+      },
+      {
+        "path": "docs/architecture/ADR-003-personal-ai-hub.md",
+        "status": "M",
+        "sha256": "95c7eededf1b9a95a342d45431b76975923ededb4efaa78c5497c3bd201e56a7"
+      },
+      {
+        "path": "docs/architecture/ADR-005-personal-knowledge-layer.md",
+        "status": "M",
+        "sha256": "eb71ffdd065c87ad6d9d0da5cb0cc586ec2fbb717775074f7feec22677778a9b"
+      },
+      {
+        "path": "docs/architecture/frontend-backend-coupling-audit.md",
+        "status": "??",
+        "sha256": "3f908285ae690f1cb315414a7786bab6663645b333f92c0f003af880efd08612"
+      },
+      {
+        "path": "docs/architecture/frontend-backend-decoupling-report.md",
+        "status": "??",
+        "sha256": "a632cc2ab192e26b2ff663cd34ae6eebbd78a7c8efa2f951ba5faea591ce50f3"
+      },
+      {
+        "path": "docs/exploration/EXPLORATION_API_V1.md",
+        "status": "??",
+        "sha256": "34490381c04d627a45b59988a434ab2593ebb0256b501e72d1128a97b1176e81"
+      },
+      {
+        "path": "docs/migration/03-rust-gui-selection.md",
+        "status": "M",
+        "sha256": "9935fd7311ab7ba3fbda0a65a127e20fc7ee3f9ae4580c516f5993704e3fd6cd"
+      },
+      {
+        "path": "docs/operations/BACKUP_RESTORE.md",
+        "status": "M",
+        "sha256": "a6c3baa497e6a45e9f2e180dbe1038c4679ff6bae5c8d075e046eaf4e38227bf"
+      },
+      {
+        "path": "docs/operations/DEPLOY_MACOS12.md",
+        "status": "M",
+        "sha256": "3e317d564ff28f618e0503cd66fac8c7e2414db9a1bc831f7e97958e549f8e18"
+      },
+      {
+        "path": "docs/operations/LEGACY_CONFIG_MIGRATION.md",
+        "status": "??",
+        "sha256": "5ea1389378c1be6470ed8f28fceb5481bf5b380f27940818aa17187148321d84"
+      },
+      {
+        "path": "docs/operations/PRODUCTION_HARDENING_V11_PLAN.md",
+        "status": "M",
+        "sha256": "999d8e7bdbe192a61172ec80e861a8da78bca4fbcde1f78b97cbe88e836009cc"
+      },
+      {
+        "path": "docs/operations/SECURITY_MODEL.md",
+        "status": "M",
+        "sha256": "30357df84b14a66abd698b33c1c495264091318bbacf2e796e6c96bba2855f51"
+      },
+      {
+        "path": "docs/operations/TROUBLESHOOTING.md",
+        "status": "M",
+        "sha256": "9917da41796ec1d83eabd7c92853935a77c0055b7a9b61ed37e6d961065b0dfc"
+      },
+      {
+        "path": "docs/personal-ai/HOME_SERVER_V7_PLAN.md",
+        "status": "M",
+        "sha256": "27ea5e11931bf7030d99302fca92b8049783e0036512b10c3485b663fa5a0de4"
+      },
+      {
+        "path": "docs/personal-ai/PERSONAL_AI_HUB_V4_PLAN.md",
+        "status": "M",
+        "sha256": "e8b03ef7bbddf082394f8557b99d1f6b0a156134a4907ff79563910cc7ed1118"
+      },
+      {
+        "path": "docs/personal-ai/PERSONAL_AI_HUB_V4.md",
+        "status": "M",
+        "sha256": "e8f236ac14cbb2b56b93309752feb75425a0cd015956406567267ac785cfbc85"
+      },
+      {
+        "path": "docs/personal-ai/PERSONAL_AI_HUB_V5_PLAN.md",
+        "status": "M",
+        "sha256": "1d78e5fe799c8fbbca3cb403505cc26ba99e6a4a4bcb350656b0d49b38273087"
+      },
+      {
+        "path": "docs/personal-ai/PERSONAL_AI_HUB_V5.md",
+        "status": "M",
+        "sha256": "80eac0a2f43e4ecfd0c0cdc55be20b54da20902611b30450a3281f17f3d2d133"
+      },
+      {
+        "path": "docs/personal-ai/PERSONAL_KNOWLEDGE_V6_PLAN.md",
+        "status": "M",
+        "sha256": "9e5777063bdda61f6d4ff3a89d810a8c102708cf0189a69b906e5ea5a0bd0bc4"
+      },
+      {
+        "path": "docs/personal-ai/PERSONAL_KNOWLEDGE_V6.md",
+        "status": "M",
+        "sha256": "791c3d5439dbde4d79428f4491a95b67fe1f7c57d7207a1afbd21fe0894ff757"
+      },
+      {
+        "path": "docs/team/HANDOFF.md",
+        "status": "??",
+        "sha256": "82d39db5704149196eda1da641916a63fe9e18311c5acd22cfd60c9777a38ce5"
+      },
+      {
+        "path": "docs/travel/TRAVEL_PLAN_API_V1.md",
+        "status": "??",
+        "sha256": "a5d6582cda58e4182cbb8c0f76171d177e57d240817fc3600c736c4b285c57ca"
+      },
+      {
+        "path": "docs/travel/v1-design.md",
+        "status": "M",
+        "sha256": "f8571a4cddcbf604200875e899890477d673d918ebbd8b625b8b8ffb78b6c1c4"
+      },
+      {
+        "path": "FEATURE_MATRIX.md",
+        "status": "M",
+        "sha256": "c8720130a2ac9e8b314f93597a9a0b2ffa1059fda3514af3368ff0ea10349737"
+      },
+      {
+        "path": "Makefile",
+        "status": "M",
+        "sha256": "5d4b1bc5aa465d2e90ada2084f0c79e3c415bded144328fca596f2f05b99fe57"
+      },
+      {
+        "path": "mise.lock",
+        "status": "M",
+        "sha256": "d6dc5c008f0135fc8ae39a38b3b650cd3976b9b73ce66f3aa5e05f7c91855504"
+      },
+      {
+        "path": "mise.toml",
+        "status": "M",
+        "sha256": "696282bd98340f1431ad1c6b79db43b7b9335a39d22f2745108f8bd6b7dfc3be"
+      },
+      {
+        "path": "README.md",
+        "status": "M",
+        "sha256": "c8a8d07fb7d89b9be2bbd200e5a8c26686ea821f31a215000dce807934dfddbf"
+      },
+      {
+        "path": "rust-toolchain.toml",
+        "status": "M",
+        "sha256": "3df7d80887ac8b29bbc4b35fb56fc37992860435dcb91619a65fad1c32ed85cd"
+      },
+      {
+        "path": "scripts/api-smoke/history.mjs",
+        "status": "??",
+        "sha256": "69325a9c38fcfc51e972ce218085cb5b388534bd39391af0f0adfc828235dd2a"
+      },
+      {
+        "path": "scripts/download_english.sh",
+        "status": "??",
+        "sha256": "09ec0c7ddc95659a542ab1cd40d6110eaad49069040390a9ae07188e8393d130"
+      }
+    ],
+    "excluded": [
+      {
+        "path": "artifacts/",
+        "reason": "review evidence and generated screenshots, not build source"
+      },
+      {
+        "path": "config/",
+        "reason": "private local configuration and credentials"
+      },
+      {
+        "path": "output/",
+        "reason": "generated, local, or downloaded data/dependency output"
+      },
+      {
+        "path": "target/",
+        "reason": "generated, local, or downloaded data/dependency output"
+      },
+      {
+        "path": "node_modules/",
+        "reason": "generated, local, or downloaded data/dependency output"
+      },
+      {
+        "path": "apps/desktop/node_modules/",
+        "reason": "generated, local, or downloaded data/dependency output"
+      },
+      {
+        "path": "apps/desktop/ui/node_modules/",
+        "reason": "generated, local, or downloaded data/dependency output"
+      },
+      {
+        "path": "apps/desktop/ui/dist/",
+        "reason": "generated, local, or downloaded data/dependency output"
+      },
+      {
+        "path": "data/raw/",
+        "reason": "generated, local, or downloaded data/dependency output"
+      },
+      {
+        "path": "data/generated/",
+        "reason": "generated, local, or downloaded data/dependency output"
+      },
+      {
+        "path": "mise.local.toml",
+        "reason": "generated, local, or downloaded data/dependency output"
+      },
+      {
+        "path": "mise.local.lock",
+        "reason": "generated, local, or downloaded data/dependency output"
+      },
+      {
+        "path": ".mise.local.toml",
+        "reason": "generated, local, or downloaded data/dependency output"
+      },
+      {
+        "path": ".mise.local.lock",
+        "reason": "generated, local, or downloaded data/dependency output"
+      }
+    ]
+  },
+  "toolchain": {
+    "mise": "2026.9.12 macos-x64 (2026-09-20)",
+    "node": "v24.22.0",
+    "npm": "11.19.1",
+    "rustc": "rustc 1.95.0 (59807616e 2026-04-14)",
+    "cargo": "cargo 1.95.0 (f2d3ce0bd 2026-03-21)",
+    "tauri": "tauri-cli 2.11.4",
+    "platform": "Darwin x86_64",
+    "macOS": "12.7.6"
+  },
+  "buildEntryPoints": {
+    "rustCheck": "cargo check --workspace --all-targets --locked",
+    "rustTests": "cargo test --workspace --locked",
+    "clippy": "cargo clippy --workspace --all-targets --all-features --locked -- -D warnings",
+    "rustFmt": "cargo fmt --all -- --check",
+    "uiBuild": "npm --prefix apps/desktop/ui run build",
+    "uiTests": "npm --prefix apps/desktop/ui test",
+    "nativeE2E": "npm --prefix apps/desktop run test:e2e",
+    "release": "npm --prefix apps/desktop/ui exec -- tauri build --bundles app --no-sign"
+  },
+  "note": "The manifest records HEAD plus the hash of the unstaged tracked diff and SHA-256 for each changed/untracked source input. It intentionally excludes ignored local data, credentials, downloaded dependencies, and artifact evidence. A rebuild from clean Git requires a separately authorized, clean commit baseline."
+}

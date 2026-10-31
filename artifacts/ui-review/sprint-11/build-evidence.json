@@ -1,0 +1,58 @@
+{
+  "candidate_id": "5f184a1125597edf",
+  "source_archive": {
+    "path": "artifacts/ui-review/sprint-11/rc-source-snapshot.tar.gz",
+    "sha256": "5f184a1125597edf21ec409a3ee0afd4abfe6a2d94457b9fd7ea63350004e8b3",
+    "git_head": "f58efa28734208ea195d586d6b52b49a97f510a7",
+    "history_submodule": "e4518b7f54f1f1d02f1ebcf260bcdbc5aeba1591"
+  },
+  "build": {
+    "command": "tauri build --config tauri.conf.json --bundles app --ci --no-sign",
+    "profile": "release",
+    "host": "macOS 12.7.6 (21H1320), x86_64",
+    "rustc": "1.99.1 (58cf8f9c3 2026-10-13)",
+    "cargo": "1.99.1",
+    "node": "24.21.0",
+    "npm": "11.19.0",
+    "tauri_cli": "2.11.4",
+    "tauri_crate": "2.11.5",
+    "bundle_version": "0.1.0",
+    "bundle_architecture": "x86_64"
+  },
+  "app": {
+    "temporary_path": "/tmp/self-tools-sprint11-release-app/DevToolbox.app",
+    "size": "86 MB",
+    "executable_sha256": "4b8b624aa74ffe3f23a6f39e3e3eaf331eb29002b3527b2ddc9aa495d12ad11d",
+    "history_resource_sha256": "0b355639c3d0adc5cbc393464f58944a0e88009eed0c7636a1db2204f6353eb0",
+    "signed": false,
+    "signing_identities_available": 0,
+    "gatekeeper": "rejected: source=no usable signature",
+    "visible_ui_acceptance": "not verified; host session locked"
+  },
+  "installer": {
+    "tauri_dmg": "failed during Finder AppleScript customization (AppleEvent timeout -1712)",
+    "artifact_produced": false,
+    "notarized": false
+  },
+  "isolated_release_startup": {
+    "process_started_and_remained_alive": true,
+    "stores_initialized_under_self_tools_home": 13,
+    "user_config_accessed": false
+  },
+  "isolated_legacy_migration": {
+    "fixture": "dashboard.db: 3 feeds, 4 articles, 1 marked news feed with 2 articles",
+    "result": "retained 3 feeds and 4 RSS articles; moved one source/two articles to news.db; retained one starred article; dropped feeds.kind; migration marker=1"
+  },
+  "tests": {
+    "cargo_workspace": "1337 passed, 0 failed",
+    "ui_unit": "21 files, 125 passed",
+    "browser_visual": "90 states across 5 viewports",
+    "native_tauri_e2e": "5 specs, 17 passed on instrumented macOS/WebKit test build",
+    "backup_restore": "isolated Learning and Travel stores passed integrity and domain round-trip checks"
+  },
+  "security_audit": {
+    "cargo_audit": "17 advisory matches; 9 unmaintained and 2 unsound notices",
+    "ui_npm_audit": "0 vulnerabilities (full and production-only)",
+    "desktop_test_tooling_npm_audit": "21 high, 2 moderate"
+  }
+}

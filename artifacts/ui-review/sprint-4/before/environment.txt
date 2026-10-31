@@ -1,0 +1,11 @@
+Captured: 2026-10-26T12:46Z (UTC)
+Platform: macOS 12.7.6, x86_64
+Rust: rustc 1.99.1, cargo 1.99.1
+Node: v24.21.0; npm 11.19.0; pnpm 12.10.1
+Browser: Google Chrome 150.0.7871.125 (agent-browser bundled Chrome 155 cannot launch on macOS 12 due missing VideoToolbox symbol; system Chrome used over CDP)
+Tauri CLI: unavailable (cargo tauri reports no such command)
+Vite: http://127.0.0.1:1420; existing listener, dev server responds
+HTTP backend: not running at 127.0.0.1:8787 at baseline
+Geography fixture: config/geography.db (14 entities; includes Chengdu, Shanghai, Chongqing)
+History fixture: history-data-pipeline/dist/history.duckdb; dist/json/places.json exposes three curated place records (CBDB Luoyang, CBDB Chengdu, ctext Pengcheng)
+Travel fixture: config/travel.db (copied to an isolated temp directory before functional UI tests)
