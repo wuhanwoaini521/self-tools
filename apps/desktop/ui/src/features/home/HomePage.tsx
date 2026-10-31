@@ -20,6 +20,7 @@ import type {
   CollectionItem,
   ContinueItem,
   NewsArticle,
+  ReviewQueueStats,
   TodayDashboardData,
   TravelPlan,
 } from "../../types";
@@ -29,6 +30,7 @@ import { newsClient } from "../news/newsClient";
 import { stripRssHtml } from "../rss/rssContent";
 import { sourceRoute } from "../learning/sourceNavigation";
 import { travelClient } from "../travel/travelClient";
+import "./home.css";
 
 interface HomePageProps {
   active: boolean;
@@ -182,6 +184,34 @@ export function travelPlanRoute(plan: TravelPlan): string {
   return `#travel?${query.toString()}`;
 }
 
+function reviewSegments(stats: ReviewQueueStats) {
+  return [
+    { key: "overdue", label: "逾期", value: Math.max(0, stats.overdue_count) },
+    { key: "due", label: "到期", value: Math.max(0, stats.due_count - stats.overdue_count) },
+    { key: "upcoming", label: "未到期", value: Math.max(0, stats.upcoming_count) },
+    { key: "learning", label: "学习中", value: Math.max(0, stats.learning_count) },
+    { key: "mastered", label: "已掌握", value: Math.max(0, stats.mastered_count) },
+  ];
+}
+
+/** 复习队列构成条：每段宽度=该状态卡片占比，只画有数据的段。 */
+function ReviewMeter({ stats, large = false }: { stats: ReviewQueueStats; large?: boolean }) {
+  const segments = reviewSegments(stats).filter((segment) => segment.value > 0);
+  const total = segments.reduce((sum, segment) => sum + segment.value, 0);
+  if (!total) return null;
+  return (
+    <div className={`hd-meter${large ? " hd-meter-lg" : ""}`} aria-hidden="true">
+      {segments.map((segment) => (
+        <span
+          key={segment.key}
+          className={`hd-seg hd-seg-${segment.key}`}
+          style={{ width: `${(segment.value / total) * 100}%` }}
+        />
+      ))}
+    </div>
+  );
+}
+
 export function HomePage({
   active,
   recentFiles,
@@ -238,215 +268,346 @@ export function HomePage({
     : null;
 
   return (
-    <div className="page-scroll personal-hub-page">
-      <header className="hub-header">
-        <div>
-          <p className="hub-date">{dateLabel}</p>
-          <h1>{greeting}，继续上次的内容。</h1>
-          <p>从待复习内容继续，也可以查看已收藏的知识、行程、新闻更新和最近笔记。</p>
+    <div className="page-scroll personal-hub-page home-dash">
+      <header className="hd-head">
+        <div className="hd-head-main">
+          <p className="hd-kicker">{dateLabel}</p>
+          <h1 className="hd-title">{greeting}，继续上次的内容。</h1>
+          <p className="hd-sub">
+            {today.status === "ready"
+              ? `今天有 ${today.data.pending_reviews_count} 张卡片待复习，已连续学习 ${today.data.recent_streak_days} 天。收藏、行程与新闻更新都在下面。`
+              : "从待复习内容继续，也可以查看收藏的知识、行程和新闻更新。"}
+          </p>
         </div>
-        <div className="hub-header-actions">
-          <button type="button" className="hub-button" onClick={onNewNote}>
-            <NotePencil size={16} /> 写笔记
+        <div className="hd-head-actions">
+          <button type="button" className="hd-btn" onClick={onNewNote}>
+            <NotePencil size={15} /> 写笔记
           </button>
-          <button type="button" className="hub-button hub-button-primary" onClick={() => navigate("#review")}>
-            <Cards size={17} /> 打开复习中心 <ArrowRight size={15} />
+          <button type="button" className="hd-btn hd-btn-primary" onClick={() => navigate("#review")}>
+            <Cards size={15} /> 打开复习中心
           </button>
         </div>
       </header>
 
-      <section className="hub-focus-grid" aria-label="今天的工作台概览">
-        <button type="button" className="hub-focus-card hub-focus-review" onClick={() => navigate("#review")}>
-          <span className="hub-focus-icon"><Cards size={18} /></span>
-          <span className="hub-focus-copy">
-            <small>今日待复习</small>
-            <strong>{dueCount === null ? "—" : `${dueCount} 张卡片`}</strong>
-            <span>{dueCount === null ? "读取你的学习进度" : dueCount > 0 ? "回到间隔重复队列" : "暂无到期卡片，也可继续学习"}</span>
+      <section className="hd-metrics" aria-label="今天的学习概览">
+        <article className="hd-metric">
+          <span className="hd-metric-label"><Cards size={14} /> 今日待复习</span>
+          <strong className="hd-metric-value">
+            {today.status === "ready" ? today.data.pending_reviews_count : "—"}
+            <small>张卡片</small>
+          </strong>
+          <span className="hd-metric-note">
+            {today.status === "ready"
+              ? `逾期 ${today.data.review_stats.overdue_count} · 未到期 ${today.data.review_stats.upcoming_count}`
+              : "读取你的学习进度"}
           </span>
-          <ArrowDownRight size={20} />
-        </button>
-        <div className="hub-stat-card">
-          <span className="hub-stat-icon"><CheckCircle size={18} /></span>
-          <small>连续学习</small>
-          <strong>{today.status === "ready" ? `${today.data.recent_streak_days} 天` : "—"}</strong>
-          <span>{latestStudy ? `最近学习 ${monthDay(latestStudy.last_studied_at)}` : "学习记录会从首次学习开始"}</span>
-        </div>
-        <div className="hub-stat-card">
-          <span className="hub-stat-icon"><Brain size={18} /></span>
-          <small>学习概览</small>
-          <strong>{today.status === "ready" ? `${Math.round(today.data.average_mastery)}%` : "—"}</strong>
-          <span>平均掌握度</span>
-        </div>
+          {today.status === "ready" ? <ReviewMeter stats={today.data.review_stats} /> : null}
+        </article>
+        <article className="hd-metric">
+          <span className="hd-metric-label"><Brain size={14} /> 平均掌握度</span>
+          <strong className="hd-metric-value">
+            {today.status === "ready" ? `${Math.round(today.data.average_mastery)}%` : "—"}
+          </strong>
+          <span className="hd-metric-note">来自已有学习记录</span>
+          {today.status === "ready" ? (
+            <div className="hd-meter" aria-hidden="true">
+              <span
+                className="hd-seg hd-seg-due"
+                style={{ width: `${Math.max(0, Math.min(100, today.data.average_mastery))}%` }}
+              />
+            </div>
+          ) : null}
+        </article>
+        <article className="hd-metric">
+          <span className="hd-metric-label"><CheckCircle size={14} /> 连续学习</span>
+          <strong className="hd-metric-value">
+            {today.status === "ready" ? today.data.recent_streak_days : "—"}
+            <small>天</small>
+          </strong>
+          <span className="hd-metric-note">
+            {latestStudy ? `最近学习 ${monthDay(latestStudy.last_studied_at)}` : "从首次学习开始记录"}
+          </span>
+        </article>
+        <article className="hd-metric">
+          <span className="hd-metric-label"><BookOpenText size={14} /> 今日学习</span>
+          <strong className="hd-metric-value">
+            {today.status === "ready" ? today.data.studied_topics_today : "—"}
+            <small>个主题</small>
+          </strong>
+          <span className="hd-metric-note">今天新增的学习记录</span>
+        </article>
       </section>
 
-      <div className="hub-main-grid">
-        <section className="hub-section hub-learning-section" aria-labelledby="hub-learning-title">
-          <div className="hub-section-heading">
-            <div><h2 id="hub-learning-title">接着上次继续</h2></div>
-            <button type="button" onClick={() => navigate("#review")}>复习中心 <ArrowRight size={14} /></button>
-          </div>
-          <ResourceState
-            resource={today}
-            retry={retryToday}
-            isEmpty={(data) => data.continue_items.length === 0 && data.pending_reviews_count === 0}
-            empty={(
-              <div className="hub-empty">
-                <BookOpenText size={21} />
-                <strong>这里会接住你正在学的内容</strong>
-                <p>开始一次学习或复习后，你的进度会出现在这里。</p>
-                <button type="button" onClick={() => navigate("#history")}>浏览 History <ArrowRight size={14} /></button>
-              </div>
-            )}
-          >
-            {(data) => (
-              <>
-                {data.pending_reviews_count > 0 ? (
-                  <button type="button" className="hub-review-banner" onClick={() => navigate("#review")}>
-                    <span className="hub-review-mark"><Cards size={19} /></span>
-                    <span><small>复习队列</small><strong>{data.pending_reviews_count} 张卡片等你复习</strong><em>答题后，原有学习进度会继续累积。</em></span>
-                    <ArrowRight size={18} />
-                  </button>
-                ) : null}
-                {continueItems.length > 0 ? (
-                  <div className="hub-continue-list">
-                    {continueItems.map((item) => (
-                      <button
-                        type="button"
-                        className="hub-continue-item"
-                        key={`${item.module}:${item.entity_type}:${item.entity_id}`}
-                        onClick={() => navigate(routeForEntity(item.module, item.entity_type, item.entity_id))}
-                      >
-                        <span className="hub-row-icon"><BookOpenText size={17} /></span>
-                        <span className="hub-row-copy"><small>{homeContentLabel(item.module, item.entity_type, "学习内容")}</small><strong>{item.title}</strong><span>最近学习 {shortDate(item.last_studied_at)}</span></span>
-                        {item.progress_percent == null ? null : <span className="hub-progress-label">掌握 {Math.round(item.progress_percent)}%</span>}
-                        <ArrowRight size={15} />
-                      </button>
-                    ))}
-                  </div>
-                ) : data.pending_reviews_count === 0 ? (
-                  <div className="hub-empty hub-empty-compact"><p>还没有进行中的学习项。</p><button type="button" onClick={() => navigate("#geography")}>去探索 <ArrowRight size={14} /></button></div>
-                ) : null}
-                <div className="hub-learning-footer">
-                  <span>今日学习 <strong>{data.studied_topics_today}</strong> 个主题</span>
-                  <button type="button" onClick={() => navigate("#collections")}>管理学习资料 <ArrowRight size={14} /></button>
+      <div className="hd-split">
+        <div className="hd-col">
+          <section className="hd-panel" aria-labelledby="hd-learning-title">
+            <div className="hd-panel-head">
+              <h2 id="hd-learning-title">接着上次继续</h2>
+              <button type="button" className="hd-link" onClick={() => navigate("#review")}>
+                复习中心 <ArrowRight size={13} />
+              </button>
+            </div>
+            <ResourceState
+              resource={today}
+              retry={retryToday}
+              isEmpty={(data) => data.continue_items.length === 0 && data.pending_reviews_count === 0}
+              empty={(
+                <div className="hd-empty">
+                  <BookOpenText size={20} />
+                  <strong>这里会接住你正在学的内容</strong>
+                  <p>开始一次学习或复习后，你的进度会出现在这里。</p>
+                  <button type="button" onClick={() => navigate("#history")}>浏览 History <ArrowRight size={13} /></button>
                 </div>
-              </>
-            )}
-          </ResourceState>
-        </section>
+              )}
+            >
+              {(data) => (
+                <>
+                  {data.pending_reviews_count > 0 ? (
+                    <button type="button" className="hd-row hd-row-strong" onClick={() => navigate("#review")}>
+                      <span className="hd-row-icon"><Cards size={16} /></span>
+                      <span className="hd-row-main">
+                        <small>复习队列</small>
+                        <strong>{data.pending_reviews_count} 张卡片等你复习</strong>
+                        <span>答题后，原有学习进度会继续累积。</span>
+                      </span>
+                      <ArrowRight size={15} />
+                    </button>
+                  ) : null}
+                  {continueItems.length > 0 ? (
+                    <div className="hd-rows">
+                      {continueItems.map((item) => (
+                        <button
+                          type="button"
+                          className="hd-row"
+                          key={`${item.module}:${item.entity_type}:${item.entity_id}`}
+                          onClick={() => navigate(routeForEntity(item.module, item.entity_type, item.entity_id))}
+                        >
+                          <span className="hd-row-icon"><BookOpenText size={16} /></span>
+                          <span className="hd-row-main">
+                            <small>{homeContentLabel(item.module, item.entity_type, "学习内容")}</small>
+                            <strong>{item.title}</strong>
+                            <span>最近学习 {shortDate(item.last_studied_at)}</span>
+                          </span>
+                          {item.progress_percent == null ? null : (
+                            <span className="hd-row-badge">掌握 {Math.round(item.progress_percent)}%</span>
+                          )}
+                          <ArrowRight size={15} />
+                        </button>
+                      ))}
+                    </div>
+                  ) : data.pending_reviews_count === 0 ? (
+                    <div className="hd-empty hd-empty-compact">
+                      <p>还没有进行中的学习项。</p>
+                      <button type="button" onClick={() => navigate("#geography")}>去探索 <ArrowRight size={13} /></button>
+                    </div>
+                  ) : null}
+                  <div className="hd-panel-foot">
+                    <span>今日学习 <strong>{data.studied_topics_today}</strong> 个主题</span>
+                    <button type="button" onClick={() => navigate("#collections")}>管理学习资料 <ArrowRight size={13} /></button>
+                  </div>
+                </>
+              )}
+            </ResourceState>
+          </section>
 
-        <section className="hub-section hub-knowledge-section" aria-labelledby="hub-knowledge-title">
-          <div className="hub-section-heading">
-            <div><h2 id="hub-knowledge-title">最近收藏的条目</h2></div>
-            <button type="button" onClick={() => navigate("#collections")}>全部收藏 <ArrowRight size={14} /></button>
-          </div>
-          <ResourceState
-            resource={savedReferences}
-            retry={retrySavedReferences}
-            isEmpty={(items) => items.length === 0}
-            empty={(
-              <div className="hub-empty">
-                <FolderSimple size={21} />
-                <strong>还没有收藏条目</strong>
-                <p>把历史或地理条目加入专题合集，之后可从这里继续查看。</p>
-                <button type="button" onClick={() => navigate("#collections")}>打开专题合集 <ArrowRight size={14} /></button>
-              </div>
+          <section className="hd-panel" aria-labelledby="hd-reading-title">
+            <div className="hd-panel-head">
+              <h2 id="hd-reading-title">新闻更新</h2>
+              <button type="button" className="hd-link" onClick={() => navigate("#news")}>
+                打开 News <ArrowRight size={13} />
+              </button>
+            </div>
+            <ResourceState
+              resource={headlines}
+              retry={retryHeadlines}
+              isEmpty={(articles) => articles.length === 0}
+              empty={(
+                <div className="hd-empty hd-empty-compact">
+                  <Newspaper size={20} />
+                  <p>当前没有可显示的新闻。打开 News 查看新闻来源。</p>
+                  <button type="button" onClick={() => navigate("#news")}>查看新闻来源 <ArrowRight size={13} /></button>
+                </div>
+              )}
+            >
+              {(articles: NewsArticle[]) => (
+                <div className="hd-rows">
+                  {articles.map((article) => (
+                    <button type="button" className="hd-row hd-row-news" key={article.id} onClick={() => navigate("#news")}>
+                      <span className="hd-row-main">
+                        <small>
+                          {article.source}
+                          <i>{shortDate(article.published_at)}</i>
+                          {article.is_read ? null : <em>未读</em>}
+                        </small>
+                        <strong>{article.title}</strong>
+                        {article.summary ? <span>{stripRssHtml(article.summary, article.url)}</span> : null}
+                      </span>
+                      <ArrowRight size={15} />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </ResourceState>
+          </section>
+
+          <section className="hd-panel" aria-labelledby="hd-travel-title">
+            <div className="hd-panel-head">
+              <h2 id="hd-travel-title">继续规划旅程</h2>
+              <button type="button" className="hd-link" onClick={() => navigate("#travel")}>
+                打开 Travel <ArrowRight size={13} />
+              </button>
+            </div>
+            <ResourceState
+              resource={travelPlans}
+              retry={retryTravelPlans}
+              isEmpty={(plans) => plans.length === 0}
+              empty={(
+                <div className="hd-empty hd-empty-compact">
+                  <Compass size={20} />
+                  <p>还没有保存的行程。创建一份行程后，可以随时回来继续安排地点与日期。</p>
+                  <button type="button" onClick={() => navigate("#travel")}>开始规划 <ArrowRight size={13} /></button>
+                </div>
+              )}
+            >
+              {(plans) => (
+                <div className="hd-rows">
+                  {plans.slice(0, 4).map((plan: TravelPlan) => (
+                    <button
+                      type="button"
+                      className="hd-row"
+                      key={`${plan.context.city}:${plan.context.days}:${plan.context.date_range?.start ?? ""}`}
+                      onClick={() => navigate(travelPlanRoute(plan))}
+                    >
+                      <span className="hd-row-icon"><MapPin size={16} /></span>
+                      <span className="hd-row-main">
+                        <small>{plan.context.city || "未命名目的地"}</small>
+                        <strong>{plan.title || `${plan.context.days} 天行程`}</strong>
+                        <span>
+                          <CalendarDots size={12} />
+                          {plan.context.date_range
+                            ? `${plan.context.date_range.start} — ${plan.context.date_range.end}`
+                            : `最近更新 ${shortDate(plan.updated_at)}`}
+                        </span>
+                      </span>
+                      <ArrowRight size={15} />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </ResourceState>
+          </section>
+        </div>
+
+        <div className="hd-col">
+          <section className="hd-panel" aria-labelledby="hd-review-title">
+            <div className="hd-panel-head">
+              <h2 id="hd-review-title">复习队列组成</h2>
+              <button type="button" className="hd-link" onClick={() => navigate("#review")}>
+                开始复习 <ArrowRight size={13} />
+              </button>
+            </div>
+            {today.status === "ready" ? (
+              today.data.review_stats.total_cards > 0 ? (
+                <>
+                  <ReviewMeter stats={today.data.review_stats} large />
+                  <ul className="hd-legend">
+                    {reviewSegments(today.data.review_stats).map((segment) => (
+                      <li key={segment.key}>
+                        <i className={`hd-dot hd-dot-${segment.key}`} aria-hidden="true" />
+                        <span>{segment.label}</span>
+                        <b>{segment.value}</b>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              ) : (
+                <p className="hd-muted">还没有复习卡片，开始学习后这里会显示队列构成。</p>
+              )
+            ) : (
+              <p className="hd-muted">正在读取复习队列…</p>
             )}
-          >
-            {(references) => (
-              <div className="hub-saved-list">
-                {references.map(({ collection, item }) => (
-                  <article className="hub-saved-item" key={item.id}>
-                    <button type="button" className="hub-saved-source" onClick={() => navigate(routeForEntity(item.module, item.entity_type, item.entity_id))}>
-                      <span className={`hub-source-dot hub-source-${item.module}`} aria-hidden="true" />
-                      <span className="hub-row-copy"><small>{homeContentLabel(item.module, item.entity_type, "收藏内容")} / {collection.title}</small><strong>{item.title}</strong>
-                        {item.note ? <span className="hub-note-preview">{item.note}</span> : <span className="hub-note-preview hub-muted-note">还没有个人笔记</span>}
+          </section>
+
+          <section className="hd-panel" aria-labelledby="hd-knowledge-title">
+            <div className="hd-panel-head">
+              <h2 id="hd-knowledge-title">最近收藏</h2>
+              <button type="button" className="hd-link" onClick={() => navigate("#collections")}>
+                全部收藏 <ArrowRight size={13} />
+              </button>
+            </div>
+            <ResourceState
+              resource={savedReferences}
+              retry={retrySavedReferences}
+              isEmpty={(items) => items.length === 0}
+              empty={(
+                <div className="hd-empty hd-empty-compact">
+                  <FolderSimple size={20} />
+                  <p>把历史或地理条目加入专题合集，之后可从这里继续查看。</p>
+                  <button type="button" onClick={() => navigate("#collections")}>打开专题合集 <ArrowRight size={13} /></button>
+                </div>
+              )}
+            >
+              {(references) => (
+                <div className="hd-rows">
+                  {references.map(({ collection, item }) => (
+                    <button
+                      type="button"
+                      className="hd-row hd-row-saved"
+                      key={item.id}
+                      onClick={() => navigate(routeForEntity(item.module, item.entity_type, item.entity_id))}
+                    >
+                      <span className={`hd-dot hd-dot-${item.module}`} aria-hidden="true" />
+                      <span className="hd-row-main">
+                        <small>{homeContentLabel(item.module, item.entity_type, "收藏内容")} / {collection.title}</small>
+                        <strong>{item.title}</strong>
+                        <span>{item.note || "还没有个人笔记"}</span>
+                      </span>
+                      <ArrowRight size={15} />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </ResourceState>
+          </section>
+
+          <section className="hd-panel" aria-labelledby="hd-notes-title">
+            <div className="hd-panel-head">
+              <h2 id="hd-notes-title">最近写作</h2>
+              <button type="button" className="hd-link" onClick={onNewNote}>
+                新建笔记 <NotePencil size={13} />
+              </button>
+            </div>
+            {recentFiles.length === 0 ? (
+              <div className="hd-empty hd-empty-compact">
+                <NotePencil size={20} />
+                <p>还没有最近编辑的笔记。</p>
+                <button type="button" onClick={onNewNote}>写下第一条 <ArrowRight size={13} /></button>
+              </div>
+            ) : (
+              <ul className="hd-notes">
+                {recentFiles.slice(0, 4).map((path) => (
+                  <li key={path}>
+                    <button type="button" onClick={() => onOpenNote(path)}>
+                      <span className="hd-row-icon"><NotePencil size={15} /></span>
+                      <span className="hd-row-main">
+                        <strong>{fileName(path)}</strong>
+                        <small>{path}</small>
                       </span>
                       <ArrowRight size={14} />
                     </button>
-                    <button type="button" className="hub-edit-note" onClick={() => navigate("#collections")}><NotePencil size={13} /> 编辑笔记</button>
-                  </article>
+                  </li>
                 ))}
-              </div>
+              </ul>
             )}
-          </ResourceState>
-        </section>
-      </div>
-
-      <section className="hub-section hub-travel-section" aria-labelledby="hub-travel-title">
-        <div className="hub-section-heading">
-          <div><h2 id="hub-travel-title">继续规划旅程</h2></div>
-          <button type="button" onClick={() => navigate("#travel")}>打开 Travel <ArrowRight size={14} /></button>
+          </section>
         </div>
-        <ResourceState
-          resource={travelPlans}
-          retry={retryTravelPlans}
-          isEmpty={(plans) => plans.length === 0}
-          empty={(
-            <div className="hub-empty hub-empty-horizontal">
-              <Compass size={22} />
-              <div><strong>还没有保存的行程</strong><p>创建一份行程后，可以随时回来继续安排地点与日期。</p></div>
-              <button type="button" onClick={() => navigate("#travel")}>开始规划 <ArrowRight size={14} /></button>
-            </div>
-          )}
-        >
-          {(plans) => (
-            <div className="hub-travel-list">
-              {plans.slice(0, 4).map((plan: TravelPlan) => (
-                <button type="button" className="hub-travel-card" key={`${plan.context.city}:${plan.context.days}:${plan.context.date_range?.start ?? ""}`} onClick={() => navigate(travelPlanRoute(plan))}>
-                  <span className="hub-row-copy"><small><MapPin size={12} /> {plan.context.city || "未命名目的地"}</small><strong>{plan.title || `${plan.context.days} 天行程`}</strong><span><CalendarDots size={13} /> {plan.context.date_range ? `${plan.context.date_range.start} — ${plan.context.date_range.end}` : `最近更新 ${shortDate(plan.updated_at)}`}</span></span>
-                  <ArrowRight size={16} />
-                </button>
-              ))}
-            </div>
-          )}
-        </ResourceState>
-      </section>
-
-      <div className="hub-bottom-grid">
-        <section className="hub-section hub-reading-section" aria-labelledby="hub-reading-title">
-          <div className="hub-section-heading">
-            <div><h2 id="hub-reading-title">新闻更新</h2></div>
-            <button type="button" onClick={() => navigate("#news")}>打开 News <ArrowRight size={14} /></button>
-          </div>
-          <ResourceState
-            resource={headlines}
-            retry={retryHeadlines}
-            isEmpty={(articles) => articles.length === 0}
-            empty={<div className="hub-empty hub-empty-compact"><Newspaper size={20} /><p>当前没有可显示的新闻。打开 News 查看新闻来源。</p><button type="button" onClick={() => navigate("#news")}>查看新闻来源 <ArrowRight size={14} /></button></div>}
-          >
-            {(articles: NewsArticle[]) => (
-              <div className="hub-headline-list">
-                {articles.map((article) => (
-                  <button type="button" className="hub-headline" key={article.id} onClick={() => navigate("#news")}>
-                    <span className="hub-headline-meta"><span>{article.source}</span><time>{shortDate(article.published_at)}</time>{article.is_read ? null : <i>未读</i>}</span>
-                    <strong>{article.title}</strong>
-                    {article.summary ? <span className="hub-headline-summary">{stripRssHtml(article.summary, article.url)}</span> : null}
-                  </button>
-                ))}
-              </div>
-            )}
-          </ResourceState>
-        </section>
-
-        <section className="hub-section hub-notes-section" aria-labelledby="hub-notes-title">
-          <div className="hub-section-heading">
-            <div><h2 id="hub-notes-title">最近写作</h2></div>
-            <button type="button" onClick={onNewNote}>新建笔记 <NotePencil size={14} /></button>
-          </div>
-          {recentFiles.length === 0 ? (
-            <div className="hub-empty hub-empty-compact"><NotePencil size={20} /><p>还没有最近编辑的笔记。</p><button type="button" onClick={onNewNote}>写下第一条 <ArrowRight size={14} /></button></div>
-          ) : (
-            <ul className="hub-note-list">
-              {recentFiles.slice(0, 4).map((path) => (
-                <li key={path}><button type="button" onClick={() => onOpenNote(path)}><span><NotePencil size={15} /></span><strong>{fileName(path)}</strong><small>{path}</small><ArrowRight size={14} /></button></li>
-              ))}
-            </ul>
-          )}
-        </section>
       </div>
 
-      <footer className="hub-footer"><ClockCounterClockwise size={14} /> 学习进度、收藏与行程保存在本地，刷新页面后可以继续。 <button type="button" onClick={() => navigate("#search")}>搜索所有内容 <ArrowRight size={13} /></button></footer>
+      <footer className="hd-footer">
+        <ClockCounterClockwise size={14} />
+        <span>学习进度、收藏与行程保存在本地，刷新页面后可以继续。</span>
+        <button type="button" onClick={() => navigate("#search")}>搜索所有内容 <ArrowRight size={13} /></button>
+      </footer>
     </div>
   );
 }

@@ -1,0 +1,579 @@
+/* ==========================================================================
+ * Home — 数据看板改版（参考 Ember dashboard）
+ *
+ * 视觉语言：近白平铺画布、1px 细线卡片、14–16px 圆角、微阴影、紧凑信息密度；
+ * 指标卡（KPI）用大号数字 + 一行说明 + 真实构成条，不画没有数据的趋势图。
+ *
+ * 选择器统一带 `.app-shell .app-content .home-dash` 前缀：限定在本页，并把
+ * 特异性抬到 pencil 纸张皮肤（0,3,1）和 styles.css 通用控件规则之上，
+ * 因此本文件不需要 !important。
+ * ========================================================================== */
+.app-shell .app-content .page-scroll.home-dash {
+  --hd-card: color-mix(in srgb, var(--panel-raised) 92%, var(--hd-canvas));
+  --hd-canvas: color-mix(in srgb, var(--bg) 84%, #ffffff);
+  --hd-line: color-mix(in srgb, var(--line) 80%, transparent);
+  --hd-line-soft: color-mix(in srgb, var(--line) 46%, transparent);
+  --hd-ink: var(--text);
+  --hd-muted: var(--muted);
+  --hd-accent: var(--accent);
+  --hd-radius: 16px;
+  --hd-red: #dd5f52;
+  --hd-amber: #d99a34;
+  --hd-green: #3f9d74;
+
+  padding: 26px 30px 44px;
+  background: var(--hd-canvas);
+  border-radius: 20px;
+}
+
+/* ---------- 头部 ---------- */
+.app-shell .app-content .home-dash .hd-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding-bottom: 18px;
+}
+.app-shell .app-content .home-dash .hd-head-main {
+  min-width: 0;
+}
+.app-shell .app-content .home-dash .hd-kicker {
+  margin: 0 0 6px;
+  color: var(--hd-muted);
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.app-shell .app-content .home-dash .hd-title {
+  margin: 0;
+  color: var(--hd-ink);
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  line-height: 1.15;
+}
+.app-shell .app-content .home-dash .hd-sub {
+  max-width: 64ch;
+  margin: 8px 0 0;
+  color: var(--hd-muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+.app-shell .app-content .home-dash .hd-head-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 8px;
+}
+.app-shell .app-content .home-dash .hd-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 13px;
+  border: 1px solid var(--hd-line);
+  border-radius: 10px;
+  background: var(--hd-card);
+  color: var(--hd-ink);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 150ms ease, background 150ms ease;
+}
+.app-shell .app-content .home-dash .hd-btn:hover {
+  border-color: color-mix(in srgb, var(--hd-ink) 22%, var(--hd-line));
+}
+.app-shell .app-content .home-dash .hd-btn-primary {
+  border-color: transparent;
+  background: var(--hd-accent);
+  color: var(--text-on-accent, #ffffff);
+}
+.app-shell .app-content .home-dash .hd-btn-primary:hover {
+  background: color-mix(in srgb, var(--hd-accent) 88%, #000000);
+  border-color: transparent;
+}
+
+/* ---------- KPI 行 ---------- */
+.app-shell .app-content .home-dash .hd-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0 0 16px;
+}
+.app-shell .app-content .home-dash .hd-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: 14px 16px 15px;
+  border: 1px solid var(--hd-line);
+  border-radius: 14px;
+  background: var(--hd-card);
+  box-shadow: 0 1px 0 rgb(17 20 45 / 3%);
+}
+.app-shell .app-content .home-dash .hd-metric-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--hd-muted);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+.app-shell .app-content .home-dash .hd-metric-value {
+  color: var(--hd-ink);
+  font-size: 29px;
+  font-weight: 680;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+}
+.app-shell .app-content .home-dash .hd-metric-value small {
+  margin-left: 4px;
+  color: var(--hd-muted);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+.app-shell .app-content .home-dash .hd-metric-note {
+  color: var(--hd-muted);
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+
+/* ---------- 构成条 / 图例 ---------- */
+.app-shell .app-content .home-dash .hd-meter {
+  display: flex;
+  overflow: hidden;
+  height: 6px;
+  margin-top: 8px;
+  border-radius: 999px;
+  background: var(--hd-line-soft);
+}
+.app-shell .app-content .home-dash .hd-meter-lg {
+  height: 10px;
+  margin: 4px 0 12px;
+}
+.app-shell .app-content .home-dash .hd-seg {
+  height: 100%;
+  min-width: 2px;
+}
+.app-shell .app-content .home-dash .hd-seg-overdue { background: var(--hd-red); }
+.app-shell .app-content .home-dash .hd-seg-due { background: var(--hd-accent); }
+.app-shell .app-content .home-dash .hd-seg-upcoming { background: color-mix(in srgb, var(--hd-muted) 55%, transparent); }
+.app-shell .app-content .home-dash .hd-seg-learning { background: var(--hd-amber); }
+.app-shell .app-content .home-dash .hd-seg-mastered { background: var(--hd-green); }
+
+.app-shell .app-content .home-dash .hd-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.app-shell .app-content .home-dash .hd-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--hd-muted);
+  font-size: 12px;
+}
+.app-shell .app-content .home-dash .hd-legend b {
+  color: var(--hd-ink);
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+.app-shell .app-content .home-dash .hd-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--hd-line);
+  flex: 0 0 auto;
+}
+.app-shell .app-content .home-dash .hd-dot-overdue { background: var(--hd-red); }
+.app-shell .app-content .home-dash .hd-dot-due { background: var(--hd-accent); }
+.app-shell .app-content .home-dash .hd-dot-upcoming { background: color-mix(in srgb, var(--hd-muted) 55%, transparent); }
+.app-shell .app-content .home-dash .hd-dot-learning { background: var(--hd-amber); }
+.app-shell .app-content .home-dash .hd-dot-mastered { background: var(--hd-green); }
+.app-shell .app-content .home-dash .hd-dot-geography { background: #4a8fd9; }
+.app-shell .app-content .home-dash .hd-dot-history { background: #b0714f; }
+.app-shell .app-content .home-dash .hd-dot-language { background: #7a6cc4; }
+.app-shell .app-content .home-dash .hd-dot-learning-module { background: var(--hd-green); }
+
+/* ---------- 双栏 ---------- */
+.app-shell .app-content .home-dash .hd-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+.app-shell .app-content .home-dash .hd-col {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+.app-shell .app-content .home-dash .hd-panel {
+  min-width: 0;
+  padding: 13px 16px 6px;
+  border: 1px solid var(--hd-line);
+  border-radius: var(--hd-radius);
+  background: var(--hd-card);
+  box-shadow: 0 1px 0 rgb(17 20 45 / 3%);
+}
+.app-shell .app-content .home-dash .hd-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 2px 2px 8px;
+}
+.app-shell .app-content .home-dash .hd-panel-head h2 {
+  margin: 0;
+  color: var(--hd-ink);
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+.app-shell .app-content .home-dash .hd-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--hd-muted);
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.app-shell .app-content .home-dash .hd-link:hover {
+  color: var(--hd-accent);
+}
+
+/* ---------- 行 ---------- */
+.app-shell .app-content .home-dash .hd-rows {
+  display: flex;
+  flex-direction: column;
+}
+.app-shell .app-content .home-dash .hd-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 2px;
+  border: 0;
+  border-top: 1px solid var(--hd-line-soft);
+  background: none;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.app-shell .app-content .home-dash .hd-row:first-child,
+.app-shell .app-content .home-dash .hd-panel-head + .hd-row {
+  border-top: 0;
+}
+.app-shell .app-content .home-dash .hd-row:hover .hd-row-main strong {
+  color: var(--hd-accent);
+}
+.app-shell .app-content .home-dash .hd-row-icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--hd-ink) 6%, transparent);
+  color: var(--hd-muted);
+}
+.app-shell .app-content .home-dash .hd-row-main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.app-shell .app-content .home-dash .hd-row-main small {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  color: var(--hd-muted);
+  font-size: 11px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.app-shell .app-content .home-dash .hd-row-main small i {
+  font-style: normal;
+  opacity: 0.75;
+}
+.app-shell .app-content .home-dash .hd-row-main small em {
+  padding: 0 5px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--hd-accent) 14%, transparent);
+  color: var(--hd-accent);
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 650;
+  line-height: 1.5;
+}
+.app-shell .app-content .home-dash .hd-row-main strong {
+  overflow: hidden;
+  color: var(--hd-ink);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  transition: color 150ms ease;
+}
+.app-shell .app-content .home-dash .hd-row-main span {
+  overflow: hidden;
+  color: var(--hd-muted);
+  font-size: 11.5px;
+  line-height: 1.45;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.app-shell .app-content .home-dash .hd-row-news .hd-row-main strong {
+  display: -webkit-box;
+  overflow: hidden;
+  white-space: normal;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.app-shell .app-content .home-dash .hd-row-news .hd-row-main span {
+  display: -webkit-box;
+  overflow: hidden;
+  white-space: normal;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.app-shell .app-content .home-dash .hd-row-badge {
+  flex: 0 0 auto;
+  padding: 2px 8px;
+  border: 1px solid var(--hd-line);
+  border-radius: 999px;
+  color: var(--hd-muted);
+  font-size: 10.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.app-shell .app-content .home-dash .hd-row-strong {
+  margin: 2px 0 2px;
+  padding: 10px;
+  border-top: 0;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--hd-accent) 7%, transparent);
+}
+.app-shell .app-content .home-dash .hd-row-strong .hd-row-icon {
+  background: color-mix(in srgb, var(--hd-accent) 14%, transparent);
+  color: var(--hd-accent);
+}
+
+/* ---------- 面板脚 / 空态 ---------- */
+.app-shell .app-content .home-dash .hd-panel-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 4px;
+  padding: 9px 2px 8px;
+  border-top: 1px solid var(--hd-line-soft);
+  color: var(--hd-muted);
+  font-size: 11.5px;
+}
+.app-shell .app-content .home-dash .hd-panel-foot strong {
+  color: var(--hd-ink);
+}
+.app-shell .app-content .home-dash .hd-panel-foot button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--hd-muted);
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.app-shell .app-content .home-dash .hd-panel-foot button:hover {
+  color: var(--hd-accent);
+}
+.app-shell .app-content .home-dash .hd-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 2px 0 10px;
+  padding: 14px;
+  border: 1px dashed var(--hd-line);
+  border-radius: 12px;
+  color: var(--hd-muted);
+  font-size: 12px;
+}
+.app-shell .app-content .home-dash .hd-empty strong {
+  color: var(--hd-ink);
+  font-size: 12.5px;
+}
+.app-shell .app-content .home-dash .hd-empty p {
+  margin: 0;
+  line-height: 1.5;
+}
+.app-shell .app-content .home-dash .hd-empty button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--hd-accent);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.app-shell .app-content .home-dash .hd-empty-compact {
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.app-shell .app-content .home-dash .hd-muted {
+  margin: 4px 2px 12px;
+  color: var(--hd-muted);
+  font-size: 12px;
+}
+
+/* ---------- 笔记列表 ---------- */
+.app-shell .app-content .home-dash .hd-notes {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.app-shell .app-content .home-dash .hd-notes li + li {
+  border-top: 1px solid var(--hd-line-soft);
+}
+.app-shell .app-content .home-dash .hd-notes button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 2px;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.app-shell .app-content .home-dash .hd-notes button:hover strong {
+  color: var(--hd-accent);
+}
+.app-shell .app-content .home-dash .hd-notes .hd-row-main strong {
+  font-size: 12.5px;
+}
+
+/* ---------- 页脚 ---------- */
+.app-shell .app-content .home-dash .hd-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 18px;
+  padding-top: 13px;
+  border-top: 1px solid var(--hd-line);
+  color: var(--hd-muted);
+  font-size: 11.5px;
+}
+.app-shell .app-content .home-dash .hd-footer button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--hd-muted);
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.app-shell .app-content .home-dash .hd-footer button:hover {
+  color: var(--hd-accent);
+}
+
+/* ResourceState 的通用状态在本页也走新视觉。 */
+.app-shell .app-content .home-dash .hub-state,
+.app-shell .app-content .home-dash .hub-refreshing,
+.app-shell .app-content .home-dash .hub-refresh-error {
+  margin: 4px 0 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--hd-line);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--hd-ink) 3%, transparent);
+  color: var(--hd-muted);
+  font-size: 12px;
+}
+
+@media (max-width: 1100px) {
+  .app-shell .app-content .home-dash .hd-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .app-shell .app-content .home-dash .hd-split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .app-shell .app-content .home-dash {
+    padding: 18px 16px 32px;
+    border-radius: 16px;
+  }
+  .app-shell .app-content .home-dash .hd-head {
+    flex-direction: column;
+    gap: 12px;
+  }
+  .app-shell .app-content .home-dash .hd-title {
+    font-size: 24px;
+  }
+  .app-shell .app-content .home-dash .hd-head-actions {
+    width: 100%;
+  }
+  .app-shell .app-content .home-dash .hd-btn {
+    flex: 1;
+    justify-content: center;
+    min-height: 38px;
+  }
+  .app-shell .app-content .home-dash .hd-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .app-shell .app-content .home-dash .hd-metric {
+    padding: 12px;
+  }
+  .app-shell .app-content .home-dash .hd-metric-value {
+    font-size: 24px;
+  }
+  .app-shell .app-content .home-dash .hd-panel {
+    padding: 12px 12px 4px;
+  }
+  .app-shell .app-content .home-dash .hd-row {
+    padding: 10px 0;
+  }
+  .app-shell .app-content .home-dash .hd-footer {
+    flex-wrap: wrap;
+  }
+  .app-shell .app-content .home-dash .hd-footer button {
+    margin-left: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-shell .app-content .home-dash .hd-btn,
+  .app-shell .app-content .home-dash .hd-row-main strong {
+    transition: none;
+  }
+}

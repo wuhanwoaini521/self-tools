@@ -20,10 +20,10 @@
 
 ## Home
 
-- Home inherits the shell field. Lead with the current date, the existing resume/review action, and the existing learning progress.
-- Present the streak and mastery values as supporting facts, not as separate decorative dashboard cards.
-- Group the existing learning, saved knowledge, travel, reading, and notes data into typographic sections and flat rows. Preserve every loading, empty, error, retry, navigation, and edit action.
-- Keep the Home layout responsive: a two-column scan path on wide screens and a single column on mobile.
+- Home is the one deliberately **flat** surface: near-white canvas (no aurora), white cards with 1px hairlines, 14–16px radius, micro labels, tabular numerals — a data dashboard over the same data.
+- Structure: date kicker + greeting + one-line summary, then four KPI tiles (due reviews, average mastery, streak, topics studied today) with meters, then a `1.55fr / 1fr` split — left: continue learning, news, travel; right: review-queue composition, saved knowledge, recent notes.
+- Only show measured data: bars exist only for the review-queue composition (overdue / due / upcoming / learning / mastered) and the mastery progress; no fabricated trend series.
+- Preserve every loading, empty, error, retry, navigation, and edit action. Responsive: split collapses to one column at ≤1100px; KPI row becomes 2 columns on mobile.
 
 ## Language → English
 
