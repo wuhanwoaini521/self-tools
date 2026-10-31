@@ -20,8 +20,9 @@ pub use provider::{
     ChatToolSpec, ChatUsage, ProviderError, ProviderErrorKind,
 };
 pub use types::{
-    Action, ActionKind, AgentMessage, AgentProgress, AgentProgressSink, AgentRequest,
-    AgentResponse, AgentStage, AgentUsage, AppContext, ContentPart, EntityRef, ModelCapabilities,
-    ModuleDescriptor, OrchestrationRunView, OrchestrationTraceView, SelectionRef, ToolCallRequest,
-    ToolResult, ToolRisk, ToolSpec, ToolTraceEntry, UiBlock, UiBlockKind,
+    Action, ActionKind, AgentCitation, AgentCitationRole, AgentMessage, AgentProgress,
+    AgentProgressSink, AgentProposedChange, AgentRequest, AgentResponse, AgentStage, AgentUsage,
+    AppContext, ContentPart, EntityRef, ModelCapabilities, ModuleDescriptor, OrchestrationRunView,
+    OrchestrationTraceView, SelectionRef, ToolCallRequest, ToolResult, ToolRisk, ToolSpec,
+    ToolTraceEntry, UiBlock, UiBlockKind,
 };

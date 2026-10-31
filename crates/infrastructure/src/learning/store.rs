@@ -103,6 +103,8 @@ impl LearningStore {
                     options_json TEXT,
                     hint TEXT,
                     context TEXT,
+                    source_title TEXT,
+                    user_note TEXT,
                     due_at INTEGER NOT NULL,
                     interval_days REAL NOT NULL DEFAULT 0.0,
                     ease REAL NOT NULL DEFAULT 2.5,
@@ -115,6 +117,13 @@ impl LearningStore {
                 CREATE INDEX IF NOT EXISTS idx_review_cards_due ON review_cards(due_at ASC);
                 CREATE INDEX IF NOT EXISTS idx_review_cards_module_due ON review_cards(module, due_at ASC);
                 CREATE INDEX IF NOT EXISTS idx_review_cards_entity ON review_cards(module, entity_type, entity_id);
+                CREATE TABLE IF NOT EXISTS review_submission_receipts (
+                    request_id TEXT PRIMARY KEY,
+                    card_id TEXT NOT NULL,
+                    rating TEXT NOT NULL,
+                    outcome_json TEXT NOT NULL,
+                    created_at INTEGER NOT NULL
+                );
 
                 CREATE TABLE IF NOT EXISTS collections (
                     id TEXT PRIMARY KEY,
@@ -152,7 +161,36 @@ impl LearningStore {
                 CREATE INDEX IF NOT EXISTS idx_rel_tgt ON custom_relations(target_id);",
             )
             .map_err(sqlite_err)?;
+        self.ensure_review_card_columns()?;
         self.purge_non_learning_progress()?;
+        Ok(())
+    }
+
+    fn ensure_review_card_columns(&self) -> Result<(), InfrastructureError> {
+        for (column, statement) in [
+            (
+                "source_title",
+                "ALTER TABLE review_cards ADD COLUMN source_title TEXT",
+            ),
+            (
+                "user_note",
+                "ALTER TABLE review_cards ADD COLUMN user_note TEXT",
+            ),
+        ] {
+            let exists: i64 = self
+                .connection
+                .query_row(
+                    "SELECT COUNT(*) FROM pragma_table_info('review_cards') WHERE name = ?1",
+                    params![column],
+                    |row| row.get(0),
+                )
+                .map_err(sqlite_err)?;
+            if exists == 0 {
+                self.connection
+                    .execute_batch(statement)
+                    .map_err(sqlite_err)?;
+            }
+        }
         Ok(())
     }
 
@@ -446,15 +484,17 @@ impl LearningStore {
         self.connection.execute(
             "INSERT INTO review_cards (
                 id, module, entity_id, entity_type, card_type, prompt, answer, options_json,
-                hint, context, due_at, interval_days, ease, mastery_score, repetition_count,
-                lapses, last_reviewed_at, created_at
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18)
+                hint, context, source_title, user_note, due_at, interval_days, ease, mastery_score,
+                repetition_count, lapses, last_reviewed_at, created_at
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20)
             ON CONFLICT(id) DO UPDATE SET
                 prompt = excluded.prompt,
                 answer = excluded.answer,
                 options_json = excluded.options_json,
                 hint = excluded.hint,
                 context = excluded.context,
+                source_title = excluded.source_title,
+                user_note = excluded.user_note,
                 due_at = excluded.due_at,
                 interval_days = excluded.interval_days,
                 ease = excluded.ease,
@@ -473,6 +513,8 @@ impl LearningStore {
                 options_str,
                 card.hint,
                 card.context,
+                card.source_title,
+                card.user_note,
                 card.due_at,
                 card.interval_days,
                 card.ease,
@@ -487,6 +529,97 @@ impl LearningStore {
         Ok(())
     }
 
+    /// Save Knowledge-owned text without replacing source identity or SRS progress.
+    pub fn save_knowledge_review_card(
+        &self,
+        card: &UniversalReviewCard,
+    ) -> Result<UniversalReviewCard, InfrastructureError> {
+        if !card.id.starts_with("knowledge:")
+            || !matches!(card.module.as_str(), "history" | "geography")
+            || card.card_type != ReviewCardType::Qa
+        {
+            return Err(InfrastructureError::Sqlite(
+                "invalid Knowledge review card identity or type".to_string(),
+            ));
+        }
+
+        let transaction = self
+            .connection
+            .unchecked_transaction()
+            .map_err(sqlite_err)?;
+        let existing: Option<(String, String, String)> = transaction
+            .query_row(
+                "SELECT module, entity_type, entity_id FROM review_cards WHERE id = ?1",
+                params![card.id],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )
+            .optional()
+            .map_err(sqlite_err)?;
+
+        if let Some((module, entity_type, entity_id)) = existing {
+            if (module.as_str(), entity_type.as_str(), entity_id.as_str())
+                != (
+                    card.module.as_str(),
+                    card.entity_type.as_str(),
+                    card.entity_id.as_str(),
+                )
+            {
+                return Err(InfrastructureError::Sqlite(
+                    "Knowledge review card source identity cannot be changed".to_string(),
+                ));
+            }
+            transaction
+                .execute(
+                    "UPDATE review_cards SET source_title = ?1, prompt = ?2, answer = ?3, user_note = ?4
+                     WHERE id = ?5",
+                    params![card.source_title, card.prompt, card.answer, card.user_note, card.id],
+                )
+                .map_err(sqlite_err)?;
+        } else {
+            transaction
+                .execute(
+                    "INSERT INTO review_cards (
+                        id, module, entity_id, entity_type, card_type, prompt, answer, options_json,
+                        hint, context, source_title, user_note, due_at, interval_days, ease,
+                        mastery_score, repetition_count, lapses, last_reviewed_at, created_at
+                    ) VALUES (?1, ?2, ?3, ?4, 'qa', ?5, ?6, NULL, NULL, NULL, ?7, ?8, ?9, 0.0, 2.5, 0.0, 0, 0, NULL, ?9)",
+                    params![
+                        card.id,
+                        card.module,
+                        card.entity_id,
+                        card.entity_type,
+                        card.prompt,
+                        card.answer,
+                        card.source_title,
+                        card.user_note,
+                        card.created_at,
+                    ],
+                )
+                .map_err(sqlite_err)?;
+        }
+        transaction.commit().map_err(sqlite_err)?;
+        self.get_review_card(&card.id)?.ok_or_else(|| {
+            InfrastructureError::Sqlite("saved review card was not found".to_string())
+        })
+    }
+
+    /// Remove only a Knowledge-created card; learning progress and review events are retained.
+    pub fn delete_knowledge_review_card(&self, card_id: &str) -> Result<bool, InfrastructureError> {
+        if !card_id.starts_with("knowledge:") {
+            return Err(InfrastructureError::Sqlite(
+                "only Knowledge-created review cards can be deleted here".to_string(),
+            ));
+        }
+        let deleted = self
+            .connection
+            .execute(
+                "DELETE FROM review_cards WHERE id = ?1 AND module IN ('history', 'geography')",
+                params![card_id],
+            )
+            .map_err(sqlite_err)?;
+        Ok(deleted > 0)
+    }
+
     /// 获取指定卡片。
     pub fn get_review_card(
         &self,
@@ -494,8 +627,8 @@ impl LearningStore {
     ) -> Result<Option<UniversalReviewCard>, InfrastructureError> {
         let mut stmt = self.connection.prepare(
             "SELECT id, module, entity_id, entity_type, card_type, prompt, answer, options_json,
-                    hint, context, due_at, interval_days, ease, mastery_score, repetition_count,
-                    lapses, last_reviewed_at, created_at
+                    hint, context, source_title, user_note, due_at, interval_days, ease, mastery_score,
+                    repetition_count, lapses, last_reviewed_at, created_at
              FROM review_cards WHERE id = ?1",
         ).map_err(sqlite_err)?;
 
@@ -523,14 +656,16 @@ impl LearningStore {
                     options,
                     hint: row.get(8)?,
                     context: row.get(9)?,
-                    due_at: row.get(10)?,
-                    interval_days: row.get(11)?,
-                    ease: row.get(12)?,
-                    mastery_score: row.get(13)?,
-                    repetition_count: row.get(14)?,
-                    lapses: row.get(15)?,
-                    last_reviewed_at: row.get(16)?,
-                    created_at: row.get(17)?,
+                    source_title: row.get(10)?,
+                    user_note: row.get(11)?,
+                    due_at: row.get(12)?,
+                    interval_days: row.get(13)?,
+                    ease: row.get(14)?,
+                    mastery_score: row.get(15)?,
+                    repetition_count: row.get(16)?,
+                    lapses: row.get(17)?,
+                    last_reviewed_at: row.get(18)?,
+                    created_at: row.get(19)?,
                 })
             })
             .optional()
@@ -546,9 +681,10 @@ impl LearningStore {
         now: i64,
         limit: usize,
     ) -> Result<Vec<ReviewQueueItem>, InfrastructureError> {
-        let query = "SELECT id, module, entity_id, entity_type, card_type, prompt, answer, options_json,
-                            hint, context, due_at, interval_days, ease, mastery_score, repetition_count,
-                            lapses, last_reviewed_at, created_at
+        let query =
+            "SELECT id, module, entity_id, entity_type, card_type, prompt, answer, options_json,
+                            hint, context, source_title, user_note, due_at, interval_days, ease,
+                            mastery_score, repetition_count, lapses, last_reviewed_at, created_at
                      FROM review_cards
                      WHERE due_at <= :now
                        AND (:module IS NULL OR :module = 'all' OR module = :module)
@@ -575,8 +711,8 @@ impl LearningStore {
             };
             let opts_str: Option<String> = row.get(7).map_err(sqlite_err)?;
             let options = opts_str.and_then(|s| serde_json::from_str(&s).ok());
-            let due_at: i64 = row.get(10).map_err(sqlite_err)?;
-            let mastery_score: f64 = row.get(13).map_err(sqlite_err)?;
+            let due_at: i64 = row.get(12).map_err(sqlite_err)?;
+            let mastery_score: f64 = row.get(15).map_err(sqlite_err)?;
 
             let card = UniversalReviewCard {
                 id: row.get(0).map_err(sqlite_err)?,
@@ -589,14 +725,16 @@ impl LearningStore {
                 options,
                 hint: row.get(8).map_err(sqlite_err)?,
                 context: row.get(9).map_err(sqlite_err)?,
+                source_title: row.get(10).map_err(sqlite_err)?,
+                user_note: row.get(11).map_err(sqlite_err)?,
                 due_at,
-                interval_days: row.get(11).map_err(sqlite_err)?,
-                ease: row.get(12).map_err(sqlite_err)?,
+                interval_days: row.get(13).map_err(sqlite_err)?,
+                ease: row.get(14).map_err(sqlite_err)?,
                 mastery_score,
-                repetition_count: row.get(14).map_err(sqlite_err)?,
-                lapses: row.get(15).map_err(sqlite_err)?,
-                last_reviewed_at: row.get(16).map_err(sqlite_err)?,
-                created_at: row.get(17).map_err(sqlite_err)?,
+                repetition_count: row.get(16).map_err(sqlite_err)?,
+                lapses: row.get(17).map_err(sqlite_err)?,
+                last_reviewed_at: row.get(18).map_err(sqlite_err)?,
+                created_at: row.get(19).map_err(sqlite_err)?,
             };
 
             let is_overdue = due_at < now.saturating_sub(86400);
@@ -690,17 +828,57 @@ impl LearningStore {
         })
     }
 
-    /// 提交一次卡片复习评分并更新 SRS 计划与 Progress。
+    /// Compatibility path: same card + timestamp is treated as one submission.
     pub fn record_review_outcome(
         &self,
         card_id: &str,
         rating: ReviewRating,
         now: i64,
     ) -> Result<ReviewScheduleOutcome, InfrastructureError> {
+        self.record_review_outcome_once(card_id, rating, &format!("legacy:{card_id}:{now}"), now)
+    }
+
+    /// Atomically advance SRS, persist learning progress/event, and record an idempotency receipt.
+    pub fn record_review_outcome_once(
+        &self,
+        card_id: &str,
+        rating: ReviewRating,
+        request_id: &str,
+        now: i64,
+    ) -> Result<ReviewScheduleOutcome, InfrastructureError> {
+        let transaction = self
+            .connection
+            .unchecked_transaction()
+            .map_err(sqlite_err)?;
+        let rating_key = match rating {
+            ReviewRating::Again => "again",
+            ReviewRating::Hard => "hard",
+            ReviewRating::Good => "good",
+            ReviewRating::Easy => "easy",
+        };
+        let receipt: Option<(String, String, String)> = transaction
+            .query_row(
+                "SELECT card_id, rating, outcome_json FROM review_submission_receipts WHERE request_id = ?1",
+                params![request_id],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )
+            .optional()
+            .map_err(sqlite_err)?;
+        if let Some((saved_card_id, saved_rating, outcome_json)) = receipt {
+            if saved_card_id != card_id || saved_rating != rating_key {
+                return Err(InfrastructureError::Sqlite(
+                    "review request ID was already used for a different submission".to_string(),
+                ));
+            }
+            let outcome = serde_json::from_str(&outcome_json)
+                .map_err(|error| InfrastructureError::Sqlite(error.to_string()))?;
+            transaction.commit().map_err(sqlite_err)?;
+            return Ok(outcome);
+        }
+
         let card = self.get_review_card(card_id)?.ok_or_else(|| {
             InfrastructureError::Sqlite(format!("review card {card_id} not found"))
         })?;
-
         let outcome = SpacedRepetitionScheduler::schedule(
             card.interval_days,
             card.ease,
@@ -710,17 +888,10 @@ impl LearningStore {
             now,
         );
 
-        // 1. 更新卡片
         self.connection
             .execute(
-                "UPDATE review_cards SET
-                interval_days = ?1,
-                ease = ?2,
-                due_at = ?3,
-                repetition_count = ?4,
-                lapses = ?5,
-                last_reviewed_at = ?6
-             WHERE id = ?7",
+                "UPDATE review_cards SET interval_days = ?1, ease = ?2, due_at = ?3,
+                    repetition_count = ?4, lapses = ?5, last_reviewed_at = ?6 WHERE id = ?7",
                 params![
                     outcome.interval_days,
                     outcome.ease,
@@ -732,35 +903,38 @@ impl LearningStore {
                 ],
             )
             .map_err(sqlite_err)?;
-        // 1b. 把本次 SRS 结果落到 `learning_progress`。
-        //
-        // 这三列（interval_days / ease / next_review_at）由 `learning_progress` 持久化，
-        // 但此前**没有任何代码写它们**：`record_event` 用 `progress.interval_days` 算掌握度，
-        // 而该值恒为 0.0 → 间隔因子恒为 0 → `MasteryCalculator` 的
-        // `score >= 85.0 && interval_days >= 14.0` 判定永不成立，`Mastered` 无法到达。
-        // 先写这三列，再由 `record_event` 重算掌握度，复习才会真正推动掌握阶段。
-        let entity_key = format!("{}:{}:{}", card.module, card.entity_type, card.entity_id);
-        if let Some(mut progress) = self.get_progress(&entity_key)? {
-            progress.interval_days = outcome.interval_days;
-            progress.ease = outcome.ease;
-            progress.next_review_at = Some(outcome.due_at);
-            self.save_progress(&progress)?;
-        }
 
-        // 2. 发送并记录 LearningEvent
-        let event_action = if outcome.is_correct {
-            LearningAction::Correct
-        } else {
-            LearningAction::Incorrect
-        };
+        let entity_key = format!("{}:{}:{}", card.module, card.entity_type, card.entity_id);
+        let mut progress = self.get_progress(&entity_key)?.unwrap_or_else(|| {
+            LearningProgress::new(
+                &card.module,
+                &card.entity_type,
+                &card.entity_id,
+                card.source_title
+                    .clone()
+                    .unwrap_or_else(|| card.entity_id.clone()),
+                now,
+            )
+        });
+        progress.interval_days = outcome.interval_days;
+        progress.ease = outcome.ease;
+        progress.next_review_at = Some(outcome.due_at);
+        self.save_progress(&progress)?;
 
         let event = LearningEvent {
-            id: format!("evt_{now}_{}", card.entity_id),
+            id: format!("review_submission:{request_id}"),
             module: card.module.clone(),
             entity_type: card.entity_type.clone(),
             entity_id: card.entity_id.clone(),
-            entity_title: Some(card.prompt.clone()),
-            action: event_action,
+            entity_title: card
+                .source_title
+                .clone()
+                .or_else(|| Some(card.prompt.clone())),
+            action: if outcome.is_correct {
+                LearningAction::Correct
+            } else {
+                LearningAction::Incorrect
+            },
             timestamp: now,
             duration_ms: None,
             metadata: serde_json::json!({
@@ -770,9 +944,18 @@ impl LearningStore {
             }),
             source: Some("review_center".to_string()),
         };
-
         self.record_event(&event)?;
 
+        let outcome_json = serde_json::to_string(&outcome)
+            .map_err(|error| InfrastructureError::Sqlite(error.to_string()))?;
+        transaction
+            .execute(
+                "INSERT INTO review_submission_receipts (request_id, card_id, rating, outcome_json, created_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5)",
+                params![request_id, card_id, rating_key, outcome_json, now],
+            )
+            .map_err(sqlite_err)?;
+        transaction.commit().map_err(sqlite_err)?;
         Ok(outcome)
     }
 
@@ -901,6 +1084,52 @@ impl LearningStore {
         Ok(items)
     }
 
+    pub fn update_collection_item_note(
+        &mut self,
+        item_id: &str,
+        note: Option<&str>,
+        now: i64,
+    ) -> Result<Option<CollectionItem>, InfrastructureError> {
+        let tx = self.connection.transaction().map_err(sqlite_err)?;
+        let item = tx
+            .query_row(
+                "SELECT id, collection_id, module, entity_type, entity_id, title, note, added_at
+                 FROM collection_items WHERE id = ?1",
+                params![item_id],
+                |row| {
+                    Ok(CollectionItem {
+                        id: row.get(0)?,
+                        collection_id: row.get(1)?,
+                        module: row.get(2)?,
+                        entity_type: row.get(3)?,
+                        entity_id: row.get(4)?,
+                        title: row.get(5)?,
+                        note: row.get(6)?,
+                        added_at: row.get(7)?,
+                    })
+                },
+            )
+            .optional()
+            .map_err(sqlite_err)?;
+        let Some(mut item) = item else {
+            return Ok(None);
+        };
+
+        tx.execute(
+            "UPDATE collection_items SET note = ?1 WHERE id = ?2",
+            params![note, item_id],
+        )
+        .map_err(sqlite_err)?;
+        tx.execute(
+            "UPDATE collections SET updated_at = ?1 WHERE id = ?2",
+            params![now, item.collection_id],
+        )
+        .map_err(sqlite_err)?;
+        item.note = note.map(str::to_string);
+        tx.commit().map_err(sqlite_err)?;
+        Ok(Some(item))
+    }
+
     pub fn remove_collection_item(&self, item_id: &str) -> Result<(), InfrastructureError> {
         self.connection
             .execute(
@@ -999,12 +1228,37 @@ impl LearningStore {
         &self,
         day_start_ts: i64,
     ) -> Result<u32, InfrastructureError> {
+        let day_end_ts = day_start_ts.saturating_add(86_400);
         let count: u32 = self.connection.query_row(
-            "SELECT COUNT(DISTINCT entity_key) FROM learning_progress WHERE last_studied_at >= ?1",
-            params![day_start_ts],
+            "SELECT COUNT(DISTINCT entity_key) FROM learning_progress
+             WHERE last_studied_at >= ?1 AND last_studied_at < ?2",
+            params![day_start_ts, day_end_ts],
             |r| r.get(0),
         ).unwrap_or(0);
         Ok(count)
+    }
+
+    /// Query distinct active-learning days, projected into the supplied fixed UTC offset.
+    pub fn list_study_activity_day_starts(
+        &self,
+        utc_offset_seconds: i64,
+        now: i64,
+    ) -> Result<Vec<i64>, InfrastructureError> {
+        let mut statement = self
+            .connection
+            .prepare(
+                "SELECT DISTINCT CAST(strftime('%s', date(timestamp + ?1, 'unixepoch')) AS INTEGER) - ?1 AS day_start
+                 FROM learning_events
+                 WHERE timestamp <= ?2
+                   AND module NOT IN ('news', 'rss')
+                   AND action IN ('study', 'complete', 'review', 'answer', 'correct', 'incorrect')
+                 ORDER BY day_start DESC",
+            )
+            .map_err(sqlite_err)?;
+        let rows = statement
+            .query_map(params![utc_offset_seconds, now], |row| row.get(0))
+            .map_err(sqlite_err)?;
+        rows.collect::<Result<Vec<i64>, _>>().map_err(sqlite_err)
     }
 
     /// 查询平均掌握度。
@@ -1052,6 +1306,31 @@ mod tests {
                 source: Some("test".to_string()),
             })
             .expect("record event");
+    }
+
+    fn knowledge_card(now: i64) -> UniversalReviewCard {
+        UniversalReviewCard {
+            id: "knowledge:history:event:event-anlu-luoyang".to_string(),
+            module: "history".to_string(),
+            entity_id: "event-anlu-luoyang".to_string(),
+            entity_type: "event".to_string(),
+            card_type: ReviewCardType::Qa,
+            prompt: "叛军何时攻陷洛阳？".to_string(),
+            answer: "公元 756 年。".to_string(),
+            options: None,
+            hint: None,
+            context: None,
+            source_title: Some("洛阳失守".to_string()),
+            user_note: Some("个人记录".to_string()),
+            due_at: now,
+            interval_days: 0.0,
+            ease: 2.5,
+            mastery_score: 0.0,
+            repetition_count: 0,
+            lapses: 0,
+            last_reviewed_at: None,
+            created_at: now,
+        }
     }
 
     /// 回归：新闻/RSS **不是学习对象**，不得出现在「继续学习」里。
@@ -1158,6 +1437,8 @@ mod tests {
             options: None,
             hint: Some("19世纪中后期".to_string()),
             context: Some("日本历史近现代转型".to_string()),
+            source_title: None,
+            user_note: None,
             due_at: now - 100, // 已到期
             interval_days: 0.0,
             ease: 2.5,
@@ -1213,6 +1494,53 @@ mod tests {
         assert_eq!(cols[0].item_count, 1);
     }
 
+    #[test]
+    fn updating_a_collection_note_preserves_its_source_and_updates_recent_order() {
+        let mut store = LearningStore::open_in_memory().expect("open store");
+        let collection = store
+            .create_collection("洛阳笔记", None, &[], 1_000)
+            .expect("create collection");
+        let item = store
+            .add_collection_item(
+                &collection.id,
+                CollectionItemRef {
+                    module: "history".into(),
+                    entity_type: "event".into(),
+                    entity_id: "event-anlu-luoyang".into(),
+                    title: "洛阳失守".into(),
+                    note: Some("初始备注".into()),
+                },
+                1_001,
+            )
+            .expect("add collection item");
+
+        let updated = store
+            .update_collection_item_note(&item.id, Some("复核来源后补充"), 1_100)
+            .expect("update note")
+            .expect("existing item");
+        assert_eq!(updated.id, item.id);
+        assert_eq!(updated.entity_id, "event-anlu-luoyang");
+        assert_eq!(updated.note.as_deref(), Some("复核来源后补充"));
+        assert_eq!(
+            store
+                .list_collection_items(&collection.id)
+                .expect("list items")[0]
+                .note
+                .as_deref(),
+            Some("复核来源后补充")
+        );
+        assert_eq!(
+            store.list_collections().expect("list collections")[0].updated_at,
+            1_100
+        );
+        assert!(
+            store
+                .update_collection_item_note("missing-item", None, 1_101)
+                .expect("missing item is not a storage error")
+                .is_none()
+        );
+    }
+
     /// 复习结果必须真正推进 `learning_progress` 的 SRS 字段。
     ///
     /// 回归缺陷：`interval_days` / `ease` / `next_review_at` 此前从无写入点，
@@ -1251,6 +1579,8 @@ mod tests {
             options: None,
             hint: None,
             context: None,
+            source_title: None,
+            user_note: None,
             due_at: now,
             interval_days: 0.0,
             ease: 2.5,
@@ -1336,6 +1666,8 @@ mod tests {
             options: None,
             hint: None,
             context: None,
+            source_title: None,
+            user_note: None,
             due_at: now,
             interval_days: 0.0,
             ease: 2.5,
@@ -1366,5 +1698,232 @@ mod tests {
             "只学过一次且答错，掌握度不应高，实际 {}",
             progress.mastery_score
         );
+    }
+
+    #[test]
+    fn knowledge_card_content_edits_preserve_review_receipt_srs_and_progress() {
+        let store = LearningStore::open_in_memory().expect("open store");
+        let now = 1_700_000_000i64;
+        let card = knowledge_card(now);
+        let saved = store.save_knowledge_review_card(&card).expect("save card");
+        assert_eq!(saved.source_title.as_deref(), Some("洛阳失守"));
+        assert_eq!(saved.user_note.as_deref(), Some("个人记录"));
+
+        let request_id = "review-test-123";
+        let outcome = store
+            .record_review_outcome_once(&card.id, ReviewRating::Good, request_id, now)
+            .expect("submit once");
+        assert_eq!(outcome.repetition_count, 1);
+        assert_eq!(outcome.interval_days, 1.0);
+
+        let retry = store
+            .record_review_outcome_once(&card.id, ReviewRating::Good, request_id, now + 90)
+            .expect("idempotent retry");
+        assert_eq!(retry.due_at, outcome.due_at);
+        assert_eq!(retry.repetition_count, outcome.repetition_count);
+        assert!(
+            store
+                .record_review_outcome_once(&card.id, ReviewRating::Hard, request_id, now + 90)
+                .is_err()
+        );
+
+        let progress = store
+            .get_progress("history:event:event-anlu-luoyang")
+            .expect("read progress")
+            .expect("first review creates progress");
+        assert_eq!(progress.review_count, 1);
+        assert_eq!(progress.correct_count, 1);
+        assert_eq!(progress.interval_days, outcome.interval_days);
+        assert_eq!(progress.next_review_at, Some(outcome.due_at));
+        assert_eq!(
+            store
+                .connection
+                .query_row("SELECT COUNT(*) FROM learning_events", [], |row| row
+                    .get::<_, i64>(0))
+                .unwrap(),
+            1,
+            "a retry must not duplicate the learning event"
+        );
+
+        let mut edited = card.clone();
+        edited.prompt = "洛阳失守发生在哪一年？".into();
+        edited.answer = "公元 756 年。".into();
+        edited.user_note = Some("根据个人理解重新表述".into());
+        // Client-provided scheduling fields are intentionally stale and must be ignored.
+        edited.due_at = now;
+        edited.interval_days = 0.0;
+        edited.repetition_count = 0;
+        let updated = store
+            .save_knowledge_review_card(&edited)
+            .expect("edit card text");
+        assert_eq!(updated.prompt, edited.prompt);
+        assert_eq!(updated.answer, edited.answer);
+        assert_eq!(updated.user_note, edited.user_note);
+        assert_eq!(updated.due_at, outcome.due_at);
+        assert_eq!(updated.interval_days, outcome.interval_days);
+        assert_eq!(updated.repetition_count, outcome.repetition_count);
+        assert_eq!(updated.last_reviewed_at, Some(now));
+
+        assert!(
+            store
+                .delete_knowledge_review_card(&card.id)
+                .expect("delete own card")
+        );
+        assert!(store.get_review_card(&card.id).unwrap().is_none());
+        assert_eq!(
+            store
+                .get_progress("history:event:event-anlu-luoyang")
+                .unwrap()
+                .unwrap()
+                .review_count,
+            1,
+            "deleting the card must retain review history/progress"
+        );
+        assert!(
+            store
+                .delete_knowledge_review_card("language:word:kept")
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn review_database_write_failure_rolls_back_schedule_progress_event_and_receipt() {
+        let store = LearningStore::open_in_memory().expect("open store");
+        let now = 1_700_000_000i64;
+        let card = knowledge_card(now);
+        store.save_knowledge_review_card(&card).expect("save card");
+        store
+            .connection
+            .execute_batch(
+                "CREATE TRIGGER reject_review_center_event BEFORE INSERT ON learning_events
+             WHEN NEW.source = 'review_center'
+             BEGIN SELECT RAISE(FAIL, 'simulated learning event write failure'); END;",
+            )
+            .expect("install failing trigger");
+
+        assert!(
+            store
+                .record_review_outcome_once(&card.id, ReviewRating::Good, "atomic-failure", now)
+                .is_err()
+        );
+        let unchanged = store.get_review_card(&card.id).unwrap().unwrap();
+        assert_eq!(unchanged.due_at, now);
+        assert_eq!(unchanged.repetition_count, 0);
+        assert_eq!(unchanged.last_reviewed_at, None);
+        assert!(
+            store
+                .get_progress("history:event:event-anlu-luoyang")
+                .unwrap()
+                .is_none()
+        );
+        assert_eq!(
+            store
+                .connection
+                .query_row("SELECT COUNT(*) FROM learning_events", [], |row| row
+                    .get::<_, i64>(0))
+                .unwrap(),
+            0
+        );
+        assert_eq!(
+            store
+                .connection
+                .query_row(
+                    "SELECT COUNT(*) FROM review_submission_receipts",
+                    [],
+                    |row| row.get::<_, i64>(0)
+                )
+                .unwrap(),
+            0
+        );
+    }
+
+    #[test]
+    fn old_review_card_schema_migrates_without_losing_existing_cards() {
+        let directory = tempfile::tempdir().expect("tempdir");
+        let path = directory.path().join("legacy-learning.db");
+        {
+            let connection = Connection::open(&path).expect("open legacy db");
+            connection.execute_batch(
+                "CREATE TABLE review_cards (
+                    id TEXT PRIMARY KEY, module TEXT NOT NULL, entity_id TEXT NOT NULL,
+                    entity_type TEXT NOT NULL, card_type TEXT NOT NULL, prompt TEXT NOT NULL,
+                    answer TEXT NOT NULL, options_json TEXT, hint TEXT, context TEXT,
+                    due_at INTEGER NOT NULL, interval_days REAL NOT NULL DEFAULT 0.0,
+                    ease REAL NOT NULL DEFAULT 2.5, mastery_score REAL NOT NULL DEFAULT 0.0,
+                    repetition_count INTEGER NOT NULL DEFAULT 0, lapses INTEGER NOT NULL DEFAULT 0,
+                    last_reviewed_at INTEGER, created_at INTEGER NOT NULL
+                );
+                INSERT INTO review_cards (id,module,entity_id,entity_type,card_type,prompt,answer,due_at,created_at)
+                VALUES ('legacy-card','history','event-1','event','qa','问题','答案',1700000000,1699999999);",
+            ).expect("seed legacy schema");
+        }
+        let store = LearningStore::open(&path).expect("open and migrate");
+        let card = store.get_review_card("legacy-card").unwrap().unwrap();
+        assert_eq!(card.prompt, "问题");
+        assert_eq!(card.source_title, None);
+        assert_eq!(card.user_note, None);
+        store
+            .ensure_review_card_columns()
+            .expect("migration is idempotent");
+    }
+
+    #[test]
+    fn knowledge_card_schedule_and_idempotency_receipt_survive_database_reopen() {
+        let directory = tempfile::tempdir().expect("tempdir");
+        let path = directory.path().join("learning.db");
+        let card_id = "knowledge:history:event:event-anlu-luoyang";
+        let now = 1_700_000_000i64;
+        let original = {
+            let store = LearningStore::open(&path).expect("open store");
+            let card = knowledge_card(now);
+            store.save_knowledge_review_card(&card).expect("save card");
+            store
+                .record_review_outcome_once(card_id, ReviewRating::Easy, "restart-receipt", now)
+                .expect("submit review");
+            store.get_review_card(card_id).unwrap().unwrap()
+        };
+
+        let reopened = LearningStore::open(&path).expect("reopen database");
+        let retry = reopened
+            .record_review_outcome_once(card_id, ReviewRating::Easy, "restart-receipt", now + 500)
+            .expect("same request returns persisted receipt");
+        let persisted = reopened.get_review_card(card_id).unwrap().unwrap();
+        assert_eq!(retry.due_at, original.due_at);
+        assert_eq!(retry.repetition_count, original.repetition_count);
+        assert_eq!(persisted.due_at, original.due_at);
+        assert_eq!(persisted.last_reviewed_at, original.last_reviewed_at);
+        assert_eq!(persisted.repetition_count, 1);
+        assert_eq!(
+            reopened
+                .get_progress("history:event:event-anlu-luoyang")
+                .unwrap()
+                .unwrap()
+                .review_count,
+            1
+        );
+        assert_eq!(
+            reopened
+                .connection
+                .query_row("SELECT COUNT(*) FROM learning_events", [], |row| row
+                    .get::<_, i64>(0))
+                .unwrap(),
+            1
+        );
+    }
+
+    #[test]
+    fn srs_due_timestamp_crosses_day_boundary_in_elapsed_seconds() {
+        let day_start = 1_700_000_000i64.div_euclid(86_400) * 86_400;
+        let just_before_midnight = day_start + 86_399;
+        let outcome = SpacedRepetitionScheduler::schedule(
+            0.0,
+            2.5,
+            0,
+            0,
+            ReviewRating::Good,
+            just_before_midnight,
+        );
+        assert_eq!(outcome.due_at, just_before_midnight + 86_400);
+        assert!(outcome.due_at / 86_400 > just_before_midnight / 86_400);
     }
 }

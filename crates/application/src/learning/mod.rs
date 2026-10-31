@@ -6,4 +6,4 @@ pub mod service;
 mod tests;
 
 pub use ports::{LearningPortError, LearningStorePort};
-pub use service::LearningService;
+pub use service::{CollectionSearchMatch, LearningService};

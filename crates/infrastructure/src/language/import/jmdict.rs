@@ -17,7 +17,7 @@ use super::{ImportError, ImportedItem, ImportedMeaning};
 /// 解析 JMdict XML 文本。
 pub fn parse(raw: &str) -> Result<Vec<ImportedItem>, ImportError> {
     let mut reader = Reader::from_str(raw);
-    reader.config_mut().trim_text(true);
+    reader.config_mut().trim_text(false);
     let mut items = Vec::new();
     let mut current: Option<EntryBuilder> = None;
     // 当前容器：k_ele / r_ele / sense（嵌套层级追踪）
@@ -62,49 +62,30 @@ pub fn parse(raw: &str) -> Result<Vec<ImportedItem>, ImportError> {
                         container_stack.pop();
                     }
                     "keb" | "reb" | "ent_seq" | "gloss" | "pos" | "misc" | "field" | "lsource" => {
-                        in_leaf = None;
+                        if let Some(leaf) = in_leaf.take() {
+                            finish_leaf_text(leaf, &mut current, &container_stack);
+                        }
                     }
                     _ => {}
                 }
             }
             Ok(Event::Text(text)) => {
-                let unescaped = relax_entities(&String::from_utf8_lossy(&text));
-                if unescaped.trim().is_empty() {
-                    continue;
-                }
-                let Some(entry) = current.as_mut() else {
-                    continue;
-                };
-                match in_leaf.as_ref().map(|leaf| leaf.tag.as_str()) {
-                    Some("keb") if container_stack.last().map(String::as_str) == Some("k_ele") => {
-                        entry.kebs.push(unescaped.trim().to_string());
-                    }
-                    Some("reb") if container_stack.last().map(String::as_str) == Some("r_ele") => {
-                        entry.rebs.push(unescaped.trim().to_string());
-                    }
-                    Some("ent_seq") => entry.ent_seq = unescaped.trim().to_string(),
-                    Some("gloss")
-                        if container_stack.last().map(String::as_str) == Some("sense") =>
-                    {
-                        if let Some(sense) = entry.senses.last_mut() {
-                            sense.gloss.push(unescaped.trim().to_string());
-                        }
-                    }
-                    Some("pos") if container_stack.last().map(String::as_str) == Some("sense") => {
-                        if let Some(sense) = entry.senses.last_mut() {
-                            sense.pos.push(unescaped.trim().to_string());
-                        }
-                    }
-                    Some("misc") if container_stack.last().map(String::as_str) == Some("sense") => {
-                        if let Some(sense) = entry.senses.last_mut() {
-                            sense.misc.push(unescaped.trim().to_string());
-                        }
-                    }
-                    _ => {}
-                }
+                let raw = String::from_utf8_lossy(&text);
+                append_leaf_text(&raw, &mut in_leaf);
+            }
+            Ok(Event::GeneralRef(reference)) => {
+                // quick-xml 0.41 emits references separately from text. Re-wrap each
+                // name so JMdict's existing entity relaxation can decode it.
+                let name = String::from_utf8_lossy(&reference);
+                let reference = format!("&{name};");
+                append_leaf_text(&reference, &mut in_leaf);
             }
             Ok(Event::CData(cdata)) => {
-                let text = String::from_utf8_lossy(&cdata).to_string();
+                let text = String::from_utf8_lossy(&cdata);
+                if let Some(leaf) = in_leaf.as_mut() {
+                    leaf.content.push_str(&text);
+                    continue;
+                }
                 let Some(entry) = current.as_mut() else {
                     continue;
                 };
@@ -112,7 +93,7 @@ pub fn parse(raw: &str) -> Result<Vec<ImportedItem>, ImportError> {
                     entry.senses.last_mut(),
                     container_stack.last().map(String::as_str),
                 ) {
-                    sense.gloss.push(text);
+                    sense.gloss.push(text.to_string());
                 }
             }
             _ => {}
@@ -124,15 +105,62 @@ pub fn parse(raw: &str) -> Result<Vec<ImportedItem>, ImportError> {
     Ok(items)
 }
 
+fn append_leaf_text(raw: &str, in_leaf: &mut Option<LeafSlot>) {
+    if let Some(leaf) = in_leaf.as_mut() {
+        leaf.content.push_str(&relax_entities(raw));
+    }
+}
+
+fn finish_leaf_text(
+    leaf: LeafSlot,
+    current: &mut Option<EntryBuilder>,
+    container_stack: &[String],
+) {
+    let text = leaf.content.trim();
+    if text.is_empty() {
+        return;
+    }
+    let Some(entry) = current.as_mut() else {
+        return;
+    };
+    match leaf.tag.as_str() {
+        "keb" if container_stack.last().map(String::as_str) == Some("k_ele") => {
+            entry.kebs.push(text.to_string());
+        }
+        "reb" if container_stack.last().map(String::as_str) == Some("r_ele") => {
+            entry.rebs.push(text.to_string());
+        }
+        "ent_seq" => entry.ent_seq = text.to_string(),
+        "gloss" if container_stack.last().map(String::as_str) == Some("sense") => {
+            if let Some(sense) = entry.senses.last_mut() {
+                sense.gloss.push(text.to_string());
+            }
+        }
+        "pos" if container_stack.last().map(String::as_str) == Some("sense") => {
+            if let Some(sense) = entry.senses.last_mut() {
+                sense.pos.push(text.to_string());
+            }
+        }
+        "misc" if container_stack.last().map(String::as_str) == Some("sense") => {
+            if let Some(sense) = entry.senses.last_mut() {
+                sense.misc.push(text.to_string());
+            }
+        }
+        _ => {}
+    }
+}
+
 /// 叶子槽位跟踪（keb/reb/gloss/pos/… 只关心直接文本）。
 struct LeafSlot {
     tag: String,
+    content: String,
 }
 
 impl LeafSlot {
     fn from_tag(tag: &str) -> Self {
         Self {
             tag: tag.to_string(),
+            content: String::new(),
         }
     }
 }
@@ -305,6 +333,25 @@ mod tests {
                 .unwrap_or_default()
                 .contains("v1")
         );
+    }
+
+    #[test]
+    fn entity_events_preserve_text_within_each_leaf() {
+        let raw = r#"<JMdict><entry><ent_seq>102</ent_seq>
+        <k_ele><keb>A&amp;B</keb></k_ele>
+        <r_ele><reb>A&#x26;B</reb></r_ele>
+        <sense><gloss>fish &amp; chips &#233;</gloss><gloss>side dish</gloss>
+        <pos>&v1;</pos><pos>&vt;</pos></sense></entry></JMdict>"#;
+        let items = parse(raw).expect("parse entity references");
+        let item = &items[0];
+
+        assert_eq!(item.text, "A&B");
+        assert_eq!(item.reading.as_deref(), Some("A&B"));
+        assert_eq!(
+            item.meanings[0].gloss.as_deref(),
+            Some("fish & chips é; side dish")
+        );
+        assert_eq!(item.meanings[0].pos.as_deref(), Some("v1; vt"));
     }
 
     #[test]

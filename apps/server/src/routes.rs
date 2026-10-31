@@ -59,6 +59,7 @@ pub fn router(
     data_paths: Arc<crate::language_data_api::DataPaths>,
     import_tracker: Arc<crate::language_data_api::ImportTracker>,
     settings: Arc<dyn crate::ai_api::SettingsAccess>,
+    ai_runner: Option<Arc<dyn crate::ai_api::AiChatRunner>>,
     // 平台 LearningService（Collections / Graph / Review Center / Home 今日面板）
     learning_os: Arc<devtoolbox_application::learning::LearningService>,
     geography: Arc<devtoolbox_application::geography::GeographyService>,
@@ -73,7 +74,14 @@ pub fn router(
     // 26 周能力路线图（V13 W6）：静态计划 + 真实统计。
     roadmap: Arc<devtoolbox_application::language::course::RoadmapService>,
 ) -> Router {
+    let exploration = Arc::new(
+        devtoolbox_application::exploration::ExplorationService::new(
+            Arc::clone(&geography),
+            Arc::clone(&service),
+        ),
+    );
     Router::new()
+        .merge(crate::backup_api::router::<AppState>(data_dir.clone()))
         .route("/health", get(health))
         .route(
             "/api/v1/readiness",
@@ -267,13 +275,25 @@ pub fn router(
             "/api/v1/language/weak-items",
             get(crate::language_api::weak_items),
         )
-        // ---- 设置与 AI：网页端没有 Tauri IPC，但两端共用同一个 settings.json ----
+        // ---- 设置状态与 AI：HTTP 只读脱敏状态；配置写入暂限本机 Tauri ----
         .route(
             "/api/v1/settings",
             get(crate::ai_api::get_settings).post(crate::ai_api::save_settings),
         )
         .route("/api/v1/ai/status", get(crate::ai_api::ai_status))
         .route("/api/v1/ai/chat", post(crate::ai_api::ai_chat))
+        .route(
+            "/api/v1/ai/runs/{trace_id}/cancel",
+            post(crate::ai_api::ai_cancel_run),
+        )
+        .route(
+            "/api/v1/ai/travel-changes/{proposal_id}/confirm",
+            post(crate::ai_api::ai_confirm_travel_change),
+        )
+        .route(
+            "/api/v1/ai/travel-changes/{proposal_id}/cancel",
+            post(crate::ai_api::ai_cancel_travel_change),
+        )
         // 语言数据导入（NCE 教材 / ECDICT 词典）：网页端也要能导入，
         // 否则「这台机器就是服务器」却只能靠人去点桌面应用导一次。
         .route(
@@ -318,6 +338,14 @@ pub fn router(
             get(crate::travel_api::travel_load_guide),
         )
         .route(
+            "/api/v1/travel/plans/recent",
+            get(crate::travel_api::travel_recent_plans),
+        )
+        .route(
+            "/api/v1/travel/plans",
+            get(crate::travel_api::travel_plan_get).post(crate::travel_api::travel_plan_save),
+        )
+        .route(
             "/api/v1/travel/test/llm",
             post(crate::travel_api::test_travel_llm),
         )
@@ -350,6 +378,15 @@ pub fn router(
             "/api/v1/learning/review",
             post(crate::learning_api::submit_review),
         )
+        .route(
+            "/api/v1/learning/review/cards/{id}",
+            get(crate::learning_api::get_review_card)
+                .delete(crate::learning_api::delete_knowledge_review_card),
+        )
+        .route(
+            "/api/v1/learning/review/cards/from-knowledge",
+            post(crate::learning_api::save_knowledge_review_card),
+        )
         .route("/api/v1/learning/today", get(crate::learning_api::today))
         .route("/api/v1/learning/graph", get(crate::learning_api::graph))
         .route(
@@ -370,6 +407,10 @@ pub fn router(
                 .post(crate::learning_api::add_collection_item),
         )
         .route(
+            "/api/v1/learning/collection-items/{id}/note",
+            axum::routing::patch(crate::learning_api::update_collection_item_note),
+        )
+        .route(
             "/api/v1/learning/collection-items/remove",
             post(crate::learning_api::remove_collection_item),
         )
@@ -382,6 +423,14 @@ pub fn router(
         .route(
             "/api/v1/geography/entities/{id}",
             get(crate::geography_api::detail),
+        )
+        .route(
+            "/api/v1/exploration/geography/{id}/history",
+            get(crate::exploration_api::location_history),
+        )
+        .route(
+            "/api/v1/exploration/history-places/{id}/geography",
+            get(crate::exploration_api::geography_for_history_place),
         )
         .route(
             "/api/v1/geography/favorite",
@@ -447,8 +496,10 @@ pub fn router(
         .layer(axum::Extension(Arc::clone(&dictionary)))
         .layer(axum::Extension(Arc::clone(&learning)))
         .layer(axum::Extension(Arc::clone(&settings)))
+        .layer(axum::Extension(ai_runner))
         .layer(axum::Extension(Arc::clone(&learning_os)))
         .layer(axum::Extension(Arc::clone(&geography)))
+        .layer(axum::Extension(exploration))
         .layer(axum::Extension(Arc::clone(&news)))
         .layer(axum::Extension(Arc::clone(&course)))
         .layer(axum::Extension(Arc::new(data_dir)))
@@ -462,9 +513,6 @@ pub fn router(
         .layer(axum::Extension(speaking))
         .layer(axum::Extension(mining))
         .layer(axum::Extension(roadmap))
-        .layer(axum::Extension(
-            None::<Arc<dyn crate::ai_api::AiChatRunner>>,
-        ))
         .with_state(AppState { service })
         // 显式擦除成 `Arc<dyn Fn()>`：`Extension<T>` 按具体类型匹配，
         // `Arc<fn() -> i64>` 与 `Arc<dyn Fn() -> i64 + Send + Sync>` 不是同一个类型。
@@ -472,6 +520,8 @@ pub fn router(
             Arc::new(devtoolbox_infrastructure::now_unix as fn() -> i64)
                 as Arc<dyn Fn() -> i64 + Send + Sync>,
         ))
+        .layer(axum::extract::DefaultBodyLimit::max(1024 * 1024))
+        .layer(axum::middleware::from_fn(crate::security::local_http_guard))
 }
 
 async fn health() -> Json<serde_json::Value> {
@@ -582,10 +632,10 @@ mod tests {
     use devtoolbox_application::history::{HistoryPortError, HistoryQueryPort, HistoryService};
     use devtoolbox_core::history_records::{
         DatasetStats, EventEvidenceResult, EventHistoricalTextResult, EventPersonResult,
-        EventPlaceResult, EventRelationResult, EventResult, HistoricalTextResult, PeriodEventItem,
-        PeriodPersonItem, PeriodResult, PersonEventResult, PersonPlaceResult, PersonRelationResult,
-        PersonResult, PersonStoryResult, RegimeResult, SourceResult, StoryEventResult, StoryResult,
-        WorkResult,
+        EventPlaceResult, EventRelationResult, EventResult, EventStoryResult, HistoricalTextResult,
+        PeriodEventItem, PeriodPersonItem, PeriodResult, PersonEventResult, PersonPlaceResult,
+        PersonRelationResult, PersonResult, PersonStoryResult, RegimeResult, SourceResult,
+        StoryEventResult, StoryResult, WorkResult,
     };
     use serde_json::Value;
     use tower::ServiceExt;
@@ -691,6 +741,16 @@ mod tests {
                 Ok(Vec::new())
             }
         }
+        fn get_stories_for_event(
+            &self,
+            _: &str,
+        ) -> Result<Vec<EventStoryResult>, HistoryPortError> {
+            if self.fail_all {
+                Err(boom())
+            } else {
+                Ok(Vec::new())
+            }
+        }
         fn get_story_people(&self, _: &str) -> Result<Vec<EventPersonResult>, HistoryPortError> {
             if self.fail_all {
                 Err(boom())
@@ -727,6 +787,13 @@ mod tests {
         }
         fn get_event(&self, _: &str) -> Result<Option<EventResult>, HistoryPortError> {
             if self.fail_all { Err(boom()) } else { Ok(None) }
+        }
+        fn get_events_for_place(&self, _: &str) -> Result<Vec<EventResult>, HistoryPortError> {
+            if self.fail_all {
+                Err(boom())
+            } else {
+                Ok(Vec::new())
+            }
         }
         fn get_event_people(&self, _: &str) -> Result<Vec<EventPersonResult>, HistoryPortError> {
             if self.fail_all {
@@ -936,6 +1003,12 @@ mod tests {
     }
 
     fn test_router(fail_all: bool) -> axum::Router {
+        test_router_with_history(Arc::new(HistoryService::new(Box::new(FakeHistory {
+            fail_all,
+        }))))
+    }
+
+    fn test_router_with_history(service: Arc<HistoryService>) -> axum::Router {
         let language_store = Arc::new(parking_lot::Mutex::new(
             devtoolbox_infrastructure::LanguageStore::open(test_language_db())
                 .expect("language store"),
@@ -980,7 +1053,7 @@ mod tests {
             ),
         );
         router(
-            Arc::new(HistoryService::new(Box::new(FakeHistory { fail_all }))),
+            service,
             learning,
             Arc::new(devtoolbox_application::language::LanguageService::new(
                 Arc::clone(&content),
@@ -997,6 +1070,7 @@ mod tests {
             }),
             Arc::default(),
             Arc::new(TestSettings),
+            None,
             learning_os,
             geography,
             news_service(),
@@ -1040,10 +1114,10 @@ mod tests {
 
     impl crate::ai_api::SettingsAccess for TestSettings {
         fn load(&self) -> devtoolbox_core::settings::AppSettings {
-            devtoolbox_core::settings::AppSettings::default()
-        }
-        fn save(&self, _: &devtoolbox_core::settings::AppSettings) -> Result<(), String> {
-            Ok(())
+            let mut settings = devtoolbox_core::settings::AppSettings::default();
+            settings.ai.api_key = Some("server-test-secret-marker".into());
+            settings.travel.qweather_api_key = Some("weather-test-secret-marker".into());
+            settings
         }
     }
 
@@ -1127,11 +1201,214 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn settings_round_trips_through_http() {
+    async fn settings_http_exposes_only_redacted_status() {
         let app = test_router(false);
         let (status, body) = request(&app, "/api/v1/settings").await;
         assert_eq!(status, StatusCode::OK);
-        assert!(body.get("ai").is_some(), "设置应包含 ai 段");
+        assert_eq!(body["ai_configured"], false);
+        assert_eq!(body["secrets"]["ai_api_key_configured"], true);
+        assert_eq!(body["secrets"]["travel_qweather_api_key_configured"], true);
+        let serialized = body.to_string();
+        assert!(!serialized.contains("server-test-secret-marker"));
+        assert!(!serialized.contains("weather-test-secret-marker"));
+        assert!(
+            body.get("ai").is_none(),
+            "HTTP must not expose full AI config"
+        );
+        assert!(
+            body.get("knowledge").is_none(),
+            "HTTP must not expose filesystem roots"
+        );
+    }
+
+    #[tokio::test]
+    async fn settings_http_write_is_rejected_without_authenticated_admin_api() {
+        let app = test_router(false);
+        let (status, body) = post_json(
+            &app,
+            "/api/v1/settings",
+            &serde_json::json!({ "ai": { "api_key": "attacker-controlled" } }),
+        )
+        .await;
+        assert_eq!(status, StatusCode::FORBIDDEN);
+        assert_eq!(body["code"], "settings_write_requires_desktop");
+        assert!(!body.to_string().contains("attacker-controlled"));
+    }
+
+    #[tokio::test]
+    async fn travel_plan_http_round_trip_persists_backend_owned_itinerary_state() {
+        let app = test_router(false);
+        let plan = serde_json::json!({
+            "context": {
+                "city": "杭州",
+                "days": 2,
+                "date_range": { "start": "2026-10-01", "end": "2026-10-02" }
+            },
+            "selected_keys": ["poi-west-lake"],
+            "assigned_days": { "poi-west-lake": 2 },
+            "must_visit_keys": ["poi-west-lake"],
+            "updated_at": 1
+        });
+        let (status, saved) = post_json(
+            &app,
+            "/api/v1/travel/plans",
+            &serde_json::json!({ "plan": plan.clone() }),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "body={saved}");
+        assert!(saved["updated_at"].as_i64().is_some_and(|value| value > 1));
+        assert_eq!(saved["revision"], 1);
+
+        let mut updated = saved.clone();
+        updated["title"] = serde_json::json!("西湖慢行");
+        let (status, latest) = post_json(
+            &app,
+            "/api/v1/travel/plans",
+            &serde_json::json!({ "plan": updated }),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "body={latest}");
+        assert_eq!(latest["revision"], 2);
+
+        let (status, conflict) = post_json(
+            &app,
+            "/api/v1/travel/plans",
+            &serde_json::json!({ "plan": plan }),
+        )
+        .await;
+        assert_eq!(status, StatusCode::CONFLICT, "body={conflict}");
+        assert_eq!(conflict["code"], "travel_plan_conflict");
+
+        let (status, loaded) = request(
+            &app,
+            "/api/v1/travel/plans?city=%E6%9D%AD%E5%B7%9E&days=2&date_start=2026-10-01&date_end=2026-10-02",
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "body={loaded}");
+        assert_eq!(loaded["context"]["city"], "杭州");
+        assert_eq!(loaded["selected_keys"][0], "poi-west-lake");
+        assert_eq!(loaded["assigned_days"]["poi-west-lake"], 2);
+        assert_eq!(loaded["title"], "西湖慢行");
+        assert_eq!(loaded["revision"], 2);
+
+        let (status, recent) = request(&app, "/api/v1/travel/plans/recent?limit=5").await;
+        assert_eq!(status, StatusCode::OK, "body={recent}");
+        assert_eq!(recent[0]["context"]["city"], "杭州");
+        assert_eq!(recent[0]["title"], "西湖慢行");
+
+        let invalid = serde_json::json!({
+            "plan": {
+                "context": { "city": "杭州", "days": 2 },
+                "selected_keys": ["poi-west-lake"],
+                "assigned_days": { "poi-west-lake": 3 },
+                "must_visit_keys": []
+            }
+        });
+        let (status, body) = post_json(&app, "/api/v1/travel/plans", &invalid).await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "body={body}");
+        assert_eq!(body["code"], "travel_plan_invalid");
+    }
+
+    #[tokio::test]
+    async fn independent_sessions_conflict_when_a_stale_edit_changes_trip_dates() {
+        let app = test_router(false);
+        let city = format!("Sprint4-CAS-{}", std::process::id());
+        let base_uri = format!("/api/v1/travel/plans?city={city}&days=2");
+        let initial = serde_json::json!({
+            "context": { "city": city, "days": 2, "date_range": null },
+            "selected_keys": [],
+            "assigned_days": {},
+            "must_visit_keys": [],
+            "notes": "两会话冲突场景"
+        });
+        let (status, created) = post_json(
+            &app,
+            "/api/v1/travel/plans",
+            &serde_json::json!({ "plan": initial }),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{created}");
+
+        // 两个独立 HTTP 客户端读取同一个 revision；B 的提交用 oneshot 明确延后，
+        // 不用 sleep 或计时假设来构造竞态。
+        let session_a = app.clone();
+        let session_b = app.clone();
+        let (status, revision_a) = request(&session_a, &base_uri).await;
+        assert_eq!(status, StatusCode::OK, "{revision_a}");
+        let (status, revision_b) = request(&session_b, &base_uri).await;
+        assert_eq!(status, StatusCode::OK, "{revision_b}");
+        assert_eq!(revision_a["revision"], revision_b["revision"]);
+        assert_eq!(revision_a["revision"], 1);
+
+        let (release_b, wait_for_a) = tokio::sync::oneshot::channel::<()>();
+        let session_b_uri = "/api/v1/travel/plans".to_string();
+        let mut date_edit = revision_b.clone();
+        date_edit["context"]["date_range"] = serde_json::json!({
+            "start": "2026-10-03",
+            "end": "2026-10-04"
+        });
+        let session_b_task = tokio::spawn(async move {
+            let _ = wait_for_a.await;
+            post_json(
+                &session_b,
+                &session_b_uri,
+                &serde_json::json!({ "plan": date_edit }),
+            )
+            .await
+        });
+
+        let mut place_edit = revision_a.clone();
+        place_edit["selected_keys"] = serde_json::json!(["poi-session-a"]);
+        place_edit["assigned_days"] = serde_json::json!({ "poi-session-a": 1 });
+        let (status, saved_a) = post_json(
+            &session_a,
+            "/api/v1/travel/plans",
+            &serde_json::json!({ "plan": place_edit }),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{saved_a}");
+        assert_eq!(saved_a["revision"], 2);
+        release_b.send(()).expect("release delayed session B");
+
+        let (status, conflict) = session_b_task.await.expect("session B completed");
+        assert_eq!(status, StatusCode::CONFLICT, "{conflict}");
+        assert_eq!(conflict["code"], "travel_plan_conflict");
+
+        let (status, reloaded_a) = request(&app, &base_uri).await;
+        assert_eq!(status, StatusCode::OK, "{reloaded_a}");
+        assert_eq!(reloaded_a["selected_keys"][0], "poi-session-a");
+        assert_eq!(reloaded_a["revision"], 2);
+        let (status, unsaved_b_context) = request(
+            &app,
+            &format!(
+                "/api/v1/travel/plans?city={city}&days=2&date_start=2026-10-03&date_end=2026-10-04"
+            ),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK);
+        assert!(
+            unsaved_b_context.is_null(),
+            "conflicted date edit is not saved: {unsaved_b_context}"
+        );
+    }
+
+    #[tokio::test]
+    async fn travel_write_rejects_request_bodies_over_one_megabyte() {
+        let app = test_router(false);
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/v1/travel/plans")
+                    .header("host", "127.0.0.1:8080")
+                    .header("origin", "http://127.0.0.1:1420")
+                    .header("content-type", "application/json")
+                    .body(axum::body::Body::from(vec![b' '; 1024 * 1024 + 1]))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::PAYLOAD_TOO_LARGE);
     }
 
     /// 契约护栏：Learning OS 的端点必须全部注册。
@@ -1188,6 +1465,8 @@ mod tests {
                 Request::builder()
                     .method("DELETE")
                     .uri(format!("/api/v1/learning/collections/{id}"))
+                    .header("host", "127.0.0.1:8080")
+                    .header("origin", "http://127.0.0.1:1420")
                     .body(axum::body::Body::empty())
                     .unwrap(),
             )
@@ -1201,6 +1480,72 @@ mod tests {
             start,
             "删除后应恢复原状"
         );
+    }
+
+    #[tokio::test]
+    async fn global_search_finds_saved_note_and_returns_the_original_history_target() {
+        let app = test_router(false);
+        let marker = format!("sprint6-history-note-{}", std::process::id());
+        let (status, collection) = post_json(
+            &app,
+            "/api/v1/learning/collections",
+            &serde_json::json!({ "title": "地理与安史之乱" }),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{collection}");
+        let collection_id = collection["id"].as_str().expect("collection id");
+
+        let (status, saved) = post_json(
+            &app,
+            &format!("/api/v1/learning/collections/{collection_id}/items"),
+            &serde_json::json!({
+                "module": "history",
+                "entityType": "event",
+                "entityId": "event-anlu-luoyang",
+                "title": "安史之乱攻陷洛阳",
+                "note": format!("{marker}: 洛阳作为唐代东都的背景线索"),
+            }),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{saved}");
+
+        let (status, result) = request(
+            &app,
+            &format!("/api/v1/search/global?query={marker}&limit=8"),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{result}");
+        let hit = result["hits"]
+            .as_array()
+            .expect("hits")
+            .iter()
+            .find(|hit| hit["source"] == "collections")
+            .expect("saved note should be searchable");
+        assert!(
+            hit["snippet"]
+                .as_str()
+                .unwrap_or_default()
+                .contains(&marker)
+        );
+        assert_eq!(hit["action_target"]["module"], "history");
+        assert_eq!(hit["action_target"]["kind"], "event");
+        assert_eq!(hit["action_target"]["id"], "event-anlu-luoyang");
+        assert_eq!(hit["action_target"]["collection_item_id"], saved["id"]);
+
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("DELETE")
+                    .uri(format!("/api/v1/learning/collections/{collection_id}"))
+                    .header("host", "127.0.0.1:8080")
+                    .header("origin", "http://127.0.0.1:1420")
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
     }
 
     #[tokio::test]
@@ -1234,6 +1579,115 @@ mod tests {
                 .iter()
                 .any(|g| g["items"].as_array().is_some_and(|items| !items.is_empty())),
             "至少要有一个分组带条目"
+        );
+    }
+
+    #[tokio::test]
+    async fn exploration_location_uses_reviewed_crosswalk_and_real_history_data() {
+        let history = Arc::new(HistoryService::new(Box::new(
+            devtoolbox_runtime::history_query::HistoryQueryAdapter::new(Arc::clone(
+                &test_core().history_repo,
+            )),
+        )));
+        let app = test_router_with_history(history);
+        let (status, body) = request(&app, "/api/v1/exploration/geography/chengdu/history").await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        assert_eq!(body["geography"]["entity"]["id"], "chengdu");
+        assert_eq!(body["crosswalk"]["history_place_id"], "cbdb-place-406333");
+        assert_eq!(body["crosswalk"]["status"], "reviewed");
+        assert_eq!(body["crosswalks"].as_array().map(Vec::len), Some(1));
+        assert_eq!(body["crosswalk"]["evidence_time_scope"]["start_year"], 756);
+        let events = body["events"].as_array().expect("event list");
+        assert!(
+            events.iter().any(|event| {
+                event["event"]["id"] == "event-anlu-xuanzong-shu"
+                    && event["event"]["quality_status"] == "reviewed"
+                    && event["places"].as_array().is_some_and(|places| {
+                        places.iter().any(|place| {
+                            place["place_id"] == "cbdb-place-406333"
+                                && place["link_status"] == "linked"
+                                && place["link_quality_status"] == "reviewed"
+                        })
+                    })
+            }),
+            "expected source-backed 唐玄宗入蜀 event: {body}"
+        );
+
+        let (status, reverse) = request(
+            &app,
+            "/api/v1/exploration/history-places/cbdb-place-406333/geography",
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{reverse}");
+        assert_eq!(reverse["entity"]["id"], "chengdu");
+
+        let (status, luoyang) =
+            request(&app, "/api/v1/exploration/geography/luoyang/history").await;
+        assert_eq!(status, StatusCode::OK, "{luoyang}");
+        assert_eq!(luoyang["crosswalk"]["history_place_id"], "cbdb-place-14693");
+        assert_eq!(
+            luoyang["crosswalk"]["relation_type"],
+            "modern_urban_area_anchor"
+        );
+        let luoyang_event = luoyang["events"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|event| {
+                event["event"]["id"] == "event-anlu-luoyang"
+                    && event["event"]["start_year"] == 756
+                    && event["event"]["quality_status"] == "reviewed"
+            })
+            .expect("reviewed 756 event, not a place ID rendered as a year");
+        assert_eq!(
+            luoyang_event["related_stories"][0]["story"]["id"],
+            "story-an-lushan-rebellion"
+        );
+        assert_eq!(
+            luoyang_event["related_stories"][0]["link_quality_status"],
+            "reviewed"
+        );
+        assert_eq!(luoyang_event["related_stories"][0]["story"]["usable"], true);
+        let (status, reverse_luoyang) = request(
+            &app,
+            "/api/v1/exploration/history-places/cbdb-place-14693/geography",
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{reverse_luoyang}");
+        assert_eq!(reverse_luoyang["entity"]["id"], "luoyang");
+    }
+
+    #[tokio::test]
+    async fn exploration_unmapped_geography_has_a_real_empty_state() {
+        let app = test_router(false);
+        let (status, body) = request(&app, "/api/v1/exploration/geography/shanghai/history").await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        assert_eq!(body["crosswalk"], Value::Null);
+        assert_eq!(body["crosswalks"].as_array().map(Vec::len), Some(0));
+        assert_eq!(body["events"].as_array().map(Vec::len), Some(0));
+
+        // A river is not implicitly linked to the similarly named historic city, and
+        // a rejected ambiguous History ID remains absent from the reverse index.
+        let (status, river) = request(&app, "/api/v1/exploration/geography/yangtze/history").await;
+        assert_eq!(status, StatusCode::OK, "{river}");
+        assert_eq!(river["crosswalk"], Value::Null);
+        let (status, ambiguous) = request(
+            &app,
+            "/api/v1/exploration/history-places/cbdb-place-100409/geography",
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(ambiguous, Value::Null);
+
+        let unavailable_history = test_router(true);
+        let (status, unavailable) = request(
+            &unavailable_history,
+            "/api/v1/exploration/geography/chengdu/history",
+        )
+        .await;
+        assert!(
+            status.is_server_error(),
+            "source outage must not look like empty data: {unavailable}"
         );
     }
 
@@ -1301,6 +1755,8 @@ mod tests {
                 Request::builder()
                     .method("POST")
                     .uri(uri)
+                    .header("host", "127.0.0.1:8080")
+                    .header("origin", "http://127.0.0.1:1420")
                     .header("content-type", "application/json")
                     .body(axum::body::Body::from(payload.to_string()))
                     .unwrap(),
@@ -1322,6 +1778,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .uri(uri)
+                    .header("host", "127.0.0.1:8080")
                     .body(axum::body::Body::empty())
                     .unwrap(),
             )
@@ -1518,6 +1975,8 @@ mod tests {
                 Request::builder()
                     .method("POST")
                     .uri(uri)
+                    .header("host", "127.0.0.1:8080")
+                    .header("origin", "http://127.0.0.1:1420")
                     .body(axum::body::Body::empty())
                     .unwrap(),
             )

@@ -15,8 +15,9 @@
 use std::time::Instant;
 
 use devtoolbox_core::{
-    AgentError, AgentUsage, ChatMessage, ChatModelProvider, ChatRequest, ChatRole, ChatToolCall,
-    ToolCallRequest, ToolResult, ToolTraceEntry,
+    Action, AgentCitation, AgentError, AgentProposedChange, AgentUsage, AppContext, ChatMessage,
+    ChatModelProvider, ChatRequest, ChatRole, ChatToolCall, ToolCallRequest, ToolResult,
+    ToolTraceEntry,
 };
 
 use crate::personal_ai::registry::ToolRegistry;
@@ -32,6 +33,10 @@ pub struct ToolLoopOutcome {
     pub tool_trace: Vec<ToolTraceEntry>,
     /// 实际执行的轮数。
     pub rounds: u8,
+    /// Trusted outputs collected from registered tool executors.
+    pub citations: Vec<AgentCitation>,
+    pub proposed_changes: Vec<AgentProposedChange>,
+    pub actions: Vec<Action>,
 }
 
 /// 循环配置。
@@ -58,6 +63,15 @@ impl Default for ToolLoopConfig {
     }
 }
 
+/// Optional context and observer for a scoped shared tool loop.
+#[derive(Clone, Copy, Default)]
+pub struct ToolLoopOptions<'a> {
+    /// Trusted application context forwarded to registered tool executors.
+    pub app_context: Option<&'a AppContext>,
+    /// Called immediately before an authorized tool starts executing.
+    pub on_tool_started: Option<&'a (dyn Fn(&str) + Send + Sync)>,
+}
+
 /// provider 错误 → AgentError（与 `agent.rs` 同一映射）。
 pub fn map_provider_error(error: devtoolbox_core::ProviderError) -> AgentError {
     use devtoolbox_core::ProviderErrorKind;
@@ -81,11 +95,36 @@ pub async fn run_tool_loop(
     session_id: Option<&str>,
     config: ToolLoopConfig,
 ) -> Result<ToolLoopOutcome, AgentError> {
+    run_tool_loop_scoped(
+        provider,
+        registry,
+        messages,
+        tools,
+        session_id,
+        config,
+        ToolLoopOptions::default(),
+    )
+    .await
+}
+
+/// Tool loop with a trusted current-page context and a structural progress callback.
+pub async fn run_tool_loop_scoped(
+    provider: &dyn ChatModelProvider,
+    registry: &ToolRegistry,
+    messages: Vec<ChatMessage>,
+    tools: &[devtoolbox_core::ToolSpec],
+    session_id: Option<&str>,
+    config: ToolLoopConfig,
+    options: ToolLoopOptions<'_>,
+) -> Result<ToolLoopOutcome, AgentError> {
     let mut chat_messages = messages;
     let mut total_usage = AgentUsage::default();
     let mut trace: Vec<ToolTraceEntry> = Vec::new();
     let mut rounds = 0u8;
     let mut tool_calls = 0usize;
+    let mut citations = Vec::new();
+    let mut proposed_changes = Vec::new();
+    let mut actions = Vec::new();
 
     loop {
         rounds += 1;
@@ -128,6 +167,9 @@ pub async fn run_tool_loop(
                 usage: total_usage,
                 tool_trace: trace,
                 rounds,
+                citations,
+                proposed_changes,
+                actions,
             });
         }
 
@@ -175,14 +217,39 @@ pub async fn run_tool_loop(
             }
             tool_calls += 1;
             let started = Instant::now();
-            let tool_result = registry
-                .execute(&ToolCallRequest {
-                    id: call.id.clone(),
-                    name: call.name.clone(),
-                    arguments: call.arguments.clone(),
-                })
-                .await
-                .unwrap_or_else(|error| ToolResult::fail(error.message.clone()));
+            if let Some(observer) = options.on_tool_started {
+                observer(&call.name);
+            }
+            let tool_call = ToolCallRequest {
+                id: call.id.clone(),
+                name: call.name.clone(),
+                arguments: call.arguments.clone(),
+            };
+            let execution = match options.app_context {
+                Some(context) => registry.execute_with_context(&tool_call, context).await,
+                None => registry.execute(&tool_call).await,
+            };
+            let tool_result =
+                execution.unwrap_or_else(|error| ToolResult::fail(error.message.clone()));
+            if tool_result.ok {
+                for citation in &tool_result.citations {
+                    if !citations.contains(citation) {
+                        citations.push(citation.clone());
+                    }
+                }
+                if let Some(proposal) = &tool_result.proposed_change
+                    && !proposed_changes
+                        .iter()
+                        .any(|entry: &AgentProposedChange| entry.id == proposal.id)
+                {
+                    proposed_changes.push(proposal.clone());
+                }
+                for action in &tool_result.actions {
+                    if !actions.contains(action) {
+                        actions.push(action.clone());
+                    }
+                }
+            }
             let ok = tool_result.ok;
             let note = tool_result.error.clone();
             trace.push(ToolTraceEntry {

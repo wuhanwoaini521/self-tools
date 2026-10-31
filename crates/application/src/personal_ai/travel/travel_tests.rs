@@ -257,7 +257,15 @@ fn travel_context_provider_resolves_destination() {
             label: Some("大连".into()),
         }),
         selection: None,
-        view_state: serde_json::json!({"days": 3, "preferences": ["历史", "美食", "摄影"]}),
+        view_state: serde_json::json!({
+            "days": 3,
+            "date_range": {"start": "2026-06-01", "end": "2026-06-03"},
+            "preferences": ["历史", "美食", "摄影"],
+            "must_visits": ["武侯祠"],
+            "departure": "天府机场",
+            "selected_stops": [{"id": "wuhou-shrine", "name": "武侯祠", "day": 2, "note": "先看展"}],
+            "notes": "留出午休"
+        }),
     };
     let bundle = provider
         .build_context(&ctx, &ContextBudget::default())
@@ -267,6 +275,17 @@ fn travel_context_provider_resolves_destination() {
     assert!(bundle.headline.contains("3 天"));
     assert_eq!(bundle.summary["city"], "大连");
     assert!(bundle.summary["highlights"].as_array().unwrap().len() >= 2);
+    assert_eq!(
+        bundle.summary["current_plan"]["date_range"]["start"],
+        "2026-06-01"
+    );
+    assert_eq!(bundle.summary["current_plan"]["preferences"][0], "历史");
+    assert_eq!(bundle.summary["current_plan"]["departure"], "天府机场");
+    assert_eq!(
+        bundle.summary["current_plan"]["selected_stops"][0]["day"],
+        2
+    );
+    assert_eq!(bundle.summary["current_plan"]["notes"], "留出午休");
 }
 
 #[test]
@@ -378,7 +397,7 @@ fn travel_module_can_coexist_with_history_registry() {
     .unwrap();
     let ids: Vec<String> = modules.descriptors().iter().map(|d| d.id.clone()).collect();
     assert_eq!(ids, vec!["history", "travel"]);
-    assert_eq!(tools.len(), 9);
+    assert_eq!(tools.len(), 10);
 }
 
 /// 冒烟用最小 History 端口（只用注册不执行）。
@@ -428,6 +447,12 @@ fn history_port_fake() -> Arc<dyn crate::history::HistoryQueryPort> {
         fn get_story_events(&self, _: &str) -> Result<Vec<StoryEventResult>, HistoryPortError> {
             Ok(vec![])
         }
+        fn get_stories_for_event(
+            &self,
+            _: &str,
+        ) -> Result<Vec<EventStoryResult>, HistoryPortError> {
+            Ok(vec![])
+        }
         fn get_story_people(&self, _: &str) -> Result<Vec<EventPersonResult>, HistoryPortError> {
             Ok(vec![])
         }
@@ -448,6 +473,9 @@ fn history_port_fake() -> Arc<dyn crate::history::HistoryQueryPort> {
         }
         fn get_event(&self, _: &str) -> Result<Option<EventResult>, HistoryPortError> {
             Ok(None)
+        }
+        fn get_events_for_place(&self, _: &str) -> Result<Vec<EventResult>, HistoryPortError> {
+            Ok(vec![])
         }
         fn get_event_people(&self, _: &str) -> Result<Vec<EventPersonResult>, HistoryPortError> {
             Ok(vec![])

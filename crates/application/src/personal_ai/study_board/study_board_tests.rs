@@ -157,6 +157,21 @@ fn call_err(hub: &Hub, name: &str, arguments: serde_json::Value) -> devtoolbox_c
     .expect_err("tool call should fail")
 }
 
+/// Exercise a write adapter directly; production/model calls still pass through the
+/// registry risk gate, which deliberately blocks these operations without approval.
+fn direct_write_call(
+    hub: &Hub,
+    name: &str,
+    arguments: serde_json::Value,
+) -> Result<devtoolbox_core::ToolResult, devtoolbox_core::AgentError> {
+    let tools = StudyBoardTools::new(hub.store.clone());
+    match name {
+        "study-board.save" => tools.save(&arguments),
+        "study-board.snapshot" => tools.snapshot(&arguments),
+        _ => panic!("not a Study Board write adapter: {name}"),
+    }
+}
+
 fn board(id: &str, title: &str, updated_at: i64) -> StudyBoard {
     StudyBoard::new(
         id,
@@ -227,8 +242,8 @@ fn registers_descriptor_and_four_tools_with_expected_risks() {
         vec![
             ("study-board.get", ToolRisk::Read),
             ("study-board.list", ToolRisk::Read),
-            ("study-board.save", ToolRisk::SafeWrite),
-            ("study-board.snapshot", ToolRisk::Read),
+            ("study-board.save", ToolRisk::SensitiveWrite),
+            ("study-board.snapshot", ToolRisk::SensitiveWrite),
         ]
     );
     for spec in &specs {
@@ -344,13 +359,29 @@ fn storage_failure_is_controlled_error_without_payload() {
 }
 
 // ---------------------------------------------------------------------------
-// save（SafeWrite；幂等）
+// save（SensitiveWrite；业务实现仍由 service 覆盖）
 // ---------------------------------------------------------------------------
 
 #[test]
 fn save_creates_then_updates_idempotently() {
     let hub = hub();
-    let created = call(
+    let blocked = call_err(
+        &hub,
+        "study-board.save",
+        json!({"board_id": "b-1", "title": "新板"}),
+    );
+    assert_eq!(blocked.code(), "personal_ai_tool_execution_failed");
+    assert!(
+        blocked
+            .message
+            .contains("not eligible for automatic execution")
+    );
+    assert!(
+        hub.store.boards.lock().is_empty(),
+        "被拒绝的模型调用不得写入"
+    );
+
+    let created = direct_write_call(
         &hub,
         "study-board.save",
         json!({
@@ -359,17 +390,19 @@ fn save_creates_then_updates_idempotently() {
             "strokes": {"strokes": [{"points": [[1, 2]]}]},
             "module_origin": "history",
         }),
-    );
+    )
+    .expect("direct adapter implementation");
     assert!(created.ok);
     assert_eq!(created.data["created"], true);
     assert_eq!(created.data["title"], "新板");
     assert_eq!(created.data["stroke_count"], 1);
 
-    let updated = call(
+    let updated = direct_write_call(
         &hub,
         "study-board.save",
         json!({"board_id": "b-1", "title": "改名了"}),
-    );
+    )
+    .expect("direct adapter implementation");
     assert!(updated.ok);
     assert_eq!(updated.data["created"], false);
     assert_eq!(updated.data["stroke_count"], 1, "不改 strokes 时保留");
@@ -383,31 +416,35 @@ fn save_creates_then_updates_idempotently() {
 fn save_rejects_new_board_without_title_and_invalid_payloads() {
     let hub = hub();
     // 新板必须带标题。
-    let error = call_err(
+    let error = direct_write_call(
         &hub,
         "study-board.save",
         json!({"board_id": "b-new", "strokes": {"strokes": []}}),
-    );
+    )
+    .unwrap_err();
     assert!(error.to_string().contains("必须提供 title"), "{error}");
 
     // 既不给 title 也不给 strokes。
-    let empty = call_err(&hub, "study-board.save", json!({"board_id": "b-1"}));
+    let empty =
+        direct_write_call(&hub, "study-board.save", json!({"board_id": "b-1"})).unwrap_err();
     assert!(empty.to_string().contains("至少提供"), "{empty}");
 
     // 超长标题。
-    let long = call_err(
+    let long = direct_write_call(
         &hub,
         "study-board.save",
         json!({"board_id": "b-1", "title": "板".repeat(201)}),
-    );
+    )
+    .unwrap_err();
     assert!(long.to_string().contains("超过"), "{long}");
 
     // 注入形态 id。
-    let injected = call_err(
+    let injected = direct_write_call(
         &hub,
         "study-board.save",
         json!({"board_id": "../etc/passwd", "title": "x"}),
-    );
+    )
+    .unwrap_err();
     assert_eq!(injected.code(), "personal_ai_tool_invalid_argument");
 }
 
@@ -415,16 +452,17 @@ fn save_rejects_new_board_without_title_and_invalid_payloads() {
 fn save_storage_failure_is_controlled() {
     let hub = hub();
     hub.store.inject_failure("board_save_failed");
-    let error = call_err(
+    let error = direct_write_call(
         &hub,
         "study-board.save",
         json!({"board_id": "b-1", "title": "t"}),
-    );
+    )
+    .unwrap_err();
     assert!(error.to_string().contains("board_save_failed"), "{error}");
 }
 
 // ---------------------------------------------------------------------------
-// snapshot（Read；只登记引用）
+// snapshot（SensitiveWrite；只登记引用，不生成图像）
 // ---------------------------------------------------------------------------
 
 #[test]
@@ -433,7 +471,20 @@ fn snapshot_registers_reference_without_generating_image() {
     hub.store.seed(board("b-1", "遵义会议", 1_000));
 
     // 不带 PNG：只登记摘要。
-    let result = call(&hub, "study-board.snapshot", json!({"board_id": "b-1"}));
+    let blocked = call_err(&hub, "study-board.snapshot", json!({"board_id": "b-1"}));
+    assert_eq!(blocked.code(), "personal_ai_tool_execution_failed");
+    assert!(
+        blocked
+            .message
+            .contains("not eligible for automatic execution")
+    );
+    assert!(
+        hub.store.snapshots.lock().is_empty(),
+        "被拒绝的模型调用不得登记快照"
+    );
+
+    let result = direct_write_call(&hub, "study-board.snapshot", json!({"board_id": "b-1"}))
+        .expect("direct adapter implementation");
     assert!(result.ok);
     assert_eq!(result.data["kind"], "board_snapshot");
     assert_eq!(result.data["board_id"], "b-1");
@@ -446,11 +497,12 @@ fn snapshot_registers_reference_without_generating_image() {
 
     // 带 PNG：登记前端渲染结果（backend 不生成）。
     drop(stored);
-    let with_png = call(
+    let with_png = direct_write_call(
         &hub,
         "study-board.snapshot",
         json!({"board_id": "b-1", "png_base64": "iVBORw0KGgo="}),
-    );
+    )
+    .expect("direct adapter implementation");
     assert!(with_png.ok);
     assert_eq!(with_png.data["has_png"], true);
     let stored = hub.store.snapshots.lock();
@@ -460,11 +512,12 @@ fn snapshot_registers_reference_without_generating_image() {
 #[test]
 fn snapshot_for_missing_board_is_controlled_failure() {
     let hub = hub();
-    let result = call(
+    let result = direct_write_call(
         &hub,
         "study-board.snapshot",
         json!({"board_id": "b-missing"}),
-    );
+    )
+    .expect("direct adapter implementation");
     assert!(!result.ok);
     assert!(result.error.unwrap().contains("不存在"));
 }
@@ -474,7 +527,8 @@ fn snapshot_storage_failure_is_controlled() {
     let hub = hub();
     hub.store.seed(board("b-1", "t", 1));
     hub.store.inject_failure("snapshot_save_failed");
-    let error = call_err(&hub, "study-board.snapshot", json!({"board_id": "b-1"}));
+    let error =
+        direct_write_call(&hub, "study-board.snapshot", json!({"board_id": "b-1"})).unwrap_err();
     assert!(
         error.to_string().contains("snapshot_save_failed"),
         "{error}"
@@ -601,7 +655,11 @@ fn tools_never_write_to_personal_memory() {
         ("study-board.save", json!({"board_id": "b-1", "title": "x"})),
         ("study-board.snapshot", json!({"board_id": "b-1"})),
     ] {
-        let result = call(&hub, tool, arguments);
+        let result = if tool.ends_with(".save") || tool.ends_with(".snapshot") {
+            direct_write_call(&hub, tool, arguments).expect("direct adapter implementation")
+        } else {
+            call(&hub, tool, arguments)
+        };
         assert!(result.ok, "{tool}");
         let rendered = serde_json::to_string(&result).unwrap();
         assert!(

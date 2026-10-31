@@ -213,6 +213,9 @@ impl HistoryQueryPort for FakeHistoryPort {
     fn get_story_events(&self, _: &str) -> Result<Vec<StoryEventResult>, HistoryPortError> {
         Ok(vec![])
     }
+    fn get_stories_for_event(&self, _: &str) -> Result<Vec<EventStoryResult>, HistoryPortError> {
+        Ok(vec![])
+    }
     fn get_story_people(&self, _: &str) -> Result<Vec<EventPersonResult>, HistoryPortError> {
         Ok(vec![])
     }
@@ -228,11 +231,40 @@ impl HistoryQueryPort for FakeHistoryPort {
     fn get_event(&self, id: &str) -> Result<Option<EventResult>, HistoryPortError> {
         Ok(self.find_event(id))
     }
+    fn get_events_for_place(&self, place_id: &str) -> Result<Vec<EventResult>, HistoryPortError> {
+        Ok(if place_id == "cbdb-place-406333" {
+            self.events.clone()
+        } else {
+            vec![]
+        })
+    }
     fn get_event_people(&self, _: &str) -> Result<Vec<EventPersonResult>, HistoryPortError> {
         Ok(self.event_people.clone())
     }
-    fn get_event_places(&self, _: &str) -> Result<Vec<EventPlaceResult>, HistoryPortError> {
-        Ok(vec![])
+    fn get_event_places(&self, event_id: &str) -> Result<Vec<EventPlaceResult>, HistoryPortError> {
+        Ok(if event_id == "zunyi_meeting" {
+            vec![EventPlaceResult {
+                event_id: event_id.to_string(),
+                place_id: Some("cbdb-place-406333".into()),
+                place_name_raw: None,
+                role: Some("site".into()),
+                sequence: None,
+                source_id: Some("src_1".into()),
+                quality_status: Some("reviewed".into()),
+                link_status: Some("linked".into()),
+                place_name: Some("测试地点".into()),
+                description_zh_cn: None,
+                link_quality_status: Some("reviewed".into()),
+                link_confidence: Some(1.0),
+                link_reason: Some("fixture".into()),
+                historical_name: None,
+                modern_name: None,
+                longitude: None,
+                latitude: None,
+            }]
+        } else {
+            vec![]
+        })
     }
     fn get_event_relations(&self, _: &str) -> Result<Vec<EventRelationResult>, HistoryPortError> {
         Ok(self.event_relations.clone())
@@ -365,6 +397,31 @@ fn history_get_event_returns_canonical_and_state() {
     assert!(missing.error.unwrap().contains("不存在"));
 }
 
+// Event lookup accepts stable History place IDs, not display-name matching.
+#[test]
+fn history_events_for_place_uses_stable_id() {
+    let (_modules, tools, _port) = registered();
+    let result = call_tool(
+        &tools,
+        "history.events_for_place",
+        serde_json::json!({"place_id": "cbdb-place-406333"}),
+    );
+    assert!(result.ok);
+    assert_eq!(
+        result.data.as_array().unwrap()[0]["event"]["id"],
+        "zunyi_meeting"
+    );
+    assert_eq!(result.metadata["history_place_id"], "cbdb-place-406333");
+
+    let unmatched_name = call_tool(
+        &tools,
+        "history.events_for_place",
+        serde_json::json!({"place_id": "遵义"}),
+    );
+    assert!(unmatched_name.ok);
+    assert!(unmatched_name.data.as_array().unwrap().is_empty());
+}
+
 // history.get_person：canonical + relations + events + stories
 #[test]
 fn history_get_person_returns_canonical_and_timeline() {
@@ -408,6 +465,34 @@ fn history_context_provider_resolves_person() {
     assert!(!events.is_empty());
 }
 
+// 事件的 reviewed place links expose the matching stable Geography ID to the agent.
+#[test]
+fn history_event_context_exposes_geography_crosswalk() {
+    let (_modules, _tools, port) = registered();
+    let provider = HistoryProviderOwned::new(port);
+    let ctx = AppContext {
+        module: Some("history".into()),
+        page: Some("event-detail".into()),
+        entity: Some(EntityRef {
+            kind: "event".into(),
+            id: "zunyi_meeting".into(),
+            label: Some("测试事件".into()),
+        }),
+        ..AppContext::default()
+    };
+    let bundle = provider
+        .build_context(&ctx, &ContextBudget::default())
+        .unwrap();
+    assert_eq!(
+        bundle.summary["geography_crosswalks"][0]["geography_entity_id"],
+        "chengdu"
+    );
+    assert_eq!(
+        bundle.summary["geography_crosswalks"][0]["history_place_id"],
+        "cbdb-place-406333"
+    );
+}
+
 // 不支持的 entity kind → controlled context error
 #[test]
 fn history_context_rejects_unknown_entity_kind() {
@@ -437,8 +522,8 @@ fn registration_exposes_descriptor_and_tools() {
     let descriptors = modules.descriptors();
     assert_eq!(descriptors.len(), 1);
     assert_eq!(descriptors[0].id, "history");
-    assert_eq!(descriptors[0].tools.len(), 5);
-    assert_eq!(tools.len(), 5);
+    assert_eq!(descriptors[0].tools.len(), 6);
+    assert_eq!(tools.len(), 6);
     for name in history_tool_names() {
         let spec = tools.spec(name).expect("missing tool");
         // V5：ensure_enrichment 为 SafeWrite（只写派生缓存）；其余 Read

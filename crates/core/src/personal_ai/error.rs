@@ -28,6 +28,8 @@ pub enum AgentErrorKind {
     Session,
     /// 输入超出模型能力（V11 §104：如 vision=false 时收到图片）。
     UnsupportedInput,
+    /// User cancelled an in-flight Agent request.
+    Cancelled,
 }
 
 impl AgentErrorKind {
@@ -44,6 +46,7 @@ impl AgentErrorKind {
             Self::MaxToolRounds => "personal_ai_max_tool_rounds",
             Self::Session => "personal_ai_session_error",
             Self::UnsupportedInput => "personal_ai_unsupported_input",
+            Self::Cancelled => "personal_ai_cancelled",
         }
     }
 }
@@ -105,6 +108,12 @@ impl AgentError {
         Self::new(AgentErrorKind::Session, message)
     }
 
+    /// User cancellation is a distinct terminal condition, not a provider failure.
+    #[must_use]
+    pub fn cancelled(message: impl Into<String>) -> Self {
+        Self::new(AgentErrorKind::Cancelled, message)
+    }
+
     /// 输入超出模型能力（V11 §104：明确拒绝，不假装分析）。
     #[must_use]
     pub fn unsupported_input(message: impl Into<String>) -> Self {
@@ -133,6 +142,7 @@ mod tests {
             AgentErrorKind::ContextError,
             AgentErrorKind::MaxToolRounds,
             AgentErrorKind::Session,
+            AgentErrorKind::Cancelled,
         ];
         let codes: std::collections::HashSet<&str> = kinds.iter().map(|k| k.code()).collect();
         assert_eq!(codes.len(), kinds.len(), "codes must be unique");

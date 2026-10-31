@@ -101,6 +101,249 @@ pub struct AppSettings {
     pub decision: DecisionSettings,
 }
 
+/// Settings payload safe to return to a client. Provider credentials remain in
+/// `AppSettings`; this DTO exposes only configured flags and non-secret values.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(default)]
+pub struct PublicAppSettings {
+    pub schema_version: u8,
+    pub recent_files: Vec<PathBuf>,
+    pub workspace_path: Option<PathBuf>,
+    pub theme_mode: ThemeMode,
+    pub ui_theme: String,
+    pub rss_refresh_minutes: u32,
+    pub editor_font_size: u8,
+    pub auto_save: bool,
+    pub markdown_default_view: MarkdownView,
+    pub travel: PublicTravelSettings,
+    pub geography: PublicGeographySettings,
+    pub ai: PublicAiSettings,
+    pub knowledge: KnowledgeSettings,
+    pub server: ServerSettings,
+    pub decision: PublicDecisionSettings,
+    pub secrets: SecretSettingsStatus,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[serde(default)]
+pub struct PublicTravelSettings {
+    pub search_backend: TravelSearchBackend,
+    pub searxng_url: Option<String>,
+    pub llm_base_url: Option<String>,
+    pub llm_model: Option<String>,
+    pub qweather_api_host: Option<String>,
+}
+
+/// Geography currently has no client-readable settings. Keep the section stable
+/// in the public contract without exposing its browser-map credentials.
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[serde(default)]
+pub struct PublicGeographySettings {}
+
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[serde(default)]
+pub struct PublicAiSettings {
+    pub provider: Option<String>,
+    pub model: Option<String>,
+    pub base_url: Option<String>,
+    pub timeout_secs: Option<u64>,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(default)]
+pub struct PublicDecisionSettings {
+    pub mode: String,
+    pub jev_base_url: Option<String>,
+    pub jev_model: Option<String>,
+    pub jev_timeout_secs: u64,
+    pub jev_failure_fallback: bool,
+    pub multi_agent_enabled: bool,
+    pub max_workers: usize,
+}
+
+impl Default for PublicDecisionSettings {
+    fn default() -> Self {
+        let settings = DecisionSettings::default();
+        Self {
+            mode: settings.mode,
+            jev_base_url: settings.jev_base_url,
+            jev_model: settings.jev_model,
+            jev_timeout_secs: settings.jev_timeout_secs,
+            jev_failure_fallback: settings.jev_failure_fallback,
+            multi_agent_enabled: settings.multi_agent_enabled,
+            max_workers: settings.max_workers,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[serde(default)]
+pub struct SecretSettingsStatus {
+    pub ai_api_key_configured: bool,
+    pub travel_llm_api_key_configured: bool,
+    pub travel_amap_api_key_configured: bool,
+    pub travel_qweather_api_key_configured: bool,
+    pub travel_baidu_map_api_key_configured: bool,
+    pub geography_amap_api_key_configured: bool,
+    pub geography_amap_security_js_code_configured: bool,
+    pub jev_api_key_configured: bool,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SecretSettingsField {
+    AiApiKey,
+    TravelLlmApiKey,
+    TravelAmapApiKey,
+    TravelQweatherApiKey,
+    TravelBaiduMapApiKey,
+    GeographyAmapApiKey,
+    GeographyAmapSecurityJsCode,
+    JevApiKey,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct SecretSettingsValueUpdate {
+    pub field: SecretSettingsField,
+    /// `null` clears a stored credential; the raw value is accepted only on this
+    /// dedicated write path and is never included in a settings read response.
+    pub value: Option<String>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[serde(default)]
+pub struct SecretSettingsUpdate {
+    pub updates: Vec<SecretSettingsValueUpdate>,
+}
+
+impl AppSettings {
+    /// Build the client-safe settings DTO. No credential value is copied.
+    #[must_use]
+    pub fn public_view(&self) -> PublicAppSettings {
+        PublicAppSettings {
+            schema_version: self.schema_version,
+            recent_files: self.recent_files.clone(),
+            workspace_path: self.workspace_path.clone(),
+            theme_mode: self.theme_mode.clone(),
+            ui_theme: self.ui_theme.clone(),
+            rss_refresh_minutes: self.rss_refresh_minutes,
+            editor_font_size: self.editor_font_size,
+            auto_save: self.auto_save,
+            markdown_default_view: self.markdown_default_view.clone(),
+            travel: PublicTravelSettings {
+                search_backend: self.travel.search_backend.clone(),
+                searxng_url: self.travel.searxng_url.clone(),
+                llm_base_url: self.travel.llm_base_url.clone(),
+                llm_model: self.travel.llm_model.clone(),
+                qweather_api_host: self.travel.qweather_api_host.clone(),
+            },
+            geography: PublicGeographySettings::default(),
+            ai: PublicAiSettings {
+                provider: self.ai.provider.clone(),
+                model: self.ai.model.clone(),
+                base_url: self.ai.base_url.clone(),
+                timeout_secs: self.ai.timeout_secs,
+            },
+            knowledge: self.knowledge.clone(),
+            server: self.server.clone(),
+            decision: PublicDecisionSettings {
+                mode: self.decision.mode.clone(),
+                jev_base_url: self.decision.jev_base_url.clone(),
+                jev_model: self.decision.jev_model.clone(),
+                jev_timeout_secs: self.decision.jev_timeout_secs,
+                jev_failure_fallback: self.decision.jev_failure_fallback,
+                multi_agent_enabled: self.decision.multi_agent_enabled,
+                max_workers: self.decision.max_workers,
+            },
+            secrets: SecretSettingsStatus {
+                ai_api_key_configured: has_secret(&self.ai.api_key),
+                travel_llm_api_key_configured: has_secret(&self.travel.llm_api_key),
+                travel_amap_api_key_configured: has_secret(&self.travel.amap_api_key),
+                travel_qweather_api_key_configured: has_secret(&self.travel.qweather_api_key),
+                travel_baidu_map_api_key_configured: has_secret(&self.travel.baidu_map_api_key),
+                geography_amap_api_key_configured: has_secret(&self.geography.amap_api_key),
+                geography_amap_security_js_code_configured: has_secret(
+                    &self.geography.amap_security_js_code,
+                ),
+                jev_api_key_configured: has_secret(&self.decision.jev_api_key),
+            },
+        }
+    }
+
+    /// Apply non-secret client settings while preserving backend-owned credentials.
+    pub fn apply_public_settings(&mut self, public: &PublicAppSettings) {
+        self.schema_version = public.schema_version;
+        self.recent_files.clone_from(&public.recent_files);
+        self.workspace_path.clone_from(&public.workspace_path);
+        self.theme_mode = public.theme_mode.clone();
+        self.ui_theme.clone_from(&public.ui_theme);
+        self.rss_refresh_minutes = public.rss_refresh_minutes;
+        self.editor_font_size = public.editor_font_size;
+        self.auto_save = public.auto_save;
+        self.markdown_default_view = public.markdown_default_view.clone();
+        self.travel.search_backend = public.travel.search_backend.clone();
+        self.travel
+            .searxng_url
+            .clone_from(&public.travel.searxng_url);
+        self.travel
+            .llm_base_url
+            .clone_from(&public.travel.llm_base_url);
+        self.travel.llm_model.clone_from(&public.travel.llm_model);
+        self.travel
+            .qweather_api_host
+            .clone_from(&public.travel.qweather_api_host);
+        self.ai.provider.clone_from(&public.ai.provider);
+        self.ai.model.clone_from(&public.ai.model);
+        self.ai.base_url.clone_from(&public.ai.base_url);
+        self.ai.timeout_secs = public.ai.timeout_secs;
+        self.knowledge.clone_from(&public.knowledge);
+        self.server.clone_from(&public.server);
+        self.decision.mode.clone_from(&public.decision.mode);
+        self.decision
+            .jev_base_url
+            .clone_from(&public.decision.jev_base_url);
+        self.decision
+            .jev_model
+            .clone_from(&public.decision.jev_model);
+        self.decision.jev_timeout_secs = public.decision.jev_timeout_secs;
+        self.decision.jev_failure_fallback = public.decision.jev_failure_fallback;
+        self.decision.multi_agent_enabled = public.decision.multi_agent_enabled;
+        self.decision.max_workers = public.decision.max_workers;
+    }
+
+    /// Apply an explicit credential write/clear. Empty strings are treated as
+    /// clears; otherwise values are preserved exactly as entered.
+    pub fn apply_secret_updates(&mut self, update: &SecretSettingsUpdate) {
+        for item in &update.updates {
+            let value = item.value.clone().filter(|value| !value.trim().is_empty());
+            match item.field {
+                SecretSettingsField::AiApiKey => self.ai.api_key = value,
+                SecretSettingsField::TravelLlmApiKey => self.travel.llm_api_key = value,
+                SecretSettingsField::TravelAmapApiKey => self.travel.amap_api_key = value,
+                SecretSettingsField::TravelQweatherApiKey => self.travel.qweather_api_key = value,
+                SecretSettingsField::TravelBaiduMapApiKey => self.travel.baidu_map_api_key = value,
+                SecretSettingsField::GeographyAmapApiKey => self.geography.amap_api_key = value,
+                SecretSettingsField::GeographyAmapSecurityJsCode => {
+                    self.geography.amap_security_js_code = value;
+                }
+                SecretSettingsField::JevApiKey => self.decision.jev_api_key = value,
+            }
+        }
+    }
+}
+
+impl Default for PublicAppSettings {
+    fn default() -> Self {
+        AppSettings::default().public_view()
+    }
+}
+
+fn has_secret(value: &Option<String>) -> bool {
+    value
+        .as_deref()
+        .is_some_and(|value| !value.trim().is_empty())
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ThemeMode {
@@ -555,5 +798,69 @@ mod tests {
         assert!(json.get("jev_api_key").is_none(), "空 key 不得序列化");
         assert_eq!(json["mode"], "rule");
         assert_eq!(json["max_workers"], 4);
+    }
+
+    #[test]
+    fn public_settings_expose_secret_status_but_never_secret_values() {
+        let mut settings = AppSettings::default();
+        settings.ai.api_key = Some("ai-secret-marker".into());
+        settings.travel.llm_api_key = Some("travel-secret-marker".into());
+        settings.geography.amap_api_key = Some("map-secret-marker".into());
+        settings.decision.jev_api_key = Some("jev-secret-marker".into());
+
+        let json = serde_json::to_string(&settings.public_view()).expect("serialize public view");
+        for secret in [
+            "ai-secret-marker",
+            "travel-secret-marker",
+            "map-secret-marker",
+            "jev-secret-marker",
+        ] {
+            assert!(!json.contains(secret), "public settings leaked {secret}");
+        }
+        let parsed: serde_json::Value = serde_json::from_str(&json).expect("valid json");
+        assert_eq!(parsed["secrets"]["ai_api_key_configured"], true);
+        assert_eq!(parsed["secrets"]["travel_llm_api_key_configured"], true);
+        assert_eq!(parsed["secrets"]["geography_amap_api_key_configured"], true);
+        assert_eq!(parsed["secrets"]["jev_api_key_configured"], true);
+        assert!(parsed["ai"].get("api_key").is_none());
+        assert!(parsed["travel"].get("llm_api_key").is_none());
+        assert!(parsed["geography"].get("amap_api_key").is_none());
+        assert!(parsed["decision"].get("jev_api_key").is_none());
+    }
+
+    #[test]
+    fn public_settings_update_preserves_secrets_and_secret_updates_are_explicit() {
+        let mut settings = AppSettings::default();
+        settings.ai.api_key = Some("preserve-me".into());
+        settings.travel.amap_api_key = Some("also-preserve".into());
+
+        let mut public = settings.public_view();
+        public.ai.base_url = Some("https://example.test/v1".into());
+        public.secrets.ai_api_key_configured = false; // Client status is not authoritative.
+        settings.apply_public_settings(&public);
+        assert_eq!(settings.ai.api_key.as_deref(), Some("preserve-me"));
+        assert_eq!(
+            settings.travel.amap_api_key.as_deref(),
+            Some("also-preserve")
+        );
+        assert_eq!(
+            settings.ai.base_url.as_deref(),
+            Some("https://example.test/v1")
+        );
+
+        settings.apply_secret_updates(&SecretSettingsUpdate {
+            updates: vec![SecretSettingsValueUpdate {
+                field: SecretSettingsField::AiApiKey,
+                value: Some("replacement".into()),
+            }],
+        });
+        assert_eq!(settings.ai.api_key.as_deref(), Some("replacement"));
+        settings.apply_secret_updates(&SecretSettingsUpdate {
+            updates: vec![SecretSettingsValueUpdate {
+                field: SecretSettingsField::AiApiKey,
+                value: None,
+            }],
+        });
+        assert_eq!(settings.ai.api_key, None);
     }
 }

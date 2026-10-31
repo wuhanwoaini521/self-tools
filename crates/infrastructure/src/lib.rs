@@ -13,6 +13,7 @@ pub mod history_enrichment;
 pub mod knowledge_runtime;
 pub mod language;
 pub mod learning;
+pub mod legacy_config_migration;
 pub mod memory;
 pub mod news_migration;
 #[cfg(test)]

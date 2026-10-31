@@ -63,7 +63,9 @@ async fn get_json(
         .timeout(DATA_TIMEOUT)
         .send()
         .await
-        .map_err(|error| ProviderError::data(format!("{provider}: {error}")))?;
+        // reqwest errors may contain the full URL; AMap keys are query params.
+        // Return a neutral message rather than leaking the credential to UI/errors.
+        .map_err(|_| ProviderError::data(format!("{provider}: request failed")))?;
     if !response.status().is_success() {
         return Err(ProviderError::data(format!(
             "{provider}: server returned {}",
@@ -73,7 +75,7 @@ async fn get_json(
     let bytes = response
         .bytes()
         .await
-        .map_err(|error| ProviderError::data(format!("{provider}: {error}")))?;
+        .map_err(|_| ProviderError::data(format!("{provider}: response body unavailable")))?;
     serde_json::from_slice(&bytes)
         .map_err(|error| ProviderError::data(format!("{provider}: bad json: {error}")))
 }

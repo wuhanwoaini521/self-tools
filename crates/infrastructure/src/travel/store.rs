@@ -14,7 +14,7 @@ use rusqlite::{Connection, OptionalExtension};
 use crate::error::InfrastructureError;
 use devtoolbox_core::travel::{
     CityGuide, DOCUMENT_TTL_SECS, GUIDE_TTL_SECS, GuideSummary, SEARCH_TTL_SECS, SearchResult,
-    TravelDateRange, TravelDocument, is_fresh,
+    TravelDateRange, TravelDocument, TravelPlan, TravelPlanContext, is_fresh,
 };
 
 /// 缓存条目（搜索结果 / 文档共用）。
@@ -38,6 +38,9 @@ impl TravelStore {
                 .map_err(|source| crate::error::io_error(parent, source))?;
         }
         let connection = Connection::open(path)
+            .map_err(|source| InfrastructureError::Sqlite(source.to_string()))?;
+        connection
+            .busy_timeout(std::time::Duration::from_secs(5))
             .map_err(|source| InfrastructureError::Sqlite(source.to_string()))?;
         connection
             .pragma_update(None, "foreign_keys", "ON")
@@ -81,9 +84,50 @@ impl TravelStore {
                     PRIMARY KEY (city, days, date_start, date_end)
                 );
                 CREATE INDEX IF NOT EXISTS idx_travel_date_guides_updated
-                    ON travel_date_guides(updated_at DESC);",
+                    ON travel_date_guides(updated_at DESC);
+                CREATE TABLE IF NOT EXISTS travel_plans (
+                    city TEXT NOT NULL,
+                    days INTEGER NOT NULL,
+                    date_start TEXT NOT NULL,
+                    date_end TEXT NOT NULL,
+                    updated_at INTEGER NOT NULL,
+                    revision INTEGER NOT NULL DEFAULT 0,
+                    plan_json TEXT NOT NULL,
+                    PRIMARY KEY (city, days, date_start, date_end)
+                );
+                CREATE INDEX IF NOT EXISTS idx_travel_plans_updated
+                    ON travel_plans(updated_at DESC);",
             )
-            .map_err(|source| InfrastructureError::Sqlite(source.to_string()))
+            .map_err(|source| InfrastructureError::Sqlite(source.to_string()))?;
+
+        let has_revision = {
+            let mut statement = self
+                .connection
+                .prepare("PRAGMA table_info(travel_plans)")
+                .map_err(|source| InfrastructureError::Sqlite(source.to_string()))?;
+            let columns = statement
+                .query_map([], |row| row.get::<_, String>(1))
+                .map_err(|source| InfrastructureError::Sqlite(source.to_string()))?;
+            let mut found = false;
+            for column in columns {
+                if column.map_err(|source| InfrastructureError::Sqlite(source.to_string()))?
+                    == "revision"
+                {
+                    found = true;
+                    break;
+                }
+            }
+            found
+        };
+        if !has_revision {
+            self.connection
+                .execute(
+                    "ALTER TABLE travel_plans ADD COLUMN revision INTEGER NOT NULL DEFAULT 0",
+                    [],
+                )
+                .map_err(|source| InfrastructureError::Sqlite(source.to_string()))?;
+        }
+        Ok(())
     }
 
     /// 读取攻略（未命中 / 过期返回 `None`；JSON 损坏返回 Err）。
@@ -353,13 +397,144 @@ impl TravelStore {
             .map_err(|source| InfrastructureError::Sqlite(source.to_string()))?;
         Ok(())
     }
+
+    /// Load a persisted itinerary draft for its normalized context.
+    pub fn get_plan(
+        &self,
+        context: &TravelPlanContext,
+    ) -> Result<Option<TravelPlan>, InfrastructureError> {
+        let (date_start, date_end) = context
+            .date_range
+            .as_ref()
+            .map_or(("", ""), |range| (range.start.as_str(), range.end.as_str()));
+        let plan_json = self
+            .connection
+            .query_row(
+                "SELECT plan_json, updated_at, revision FROM travel_plans
+                 WHERE city = ?1 AND days = ?2 AND date_start = ?3 AND date_end = ?4",
+                rusqlite::params![context.city, context.days, date_start, date_end],
+                |row| {
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, i64>(1)?,
+                        row.get::<_, i64>(2)?,
+                    ))
+                },
+            )
+            .optional()
+            .map_err(|source| InfrastructureError::Sqlite(source.to_string()))?;
+        plan_json
+            .map(|(json, updated_at, revision)| {
+                let plan: TravelPlan = serde_json::from_str(&json)
+                    .map_err(|source| InfrastructureError::TravelFetch(source.to_string()))?;
+                let mut plan = plan
+                    .validate()
+                    .map_err(|source| InfrastructureError::TravelFetch(source.to_string()))?;
+                plan.updated_at = updated_at;
+                plan.revision = revision;
+                if plan.context != *context {
+                    return Err(InfrastructureError::TravelFetch(
+                        "行程存储上下文不匹配".to_string(),
+                    ));
+                }
+                Ok(plan)
+            })
+            .transpose()
+    }
+
+    /// List persisted plans in most-recently-updated order.
+    pub fn list_plans(&self, limit: usize) -> Result<Vec<TravelPlan>, InfrastructureError> {
+        let limit = limit.clamp(1, 100) as i64;
+        let mut statement = self
+            .connection
+            .prepare(
+                "SELECT plan_json, updated_at, revision FROM travel_plans
+                 ORDER BY updated_at DESC LIMIT ?1",
+            )
+            .map_err(|source| InfrastructureError::Sqlite(source.to_string()))?;
+        let rows = statement
+            .query_map([limit], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, i64>(1)?,
+                    row.get::<_, i64>(2)?,
+                ))
+            })
+            .map_err(|source| InfrastructureError::Sqlite(source.to_string()))?;
+        rows.map(|row| {
+            let (json, updated_at, revision) =
+                row.map_err(|source| InfrastructureError::Sqlite(source.to_string()))?;
+            let plan: TravelPlan = serde_json::from_str(&json)
+                .map_err(|source| InfrastructureError::TravelFetch(source.to_string()))?;
+            let mut plan = plan
+                .validate()
+                .map_err(|source| InfrastructureError::TravelFetch(source.to_string()))?;
+            plan.updated_at = updated_at;
+            plan.revision = revision;
+            Ok(plan)
+        })
+        .collect()
+    }
+
+    /// Persist a validated itinerary draft and assign its backend-owned timestamp.
+    pub fn upsert_plan(
+        &self,
+        plan: &TravelPlan,
+        now: i64,
+    ) -> Result<TravelPlan, InfrastructureError> {
+        let mut stored = plan
+            .clone()
+            .validate()
+            .map_err(|source| InfrastructureError::TravelFetch(source.to_string()))?;
+        let expected_revision = stored.revision;
+        stored.revision = expected_revision + 1;
+        stored.updated_at = now;
+        let json = serde_json::to_string(&stored)
+            .map_err(|source| InfrastructureError::TravelFetch(source.to_string()))?;
+        let (date_start, date_end) = stored
+            .context
+            .date_range
+            .as_ref()
+            .map_or(("", ""), |range| (range.start.as_str(), range.end.as_str()));
+        let changed = self
+            .connection
+            .execute(
+                "INSERT INTO travel_plans
+                    (city, days, date_start, date_end, updated_at, revision, plan_json)
+                 SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7
+                 WHERE ?8 = 0 OR EXISTS (
+                    SELECT 1 FROM travel_plans
+                    WHERE city = ?1 AND days = ?2 AND date_start = ?3 AND date_end = ?4
+                 )
+                 ON CONFLICT(city, days, date_start, date_end) DO UPDATE SET
+                    updated_at = excluded.updated_at,
+                    revision = travel_plans.revision + 1,
+                    plan_json = excluded.plan_json
+                 WHERE travel_plans.revision = ?8",
+                rusqlite::params![
+                    stored.context.city,
+                    stored.context.days,
+                    date_start,
+                    date_end,
+                    now,
+                    stored.revision,
+                    json,
+                    expected_revision
+                ],
+            )
+            .map_err(|source| InfrastructureError::Sqlite(source.to_string()))?;
+        if changed == 0 {
+            return Err(InfrastructureError::TravelPlanConflict);
+        }
+        Ok(stored)
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use devtoolbox_core::travel::{
         CityGuide, CityInfo, ContentState, GuideMeta, SearchResult, TravelDateRange,
-        TravelDocument, is_fresh,
+        TravelDocument, TravelPlan, TravelPlanContext, is_fresh,
     };
 
     use super::{DOCUMENT_TTL_SECS, TravelStore};
@@ -435,6 +610,211 @@ mod tests {
                 .expect("get")
                 .is_none()
         );
+    }
+
+    #[test]
+    fn travel_plan_round_trips_and_is_keyed_by_trip_context() {
+        let (_dir, store) = open();
+        let context = TravelPlanContext {
+            city: "杭州".to_string(),
+            days: 2,
+            date_range: Some(TravelDateRange {
+                start: "2026-10-01".to_string(),
+                end: "2026-10-02".to_string(),
+            }),
+        };
+        let plan = TravelPlan {
+            context: context.clone(),
+            selected_keys: vec!["poi-west-lake".to_string()],
+            assigned_days: [("poi-west-lake".to_string(), 2)].into(),
+            must_visit_keys: vec!["poi-west-lake".to_string()],
+            updated_at: 0,
+            ..TravelPlan::default()
+        };
+        let stored = store.upsert_plan(&plan, 1_800_000_000).expect("save plan");
+        assert_eq!(stored.updated_at, 1_800_000_000);
+        assert_eq!(store.get_plan(&context).expect("load"), Some(stored));
+
+        let other_context = TravelPlanContext {
+            date_range: None,
+            ..context
+        };
+        assert!(
+            store
+                .get_plan(&other_context)
+                .expect("other trip")
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn stale_revision_cannot_overwrite_a_newer_trip_plan() {
+        let (_dir, store) = open();
+        let context = TravelPlanContext {
+            city: "杭州".to_string(),
+            days: 2,
+            date_range: None,
+        };
+        let initial = TravelPlan {
+            context: context.clone(),
+            selected_keys: vec!["poi-first".to_string()],
+            assigned_days: Default::default(),
+            must_visit_keys: Vec::new(),
+            updated_at: 0,
+            revision: 0,
+            ..TravelPlan::default()
+        };
+        let created = store.upsert_plan(&initial, 10).expect("create plan");
+        assert_eq!(created.revision, 1);
+
+        let mut latest = created.clone();
+        latest.selected_keys = vec!["poi-latest".to_string()];
+        let latest = store.upsert_plan(&latest, 11).expect("update plan");
+        assert_eq!(latest.revision, 2);
+
+        let mut stale = created;
+        stale.selected_keys = vec!["poi-stale".to_string()];
+        assert!(matches!(
+            store.upsert_plan(&stale, 12),
+            Err(crate::error::InfrastructureError::TravelPlanConflict)
+        ));
+
+        let recovered = store
+            .get_plan(&context)
+            .expect("read plan")
+            .expect("exists");
+        assert_eq!(recovered.selected_keys, ["poi-latest"]);
+        assert_eq!(recovered.revision, 2);
+    }
+
+    #[test]
+    fn recent_plans_can_be_reopened_in_backend_update_order() {
+        let (_dir, store) = open();
+        let first = TravelPlan {
+            context: TravelPlanContext {
+                city: "杭州".to_string(),
+                days: 2,
+                date_range: None,
+            },
+            title: "西湖慢行".to_string(),
+            ..TravelPlan::default()
+        };
+        let second = TravelPlan {
+            context: TravelPlanContext {
+                city: "成都".to_string(),
+                days: 3,
+                date_range: None,
+            },
+            title: "成都手排行程".to_string(),
+            ..TravelPlan::default()
+        };
+        store.upsert_plan(&first, 10).expect("save first plan");
+        store.upsert_plan(&second, 20).expect("save second plan");
+
+        let recent = store.list_plans(10).expect("list recent plans");
+        assert_eq!(recent.len(), 2);
+        assert_eq!(recent[0].context.city, "成都");
+        assert_eq!(recent[0].title, "成都手排行程");
+        assert_eq!(recent[0].revision, 1);
+        assert_eq!(recent[1].context.city, "杭州");
+    }
+
+    #[test]
+    fn older_plan_schema_migrates_without_losing_saved_itinerary() {
+        let directory = tempfile::tempdir().expect("temp dir");
+        let path = directory.path().join("travel.db");
+        let connection = rusqlite::Connection::open(&path).expect("legacy db");
+        connection
+            .execute_batch(
+                "CREATE TABLE travel_plans (
+                    city TEXT NOT NULL,
+                    days INTEGER NOT NULL,
+                    date_start TEXT NOT NULL,
+                    date_end TEXT NOT NULL,
+                    updated_at INTEGER NOT NULL,
+                    plan_json TEXT NOT NULL,
+                    PRIMARY KEY (city, days, date_start, date_end)
+                );",
+            )
+            .expect("legacy schema");
+        connection
+            .execute(
+                "INSERT INTO travel_plans VALUES (?1, ?2, '', '', ?3, ?4)",
+                rusqlite::params![
+                    "杭州",
+                    2,
+                    77_i64,
+                    r#"{"context":{"city":"杭州","days":2,"date_range":null},"selected_keys":["poi-old"],"assigned_days":{},"must_visit_keys":[],"updated_at":77}"#,
+                ],
+            )
+            .expect("legacy plan");
+        drop(connection);
+
+        let store = TravelStore::open(&path).expect("migrate legacy db");
+        let context = TravelPlanContext {
+            city: "杭州".to_string(),
+            days: 2,
+            date_range: None,
+        };
+        let plan = store.get_plan(&context).expect("read migrated").unwrap();
+        assert_eq!(plan.selected_keys, ["poi-old"]);
+        assert_eq!(plan.revision, 0);
+        assert_eq!(plan.updated_at, 77);
+        assert_eq!(plan.title, "");
+
+        let saved = store.upsert_plan(&plan, 88).expect("save migrated plan");
+        assert_eq!(saved.revision, 1);
+        assert_eq!(saved.selected_keys, ["poi-old"]);
+    }
+
+    #[test]
+    fn concurrent_sqlite_clients_have_one_winner_for_the_same_revision() {
+        let directory = tempfile::tempdir().expect("temp dir");
+        let path = directory.path().join("travel.db");
+        let first_store = TravelStore::open(&path).expect("first client");
+        let second_store = TravelStore::open(&path).expect("second client");
+        let context = TravelPlanContext {
+            city: "杭州".to_string(),
+            days: 2,
+            date_range: None,
+        };
+        let initial = TravelPlan {
+            context: context.clone(),
+            selected_keys: vec!["poi-base".to_string()],
+            ..TravelPlan::default()
+        };
+        let base = first_store.upsert_plan(&initial, 10).expect("create");
+        let mut first_edit = base.clone();
+        first_edit.selected_keys = vec!["poi-client-a".to_string()];
+        let mut second_edit = base;
+        second_edit.selected_keys = vec!["poi-client-b".to_string()];
+
+        let gate = std::sync::Arc::new(std::sync::Barrier::new(2));
+        let first_gate = gate.clone();
+        let first = std::thread::spawn(move || {
+            first_gate.wait();
+            first_store.upsert_plan(&first_edit, 11)
+        });
+        let second = std::thread::spawn(move || {
+            gate.wait();
+            second_store.upsert_plan(&second_edit, 12)
+        });
+        let first_result = first.join().expect("first client joined");
+        let second_result = second.join().expect("second client joined");
+        assert_ne!(first_result.is_ok(), second_result.is_ok());
+
+        let winner = first_result
+            .as_ref()
+            .ok()
+            .or_else(|| second_result.as_ref().ok())
+            .expect("exactly one current-revision write succeeds");
+        let persisted = TravelStore::open(&path)
+            .expect("reopen store")
+            .get_plan(&context)
+            .expect("read plan")
+            .expect("plan exists");
+        assert_eq!(persisted.selected_keys, winner.selected_keys);
+        assert_eq!(persisted.revision, 2);
     }
 
     #[test]

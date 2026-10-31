@@ -29,11 +29,12 @@ pub enum SearchSource {
     Documents,
     Files,
     StudyBoard,
+    Collections,
     Applications,
 }
 
 impl SearchSource {
-    pub const ALL: [SearchSource; 9] = [
+    pub const ALL: [SearchSource; 10] = [
         SearchSource::History,
         SearchSource::Travel,
         SearchSource::Geography,
@@ -42,6 +43,7 @@ impl SearchSource {
         SearchSource::Documents,
         SearchSource::Files,
         SearchSource::StudyBoard,
+        SearchSource::Collections,
         SearchSource::Applications,
     ];
 
@@ -56,6 +58,7 @@ impl SearchSource {
             SearchSource::Documents => "documents",
             SearchSource::Files => "files",
             SearchSource::StudyBoard => "study_board",
+            SearchSource::Collections => "collections",
             SearchSource::Applications => "applications",
         }
     }
@@ -71,6 +74,7 @@ impl SearchSource {
             SearchSource::Documents => "文档",
             SearchSource::Files => "文件",
             SearchSource::StudyBoard => "学习看板",
+            SearchSource::Collections => "专题合集",
             SearchSource::Applications => "应用",
         }
     }

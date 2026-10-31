@@ -10,10 +10,10 @@ use std::fmt;
 
 use devtoolbox_core::history_records::{
     DatasetStats, EventEvidenceResult, EventHistoricalTextResult, EventPersonResult,
-    EventPlaceResult, EventRelationResult, EventResult, HistoricalTextResult, PeriodEventItem,
-    PeriodPersonItem, PeriodResult, PersonEventResult, PersonPlaceResult, PersonRelationResult,
-    PersonResult, PersonStoryResult, RegimeResult, SourceResult, StoryEventResult, StoryResult,
-    WorkResult,
+    EventPlaceResult, EventRelationResult, EventResult, EventStoryResult, HistoricalTextResult,
+    PeriodEventItem, PeriodPersonItem, PeriodResult, PersonEventResult, PersonPlaceResult,
+    PersonRelationResult, PersonResult, PersonStoryResult, RegimeResult, SourceResult,
+    StoryEventResult, StoryResult, WorkResult,
 };
 
 /// History 查询端口的错误（适配层负责把基础设施错误转换为可显示文本）。
@@ -56,6 +56,11 @@ pub trait HistoryQueryPort: Send + Sync {
     ) -> Result<Vec<StoryResult>, HistoryPortError>;
     fn get_story(&self, story_id: &str) -> Result<Option<StoryResult>, HistoryPortError>;
     fn get_story_events(&self, story_id: &str) -> Result<Vec<StoryEventResult>, HistoryPortError>;
+    /// Reviewed, stable-ID story associations for an event.
+    fn get_stories_for_event(
+        &self,
+        event_id: &str,
+    ) -> Result<Vec<EventStoryResult>, HistoryPortError>;
     fn get_story_people(&self, story_id: &str) -> Result<Vec<EventPersonResult>, HistoryPortError>;
     fn get_story_places(&self, story_id: &str) -> Result<Vec<EventPlaceResult>, HistoryPortError>;
     fn get_story_texts(
@@ -67,6 +72,9 @@ pub trait HistoryQueryPort: Send + Sync {
         story_id: &str,
     ) -> Result<Vec<EventEvidenceResult>, HistoryPortError>;
     fn get_event(&self, event_id: &str) -> Result<Option<EventResult>, HistoryPortError>;
+    /// Events associated with an exact, stable history place ID. Implementations must not
+    /// resolve this relationship by matching display names.
+    fn get_events_for_place(&self, place_id: &str) -> Result<Vec<EventResult>, HistoryPortError>;
     fn get_event_people(&self, event_id: &str) -> Result<Vec<EventPersonResult>, HistoryPortError>;
     fn get_event_places(&self, event_id: &str) -> Result<Vec<EventPlaceResult>, HistoryPortError>;
     fn get_event_relations(

@@ -78,7 +78,10 @@ fn read_oewn_zip(zip_path: &Path) -> Result<(JsonChunks, JsonChunks), ImportingE
         let mut member = archive
             .by_index(index)
             .map_err(|error| ImportingError::License(error.to_string()))?;
-        let name = member.name().to_string();
+        let name = member
+            .name()
+            .map_err(|error| ImportingError::License(error.to_string()))?
+            .into_owned();
         if !name.ends_with(".json") || name.ends_with("frames.json") {
             continue;
         }

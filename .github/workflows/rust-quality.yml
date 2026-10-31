@@ -17,7 +17,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@1.95.0
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: 24.22.0
           cache: npm
           cache-dependency-path: |
             apps/desktop/package-lock.json

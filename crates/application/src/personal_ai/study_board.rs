@@ -8,8 +8,8 @@
 //!    绘图永远是前端 canvas 行为，工具只登记或回传引用。
 //! 2. **后端不解释笔迹**（§109）：`strokes` 是不透明 JSON，原样存取；任何面向
 //!    模型的摘要走 [`devtoolbox_core::study_board::strokes_summary`]（有界、无坐标）。
-//! 3. **风险分级**（§110）：`list`/`get`/`snapshot` 为 `Read`；`save` 为
-//!    `SafeWrite`（白名单由 `registry::allowed_risk` 强制，本模块不绕过）。
+//! 3. **风险分级**（§110）：`list`/`get` 为 `Read`；`save` 与 `snapshot` 会持久化
+//!    用户笔迹/图片，标为 `SensitiveWrite`，仅注册供审计，未经确认不自动执行。
 //! 4. **隐私铁律**（§113/§114）：板与快照是用户私有数据 —— **不得**自动提升为
 //!    Personal Memory（工具路径永不调 memory 服务），**不得**进入日志 / 遥测；
 //!    错误文本只含稳定 reason，不含笔迹正文。
@@ -125,7 +125,7 @@ impl StudyBoardTools {
         ))
     }
 
-    /// `study-board.save`：创建/更新学习板（SafeWrite；幂等 upsert）。
+    /// `study-board.save`：创建/更新学习板（SensitiveWrite；幂等 upsert）。
     ///
     /// 不校验 / 不解释 `strokes` 内容（§109：笔迹由前端 canvas 产出后原样保存）。
     fn save(&self, arguments: &serde_json::Value) -> Result<ToolResult, AgentError> {
@@ -240,7 +240,7 @@ fn spec_for(name: &str) -> ToolSpec {
                     "module_origin": {"type": "string", "description": "来源模块（如 history / language）"}
                 }
             }),
-            ToolRisk::SafeWrite,
+            ToolRisk::SensitiveWrite,
         ),
         _ => (
             "登记一块学习板的快照引用（前端渲染 PNG 后传入 base64；不传则只登记摘要）。\
@@ -253,7 +253,7 @@ fn spec_for(name: &str) -> ToolSpec {
                     "png_base64": {"type": "string", "description": "前端渲染的 PNG（base64；可选）"}
                 }
             }),
-            ToolRisk::Read,
+            ToolRisk::SensitiveWrite,
         ),
     };
     ToolSpec {
@@ -367,8 +367,8 @@ impl ModuleContextProvider for StudyBoardProviderOwned {
 
 /// 注册 Study Board 模块（descriptor + 4 工具 + context provider）。
 ///
-/// `list`/`get`/`snapshot` 为 Read，`save` 为 SafeWrite（§110）：SafeWrite 白名单
-/// 由 [`crate::personal_ai::registry::allowed_risk`] 强制。
+/// `list`/`get` 为 Read，`save`/`snapshot` 为 SensitiveWrite：目录保留写能力，
+/// registry 在缺少明确用户确认流程时拒绝模型自动执行。
 pub fn register_study_board(
     modules: &mut ModuleRegistry,
     tools: &mut ToolRegistry,

@@ -13,10 +13,10 @@ use crate::error::InfrastructureError;
 
 pub use devtoolbox_core::history_records::{
     DatasetStats, EventEvidenceResult, EventHistoricalTextResult, EventPersonResult,
-    EventPlaceResult, EventRelationResult, EventResult, HistoricalTextResult, PeriodEventItem,
-    PeriodPersonItem, PeriodResult, PersonEventResult, PersonPlaceResult, PersonRelationResult,
-    PersonResult, PersonStoryResult, RegimeResult, SourceResult, StoryEventResult, StoryResult,
-    WorkResult,
+    EventPlaceResult, EventRelationResult, EventResult, EventStoryResult, HistoricalTextResult,
+    PeriodEventItem, PeriodPersonItem, PeriodResult, PersonEventResult, PersonPlaceResult,
+    PersonRelationResult, PersonResult, PersonStoryResult, RegimeResult, SourceResult,
+    StoryEventResult, StoryResult, WorkResult,
 };
 
 #[derive(Debug, Clone)]
@@ -369,6 +369,57 @@ impl HistoryDuckDbRepository {
         })
     }
 
+    /// Return only reviewed story-to-event links and reviewed, usable story records.
+    pub fn get_stories_for_event(
+        &self,
+        event_id: &str,
+    ) -> Result<Vec<EventStoryResult>, InfrastructureError> {
+        self.with_connection(|connection| {
+            let mut statement = connection.prepare(
+                "SELECT se.event_id,se.story_id,se.sequence,se.quality_status,
+                        s.id,s.title_zh_cn,s.start_year,s.end_year,s.summary_zh_cn,s.background_zh_cn,
+                        s.result_zh_cn,s.story_type,s.importance,s.period_id,s.quality_status,s.source_type,
+                        s.source_ids,s.usable,s.title_raw,s.period_ids,s.source_reference
+                 FROM story_events se
+                 JOIN events e ON e.id=se.event_id
+                 JOIN stories s ON s.id=se.story_id
+                 WHERE se.event_id=?1
+                   AND se.quality_status IN ('reviewed','verified','curated')
+                   AND e.quality_status IN ('reviewed','verified','curated')
+                   AND s.quality_status IN ('reviewed','verified','curated')
+                   AND s.usable=TRUE
+                 ORDER BY se.sequence NULLS LAST,se.story_id",
+            ).map_err(|error| InfrastructureError::DuckDb(error.to_string()))?;
+            let rows = statement.query_map(params![event_id], |row| Ok(EventStoryResult {
+                event_id: row.get(0)?,
+                story_id: row.get(1)?,
+                sequence: row.get(2)?,
+                link_quality_status: row.get(3)?,
+                story: StoryResult {
+                    id: row.get(4)?,
+                    title_zh_cn: row.get(5)?,
+                    start_year: row.get(6)?,
+                    end_year: row.get(7)?,
+                    summary_zh_cn: row.get(8)?,
+                    background_zh_cn: row.get(9)?,
+                    result_zh_cn: row.get(10)?,
+                    story_type: row.get(11)?,
+                    importance: row.get(12)?,
+                    period_id: row.get(13)?,
+                    quality_status: row.get(14)?,
+                    source_type: row.get(15)?,
+                    source_ids: row.get(16)?,
+                    usable: row.get(17)?,
+                    title_raw: row.get(18)?,
+                    period_ids: row.get(19)?,
+                    source_reference: row.get(20)?,
+                },
+            })).map_err(|error| InfrastructureError::DuckDb(error.to_string()))?;
+            rows.map(|row| row.map_err(|error| InfrastructureError::DuckDb(error.to_string())))
+                .collect()
+        })
+    }
+
     pub fn get_event(&self, query: &str) -> Result<Option<EventResult>, InfrastructureError> {
         self.with_connection(|connection| {
             let mut statement = connection.prepare(
@@ -384,6 +435,45 @@ impl HistoryDuckDbRepository {
                 process_zh_cn: row.get(10).map_err(|e| InfrastructureError::DuckDb(e.to_string()))?, result_zh_cn: row.get(11).map_err(|e| InfrastructureError::DuckDb(e.to_string()))?, impact_zh_cn: row.get(12).map_err(|e| InfrastructureError::DuckDb(e.to_string()))?, importance: row.get(13).map_err(|e| InfrastructureError::DuckDb(e.to_string()))?, quality_status: row.get(14).map_err(|e| InfrastructureError::DuckDb(e.to_string()))?, source_type: row.get(15).map_err(|e| InfrastructureError::DuckDb(e.to_string()))?, source_ids: row.get(16).map_err(|e| InfrastructureError::DuckDb(e.to_string()))?, period_ids: row.get(17).map_err(|e| InfrastructureError::DuckDb(e.to_string()))?, dynasty_ids: row.get(18).map_err(|e| InfrastructureError::DuckDb(e.to_string()))?, regime_ids: row.get(19).map_err(|e| InfrastructureError::DuckDb(e.to_string()))?, source_reference: row.get(20).map_err(|e| InfrastructureError::DuckDb(e.to_string()))?,
             }))
         })
+    }
+
+    /// Resolve reviewed, explicitly linked events for a canonical place ID.
+    /// Place names are intentionally not used as a join key.
+    pub fn get_events_for_place(
+        &self,
+        place_id: &str,
+    ) -> Result<Vec<EventResult>, InfrastructureError> {
+        let event_ids = self.with_connection(|connection| {
+            let mut statement = connection
+                .prepare(
+                    "SELECT DISTINCT event_id FROM event_place
+                 WHERE place_id=?1 AND link_status='linked'
+                   AND quality_status IN ('reviewed','verified','curated')
+                   AND link_quality_status IN ('reviewed','verified','curated')
+                 ORDER BY event_id",
+                )
+                .map_err(|error| InfrastructureError::DuckDb(error.to_string()))?;
+            let rows = statement
+                .query_map(params![place_id], |row| row.get::<_, String>(0))
+                .map_err(|error| InfrastructureError::DuckDb(error.to_string()))?;
+            rows.map(|row| row.map_err(|error| InfrastructureError::DuckDb(error.to_string())))
+                .collect::<Result<Vec<_>, _>>()
+        })?;
+        event_ids
+            .iter()
+            .filter_map(|event_id| match self.get_event(event_id) {
+                Ok(Some(event))
+                    if matches!(
+                        event.quality_status.as_deref(),
+                        Some("reviewed" | "verified" | "curated")
+                    ) =>
+                {
+                    Some(Ok(event))
+                }
+                Ok(_) => None,
+                Err(error) => Some(Err(error)),
+            })
+            .collect()
     }
 
     pub fn search_events(

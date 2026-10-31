@@ -4,7 +4,9 @@
 //! （desktop `travel_providers.rs` 里的适配器）装配，application 不接触 SQLite。
 //! 方法全部同步（短锁语义，不跨 await），错误以文本返回。
 
-use devtoolbox_core::travel::{CityGuide, SearchResult, TravelDocument};
+use devtoolbox_core::travel::{
+    CityGuide, SearchResult, TravelDocument, TravelPlan, TravelPlanContext,
+};
 
 /// Travel 缓存存储（攻略 / 搜索结果 / 页面文档）。
 pub trait TravelStorePort: Send + Sync {
@@ -34,6 +36,34 @@ pub trait TravelStorePort: Send + Sync {
 
     /// 写入页面文档缓存。
     fn put_document(&self, document: &TravelDocument, now: i64) -> Result<(), String>;
+}
+
+/// Compare-and-swap persistence boundary for user-owned itinerary plans.
+#[derive(Clone, Debug, thiserror::Error, Eq, PartialEq)]
+pub enum TravelPlanPortError {
+    #[error("行程版本已变化，请重新载入后再确认。")]
+    Conflict,
+    #[error("行程存储失败：{0}")]
+    Storage(String),
+}
+
+pub trait TravelPlanStorePort: Send + Sync {
+    fn get_plan(
+        &self,
+        context: &TravelPlanContext,
+    ) -> Result<Option<TravelPlan>, TravelPlanPortError>;
+    fn save_plan(&self, plan: &TravelPlan, now: i64) -> Result<TravelPlan, TravelPlanPortError>;
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct GeographyPlace {
+    pub id: String,
+    pub name: String,
+}
+
+/// Canonical Geography entity lookup; display-name search is deliberately not accepted.
+pub trait GeographyPlaceLookup: Send + Sync {
+    fn find_place(&self, stable_id: &str) -> Result<Option<GeographyPlace>, String>;
 }
 
 // ---------------------------------------------------------------------------

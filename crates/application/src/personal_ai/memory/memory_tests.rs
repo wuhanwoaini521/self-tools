@@ -141,10 +141,10 @@ fn registers_descriptor_and_five_tools_with_expected_risks() {
     assert_eq!(names, expected);
 
     for spec in tools.specs() {
-        let expected = if spec.name == "memory.save" || spec.name == "memory.archive" {
-            ToolRisk::SafeWrite
-        } else {
-            ToolRisk::Read
+        let expected = match spec.name.as_str() {
+            "memory.save" => ToolRisk::SafeWrite,
+            "memory.archive" => ToolRisk::SensitiveWrite,
+            _ => ToolRisk::Read,
         };
         assert_eq!(spec.risk, expected, "{}", spec.name);
         assert_eq!(spec.module, "memory");
@@ -289,14 +289,26 @@ fn archive_tool_is_reversible_and_removes_from_search() {
             "喜欢历史旅行",
         ))
         .unwrap();
-    let archived = block_on(tools.execute(&devtoolbox_core::ToolCallRequest {
+    let blocked = block_on(tools.execute(&devtoolbox_core::ToolCallRequest {
         id: "c".into(),
         name: "memory.archive".into(),
         arguments: json!({"id": item.id}),
     }))
-    .unwrap();
-    assert!(archived.ok);
-    assert_eq!(archived.data["memory"]["status"], "archived");
+    .unwrap_err();
+    assert_eq!(blocked.code(), "personal_ai_tool_execution_failed");
+    assert!(
+        blocked
+            .message
+            .contains("not eligible for automatic execution")
+    );
+    assert_eq!(
+        service.get(&item.id, true).unwrap().status,
+        MemoryStatus::Active
+    );
+
+    // The service still supports an explicit user-owned archive operation.
+    let archived = service.archive(&item.id).unwrap();
+    assert_eq!(archived.status, MemoryStatus::Archived);
 
     let searched = block_on(tools.execute(&devtoolbox_core::ToolCallRequest {
         id: "c".into(),

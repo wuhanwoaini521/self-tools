@@ -27,6 +27,9 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "resources": {
+      "../../history-data-pipeline/dist/history.duckdb": "history-data-pipeline/dist/history.duckdb"
+    },
     "windows": {
       "wix": {
         "language": "zh-CN"

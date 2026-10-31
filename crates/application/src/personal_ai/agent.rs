@@ -20,8 +20,8 @@ use crate::personal_ai::context::ContextBudget;
 use crate::personal_ai::prompt::{
     assemble_messages_with_parts, assemble_system, parse_agent_envelope, ui_snapshot,
 };
-use crate::personal_ai::registry::{ModuleRegistry, ToolRegistry};
-use crate::personal_ai::runtime::{ToolLoopConfig, run_tool_loop};
+use crate::personal_ai::registry::{ModuleRegistry, ToolRegistry, allowed_risk};
+use crate::personal_ai::runtime::{ToolLoopConfig, ToolLoopOptions, run_tool_loop_scoped};
 use crate::personal_ai::session::SessionStore;
 
 /// Agent 配置。
@@ -132,10 +132,18 @@ impl PersonalAgent {
             return Err(AgentError::unsupported_input(reason));
         }
 
-        // 有效模块集合（capabilities 过滤；空 = 全部）。
-        let enabled_tools = self.enabled_tools(&request.capabilities);
+        // Capabilities are a narrowing hint, never authority. The page module is also
+        // client-supplied context: it limits accidental tool exposure but is not an
+        // authenticated identity/authorization boundary for local HTTP clients.
+        let enabled_tools = self.enabled_tools(&request.app_context, &request.capabilities);
+        let scoped_modules = context_module_scope(request.app_context.module.as_deref());
+        let module_descriptors = exposed_module_descriptors(
+            self.hub.modules.descriptors(),
+            &scoped_modules,
+            &enabled_tools,
+        );
         let mut system = assemble_system(
-            &self.hub.modules.descriptors(),
+            &module_descriptors,
             &request.app_context,
             self.hub
                 .modules
@@ -148,6 +156,10 @@ impl PersonalAgent {
         // 是否注入、检索哪里、注入多少由注册的 `RetrievalAugmenter` 决定；
         // 未注册 / 无命中 / 检索失败 → 什么都不做（Principle 7）。
         if let Some(augmenter) = self.hub.retrieval.as_deref()
+            && matches!(
+                request.app_context.module.as_deref(),
+                Some("knowledge" | "memory" | "documents" | "files")
+            )
             && let Some(block) = augmenter
                 .augment(&request.message, &request.app_context)
                 .await
@@ -253,7 +265,10 @@ impl PersonalAgent {
         self.emit(AgentProgress::new(AgentStage::Thinking));
         // V9 Gate 3：工具循环抽取为共享 runtime（`personal_ai::runtime`），
         // PersonalAgent 与子 Agent 复用同一执行语义（§40）。
-        let loop_outcome = run_tool_loop(
+        let progress = |tool: &str| {
+            self.emit(AgentProgress::with_detail(AgentStage::CallingTool, tool));
+        };
+        let loop_outcome = run_tool_loop_scoped(
             self.provider.as_ref(),
             &self.hub.tools,
             chat_messages,
@@ -265,6 +280,10 @@ impl PersonalAgent {
                 max_tokens: None,
                 max_tool_calls: 0,
             },
+            ToolLoopOptions {
+                app_context: Some(&request.app_context),
+                on_tool_started: Some(&progress),
+            },
         )
         .await
         .inspect_err(|error| {
@@ -273,10 +292,18 @@ impl PersonalAgent {
         let mut total_usage = loop_outcome.usage;
         let trace = loop_outcome.tool_trace;
         let rounds = loop_outcome.rounds;
+        let citations = loop_outcome.citations;
+        let proposed_changes = loop_outcome.proposed_changes;
+        let trusted_actions = loop_outcome.actions;
 
         // 最终轮：解析 envelope
         let content = loop_outcome.content;
-        let (message, actions, ui_blocks) = parse_agent_envelope(&content);
+        let (message, mut actions, ui_blocks) = parse_agent_envelope(&content);
+        for action in trusted_actions {
+            if !actions.contains(&action) {
+                actions.push(action);
+            }
+        }
 
         // 写入会话并返回
         let mut session_messages = messages;
@@ -299,6 +326,9 @@ impl PersonalAgent {
         self.emit(AgentProgress::new(AgentStage::Done));
         Ok(AgentResponse {
             session_id,
+            trace_id: None,
+            citations,
+            proposed_changes,
             message,
             actions,
             ui_blocks,
@@ -311,14 +341,60 @@ impl PersonalAgent {
         })
     }
 
-    fn enabled_tools(&self, capabilities: &[String]) -> Vec<devtoolbox_core::ToolSpec> {
-        let all = self.hub.tools.specs();
-        if capabilities.is_empty() {
-            return all;
-        }
-        all.into_iter()
-            .filter(|spec| capabilities.contains(&spec.module))
+    fn enabled_tools(
+        &self,
+        context: &devtoolbox_core::AppContext,
+        capabilities: &[String],
+    ) -> Vec<devtoolbox_core::ToolSpec> {
+        let scope = context_module_scope(context.module.as_deref());
+        self.hub
+            .tools
+            .specs()
+            .into_iter()
+            .filter(|spec| {
+                allowed_risk(spec.risk)
+                    && scope.contains(&spec.module.as_str())
+                    && (capabilities.is_empty() || capabilities.contains(&spec.module))
+            })
             .collect()
+    }
+}
+
+fn exposed_module_descriptors(
+    descriptors: Vec<devtoolbox_core::ModuleDescriptor>,
+    scoped_modules: &[&str],
+    enabled_tools: &[devtoolbox_core::ToolSpec],
+) -> Vec<devtoolbox_core::ModuleDescriptor> {
+    descriptors
+        .into_iter()
+        .filter(|module| scoped_modules.contains(&module.id.as_str()))
+        .map(|mut module| {
+            module
+                .tools
+                .retain(|name| enabled_tools.iter().any(|tool| tool.name == *name));
+            module
+        })
+        .collect()
+}
+
+/// Tool exposure scope derived from the current product context.
+/// This reduces accidental cross-module tool use and cannot be widened by the
+/// capabilities list; `AppContext` itself is client supplied and is not identity auth.
+fn context_module_scope(module: Option<&str>) -> Vec<&'static str> {
+    match module {
+        Some("geography") | Some("history") => vec!["geography", "history", "exploration"],
+        Some("travel") => vec!["travel", "geography", "history", "exploration"],
+        Some("learning") => vec!["learning"],
+        Some("knowledge") => vec!["knowledge", "memory", "documents", "files"],
+        Some("memory") => vec!["memory"],
+        Some("documents") => vec!["documents", "knowledge"],
+        Some("files") => vec!["files"],
+        Some("study-board") => vec!["study-board"],
+        Some("language") => vec!["language", "learning"],
+        Some("news") => vec!["news"],
+        Some("rss") => vec!["rss"],
+        Some("server") => vec!["server"],
+        _ => Vec::new(),
     }
 }
 
@@ -521,7 +597,7 @@ mod tests {
                     display_name: "History".into(),
                     description: "d".into(),
                     capabilities: vec!["search".into()],
-                    tools: vec!["history.search".into()],
+                    tools: vec!["history.search".into(), "history.sensitive".into()],
                 },
                 context_provider: None,
             })
@@ -549,6 +625,19 @@ mod tests {
                     module: "history".into(),
                 },
                 fail: true,
+                block: false,
+            }))
+            .unwrap();
+        hub.tools
+            .register(Arc::new(EchoTool {
+                spec: ToolSpec {
+                    name: "history.sensitive".into(),
+                    description: "restricted write".into(),
+                    input_schema: json!({"type": "object"}),
+                    risk: ToolRisk::SensitiveWrite,
+                    module: "history".into(),
+                },
+                fail: false,
                 block: false,
             }))
             .unwrap();
@@ -671,21 +760,39 @@ mod tests {
         assert_eq!(error.code(), "personal_ai_model_unavailable");
     }
 
-    // capabilities 过滤：非启用模块工具不注入
     #[tokio::test]
-    async fn capabilities_filter_tools() {
+    async fn model_attempt_to_call_sensitive_write_is_rejected() {
         let fake = FakeChatModelProvider::new();
-        fake.push_text("ok");
+        fake.push_tool_call("call_sensitive", "history.sensitive", json!({}));
+        fake.push_text("未执行受限写入。");
         let agent = agent(fake);
-        let request = AgentRequest {
-            message: "x".into(),
-            session_id: None,
-            app_context: AppContext::default(),
-            capabilities: vec!["travel".into()], // history 不在启用列表
-            locale: None,
-            parts: Vec::new(),
+        let response = agent.run(request("尝试写入")).await.unwrap();
+        assert_eq!(response.tool_trace.len(), 1);
+        assert!(!response.tool_trace[0].ok);
+        assert_eq!(
+            response.tool_trace[0].note.as_deref(),
+            Some("tool_not_authorized")
+        );
+    }
+
+    #[test]
+    fn client_capabilities_can_narrow_but_not_expand_context_scope() {
+        let agent = agent(FakeChatModelProvider::new());
+        let context = AppContext {
+            module: Some("travel".into()),
+            ..AppContext::default()
         };
-        let _ = agent.run(request).await.unwrap();
-        // 若工具被注入，模型可能会调用；此场景仅确认不 panic 且正常返回。
+        let tools = agent.enabled_tools(&context, &["history".into()]);
+        assert!(!tools.is_empty());
+        assert!(tools.iter().all(|tool| tool.module == "history"));
+        assert!(tools.iter().all(|tool| allowed_risk(tool.risk)));
+        assert!(agent.hub().tools.spec("history.sensitive").is_some());
+        assert!(!tools.iter().any(|tool| tool.name == "history.sensitive"));
+        let descriptors =
+            exposed_module_descriptors(agent.hub().modules.descriptors(), &["history"], &tools);
+        assert_eq!(descriptors[0].tools, vec!["history.search"]);
+
+        let no_authority = agent.enabled_tools(&context, &["knowledge".into()]);
+        assert!(no_authority.is_empty());
     }
 }

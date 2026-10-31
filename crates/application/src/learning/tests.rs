@@ -2,10 +2,10 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use devtoolbox_core::learning::{
-    Collection, CollectionItem, CollectionItemRef, ContinueItem, LearningAction, LearningEvent,
-    LearningProgress, LearningStatus, MasteryCalculator, ReviewCardType, ReviewQueueItem,
-    ReviewQueueStats, ReviewRating, ReviewScheduleOutcome, SpacedRepetitionScheduler,
-    UniversalReviewCard,
+    Collection, CollectionItem, CollectionItemRef, ContinueItem, KnowledgeReviewCardDraft,
+    LearningAction, LearningEvent, LearningProgress, LearningStatus, MasteryCalculator,
+    ReviewCardType, ReviewQueueItem, ReviewQueueStats, ReviewRating, ReviewScheduleOutcome,
+    SpacedRepetitionScheduler, UniversalReviewCard,
 };
 
 use crate::learning::ports::{LearningPortError, LearningStorePort};
@@ -278,6 +278,27 @@ impl LearningStorePort for MockLearningStore {
             .collect())
     }
 
+    fn update_collection_item_note(
+        &self,
+        item_id: &str,
+        note: Option<&str>,
+        now: i64,
+    ) -> Result<CollectionItem, LearningPortError> {
+        let mut items = self.collection_items.lock().unwrap();
+        let item = items
+            .iter_mut()
+            .find(|item| item.id == item_id)
+            .ok_or_else(|| LearningPortError::NotFound(item_id.to_string()))?;
+        item.note = note.map(str::to_string);
+        let updated = item.clone();
+        let collection_id = item.collection_id.clone();
+        drop(items);
+        if let Some(collection) = self.collections.lock().unwrap().get_mut(&collection_id) {
+            collection.updated_at = now;
+        }
+        Ok(updated)
+    }
+
     fn remove_collection_item(&self, item_id: &str) -> Result<(), LearningPortError> {
         self.collection_items
             .lock()
@@ -329,6 +350,83 @@ impl LearningStorePort for MockLearningStore {
 }
 
 #[test]
+fn saved_collection_items_are_searchable_by_personal_note_and_retain_source_identity() {
+    let service = LearningService::new(Arc::new(MockLearningStore::default()));
+    let collection = service
+        .create_collection("唐代洛阳", None, &[], 1000)
+        .expect("create collection");
+    service
+        .add_collection_item(
+            &collection.id,
+            CollectionItemRef {
+                module: "geography".into(),
+                entity_type: "city".into(),
+                entity_id: "luoyang".into(),
+                title: "洛阳".into(),
+                note: Some("Sprint6-luoyang-note-unique: 记录安史之乱与洛阳的关系".into()),
+            },
+            1001,
+        )
+        .expect("save collection item");
+
+    let matches = service
+        .search_collection_items("Sprint6-luoyang-note-unique")
+        .expect("search collection notes");
+
+    assert_eq!(matches.len(), 1);
+    assert_eq!(matches[0].collection_title, "唐代洛阳");
+    assert_eq!(matches[0].item.module, "geography");
+    assert_eq!(matches[0].item.entity_type, "city");
+    assert_eq!(matches[0].item.entity_id, "luoyang");
+    assert_eq!(
+        matches[0].item.note.as_deref(),
+        Some("Sprint6-luoyang-note-unique: 记录安史之乱与洛阳的关系")
+    );
+}
+
+#[test]
+fn collection_note_updates_are_normalized_and_keep_the_saved_source_reference() {
+    let service = LearningService::new(Arc::new(MockLearningStore::default()));
+    let collection = service
+        .create_collection("洛阳", None, &[], 1000)
+        .expect("create collection");
+    let item = service
+        .add_collection_item(
+            &collection.id,
+            CollectionItemRef {
+                module: "history".into(),
+                entity_type: "event".into(),
+                entity_id: "event-anlu-luoyang".into(),
+                title: "洛阳失守".into(),
+                note: Some("旧备注".into()),
+            },
+            1001,
+        )
+        .expect("save collection item");
+
+    let updated = service
+        .update_collection_item_note(&item.id, Some("  新备注  "), 1002)
+        .expect("update note");
+    assert_eq!(updated.entity_id, "event-anlu-luoyang");
+    assert_eq!(updated.note.as_deref(), Some("新备注"));
+
+    let cleared = service
+        .update_collection_item_note(&item.id, Some("  "), 1003)
+        .expect("clear note");
+    assert_eq!(cleared.note, None);
+
+    let oversized = "x".repeat(4_001);
+    assert!(matches!(
+        service.update_collection_item_note(&item.id, Some(&oversized), 1004),
+        Err(LearningPortError::InvalidArgument(_))
+    ));
+    assert!(matches!(
+        service.update_collection_item_note(&item.id, Some("invalid\u{0000}note"), 1005),
+        Err(LearningPortError::InvalidArgument(_))
+    ));
+}
+
+#[test]
 fn test_learning_service_full_flow() {
     let mock_store = Arc::new(MockLearningStore::default());
     let service = LearningService::new(mock_store);
@@ -373,6 +471,8 @@ fn test_learning_service_full_flow() {
             options: None,
             hint: None,
             context: None,
+            source_title: None,
+            user_note: None,
             due_at: 86_401,
             interval_days: 0.0,
             ease: 2.5,
@@ -408,4 +508,104 @@ fn test_learning_service_full_flow() {
         .expect("graph");
     assert_eq!(graph.root_id.as_deref(), Some("history:story:silk_road"));
     assert!(!graph.nodes.is_empty());
+}
+
+#[test]
+fn knowledge_card_save_is_source_stable_and_preserves_srs_when_edited() {
+    let store = Arc::new(MockLearningStore::default());
+    let service = LearningService::new(store.clone());
+    let mut draft = KnowledgeReviewCardDraft {
+        module: "history".into(),
+        entity_type: "event".into(),
+        entity_id: "event-anlu-luoyang".into(),
+        source_title: "洛阳失守".into(),
+        prompt: "叛军何时攻陷洛阳？".into(),
+        answer: "公元 756 年。".into(),
+        user_note: Some("复核具体月份".into()),
+    };
+
+    let saved = service
+        .save_knowledge_review_card(&draft, 1_800_000_000)
+        .expect("save user-authored card");
+    assert_eq!(saved.id, "knowledge:history:event:event-anlu-luoyang");
+    assert_eq!(saved.card_type, ReviewCardType::Qa);
+    assert_eq!(saved.due_at, 1_800_000_000);
+    assert_eq!(saved.user_note.as_deref(), Some("复核具体月份"));
+
+    // Simulate an actual review; content edits must not reset scheduling or progress.
+    let mut reviewed = saved.clone();
+    reviewed.interval_days = 3.0;
+    reviewed.ease = 2.7;
+    reviewed.repetition_count = 2;
+    reviewed.lapses = 1;
+    reviewed.mastery_score = 62.5;
+    reviewed.last_reviewed_at = Some(1_800_000_111);
+    reviewed.due_at = 1_800_259_200;
+    store
+        .upsert_review_card(&reviewed)
+        .expect("record existing schedule in fake store");
+
+    draft.prompt = "洛阳失守发生在哪一年？".into();
+    draft.answer = "756 年。".into();
+    draft.user_note = Some("来源条目仍保留原 note".into());
+    let edited = service
+        .save_knowledge_review_card(&draft, 1_900_000_000)
+        .expect("edit card content");
+    assert_eq!(edited.id, saved.id);
+    assert_eq!(edited.prompt, draft.prompt);
+    assert_eq!(edited.answer, draft.answer);
+    assert_eq!(edited.user_note, draft.user_note);
+    assert_eq!(edited.due_at, reviewed.due_at);
+    assert_eq!(edited.interval_days, reviewed.interval_days);
+    assert_eq!(edited.ease, reviewed.ease);
+    assert_eq!(edited.repetition_count, reviewed.repetition_count);
+    assert_eq!(edited.lapses, reviewed.lapses);
+    assert_eq!(edited.last_reviewed_at, reviewed.last_reviewed_at);
+    assert_eq!(
+        store.cards.lock().unwrap().len(),
+        1,
+        "same source upserts one card"
+    );
+}
+
+#[test]
+fn knowledge_card_rejects_unsupported_sources_and_invalid_content() {
+    let service = LearningService::new(Arc::new(MockLearningStore::default()));
+    let mut draft = KnowledgeReviewCardDraft {
+        module: "news".into(),
+        entity_type: "article".into(),
+        entity_id: "article-1".into(),
+        source_title: "Article".into(),
+        prompt: "Question".into(),
+        answer: "Answer".into(),
+        user_note: None,
+    };
+    assert!(matches!(
+        service.save_knowledge_review_card(&draft, 100),
+        Err(LearningPortError::InvalidArgument(_))
+    ));
+
+    draft.module = "history".into();
+    draft.entity_type = "work".into();
+    assert!(matches!(
+        service.save_knowledge_review_card(&draft, 100),
+        Err(LearningPortError::InvalidArgument(_))
+    ));
+    draft.module = "geography".into();
+    draft.entity_type = "city:event".into();
+    assert!(matches!(
+        service.save_knowledge_review_card(&draft, 100),
+        Err(LearningPortError::InvalidArgument(_))
+    ));
+    draft.module = "history".into();
+    draft.entity_type = "event".into();
+    draft.prompt = "  ".into();
+    assert!(matches!(
+        service.save_knowledge_review_card(&draft, 100),
+        Err(LearningPortError::InvalidArgument(_))
+    ));
+    assert!(matches!(
+        service.delete_knowledge_review_card("language:word:private"),
+        Err(LearningPortError::InvalidArgument(_))
+    ));
 }

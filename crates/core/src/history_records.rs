@@ -149,6 +149,16 @@ pub struct StoryEventResult {
     pub source_ids: Option<String>,
 }
 
+/// A reviewed story-to-event link with its canonical story record.
+#[derive(Debug, Clone, Serialize)]
+pub struct EventStoryResult {
+    pub event_id: String,
+    pub story_id: String,
+    pub sequence: Option<i64>,
+    pub link_quality_status: Option<String>,
+    pub story: StoryResult,
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct EventResult {
     pub id: String,

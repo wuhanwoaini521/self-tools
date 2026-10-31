@@ -15,6 +15,7 @@
 //! 本 crate **不含任何 Tauri 依赖**（原生对话框、事件推送留在桌面端），
 //! 因此两端的行为天然一致：同一份 settings、同一批数据库、同一套 provider。
 
+pub mod backup;
 pub mod composition;
 pub mod history_enrichment;
 pub mod history_query;

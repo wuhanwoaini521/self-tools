@@ -281,6 +281,7 @@ impl GeographyTools {
                 "url": source.url,
                 "dataset": source.dataset,
             })),
+            "history_crosswalk": history_crosswalk_json(&entity.id),
         });
         Ok(ToolResult::ok(data))
     }
@@ -310,8 +311,22 @@ impl GeographyTools {
                 "to_id": relation.to_id,
                 "note": relation.note,
             })),
+            "history_crosswalk": history_crosswalk_json(&entity.id),
         })))
     }
+}
+
+fn history_crosswalk_json(geography_entity_id: &str) -> Option<serde_json::Value> {
+    devtoolbox_core::exploration::crosswalk_for_geography(geography_entity_id).map(|link| {
+        serde_json::json!({
+            "id": link.id,
+            "history_place_id": link.history_place_id,
+            "status": link.status,
+            "geography_source_ids": link.geography_source_ids,
+            "history_source_ids": link.history_source_ids,
+            "next_tool": "history.events_for_place"
+        })
+    })
 }
 
 /// 实体 JSON（紧凑 canonical）。
@@ -418,6 +433,7 @@ impl ModuleContextProvider for GeographyContextProvider<'_> {
                 "note": relation.note,
             })),
             "sources_count": sources.len(),
+            "history_crosswalk": history_crosswalk_json(&geo.id),
         });
         Ok(ContextBundle {
             module: "geography".into(),

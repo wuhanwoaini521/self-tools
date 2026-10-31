@@ -542,6 +542,8 @@ fn weak_items_rank_by_mastery_then_recency() {
                     options: None,
                     hint: None,
                     context: None,
+                    source_title: None,
+                    user_note: None,
                     due_at: NOW - 86_400,
                     interval_days: 0.0,
                     ease: 2.5,

@@ -11,10 +11,10 @@ use std::sync::{Arc, Mutex};
 
 use devtoolbox_core::history_records::{
     DatasetStats, EventEvidenceResult, EventHistoricalTextResult, EventPersonResult,
-    EventPlaceResult, EventRelationResult, EventResult, HistoricalTextResult, PeriodEventItem,
-    PeriodPersonItem, PeriodResult, PersonEventResult, PersonPlaceResult, PersonRelationResult,
-    PersonResult, PersonStoryResult, RegimeResult, SourceResult, StoryEventResult, StoryResult,
-    WorkResult,
+    EventPlaceResult, EventRelationResult, EventResult, EventStoryResult, HistoricalTextResult,
+    PeriodEventItem, PeriodPersonItem, PeriodResult, PersonEventResult, PersonPlaceResult,
+    PersonRelationResult, PersonResult, PersonStoryResult, RegimeResult, SourceResult,
+    StoryEventResult, StoryResult, WorkResult,
 };
 
 use super::HistoryQueryPort;
@@ -386,6 +386,7 @@ struct FakePortData {
     stories_for_period: Vec<StoryResult>,
     story: Option<StoryResult>,
     story_events: Vec<StoryEventResult>,
+    event_stories: Vec<EventStoryResult>,
     story_people: Vec<EventPersonResult>,
     story_places: Vec<EventPlaceResult>,
     story_texts: Vec<EventHistoricalTextResult>,
@@ -523,6 +524,17 @@ impl HistoryQueryPort for FakeLink {
         }
         Ok(port.story_events.clone())
     }
+    fn get_stories_for_event(
+        &self,
+        _event_id: &str,
+    ) -> Result<Vec<EventStoryResult>, HistoryPortError> {
+        let mut port = self.lock().expect("fake port poisoned");
+        port.calls.push("get_stories_for_event");
+        if port.fail {
+            return Err(err());
+        }
+        Ok(port.event_stories.clone())
+    }
     fn get_story_people(
         &self,
         _story_id: &str,
@@ -571,6 +583,14 @@ impl HistoryQueryPort for FakeLink {
             return Err(err());
         }
         Ok(port.event.clone())
+    }
+    fn get_events_for_place(&self, _place_id: &str) -> Result<Vec<EventResult>, HistoryPortError> {
+        let mut port = self.lock().expect("fake port poisoned");
+        port.calls.push("get_events_for_place");
+        if port.fail {
+            return Err(err());
+        }
+        Ok(port.event.clone().into_iter().collect())
     }
     fn get_event_people(
         &self,
@@ -1103,6 +1123,14 @@ fn event_detail_merges_sources_from_all_sections() {
         data.event_relations = vec![event_relation(Some("e5")), event_relation(None)];
         data.event_texts = vec![event_text(Some("e6"))];
         data.event_evidences = vec![event_evidence(None)];
+        data.event_stories = vec![EventStoryResult {
+            event_id: "e1".into(),
+            story_id: "s1".into(),
+            sequence: Some(3),
+            link_quality_status: Some("reviewed".into()),
+            story: story("s1", "安史之乱", Some("精选事件链")),
+        }];
+        data.event_stories[0].story.source_ids = Some(r#"["s7"]"#.into());
         data
     }));
     let service = service(Arc::clone(&fake));
@@ -1111,6 +1139,8 @@ fn event_detail_merges_sources_from_all_sections() {
         .expect("event_detail succeeds")
         .expect("event exists");
     assert_eq!(detail.relations.len(), 2);
+    assert_eq!(detail.related_stories.len(), 1);
+    assert_eq!(detail.related_stories[0].story.id, "s1");
     assert_eq!(
         fake.lock().unwrap().source_requests.last(),
         Some(&vec![
@@ -1119,8 +1149,47 @@ fn event_detail_merges_sources_from_all_sections() {
             "e3".to_owned(),
             "e4".to_owned(),
             "e5".to_owned(),
-            "e6".to_owned()
+            "e6".to_owned(),
+            "s7".to_owned()
         ])
+    );
+}
+
+#[test]
+fn events_for_place_requires_exact_reviewed_link_and_reviewed_event() {
+    let fake = Arc::new(Mutex::new({
+        let mut data = FakePortData::default();
+        let mut linked_event = event(
+            "event-chengdu",
+            "唐玄宗入蜀",
+            Some("[\"source-curated-backbone-v1\"]"),
+        );
+        linked_event.quality_status = Some("reviewed".into());
+        data.event = Some(linked_event);
+        let mut place = event_place(Some("source-curated-backbone-v1"));
+        place.event_id = "event-chengdu".into();
+        place.place_id = Some("cbdb-place-406333".into());
+        place.quality_status = Some("reviewed".into());
+        place.link_status = Some("linked".into());
+        place.link_quality_status = Some("reviewed".into());
+        data.event_places = vec![place];
+        data
+    }));
+    let service = service(Arc::clone(&fake));
+    let matched = service
+        .events_for_place("cbdb-place-406333")
+        .expect("reviewed exact-ID relation query");
+    assert_eq!(matched.len(), 1);
+    assert_eq!(matched[0].event.id, "event-chengdu");
+
+    let mut rejected = fake.lock().expect("fake data");
+    rejected.event_places[0].link_status = Some("needs_linking".into());
+    drop(rejected);
+    assert!(
+        service
+            .events_for_place("cbdb-place-406333")
+            .expect("unlinked place is not an error")
+            .is_empty()
     );
 }
 

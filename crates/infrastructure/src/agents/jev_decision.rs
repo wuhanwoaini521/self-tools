@@ -199,7 +199,9 @@ impl JevTransport for JevHttpTransport {
         let response = builder
             .send()
             .await
-            .map_err(|error| DecisionProviderError::transport(error.to_string()))?;
+            // Do not surface reqwest's full URL: a custom endpoint can contain
+            // sensitive URL parameters even though the API key is header-only.
+            .map_err(|_| DecisionProviderError::transport("jev request failed"))?;
         let status = response.status();
         if status.as_u16() == 401 || status.as_u16() == 403 {
             return Err(DecisionProviderError::unavailable("jev unauthorized"));
@@ -219,7 +221,7 @@ impl JevTransport for JevHttpTransport {
         let bytes = response
             .bytes()
             .await
-            .map_err(|error| DecisionProviderError::transport(error.to_string()))?;
+            .map_err(|_| DecisionProviderError::transport("jev response body unavailable"))?;
         serde_json::from_slice::<JevResponseBody>(&bytes)
             .map_err(|error| DecisionProviderError::invalid_response(error.to_string()))
     }

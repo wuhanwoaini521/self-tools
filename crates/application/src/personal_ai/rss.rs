@@ -10,14 +10,14 @@
 //! - `rss.list_entries(feed_id?, limit?)` → 条目列表（跨订阅或单订阅）
 //! - `rss.search(query, limit?)` → 关键词检索（读本地 dashboard.db）
 //! - `rss.get_entry(entry_id)` → 单条条目详情
-//! - `rss.mark_read(entry_id)` → 标已读（`SafeWrite`，本地状态往返）
-//! - `rss.refresh()` → 立即刷新全部订阅（联网；`SafeWrite`）
+//! - `rss.mark_read(entry_id)` → 标已读（`SensitiveWrite`，仅注册审计；未实现确认卡片）
+//! - `rss.refresh()` → 立即刷新全部订阅（联网；`SafeWrite`，只更新抓取缓存）
 //!
 //! 场景区分：「看看我关注的博客今天有什么更新」→ `rss.*`；
 //! 「今天 AI 有什么重要新闻」→ `news.*`。
 //!
-//! 风险分级：前 4 个 `Read`；`mark_read` / `refresh` 写 `dashboard.db`
-//! → `SafeWrite`（registry 门禁放行）。
+//! 风险分级：前 4 个 `Read`；`mark_read` 修改用户阅读状态 → `SensitiveWrite`
+//! （registry 保留目录、禁止自动执行）；`refresh` 仅更新缓存 → `SafeWrite`。
 
 use std::sync::Arc;
 
@@ -114,7 +114,7 @@ impl RssTools {
                     }
                 }),
                 "把一条订阅条目标为已读（幂等；本地状态，不联网）",
-                ToolRisk::SafeWrite,
+                ToolRisk::SensitiveWrite,
             ),
             TOOL_REFRESH => (
                 serde_json::json!({"type": "object"}),

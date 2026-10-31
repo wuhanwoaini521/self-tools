@@ -571,6 +571,31 @@ fn seed_sources() -> Vec<GeoSource> {
             updated_at: "2026-09-01".into(),
             fields: vec!["curated summaries".into(), "exploration relations".into()],
         },
+        GeoSource {
+            id: "geography-wikidata-q43684".into(),
+            dataset: "Wikidata · 河南省 (Q43684)".into(),
+            version: "entity snapshot · 2026-10-26".into(),
+            url: "https://www.wikidata.org/entity/Q43684".into(),
+            license: "CC0".into(),
+            updated_at: "2026-10-26".into(),
+            fields: vec![
+                "Chinese/English labels".into(),
+                "representative coordinate".into(),
+            ],
+        },
+        GeoSource {
+            id: "geography-wikidata-q187136".into(),
+            dataset: "Wikidata · 洛阳市 (Q187136)".into(),
+            version: "entity snapshot · 2026-10-26".into(),
+            url: "https://www.wikidata.org/entity/Q187136".into(),
+            license: "CC0".into(),
+            updated_at: "2026-10-26".into(),
+            fields: vec![
+                "Chinese/English labels".into(),
+                "representative coordinate".into(),
+                "administrative parent".into(),
+            ],
+        },
     ]
 }
 
@@ -680,6 +705,60 @@ fn seed_entities() -> Vec<GeoEntity> {
                 ),
             ],
             &s,
+        ),
+        entity(
+            "henan",
+            GeoEntityType::Province,
+            "河南省",
+            Some("Henan"),
+            &["河南"],
+            Some((33.9, 113.5)),
+            Some("china"),
+            "河南省代表点与行政实体标识来自 Wikidata Q43684；坐标是区域代表点，不是省界。",
+            vec![
+                property(
+                    "wikidata_id",
+                    "Wikidata ID",
+                    "Q43684",
+                    None,
+                    &["geography-wikidata-q43684"],
+                ),
+                property(
+                    "representative_point",
+                    "区域代表点",
+                    "33.90° N, 113.50° E",
+                    None,
+                    &["geography-wikidata-q43684"],
+                ),
+            ],
+            &["geography-seed", "geography-wikidata-q43684"],
+        ),
+        entity(
+            "luoyang",
+            GeoEntityType::City,
+            "洛阳",
+            Some("Luoyang"),
+            &["洛阳市"],
+            Some((34.65867, 112.42447)),
+            Some("henan"),
+            "现代洛阳市代表坐标与河南省行政归属来自 Wikidata Q187136；History 关联仅覆盖有来源记录的唐代地点事件。",
+            vec![
+                property(
+                    "wikidata_id",
+                    "Wikidata ID",
+                    "Q187136",
+                    None,
+                    &["geography-wikidata-q187136"],
+                ),
+                property(
+                    "representative_point",
+                    "代表坐标",
+                    "34.65867° N, 112.42447° E",
+                    None,
+                    &["geography-wikidata-q187136"],
+                ),
+            ],
+            &["geography-seed", "geography-wikidata-q187136"],
         ),
         entity(
             "sichuan",
@@ -944,6 +1023,24 @@ fn seed_relations() -> Vec<GeoRelation> {
             &s,
         ),
         relation(
+            "henan",
+            "china",
+            GeoRelationKind::PartOf,
+            "河南省是中国的省级行政区；代表点来自 Wikidata Q43684。",
+            &["geography-seed", "geography-wikidata-q43684"],
+        ),
+        relation(
+            "luoyang",
+            "henan",
+            GeoRelationKind::LocatedIn,
+            "Wikidata Q187136 的行政关系指向河南省 Q43684。",
+            &[
+                "geography-seed",
+                "geography-wikidata-q187136",
+                "geography-wikidata-q43684",
+            ],
+        ),
+        relation(
             "chengdu",
             "sichuan",
             GeoRelationKind::LocatedIn,
@@ -1046,6 +1143,25 @@ mod tests {
         let directory = tempfile::tempdir().expect("tempdir");
         let store = GeographyStore::open(directory.path().join("geography.db")).expect("store");
         assert!(store.entity("chengdu").expect("entity").is_some());
+        let luoyang = store
+            .entity("luoyang")
+            .expect("Luoyang")
+            .expect("seeded city");
+        assert_eq!(luoyang.parent_id.as_deref(), Some("henan"));
+        assert!(
+            luoyang
+                .source_ids
+                .iter()
+                .any(|id| id == "geography-wikidata-q187136")
+        );
+        assert_eq!(luoyang.coordinates.as_ref().unwrap().latitude, 34.65867);
+        assert_eq!(
+            store
+                .search("洛阳", Some(GeoEntityType::City), 10)
+                .expect("city search")[0]
+                .id,
+            "luoyang"
+        );
         let search = store.search("长江", None, 30).expect("search");
         assert_eq!(
             search.first().map(|entity| entity.id.as_str()),
@@ -1082,6 +1198,37 @@ mod tests {
         );
         let snapshot = store.map_snapshot().expect("map");
         assert!(snapshot.0.len() > 5 && !snapshot.1.is_empty());
+    }
+
+    #[test]
+    fn upgrading_an_existing_geography_database_adds_seed_rows_without_replacing_user_data() {
+        let directory = tempfile::tempdir().expect("tempdir");
+        let path = directory.path().join("geography.db");
+        let legacy = rusqlite::Connection::open(&path).expect("legacy db");
+        legacy
+            .execute_batch(
+                "CREATE TABLE geo_entities (
+                    id TEXT PRIMARY KEY, type TEXT NOT NULL, name TEXT NOT NULL,
+                    name_en TEXT, aliases_json TEXT NOT NULL, coordinates_json TEXT,
+                    geometry_json TEXT, parent_id TEXT, summary TEXT NOT NULL,
+                    properties_json TEXT NOT NULL, source_ids_json TEXT NOT NULL
+                );
+                INSERT INTO geo_entities VALUES
+                    ('user:custom-place','城市','自建地点',NULL,'[]',NULL,NULL,NULL,'用户资料','[]','[]');",
+            )
+            .expect("create legacy geography rows");
+        drop(legacy);
+
+        let upgraded = GeographyStore::open(&path).expect("additive seed migration");
+        assert_eq!(
+            upgraded
+                .entity("user:custom-place")
+                .expect("user entity")
+                .unwrap()
+                .name,
+            "自建地点"
+        );
+        assert!(upgraded.entity("luoyang").expect("seed Luoyang").is_some());
     }
 
     #[test]

@@ -28,6 +28,7 @@ use crate::time::now_unix;
 
 /// 清单文件名（与快照同目录）。
 const MANIFEST_NAME: &str = "manifest.json";
+const BACKUP_FORMAT_VERSION: u32 = 1;
 
 /// 备份/恢复编排服务（V11 §160）。
 ///
@@ -111,7 +112,10 @@ impl BackupService {
             }
         }
 
+        let complete = !entries.is_empty() && problems.is_empty();
         let mut manifest = BackupManifest {
+            format_version: BACKUP_FORMAT_VERSION,
+            complete,
             created_at: now_unix(),
             app_version: app_version.to_string(),
             schema_versions,

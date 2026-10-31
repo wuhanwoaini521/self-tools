@@ -19,7 +19,11 @@ use devtoolbox_application::{
 use devtoolbox_core::{
     AppSettings, ChatModelProvider, WorkspaceFile,
     geography::GeoEntityType as CoreGeoEntityType,
-    travel::{CityGuide, GuideSummary, TravelDateRange, TravelResearchEvent},
+    settings::{PublicAppSettings, SecretSettingsStatus, SecretSettingsUpdate},
+    travel::{
+        CityGuide, GuideSummary, TravelDateRange, TravelPlan, TravelPlanContext,
+        TravelResearchEvent,
+    },
 };
 use devtoolbox_infrastructure::{
     FeedRepository, GeographyStore, HistoryDuckDbRepository, LanguageStore, SettingsStore,
@@ -118,6 +122,9 @@ fn store_command_error(source: devtoolbox_infrastructure::InfrastructureError) -
         devtoolbox_infrastructure::InfrastructureError::TravelFetch(_) => "travel_fetch_failed",
         devtoolbox_infrastructure::InfrastructureError::TravelLlm(_) => "travel_llm_failed",
         devtoolbox_infrastructure::InfrastructureError::TravelData(_) => "travel_data_failed",
+        devtoolbox_infrastructure::InfrastructureError::TravelPlanConflict => {
+            "travel_plan_conflict"
+        }
         _ => "travel_error",
     };
     CommandError {
@@ -135,6 +142,7 @@ pub struct AppState {
     pub rss_repository: Arc<dyn RssRepositoryPort>,
     pub rss_fetcher: devtoolbox_runtime::composition::FeedFetcherAdapter,
     pub travel_store: Arc<parking_lot::Mutex<TravelStore>>,
+    pub travel_plan_changes: Arc<devtoolbox_application::travel::TravelPlanChangeService>,
     pub travel_registry: TravelSessionRegistry,
     pub history_duckdb: Arc<HistoryDuckDbRepository>,
     pub language_store: Arc<parking_lot::Mutex<LanguageStore>>,
@@ -144,6 +152,7 @@ pub struct AppState {
     pub ai: Arc<PersonalHub>,
     /// Personal AI 会话存储（V4 §34，内存；P1 再持久化）。
     pub ai_session: Arc<InMemorySessionStore>,
+    pub ai_runs: Arc<devtoolbox_application::personal_ai::AgentRunRegistry>,
     /// V11-K 会话历史（持久化；与 Memory 分离）。
     pub conversation: Arc<devtoolbox_application::personal_ai::ConversationService>,
     /// History Enrichment 运行器（V5 Gate 4；命令与 agent 工具共用）。
@@ -198,9 +207,24 @@ pub(crate) fn project_config_directory_public(app: &AppHandle) -> Result<PathBuf
     project_config_directory(app)
 }
 
+fn select_config_directory(
+    self_tools_home: Option<&std::ffi::OsStr>,
+    project_root: Option<PathBuf>,
+    app_config_dir: &Path,
+    release_build: bool,
+) -> (PathBuf, bool) {
+    if let Some(home) = self_tools_home.filter(|home| !home.is_empty()) {
+        return (PathBuf::from(home).join("config"), true);
+    }
+    if !release_build && let Some(root) = project_root {
+        return (root.join("config"), false);
+    }
+    (app_config_dir.to_path_buf(), false)
+}
+
 fn project_config_directory(app: &AppHandle) -> Result<PathBuf, CommandError> {
-    // Isolate native E2E runs from the developer's ignored project config/ databases.
-    // This override is compiled only into the explicit E2E feature build.
+    // Isolate native E2E runs from developer data. This override is compiled only
+    // into the explicit E2E feature build and is never populated from user config.
     #[cfg(feature = "e2e")]
     if let Some(test_directory) = std::env::var_os("DEVTOOLBOX_E2E_DATA_DIR") {
         let directory = PathBuf::from(test_directory);
@@ -208,6 +232,7 @@ fn project_config_directory(app: &AppHandle) -> Result<PathBuf, CommandError> {
             code: "project_config_dir",
             message: error.to_string(),
         })?;
+        ensure_app_data_lock(app, &directory)?;
         return Ok(directory);
     }
 
@@ -215,48 +240,90 @@ fn project_config_directory(app: &AppHandle) -> Result<PathBuf, CommandError> {
         code: "project_config_dir",
         message: error.to_string(),
     })?;
+    let executable_dir = std::env::current_exe()
+        .ok()
+        .and_then(|path| path.parent().map(Path::to_path_buf));
     let project_root = project_root_from(current_dir.clone())
-        .or_else(|| {
-            std::env::current_exe()
-                .ok()
-                .and_then(|path| project_root_from(path.parent()?.to_path_buf()))
-        })
-        .unwrap_or(current_dir);
-    let config_directory = project_root.join("config");
+        .or_else(|| executable_dir.and_then(project_root_from));
+    let app_config_dir = app.path().app_config_dir().map_err(|error| CommandError {
+        code: "project_config_dir",
+        message: error.to_string(),
+    })?;
+    let self_tools_home = std::env::var_os("SELF_TOOLS_HOME");
+    let (config_directory, _explicit_home) = select_config_directory(
+        self_tools_home.as_deref(),
+        project_root,
+        &app_config_dir,
+        !cfg!(debug_assertions),
+    );
     std::fs::create_dir_all(&config_directory).map_err(|error| CommandError {
         code: "project_config_dir",
         message: error.to_string(),
     })?;
+    ensure_app_data_lock(app, &config_directory)?;
 
-    // 首次切换时只迁移不存在的文件，不覆盖项目 config 中已有内容。
-    if let Ok(legacy_directory) = app.path().app_config_dir()
-        && legacy_directory != config_directory
+    if let Some(legacy_directory) =
+        std::env::var_os("SELF_TOOLS_LEGACY_CONFIG").filter(|directory| !directory.is_empty())
     {
-        for filename in [
-            "settings.json",
-            "dashboard.db",
-            "travel.db",
-            "geography.db",
-            "language.db",
-        ] {
-            let source = legacy_directory.join(filename);
-            let target = config_directory.join(filename);
-            if source.is_file() && !target.exists() {
-                let _ = std::fs::copy(source, target);
-            }
+        let report = devtoolbox_infrastructure::legacy_config_migration::migrate_legacy_config(
+            Path::new(&legacy_directory),
+            &config_directory,
+        )
+        .map_err(|message| CommandError {
+            code: "legacy_config_migration",
+            message,
+        })?;
+        if !report.already_completed {
+            eprintln!(
+                "[migration] copied {} allowlisted items; preserved/skipped {} existing items",
+                report.copied.len(),
+                report.skipped.len()
+            );
         }
     }
     Ok(config_directory)
+}
+
+fn ensure_app_data_lock(app: &AppHandle, data_directory: &Path) -> Result<(), CommandError> {
+    if app
+        .try_state::<devtoolbox_runtime::backup::AppDataDirectoryLock>()
+        .is_some()
+    {
+        return Ok(());
+    }
+    let lock = devtoolbox_runtime::backup::AppDataDirectoryLock::acquire(data_directory).map_err(
+        |message| CommandError {
+            code: "app_data_lock",
+            message,
+        },
+    )?;
+    if !app.manage(lock)
+        && app
+            .try_state::<devtoolbox_runtime::backup::AppDataDirectoryLock>()
+            .is_none()
+    {
+        return Err(CommandError {
+            code: "app_data_lock",
+            message: "could not retain the app data directory lock".to_string(),
+        });
+    }
+    Ok(())
 }
 
 fn settings_store(app: &AppHandle) -> Result<SettingsStore, CommandError> {
     Ok(SettingsStore::new(project_config_directory(app)?))
 }
 
-fn semantic_history_path(_app: &AppHandle) -> Result<PathBuf, CommandError> {
+fn semantic_history_path(app: &AppHandle) -> Result<PathBuf, CommandError> {
     // V2：唯一事实源是 history-data-pipeline/dist/history.duckdb（build artifact）。
-    // 刻意不再回退到 data/normalized/ 的 legacy 语义库；缺失时明确返回开发错误。
+    // 刻意不再回退到 data/normalized/ 的 legacy 语义库；缺失时明确返回错误。
     const RELATIVE: &str = "history-data-pipeline/dist/history.duckdb";
+    if let Ok(resource_dir) = app.path().resource_dir() {
+        let bundled = resource_dir.join(RELATIVE);
+        if bundled.is_file() {
+            return Ok(bundled);
+        }
+    }
     fn find_from(start: &Path) -> Option<PathBuf> {
         let mut current = start.to_path_buf();
         loop {
@@ -348,22 +415,47 @@ fn cycle_task_lines(lines: Vec<String>, step: isize) -> Vec<String> {
 }
 
 #[tauri::command]
-fn get_settings(app: AppHandle) -> Result<AppSettings, CommandError> {
+fn get_settings(app: AppHandle) -> Result<PublicAppSettings, CommandError> {
     let store = settings_store(&app)?;
     load_settings(&devtoolbox_runtime::composition::SettingsStoreAdapter::new(
         store,
     ))
+    .map(|settings| settings.public_view())
     .map_err(CommandError::from)
 }
 
 #[tauri::command]
-fn put_settings(app: AppHandle, settings: AppSettings) -> Result<(), CommandError> {
-    let store = settings_store(&app)?;
+fn put_settings(app: AppHandle, settings: PublicAppSettings) -> Result<(), CommandError> {
+    // UI/config writes can never replace backend-owned credentials: merge public
+    // fields into the persisted settings and leave every secret untouched.
+    let mut stored = load_settings(&devtoolbox_runtime::composition::SettingsStoreAdapter::new(
+        settings_store(&app)?,
+    ))
+    .map_err(CommandError::from)?;
+    stored.apply_public_settings(&settings);
     save_settings(
-        &devtoolbox_runtime::composition::SettingsStoreAdapter::new(store),
-        &settings,
+        &devtoolbox_runtime::composition::SettingsStoreAdapter::new(settings_store(&app)?),
+        &stored,
     )
     .map_err(CommandError::from)
+}
+
+#[tauri::command]
+fn put_secret_settings(
+    app: AppHandle,
+    update: SecretSettingsUpdate,
+) -> Result<SecretSettingsStatus, CommandError> {
+    let mut stored = load_settings(&devtoolbox_runtime::composition::SettingsStoreAdapter::new(
+        settings_store(&app)?,
+    ))
+    .map_err(CommandError::from)?;
+    stored.apply_secret_updates(&update);
+    save_settings(
+        &devtoolbox_runtime::composition::SettingsStoreAdapter::new(settings_store(&app)?),
+        &stored,
+    )
+    .map_err(CommandError::from)?;
+    Ok(stored.public_view().secrets)
 }
 
 // ---------- News 模块（V12 / ADR-010：独立 bounded context） ----------
@@ -904,6 +996,54 @@ fn travel_load_guide(
     Ok(guide)
 }
 
+#[tauri::command]
+fn travel_plan_recent(
+    state: State<'_, AppState>,
+    limit: Option<usize>,
+) -> Result<Vec<TravelPlan>, CommandError> {
+    state
+        .travel_store
+        .lock()
+        .list_plans(limit.unwrap_or(20))
+        .map_err(store_command_error)
+}
+
+#[tauri::command]
+fn travel_plan_get(
+    state: State<'_, AppState>,
+    context: TravelPlanContext,
+) -> Result<Option<TravelPlan>, CommandError> {
+    let context = context.validate().map_err(|error| CommandError {
+        code: "travel_plan_invalid",
+        message: error.to_string(),
+    })?;
+    state
+        .travel_store
+        .lock()
+        .get_plan(&context)
+        .map_err(store_command_error)
+}
+
+#[tauri::command]
+fn travel_plan_save(
+    state: State<'_, AppState>,
+    plan: TravelPlan,
+) -> Result<TravelPlan, CommandError> {
+    let plan = plan.validate().map_err(|error| CommandError {
+        code: "travel_plan_invalid",
+        message: error.to_string(),
+    })?;
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs() as i64;
+    state
+        .travel_store
+        .lock()
+        .upsert_plan(&plan, now)
+        .map_err(store_command_error)
+}
+
 /// 口语反馈请求（Tauri 命令入参；驼峰键名）。
 #[derive(Debug, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -1057,6 +1197,35 @@ fn geography_toggle_favorite(state: State<'_, AppState>, id: String) -> Result<b
         .map_err(CommandError::from)
 }
 
+fn exploration_service(
+    state: &State<'_, AppState>,
+) -> devtoolbox_application::exploration::ExplorationService {
+    devtoolbox_application::exploration::ExplorationService::new(
+        Arc::new(geography_service(state)),
+        Arc::new(history_service(state)),
+    )
+}
+
+#[tauri::command]
+fn exploration_location_history(
+    state: State<'_, AppState>,
+    id: String,
+) -> Result<Option<devtoolbox_application::exploration::LocationHistoryContext>, CommandError> {
+    exploration_service(&state)
+        .location_history(&id)
+        .map_err(CommandError::from)
+}
+
+#[tauri::command]
+fn exploration_geography_for_history_place(
+    state: State<'_, AppState>,
+    place_id: String,
+) -> Result<Option<GeoEntityDetail>, CommandError> {
+    exploration_service(&state)
+        .geography_for_history_place(&place_id)
+        .map_err(CommandError::from)
+}
+
 // ---------------------------------------------------------------------------
 // Personal AI（V4 Gate 6）：状态查询 + 对话（配置按每次调用读取，改设置即生效）
 // ---------------------------------------------------------------------------
@@ -1102,14 +1271,33 @@ fn personal_ai_status(
 }
 
 /// 进度事件 → 前端（V11：让用户看见 Agent 在做什么，失败时知道卡在哪一步）。
+fn next_personal_ai_trace_id() -> String {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static SEQUENCE: AtomicU64 = AtomicU64::new(0);
+    format!(
+        "desktop-{}-{}",
+        devtoolbox_infrastructure::now_unix(),
+        SEQUENCE.fetch_add(1, Ordering::Relaxed)
+    )
+}
+
 struct TauriProgressSink {
     app: AppHandle,
+    trace_id: String,
 }
 
 impl devtoolbox_core::AgentProgressSink for TauriProgressSink {
     fn emit(&self, progress: &devtoolbox_core::AgentProgress) {
         // 忽略发送失败（前端可能已关闭面板）。
-        let _ = self.app.emit("agent-progress", progress);
+        let _ = self.app.emit(
+            "agent-progress",
+            serde_json::json!({
+                "trace_id": self.trace_id,
+                "stage": progress.stage,
+                "detail": progress.detail,
+                "error_code": progress.error_code,
+            }),
+        );
     }
 }
 
@@ -1119,6 +1307,7 @@ async fn personal_ai_chat(
     app: AppHandle,
     state: State<'_, AppState>,
     request: AgentRequest,
+    trace_id: Option<String>,
 ) -> Result<AgentResponse, CommandError> {
     if request.message.trim().is_empty() {
         return Err(CommandError {
@@ -1126,6 +1315,9 @@ async fn personal_ai_chat(
             message: "消息不能为空".to_string(),
         });
     }
+    let trace_id = trace_id
+        .filter(|id| !id.is_empty() && id.len() <= 128 && !id.chars().any(char::is_control))
+        .unwrap_or_else(next_personal_ai_trace_id);
     let ai = load_ai_settings(&app)?;
     let provider = devtoolbox_runtime::personal_ai::build_provider(state.client.clone(), &ai);
     let agent = devtoolbox_runtime::personal_ai::build_agent(
@@ -1133,29 +1325,86 @@ async fn personal_ai_chat(
         Arc::clone(&state.ai),
         Arc::clone(&state.ai_session),
     )
-    .with_progress_sink(Arc::new(TauriProgressSink { app: app.clone() }));
+    .with_progress_sink(Arc::new(TauriProgressSink {
+        app: app.clone(),
+        trace_id: trace_id.clone(),
+    }));
     let started = std::time::Instant::now();
-    let result = agent.run(request).await;
+    let result = state.ai_runs.run(&trace_id, agent.run(request)).await;
+    let result = result.map(|mut response| {
+        response.trace_id = Some(trace_id.clone());
+        response
+    });
     match &result {
         Ok(_) => {
             let _ = app.emit(
                 "agent-progress",
-                devtoolbox_core::AgentProgress::with_detail(
-                    devtoolbox_core::AgentStage::Done,
-                    format!("{}ms", started.elapsed().as_millis()),
-                ),
+                serde_json::json!({
+                    "trace_id": trace_id,
+                    "stage": "done",
+                    "detail": format!("{}ms", started.elapsed().as_millis()),
+                    "error_code": null,
+                }),
             );
         }
         Err(error) => {
             let _ = app.emit(
                 "agent-progress",
-                devtoolbox_core::AgentProgress::failed(error.code(), error.message.clone()),
+                serde_json::json!({
+                    "trace_id": trace_id,
+                    "stage": "failed",
+                    "detail": error.message,
+                    "error_code": error.code(),
+                }),
             );
         }
     }
     result
         .map_err(ApplicationError::PersonalAi)
         .map_err(CommandError::from)
+}
+
+#[tauri::command]
+fn personal_ai_cancel_run(state: State<'_, AppState>, trace_id: String) -> bool {
+    state.ai_runs.cancel(&trace_id)
+}
+
+fn travel_plan_change_command_error(
+    error: devtoolbox_application::travel::TravelPlanChangeError,
+) -> CommandError {
+    let code = match error {
+        devtoolbox_application::travel::TravelPlanChangeError::Conflict => "travel_plan_conflict",
+        devtoolbox_application::travel::TravelPlanChangeError::Expired => {
+            "travel_plan_proposal_expired"
+        }
+        _ => "travel_plan_proposal_invalid",
+    };
+    CommandError {
+        code,
+        message: error.to_string(),
+    }
+}
+
+#[tauri::command]
+fn personal_ai_confirm_travel_change(
+    state: State<'_, AppState>,
+    proposal_id: String,
+) -> Result<TravelPlan, CommandError> {
+    state
+        .travel_plan_changes
+        .confirm(&proposal_id, devtoolbox_infrastructure::now_unix())
+        .map_err(travel_plan_change_command_error)
+}
+
+#[tauri::command]
+fn personal_ai_cancel_travel_change(
+    state: State<'_, AppState>,
+    proposal_id: String,
+) -> Result<(), CommandError> {
+    state
+        .travel_plan_changes
+        .cancel(&proposal_id)
+        .map_err(travel_plan_change_command_error)
 }
 
 // ---------------------------------------------------------------------------
@@ -1260,7 +1509,14 @@ fn global_search(
         limit_per_source: limit.unwrap_or(5).clamp(1, 20),
         sources: Vec::new(),
     };
-    Ok(state.knowledge.search.search(&search))
+    let learning = Arc::new(devtoolbox_application::learning::LearningService::new(
+        Arc::clone(&state.learning_store),
+    ));
+    let collection_search = devtoolbox_application::search::CollectionSearchPort::new(learning);
+    Ok(state
+        .knowledge
+        .search
+        .search_with_port(&search, &collection_search))
 }
 
 #[tauri::command]
@@ -2532,12 +2788,31 @@ pub fn run() {
                 Arc::new(learning::LearningStoreAdapter::new(Arc::clone(
                     &learning_store_raw,
                 )));
+            let learning_service = Arc::new(
+                devtoolbox_application::learning::LearningService::new(Arc::clone(&learning_store)),
+            );
+            let travel_plan_store: Arc<dyn devtoolbox_application::travel::TravelPlanStorePort> =
+                Arc::new(
+                    devtoolbox_runtime::composition::TravelPlanStoreAdapter::new(Arc::clone(
+                        &travel_store_shared,
+                    )),
+                );
+            let travel_geography_service = Arc::new(
+                devtoolbox_application::geography::GeographyService::new(geography_port.clone()),
+            );
+            let travel_plan_changes = Arc::new(
+                devtoolbox_application::travel::TravelPlanChangeService::new(
+                    travel_plan_store,
+                    travel_geography_service,
+                ),
+            );
             app.manage(AppState {
                 rss_repository,
                 rss_fetcher: devtoolbox_runtime::composition::FeedFetcherAdapter::new(
                     client.clone(),
                 ),
                 travel_store: Arc::clone(&travel_store_shared),
+                travel_plan_changes: Arc::clone(&travel_plan_changes),
                 travel_registry: TravelSessionRegistry::new(),
                 history_duckdb: Arc::clone(&history_repo),
                 language_store: Arc::clone(&language_store_shared),
@@ -2547,12 +2822,14 @@ pub fn run() {
                     history_repo,
                     Some(Arc::clone(&history_enrichment)),
                     travel_ai,
+                    Some(Arc::clone(&travel_plan_changes)),
                     geography_port,
                     language_port,
                     language_llm_plug,
                     &knowledge,
                     &server_runtime,
                     study_board_store,
+                    learning_service,
                     Arc::clone(&news),
                     Some(Arc::clone(&news_ingest)),
                     rss_port,
@@ -2561,6 +2838,7 @@ pub fn run() {
                     client_for_hub,
                 ),
                 ai_session: Arc::new(InMemorySessionStore::new()),
+                ai_runs: Arc::new(devtoolbox_application::personal_ai::AgentRunRegistry::new()),
                 conversation: conversation_service,
                 history_enrichment,
                 knowledge,
@@ -2579,6 +2857,7 @@ pub fn run() {
             cycle_task_lines,
             get_settings,
             put_settings,
+            put_secret_settings,
             add_rss_feed,
             refresh_rss_feeds,
             fetch_article_url,
@@ -2602,6 +2881,9 @@ pub fn run() {
             travel_research_progress,
             travel_recent_guides,
             travel_load_guide,
+            travel_plan_recent,
+            travel_plan_get,
+            travel_plan_save,
             test_travel_llm,
             test_travel_amap,
             test_travel_qweather,
@@ -2616,8 +2898,13 @@ pub fn run() {
             geography_search,
             geography_detail,
             geography_toggle_favorite,
+            exploration_location_history,
+            exploration_geography_for_history_place,
             personal_ai_status,
             personal_ai_chat,
+            personal_ai_cancel_run,
+            personal_ai_confirm_travel_change,
+            personal_ai_cancel_travel_change,
             memory_status,
             global_search,
             conversation_list,
@@ -2721,6 +3008,9 @@ pub fn run() {
             learning::learning_get_today,
             learning::learning_get_review_queue,
             learning::learning_get_review_stats,
+            learning::learning_get_review_card,
+            learning::learning_save_knowledge_review_card,
+            learning::learning_delete_knowledge_review_card,
             learning::learning_submit_review,
             learning::learning_get_graph,
             learning::learning_get_explore,
@@ -2732,6 +3022,7 @@ pub fn run() {
             learning::learning_create_collection,
             learning::learning_add_collection_item,
             learning::learning_list_collection_items,
+            learning::learning_update_collection_item_note,
             learning::learning_remove_collection_item,
             learning::learning_delete_collection,
         ])
@@ -2751,3 +3042,45 @@ pub fn run() {
 // 单元测试使用 tempfile；显式引用让 bin target 的 unused-crate-dependencies lint 满意。
 #[cfg(test)]
 use tempfile as _;
+
+#[cfg(test)]
+mod release_path_tests {
+    use super::select_config_directory;
+    use std::ffi::OsStr;
+    use std::path::PathBuf;
+
+    #[test]
+    fn explicit_home_is_isolated_from_checkout_and_platform_config() {
+        let root = PathBuf::from("/tmp/self-tools-isolated");
+        let (selected, explicit) = select_config_directory(
+            Some(OsStr::new("/tmp/self-tools-isolated")),
+            Some(PathBuf::from("/repo")),
+            std::path::Path::new("/Users/test/Library/Application Support/com.ox-tools.devtoolbox"),
+            true,
+        );
+        assert_eq!(selected, root.join("config"));
+        assert!(explicit, "isolated roots must skip legacy-data copying");
+    }
+
+    #[test]
+    fn release_build_uses_tauri_app_config_not_the_working_checkout() {
+        let app_config =
+            PathBuf::from("/Users/test/Library/Application Support/com.ox-tools.devtoolbox");
+        let (selected, explicit) =
+            select_config_directory(None, Some(PathBuf::from("/repo")), &app_config, true);
+        assert_eq!(selected, app_config);
+        assert!(!explicit);
+    }
+
+    #[test]
+    fn debug_build_keeps_existing_project_local_config_behavior() {
+        let (selected, explicit) = select_config_directory(
+            None,
+            Some(PathBuf::from("/repo")),
+            std::path::Path::new("/Users/test/Library/Application Support/com.ox-tools.devtoolbox"),
+            false,
+        );
+        assert_eq!(selected, PathBuf::from("/repo/config"));
+        assert!(!explicit);
+    }
+}

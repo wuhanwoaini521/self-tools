@@ -6,15 +6,18 @@
 
 pub mod agent;
 pub mod args;
+pub mod cancellation;
 pub mod context;
 pub mod conversation;
 pub mod documents;
+pub mod exploration;
 pub mod files;
 pub mod geography;
 pub mod history;
 pub mod json_schema;
 pub mod knowledge;
 pub mod language;
+pub mod learning;
 pub mod memory;
 pub mod news;
 pub mod prompt;
@@ -28,10 +31,15 @@ pub mod study_board;
 pub mod travel;
 
 pub use agent::{AgentConfig, PersonalAgent, PersonalHub};
+pub use cancellation::AgentRunRegistry;
 pub use context::{ContextBudget, ContextBundle, ModuleContextProvider, bundle_to_text};
 pub use conversation::{ConversationService, ConversationStore, ConversationStoreError};
 pub use documents::{
     DocumentsProviderOwned, DocumentsTools, documents_tool_names, register_documents,
+};
+pub use exploration::{
+    GeographyReference, HistoryStoryContext, LocationHistoryLookup, ReviewedCrosswalk,
+    VerifiedHistoryEvent, VerifiedLocationHistory, register_exploration,
 };
 pub use files::{FilesProviderOwned, FilesTools, files_tool_names, register_files};
 pub use geography::{
@@ -42,6 +50,7 @@ pub use knowledge::{
     KnowledgeProviderOwned, KnowledgeTools, knowledge_tool_names, register_knowledge,
 };
 pub use language::{LanguageProviderOwned, LanguageTools, language_tool_names, register_language};
+pub use learning::{LearningReviewQuery, LearningTools, register_learning};
 pub use memory::{MemoryProviderOwned, MemoryTools, memory_tool_names, register_memory};
 pub use news::{NewsProviderOwned, NewsTools, news_tool_names, register_news};
 pub use registry::{ModuleRegistration, ModuleRegistry, ToolExecutor, ToolRegistry, allowed_risk};
@@ -53,7 +62,10 @@ pub use session::{InMemorySessionStore, SessionStore};
 pub use study_board::{
     StudyBoardProviderOwned, StudyBoardTools, register_study_board, study_board_tool_names,
 };
-pub use travel::{TravelContextProvider, TravelTools, register_travel, travel_tool_names};
+pub use travel::{
+    TravelContextProvider, TravelTools, register_travel, register_travel_with_proposals,
+    travel_tool_names,
+};
 
 /// agent 循环测试（Fake provider 五种场景，V4 §79）。
 #[cfg(test)]

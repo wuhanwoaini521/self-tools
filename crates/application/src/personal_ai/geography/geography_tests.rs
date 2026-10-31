@@ -74,9 +74,23 @@ impl FakeGeographyPort {
     fn with_demo() -> Self {
         let everest = Self::everest();
         let himalayas = Self::himalayas();
+        let chengdu = GeoEntity {
+            id: "chengdu".into(),
+            entity_type: GeoEntityType::City,
+            name: "成都".into(),
+            name_en: Some("Chengdu".into()),
+            aliases: vec![],
+            coordinates: None,
+            geometry: None,
+            parent_id: None,
+            properties: vec![],
+            summary: "四川省省会城市".into(),
+            source_ids: vec![],
+        };
         let mut port = FakeGeographyPort::default();
         port.entities.insert(everest.id.clone(), everest);
         port.entities.insert(himalayas.id.clone(), himalayas);
+        port.entities.insert(chengdu.id.clone(), chengdu);
         port.relations.insert(
             "everest".into(),
             vec![GeoRelation {
@@ -301,6 +315,34 @@ fn context_provider_resolves_location() {
     assert_eq!(bundle.summary["canonical"]["entity_type"], "山体");
     assert!(!bundle.summary["relations"].as_array().unwrap().is_empty());
     assert!(bundle.summary["sources_count"].is_number());
+}
+
+#[test]
+fn geography_context_exposes_stable_history_crosswalk() {
+    let (_modules, _tools, port) = registered();
+    let provider = GeographyProviderOwned::new(port);
+    let ctx = AppContext {
+        module: Some("geography".into()),
+        page: Some("explore".into()),
+        entity: Some(EntityRef {
+            kind: "location".into(),
+            id: "chengdu".into(),
+            label: Some("成都".into()),
+        }),
+        ..AppContext::default()
+    };
+    let bundle = provider
+        .build_context(&ctx, &ContextBudget::default())
+        .unwrap();
+    assert_eq!(
+        bundle.summary["history_crosswalk"]["history_place_id"],
+        "cbdb-place-406333"
+    );
+    assert_eq!(bundle.summary["history_crosswalk"]["status"], "reviewed");
+    assert_eq!(
+        bundle.summary["history_crosswalk"]["next_tool"],
+        "history.events_for_place"
+    );
 }
 
 #[test]

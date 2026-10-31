@@ -213,13 +213,16 @@ fn rss_module_registers_six_tools_with_expected_risk() {
             "{read_tool} 必须 Read"
         );
     }
-    for write_tool in ["rss.mark_read", "rss.refresh"] {
-        assert_eq!(
-            tools.spec(write_tool).expect("spec").risk,
-            ToolRisk::SafeWrite,
-            "{write_tool} 写 dashboard.db，不得伪装 Read"
-        );
-    }
+    assert_eq!(
+        tools.spec("rss.mark_read").expect("spec").risk,
+        ToolRisk::SensitiveWrite,
+        "mark_read 改变用户阅读状态，未经确认不得自动执行"
+    );
+    assert_eq!(
+        tools.spec("rss.refresh").expect("spec").risk,
+        ToolRisk::SafeWrite,
+        "refresh 只更新抓取缓存"
+    );
     assert!(tools.spec("rss.missing").is_none());
 }
 
@@ -341,15 +344,26 @@ fn get_entry_and_mark_read_round_trip() {
     .expect_err("missing entry");
     assert_eq!(missing.code(), "personal_ai_tool_execution_failed");
 
-    let read = block_on(tools.execute(&ToolCallRequest {
+    let blocked = block_on(tools.execute(&ToolCallRequest {
         id: "c3".into(),
         name: "rss.mark_read".into(),
         arguments: serde_json::json!({ "entry_id": 11 }),
     }))
-    .expect("mark read");
-    assert!(read.ok);
-    assert_eq!(read.data["is_read"], true);
-    assert_eq!(*port.last_read.lock().expect("read"), Some(11));
+    .expect_err("user-state writes need an approval flow");
+    assert_eq!(blocked.code(), "personal_ai_tool_execution_failed");
+    assert!(
+        blocked
+            .message
+            .contains("not eligible for automatic execution")
+    );
+    assert_eq!(*port.last_read.lock().expect("read"), None);
+    let still_unread = block_on(tools.execute(&ToolCallRequest {
+        id: "c4".into(),
+        name: "rss.get_entry".into(),
+        arguments: serde_json::json!({ "entry_id": 11 }),
+    }))
+    .expect("entry remains readable");
+    assert!(!still_unread.data["is_read"].as_bool().expect("bool"));
 }
 
 #[test]

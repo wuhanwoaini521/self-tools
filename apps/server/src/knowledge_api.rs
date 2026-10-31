@@ -299,6 +299,7 @@ pub async fn global_search(
     Extension(knowledge): Extension<
         Arc<devtoolbox_infrastructure::knowledge_runtime::KnowledgeRuntime>,
     >,
+    Extension(learning): Extension<Arc<devtoolbox_application::learning::LearningService>>,
     Query(params): Query<SearchQuery>,
 ) -> Result<Json<Value>, crate::ai_api::ApiError> {
     let query = params.query.trim();
@@ -309,12 +310,14 @@ pub async fn global_search(
         });
     }
     // `GlobalSearchService::search` 是同步的（零 LLM 依赖，纯本地索引）。
-    let result = knowledge
-        .search
-        .search(&devtoolbox_core::search::GlobalSearchQuery {
+    let collection_search = devtoolbox_application::search::CollectionSearchPort::new(learning);
+    let result = knowledge.search.search_with_port(
+        &devtoolbox_core::search::GlobalSearchQuery {
             query: query.to_string(),
             limit_per_source: params.limit.unwrap_or(5).clamp(1, 20),
             sources: Vec::new(),
-        });
+        },
+        &collection_search,
+    );
     to_json(result, "global_search_encode_failed")
 }

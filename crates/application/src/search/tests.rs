@@ -148,6 +148,28 @@ fn one_failing_source_degrades_while_others_succeed() {
 }
 
 #[test]
+fn search_with_additional_source_includes_collection_hits_without_mutating_base_service() {
+    let service = service(vec![history_port()]);
+    let collection_source = FakePort::new(SearchSource::Collections).with("item-1", 0.8, |hit| {
+        hit.action_target = serde_json::json!({
+            "module": "geography",
+            "kind": "city",
+            "id": "luoyang"
+        });
+    });
+
+    let result = service.search_with_port(&query(), &collection_source);
+
+    assert_eq!(result.total, 2);
+    assert!(result.hits.iter().any(|hit| {
+        hit.source == SearchSource::Collections
+            && hit.action_target["module"] == "geography"
+            && hit.action_target["id"] == "luoyang"
+    }));
+    assert_eq!(service.search(&query()).total, 1);
+}
+
+#[test]
 fn all_sources_succeed_has_no_degradation() {
     let result = service(vec![history_port(), memory_port(), files_port()]).search(&query());
     assert!(result.degraded_sources.is_empty());

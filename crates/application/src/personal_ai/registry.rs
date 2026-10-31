@@ -31,6 +31,16 @@ pub trait ToolExecutor: Send + Sync {
     /// 执行。参数已通过 schema 校验（`ToolRegistry::execute` 前置）。
     /// V5：async（支持 `history.ensure_enrichment` 等慢/IO 工具）；由 agent 循环 await。
     async fn execute(&self, arguments: serde_json::Value) -> Result<ToolResult, AgentError>;
+
+    /// Execute with the trusted current AppContext snapshot. Context-sensitive tools
+    /// override this method; legacy tools stay source-compatible through the default.
+    async fn execute_with_context(
+        &self,
+        arguments: serde_json::Value,
+        _context: &AppContext,
+    ) -> Result<ToolResult, AgentError> {
+        self.execute(arguments).await
+    }
 }
 
 /// 工具执行错误（统一映射为 `AgentError::ToolExecutionFailed`）。
@@ -58,8 +68,8 @@ impl ToolRegistry {
         }
     }
 
-    /// 注册工具。重复 name 或含 `/` 分隔符 → 返回错误（名字必须 `module.action`）；
-    /// 同时执行**风险门禁**：只允许当前策略容错的 risk（V4 §14/§21）。
+    /// 注册契约完整的工具（包括受限工具，供 catalog 与权限审计发现）。
+    /// 风险门禁在模型暴露和每次执行时强制；注册本身不代表允许自动执行。
     pub fn register(&mut self, tool: Arc<dyn ToolExecutor>) -> Result<(), AgentError> {
         let spec = tool.spec();
         let name = spec.name.clone();
@@ -71,12 +81,6 @@ impl ToolRegistry {
         if !name.contains('.') {
             return Err(AgentError::tool_invalid_argument(format!(
                 "tool name must be `module.action`, got: {name}"
-            )));
-        }
-        if !allowed_risk(spec.risk) {
-            return Err(AgentError::tool_invalid_argument(format!(
-                "tool `{name}` risk `{:?}` is not allowed by the current risk gate (Read + SafeWrite only)",
-                spec.risk
             )));
         }
         self.tools.insert(name, tool);
@@ -128,8 +132,24 @@ impl ToolRegistry {
         let tool = self.tools.get(&call.name).ok_or_else(|| {
             AgentError::tool_not_found(format!("tool `{}` is not registered", call.name))
         })?;
+        ensure_automatic_execution_allowed(&call.name, tool.spec().risk)?;
         self.validate_args(&call.name, &call.arguments)?;
         tool.execute(call.arguments.clone()).await
+    }
+
+    /// Scoped variant for tools whose target must come from the current UI context.
+    pub async fn execute_with_context(
+        &self,
+        call: &ToolCallRequest,
+        context: &AppContext,
+    ) -> Result<ToolResult, AgentError> {
+        let tool = self.tools.get(&call.name).ok_or_else(|| {
+            AgentError::tool_not_found(format!("tool `{}` is not registered", call.name))
+        })?;
+        ensure_automatic_execution_allowed(&call.name, tool.spec().risk)?;
+        self.validate_args(&call.name, &call.arguments)?;
+        tool.execute_with_context(call.arguments.clone(), context)
+            .await
     }
 
     #[must_use]
@@ -236,12 +256,20 @@ impl ModuleRegistry {
     }
 }
 
-/// 注册表风险门禁（V4 §21/§14）：V4 只允许 Read；V5 起允许 Read + SafeWrite
-/// （`history.ensure_enrichment` 只写 derived cache，不写 Canonical）。
-/// SensitiveWrite/System 永不自动执行。
+/// 风险门禁：Read 与 SafeWrite 可自动执行；SensitiveWrite/System 仅可注册和发现，
+/// 在实现了独立的用户确认流程前不得暴露给模型或直接执行。
 #[must_use]
 pub fn allowed_risk(risk: ToolRisk) -> bool {
     matches!(risk, ToolRisk::Read | ToolRisk::SafeWrite)
+}
+
+fn ensure_automatic_execution_allowed(name: &str, risk: ToolRisk) -> Result<(), AgentError> {
+    if allowed_risk(risk) {
+        return Ok(());
+    }
+    Err(AgentError::tool_execution_failed(format!(
+        "tool `{name}` is not eligible for automatic execution (risk `{risk:?}`)"
+    )))
 }
 
 #[cfg(test)]
@@ -329,6 +357,61 @@ mod tests {
         .unwrap();
         assert!(result.ok);
         assert_eq!(result.data["echo"]["query"], "遵义");
+    }
+
+    #[test]
+    fn scoped_executor_receives_current_app_context_after_schema_validation() {
+        struct ScopedTool(ToolSpec);
+        #[async_trait::async_trait]
+        impl ToolExecutor for ScopedTool {
+            fn spec(&self) -> &ToolSpec {
+                &self.0
+            }
+            async fn execute(
+                &self,
+                _arguments: serde_json::Value,
+            ) -> Result<ToolResult, AgentError> {
+                Ok(ToolResult::fail("context was not supplied"))
+            }
+            async fn execute_with_context(
+                &self,
+                _arguments: serde_json::Value,
+                context: &AppContext,
+            ) -> Result<ToolResult, AgentError> {
+                Ok(ToolResult::ok(
+                    json!({"entity_id": context.entity.as_ref().map(|entity| entity.id.as_str())}),
+                ))
+            }
+        }
+
+        let mut registry = ToolRegistry::new();
+        registry
+            .register(Arc::new(ScopedTool(ToolSpec {
+                name: "travel.propose_add_place".into(),
+                description: "preview".into(),
+                input_schema: json!({"type": "object"}),
+                risk: ToolRisk::Read,
+                module: "travel".into(),
+            })))
+            .unwrap();
+        let result = block_on(registry.execute_with_context(
+            &ToolCallRequest {
+                id: "c1".into(),
+                name: "travel.propose_add_place".into(),
+                arguments: json!({}),
+            },
+            &AppContext {
+                module: Some("travel".into()),
+                entity: Some(devtoolbox_core::personal_ai::EntityRef {
+                    kind: "destination".into(),
+                    id: "Luoyang".into(),
+                    label: None,
+                }),
+                ..AppContext::default()
+            },
+        ))
+        .unwrap();
+        assert_eq!(result.data["entity_id"], "Luoyang");
     }
 
     #[test]
@@ -468,40 +551,56 @@ mod tests {
     }
 
     #[test]
-    fn risk_gate_rejects_non_read_at_registration() {
+    fn restricted_tools_are_discoverable_but_never_auto_executed() {
         let mut registry = ToolRegistry::new();
-        // SensitiveWrite / System 仍然禁止注册
-        for risk in [ToolRisk::SensitiveWrite, ToolRisk::System] {
-            let error = registry
+        for (name, risk) in [
+            ("memory.archive", ToolRisk::SensitiveWrite),
+            ("server.restart", ToolRisk::System),
+        ] {
+            registry
                 .register(Arc::new(FakeTool {
                     spec: ToolSpec {
-                        name: "evil.write".into(),
-                        description: "d".into(),
-                        input_schema: json!({}),
+                        name: name.into(),
+                        description: "restricted action".into(),
+                        input_schema: json!({"type": "object"}),
                         risk,
-                        module: "evil".into(),
+                        module: name.split('.').next().unwrap().into(),
                     },
                     fail: false,
                 }))
-                .unwrap_err();
-            assert_eq!(error.code(), "personal_ai_tool_invalid_argument");
-            assert!(error.message.contains("risk gate"));
+                .unwrap();
         }
-        assert_eq!(registry.len(), 0);
-        // V5：SafeWrite（如 history.ensure_enrichment）允许注册
-        registry
-            .register(Arc::new(FakeTool {
-                spec: ToolSpec {
-                    name: "safe.write".into(),
-                    description: "d".into(),
-                    input_schema: json!({}),
-                    risk: ToolRisk::SafeWrite,
-                    module: "history".into(),
-                },
-                fail: false,
+
+        let specs = registry.specs();
+        assert_eq!(specs.len(), 2);
+        assert!(specs.iter().any(|spec| spec.name == "memory.archive"));
+        assert!(specs.iter().any(|spec| spec.name == "server.restart"));
+
+        for name in ["memory.archive", "server.restart"] {
+            let error = block_on(registry.execute(&ToolCallRequest {
+                id: "c1".into(),
+                name: name.into(),
+                arguments: json!({}),
             }))
-            .unwrap();
-        assert_eq!(registry.len(), 1);
+            .expect_err("restricted tools must not run without an approval flow");
+            assert_eq!(error.code(), "personal_ai_tool_execution_failed");
+            assert!(
+                error
+                    .message
+                    .contains("not eligible for automatic execution")
+            );
+
+            let scoped_error = block_on(registry.execute_with_context(
+                &ToolCallRequest {
+                    id: "c2".into(),
+                    name: name.into(),
+                    arguments: json!({}),
+                },
+                &AppContext::default(),
+            ))
+            .expect_err("scoped execution must enforce the same risk gate");
+            assert_eq!(scoped_error.code(), "personal_ai_tool_execution_failed");
+        }
     }
 
     // ---- minimal provider for module registry test ----

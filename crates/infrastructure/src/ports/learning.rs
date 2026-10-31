@@ -62,6 +62,23 @@ impl LearningStorePort for LearningStoreAdapter {
             .map_err(|e| LearningPortError::Store(e.to_string()))
     }
 
+    fn save_knowledge_review_card(
+        &self,
+        card: &UniversalReviewCard,
+    ) -> Result<UniversalReviewCard, LearningPortError> {
+        self.store
+            .lock()
+            .save_knowledge_review_card(card)
+            .map_err(|e| LearningPortError::Store(e.to_string()))
+    }
+
+    fn delete_knowledge_review_card(&self, card_id: &str) -> Result<bool, LearningPortError> {
+        self.store
+            .lock()
+            .delete_knowledge_review_card(card_id)
+            .map_err(|e| LearningPortError::Store(e.to_string()))
+    }
+
     fn get_review_card(
         &self,
         card_id: &str,
@@ -100,6 +117,19 @@ impl LearningStorePort for LearningStoreAdapter {
         self.store
             .lock()
             .record_review_outcome(card_id, rating, now)
+            .map_err(|e| LearningPortError::Store(e.to_string()))
+    }
+
+    fn record_review_outcome_once(
+        &self,
+        card_id: &str,
+        rating: ReviewRating,
+        request_id: &str,
+        now: i64,
+    ) -> Result<ReviewScheduleOutcome, LearningPortError> {
+        self.store
+            .lock()
+            .record_review_outcome_once(card_id, rating, request_id, now)
             .map_err(|e| LearningPortError::Store(e.to_string()))
     }
 
@@ -145,6 +175,19 @@ impl LearningStorePort for LearningStoreAdapter {
             .map_err(|e| LearningPortError::Store(e.to_string()))
     }
 
+    fn update_collection_item_note(
+        &self,
+        item_id: &str,
+        note: Option<&str>,
+        now: i64,
+    ) -> Result<CollectionItem, LearningPortError> {
+        self.store
+            .lock()
+            .update_collection_item_note(item_id, note, now)
+            .map_err(|e| LearningPortError::Store(e.to_string()))?
+            .ok_or_else(|| LearningPortError::NotFound(item_id.to_string()))
+    }
+
     fn remove_collection_item(&self, item_id: &str) -> Result<(), LearningPortError> {
         self.store
             .lock()
@@ -170,6 +213,17 @@ impl LearningStorePort for LearningStoreAdapter {
         self.store
             .lock()
             .count_topics_studied_today(day_start_ts)
+            .map_err(|e| LearningPortError::Store(e.to_string()))
+    }
+
+    fn list_study_activity_day_starts(
+        &self,
+        utc_offset_seconds: i64,
+        now: i64,
+    ) -> Result<Vec<i64>, LearningPortError> {
+        self.store
+            .lock()
+            .list_study_activity_day_starts(utc_offset_seconds, now)
             .map_err(|e| LearningPortError::Store(e.to_string()))
     }
 

@@ -21,9 +21,9 @@ use devtoolbox_application::travel::TravelResearchRequest;
 use devtoolbox_application::travel::session::TravelSessionRegistry;
 use devtoolbox_core::personal_ai::ChatModelProvider;
 use devtoolbox_core::settings::AppSettings;
-use devtoolbox_core::travel::TravelDataProvider;
-use devtoolbox_infrastructure::TravelStore;
+use devtoolbox_core::travel::{TravelDataProvider, TravelDateRange, TravelPlan, TravelPlanContext};
 use devtoolbox_infrastructure::travel::providers::travel_research_service;
+use devtoolbox_infrastructure::{InfrastructureError, TravelStore};
 use serde::Deserialize;
 use serde_json::Value;
 
@@ -48,6 +48,24 @@ pub struct SessionQuery {
 pub struct GuideQuery {
     pub city: String,
     pub days: Option<u8>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct TravelRecentPlansQuery {
+    pub limit: Option<usize>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct TravelPlanQuery {
+    pub city: String,
+    pub days: u8,
+    pub date_start: Option<String>,
+    pub date_end: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct TravelPlanBody {
+    pub plan: TravelPlan,
 }
 
 /// 运行时装配依赖。
@@ -127,6 +145,18 @@ pub async fn travel_recent_guides(
     Ok(Json(serde_json::to_value(summaries).unwrap_or(Value::Null)))
 }
 
+pub async fn travel_recent_plans(
+    Extension(deps): Extension<Arc<TravelDeps>>,
+    Query(params): Query<TravelRecentPlansQuery>,
+) -> Result<Json<Vec<TravelPlan>>, crate::ai_api::ApiError> {
+    let plans = deps
+        .store
+        .lock()
+        .list_plans(params.limit.unwrap_or(20))
+        .map_err(|error| err("travel_error", error.to_string()))?;
+    Ok(Json(plans))
+}
+
 pub async fn travel_load_guide(
     Extension(deps): Extension<Arc<TravelDeps>>,
     Query(params): Query<GuideQuery>,
@@ -138,6 +168,56 @@ pub async fn travel_load_guide(
     Ok(Json(guide.map(|value| {
         serde_json::to_value(value).unwrap_or(Value::Null)
     })))
+}
+
+pub async fn travel_plan_get(
+    Extension(deps): Extension<Arc<TravelDeps>>,
+    Query(params): Query<TravelPlanQuery>,
+) -> Result<Json<Option<TravelPlan>>, crate::ai_api::ApiError> {
+    let date_range = match (params.date_start, params.date_end) {
+        (Some(start), Some(end)) => Some(TravelDateRange { start, end }),
+        (None, None) => None,
+        _ => return Err(err("travel_plan_invalid", "出行日期范围无效")),
+    };
+    let context = TravelPlanContext {
+        city: params.city,
+        days: params.days,
+        date_range,
+    }
+    .validate()
+    .map_err(|error| err("travel_plan_invalid", error.to_string()))?;
+    let plan = deps
+        .store
+        .lock()
+        .get_plan(&context)
+        .map_err(|error| err("travel_error", error.to_string()))?;
+    Ok(Json(plan))
+}
+
+pub async fn travel_plan_save(
+    Extension(deps): Extension<Arc<TravelDeps>>,
+    Json(body): Json<TravelPlanBody>,
+) -> Result<Json<TravelPlan>, crate::ai_api::ApiError> {
+    let plan = body
+        .plan
+        .validate()
+        .map_err(|error| err("travel_plan_invalid", error.to_string()))?;
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs() as i64;
+    let saved = deps
+        .store
+        .lock()
+        .upsert_plan(&plan, now)
+        .map_err(|error| match error {
+            InfrastructureError::TravelPlanConflict => err(
+                "travel_plan_conflict",
+                "行程已在其他位置更新；当前内容未覆盖服务器版本。请载入最新版本或明确选择覆盖。",
+            ),
+            other => err("travel_error", other.to_string()),
+        })?;
+    Ok(Json(saved))
 }
 
 // ---- 连通性测试（与桌面端 test_travel_* 同语义）----
@@ -254,11 +334,15 @@ pub async fn test_travel_qweather(
 #[cfg(test)]
 #[must_use]
 pub fn test_deps(dir: &std::path::Path) -> TravelDeps {
+    static NEXT_TEST_STORE: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    let sequence = NEXT_TEST_STORE.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     TravelDeps {
         client: reqwest::Client::new(),
         store: Arc::new(Mutex::new(
-            devtoolbox_infrastructure::TravelStore::open(dir.join("travel-test.db"))
-                .expect("travel store"),
+            devtoolbox_infrastructure::TravelStore::open(
+                dir.join(format!("travel-test-{}-{sequence}.db", std::process::id())),
+            )
+            .expect("travel store"),
         )),
         registry: Arc::new(devtoolbox_application::travel::session::TravelSessionRegistry::new()),
         settings_loader: Arc::new(|| Ok(devtoolbox_core::settings::AppSettings::default())),

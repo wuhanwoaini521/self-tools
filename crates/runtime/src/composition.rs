@@ -391,6 +391,60 @@ impl FeedFetcherPort for FeedFetcherAdapter {
     }
 }
 
+// ---------- TravelPlan CAS store adapter ----------
+
+/// Adapts the shared SQLite plan store to the application proposal service.
+pub struct TravelPlanStoreAdapter {
+    store: Arc<Mutex<devtoolbox_infrastructure::TravelStore>>,
+}
+
+impl TravelPlanStoreAdapter {
+    #[must_use]
+    pub fn new(store: Arc<Mutex<devtoolbox_infrastructure::TravelStore>>) -> Self {
+        Self { store }
+    }
+}
+
+impl devtoolbox_application::travel::TravelPlanStorePort for TravelPlanStoreAdapter {
+    fn get_plan(
+        &self,
+        context: &devtoolbox_core::travel::TravelPlanContext,
+    ) -> Result<
+        Option<devtoolbox_core::travel::TravelPlan>,
+        devtoolbox_application::travel::TravelPlanPortError,
+    > {
+        self.store
+            .lock()
+            .get_plan(context)
+            .map_err(map_travel_plan_error)
+    }
+
+    fn save_plan(
+        &self,
+        plan: &devtoolbox_core::travel::TravelPlan,
+        now: i64,
+    ) -> Result<
+        devtoolbox_core::travel::TravelPlan,
+        devtoolbox_application::travel::TravelPlanPortError,
+    > {
+        self.store
+            .lock()
+            .upsert_plan(plan, now)
+            .map_err(map_travel_plan_error)
+    }
+}
+
+fn map_travel_plan_error(
+    error: devtoolbox_infrastructure::InfrastructureError,
+) -> devtoolbox_application::travel::TravelPlanPortError {
+    match error {
+        devtoolbox_infrastructure::InfrastructureError::TravelPlanConflict => {
+            devtoolbox_application::travel::TravelPlanPortError::Conflict
+        }
+        other => devtoolbox_application::travel::TravelPlanPortError::Storage(other.to_string()),
+    }
+}
+
 // ---------- News（V12 / ADR-010：独立于 RSS 的持久化端口） ----------
 
 use devtoolbox_application::news::NewsRepositoryPort;

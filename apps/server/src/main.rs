@@ -1,9 +1,13 @@
-//! Self Tools 极简 HTTP 服务（Gate 9 试点）：只读 History 知识库。
+//! Self Tools loopback HTTP service for the versioned product API.
 //!
-//! 本二进制只做：配置（env + CLI）→ 日志 → 组合根（只读 DuckDB 仓库 +
-//! 用例服务）→ 路由（`routes`）→ 监听与优雅退出。不包含鉴权、CORS、写入端点。
+//! Composition only: config (env + CLI) → runtime → routes → loopback listener
+//! and graceful shutdown. The API includes local write endpoints but has no
+//! per-user authentication; non-loopback binds are rejected, Host/Origin are
+//! guarded, and CORS remains disabled.
 
 mod ai_api;
+mod backup_api;
+mod exploration_api;
 mod geography_api;
 mod knowledge_api;
 mod language_api;
@@ -14,6 +18,7 @@ mod learning_api;
 mod news_api;
 mod readiness_api;
 mod routes;
+mod security;
 mod study_board_api;
 mod travel_api;
 
@@ -26,8 +31,11 @@ use tracing::{error, info};
 use tracing_subscriber::EnvFilter;
 
 use devtoolbox_application::history::HistoryService;
+use devtoolbox_core::{AgentError, AgentRequest, AgentResponse};
+use std::future::Future;
+use std::pin::Pin;
 
-/// 默认只监听本机；要暴露到局域网时显式设置 `SELF_TOOLS_BIND`（Gate 9：默认 127.0.0.1）。
+/// 默认监听 loopback；当前未认证服务拒绝非 loopback bind（默认 127.0.0.1）。
 const DEFAULT_BIND: &str = "127.0.0.1:8080";
 /// 唯一事实源（Gate 5.5）：`history-data-pipeline/dist/history.duckdb`。
 const DEFAULT_HISTORY_DB: &str = "history-data-pipeline/dist/history.duckdb";
@@ -75,8 +83,9 @@ fn load_config() -> Result<Config, String> {
             "--help" | "-h" => {
                 println!(
                     "usage: devtoolbox-server [--bind ADDR] [--history-db PATH]\n\
-                     env:   SELF_TOOLS_BIND (default {DEFAULT_BIND})\n\
+                     env:   SELF_TOOLS_BIND (default {DEFAULT_BIND}; non-loopback rejected)\n\
                      \tSELF_TOOLS_HISTORY_DB (default {DEFAULT_HISTORY_DB})\n\
+                     \tSELF_TOOLS_DATA_DIR (default {DEFAULT_DATA_DIR})\n\
                      \tRUST_LOG (default info)"
                 );
                 std::process::exit(0);
@@ -128,6 +137,72 @@ async fn shutdown_signal() {
     info!("shutdown signal received, closing HTTP server");
 }
 
+struct RuntimeAiChatRunner {
+    core: Arc<devtoolbox_runtime::AppCore>,
+}
+
+impl ai_api::AiChatRunner for RuntimeAiChatRunner {
+    fn chat<'a>(
+        &'a self,
+        request: AgentRequest,
+        trace_id: String,
+    ) -> Pin<Box<dyn Future<Output = Result<AgentResponse, AgentError>> + Send + 'a>> {
+        Box::pin(async move {
+            let settings = (self.core.settings_loader)().map_err(AgentError::provider)?;
+            if !settings.ai.is_configured() {
+                return Err(AgentError::model_unavailable("AI provider 未配置"));
+            }
+            let provider = devtoolbox_runtime::personal_ai::build_provider(
+                self.core.client.clone(),
+                &settings.ai,
+            );
+            let agent = devtoolbox_runtime::personal_ai::build_agent(
+                provider,
+                Arc::clone(&self.core.personal_ai),
+                Arc::clone(&self.core.ai_session),
+            );
+            let mut response = self.core.ai_runs.run(&trace_id, agent.run(request)).await?;
+            response.trace_id = Some(trace_id);
+            Ok(response)
+        })
+    }
+
+    fn catalog(
+        &self,
+    ) -> (
+        Vec<devtoolbox_core::ModuleDescriptor>,
+        Vec<devtoolbox_core::ToolSpec>,
+    ) {
+        (
+            self.core.personal_ai.modules.descriptors(),
+            self.core.personal_ai.tools.specs(),
+        )
+    }
+
+    fn cancel_run(&self, trace_id: &str) -> bool {
+        self.core.ai_runs.cancel(trace_id)
+    }
+
+    fn confirm_travel_change(
+        &self,
+        proposal_id: &str,
+    ) -> Result<
+        devtoolbox_core::travel::TravelPlan,
+        devtoolbox_application::travel::TravelPlanChangeError,
+    > {
+        self.core
+            .travel_plan_changes
+            .confirm(proposal_id, devtoolbox_infrastructure::now_unix())
+    }
+
+    fn cancel_travel_change(
+        &self,
+        proposal_id: &str,
+    ) -> Result<(), devtoolbox_application::travel::TravelPlanChangeError> {
+        self.core.travel_plan_changes.cancel(proposal_id)
+    }
+}
+
 #[tokio::main]
 async fn main() -> ExitCode {
     let config = match load_config() {
@@ -137,6 +212,12 @@ async fn main() -> ExitCode {
             return ExitCode::from(2);
         }
     };
+    if !security::is_loopback_bind(config.bind) {
+        eprintln!(
+            "configuration error: unauthenticated HTTP server must bind to a loopback address; remote access requires an authenticated gateway"
+        );
+        return ExitCode::from(2);
+    }
     init_logging();
 
     // ------------------------------------------------------------------
@@ -162,6 +243,9 @@ async fn main() -> ExitCode {
         db = %config.history_db.display(),
         "runtime ready (shared with desktop)"
     );
+    let ai_runner: Arc<dyn ai_api::AiChatRunner> = Arc::new(RuntimeAiChatRunner {
+        core: Arc::clone(&core),
+    });
 
     let listener = match tokio::net::TcpListener::bind(config.bind).await {
         Ok(listener) => listener,
@@ -234,6 +318,7 @@ async fn main() -> ExitCode {
         }),
         Arc::default(),
         settings,
+        Some(ai_runner),
         learning_os,
         geography,
         news,
@@ -245,7 +330,7 @@ async fn main() -> ExitCode {
     );
     info!(
         bind = %config.bind,
-        "HTTP server listening (history + language; no auth; no CORS)"
+        "HTTP server listening (loopback only; Host and browser Origin guarded; no CORS)"
     );
     match axum::serve(listener, app)
         .with_graceful_shutdown(shutdown_signal())

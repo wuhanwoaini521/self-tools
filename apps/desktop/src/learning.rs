@@ -5,8 +5,8 @@ use tauri::State;
 use devtoolbox_application::learning::LearningService;
 use devtoolbox_core::learning::{
     Collection, CollectionItem, CollectionItemRef, ExploreRecommendation, GraphNeighborhood,
-    LearningEvent, LearningProgress, LearningStatus, ReviewQueueItem, ReviewQueueStats,
-    ReviewRating, ReviewScheduleOutcome, TodayDashboardData,
+    KnowledgeReviewCardDraft, LearningEvent, LearningProgress, LearningStatus, ReviewQueueItem,
+    ReviewQueueStats, ReviewRating, ReviewScheduleOutcome, TodayDashboardData, UniversalReviewCard,
 };
 
 use crate::{AppState, CommandError};
@@ -103,11 +103,55 @@ pub async fn learning_submit_review(
     state: State<'_, AppState>,
     card_id: String,
     rating: ReviewRating,
+    request_id: Option<String>,
 ) -> Result<ReviewScheduleOutcome, CommandError> {
     let now = devtoolbox_infrastructure::now_unix();
     let service = LearningService::new(state.learning_store.clone());
+    let result = match request_id.as_deref() {
+        Some(request_id) => service.submit_review_once(&card_id, rating, request_id, now),
+        None => service.submit_review(&card_id, rating, now),
+    };
+    result.map_err(|e| CommandError {
+        code: "learning_error",
+        message: e.to_string(),
+    })
+}
+
+#[tauri::command]
+pub async fn learning_get_review_card(
+    state: State<'_, AppState>,
+    card_id: String,
+) -> Result<Option<UniversalReviewCard>, CommandError> {
+    let service = LearningService::new(state.learning_store.clone());
+    service.get_review_card(&card_id).map_err(|e| CommandError {
+        code: "learning_error",
+        message: e.to_string(),
+    })
+}
+
+#[tauri::command]
+pub async fn learning_save_knowledge_review_card(
+    state: State<'_, AppState>,
+    draft: KnowledgeReviewCardDraft,
+) -> Result<UniversalReviewCard, CommandError> {
+    let now = devtoolbox_infrastructure::now_unix();
+    let service = LearningService::new(state.learning_store.clone());
     service
-        .submit_review(&card_id, rating, now)
+        .save_knowledge_review_card(&draft, now)
+        .map_err(|e| CommandError {
+            code: "learning_error",
+            message: e.to_string(),
+        })
+}
+
+#[tauri::command]
+pub async fn learning_delete_knowledge_review_card(
+    state: State<'_, AppState>,
+    card_id: String,
+) -> Result<(), CommandError> {
+    let service = LearningService::new(state.learning_store.clone());
+    service
+        .delete_knowledge_review_card(&card_id)
         .map_err(|e| CommandError {
             code: "learning_error",
             message: e.to_string(),
@@ -209,6 +253,22 @@ pub async fn learning_list_collection_items(
     let service = LearningService::new(state.learning_store.clone());
     service
         .list_collection_items(&collection_id)
+        .map_err(|e| CommandError {
+            code: "learning_error",
+            message: e.to_string(),
+        })
+}
+
+#[tauri::command]
+pub async fn learning_update_collection_item_note(
+    state: State<'_, AppState>,
+    item_id: String,
+    note: Option<String>,
+) -> Result<CollectionItem, CommandError> {
+    let now = devtoolbox_infrastructure::now_unix();
+    let service = LearningService::new(state.learning_store.clone());
+    service
+        .update_collection_item_note(&item_id, note.as_deref(), now)
         .map_err(|e| CommandError {
             code: "learning_error",
             message: e.to_string(),

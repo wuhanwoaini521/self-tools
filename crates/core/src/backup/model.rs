@@ -112,6 +112,10 @@ impl BackupEntry {
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct BackupManifest {
+    /// Backup-manifest contract version; zero identifies pre-versioned manifests.
+    pub format_version: u32,
+    /// True only when every registered source produced a snapshot.
+    pub complete: bool,
     /// 备份时间（Unix epoch 秒）。
     pub created_at: i64,
     /// 产生备份的应用版本（升级兼容性判断）。
@@ -246,6 +250,8 @@ mod tests {
 
     fn sample_manifest() -> BackupManifest {
         BackupManifest {
+            format_version: 1,
+            complete: true,
             created_at: 1_700_000_000,
             app_version: "0.1.0".to_string(),
             schema_versions: BTreeMap::from([("memory".to_string(), 1u32)]),
@@ -268,6 +274,8 @@ mod tests {
         let decoded = BackupManifest::from_json(&text).expect("decode");
         assert_eq!(decoded, manifest);
         assert_eq!(decoded.len(), 1);
+        assert_eq!(decoded.format_version, 1);
+        assert!(decoded.complete);
         assert_eq!(decoded.total_bytes(), 7);
         assert!(decoded.has_sensitive_entries());
         assert_eq!(
@@ -282,7 +290,10 @@ mod tests {
         let manifest = BackupManifest::from_json(r#"{"entries": []}"#).expect("decode");
         assert!(manifest.is_empty());
         assert_eq!(manifest.created_at, 0);
+        assert_eq!(manifest.format_version, 0);
+        assert!(!manifest.complete);
         assert!(manifest.schema_versions.is_empty());
+        assert!(manifest.entries.is_empty());
         assert!(manifest.note.is_empty());
     }
 

@@ -13,12 +13,57 @@ use std::sync::Arc;
 
 use devtoolbox_core::learning::{
     Collection, CollectionItem, CollectionItemRef, EntityType, ExploreRecommendation, GraphEdge,
-    GraphNeighborhood, GraphNode, LearningEvent, LearningProgress, LearningStatus, RelationKind,
-    ReviewQueueItem, ReviewQueueStats, ReviewRating, ReviewScheduleOutcome, TodayDashboardData,
-    UniversalReviewCard,
+    GraphNeighborhood, GraphNode, KnowledgeReviewCardDraft, LearningEvent, LearningProgress,
+    LearningStatus, RelationKind, ReviewCardType, ReviewQueueItem, ReviewQueueStats, ReviewRating,
+    ReviewScheduleOutcome, TodayDashboardData, UniversalReviewCard,
 };
 
 use crate::learning::ports::{LearningPortError, LearningStorePort};
+
+const SECONDS_PER_DAY: i64 = 86_400;
+const SHANGHAI_UTC_OFFSET_SECONDS: i64 = 8 * 60 * 60;
+
+fn shanghai_day_start(timestamp: i64) -> i64 {
+    timestamp
+        .saturating_add(SHANGHAI_UTC_OFFSET_SECONDS)
+        .div_euclid(SECONDS_PER_DAY)
+        .saturating_mul(SECONDS_PER_DAY)
+        .saturating_sub(SHANGHAI_UTC_OFFSET_SECONDS)
+}
+
+fn current_study_streak_days(activity_days: &[i64], today_start: i64) -> u32 {
+    let yesterday_start = today_start.saturating_sub(SECONDS_PER_DAY);
+    let mut expected_day = if activity_days.contains(&today_start) {
+        today_start
+    } else if activity_days.contains(&yesterday_start) {
+        yesterday_start
+    } else {
+        return 0;
+    };
+
+    let mut ordered_days = activity_days.to_vec();
+    ordered_days.sort_unstable_by(|left, right| right.cmp(left));
+    ordered_days.dedup();
+
+    let mut streak = 0_u32;
+    for day_start in ordered_days {
+        if day_start > today_start {
+            continue;
+        }
+        if day_start == expected_day {
+            streak = streak.saturating_add(1);
+            expected_day = expected_day.saturating_sub(SECONDS_PER_DAY);
+        } else if day_start < expected_day {
+            break;
+        }
+    }
+    streak
+}
+
+pub struct CollectionSearchMatch {
+    pub collection_title: String,
+    pub item: CollectionItem,
+}
 
 pub struct LearningService {
     store: Arc<dyn LearningStorePort>,
@@ -94,6 +139,77 @@ impl LearningService {
         self.store.get_review_card(card_id)
     }
 
+    /// Create or edit the single user-authored card associated with a stable source identity.
+    pub fn save_knowledge_review_card(
+        &self,
+        draft: &KnowledgeReviewCardDraft,
+        now: i64,
+    ) -> Result<UniversalReviewCard, LearningPortError> {
+        let module = draft.module.trim();
+        if !matches!(module, "history" | "geography") {
+            return Err(LearningPortError::InvalidArgument(
+                "only saved History and Geography sources can be added to Review Center".into(),
+            ));
+        }
+        let entity_type = required_card_text(&draft.entity_type, "entity type", 64)?;
+        if !entity_type.bytes().all(|byte| {
+            byte.is_ascii_lowercase() || byte.is_ascii_digit() || matches!(byte, b'_' | b'-')
+        }) {
+            return Err(LearningPortError::InvalidArgument(
+                "entity type must use lowercase ASCII letters, digits, '-' or '_'".into(),
+            ));
+        }
+        if module == "history" && !matches!(entity_type.as_str(), "event" | "person" | "story") {
+            return Err(LearningPortError::InvalidArgument(
+                "History review cards must reference an event, person, or story".into(),
+            ));
+        }
+        let entity_id = required_card_text(&draft.entity_id, "source ID", 512)?;
+        let source_title = required_card_text(&draft.source_title, "source title", 240)?;
+        let prompt = required_card_text(&draft.prompt, "review prompt", 2_000)?;
+        let answer = required_card_text(&draft.answer, "reference answer", 10_000)?;
+        let user_note = optional_card_text(draft.user_note.as_deref(), "personal note", 4_000)?;
+        let module = module.to_string();
+        let id = format!("knowledge:{module}:{entity_type}:{entity_id}");
+        let card = UniversalReviewCard {
+            id,
+            module,
+            entity_id,
+            entity_type,
+            card_type: ReviewCardType::Qa,
+            prompt,
+            answer,
+            options: None,
+            hint: None,
+            context: None,
+            source_title: Some(source_title),
+            user_note,
+            due_at: now,
+            interval_days: 0.0,
+            ease: 2.5,
+            mastery_score: 0.0,
+            repetition_count: 0,
+            lapses: 0,
+            last_reviewed_at: None,
+            created_at: now,
+        };
+        self.store.save_knowledge_review_card(&card)
+    }
+
+    /// Delete only a user-created Knowledge card; review history and source data remain intact.
+    pub fn delete_knowledge_review_card(&self, card_id: &str) -> Result<(), LearningPortError> {
+        if !card_id.starts_with("knowledge:") {
+            return Err(LearningPortError::InvalidArgument(
+                "only Knowledge-created review cards can be deleted here".into(),
+            ));
+        }
+        if self.store.delete_knowledge_review_card(card_id)? {
+            Ok(())
+        } else {
+            Err(LearningPortError::NotFound(card_id.to_string()))
+        }
+    }
+
     pub fn get_review_queue(
         &self,
         module_filter: Option<&str>,
@@ -116,13 +232,36 @@ impl LearningService {
         self.store.record_review_outcome(card_id, rating, now)
     }
 
+    pub fn submit_review_once(
+        &self,
+        card_id: &str,
+        rating: ReviewRating,
+        request_id: &str,
+        now: i64,
+    ) -> Result<ReviewScheduleOutcome, LearningPortError> {
+        if request_id.trim().is_empty()
+            || request_id.chars().count() > 128
+            || request_id.chars().any(char::is_control)
+        {
+            return Err(LearningPortError::InvalidArgument(
+                "review request ID must be 1–128 printable characters".into(),
+            ));
+        }
+        self.store
+            .record_review_outcome_once(card_id, rating, request_id, now)
+    }
+
     // ========================================================================
     // 3. Today Aggregated Dashboard
     // ========================================================================
 
     pub fn get_today_dashboard(&self, now: i64) -> Result<TodayDashboardData, LearningPortError> {
-        let day_start = now - (now % 86400);
+        let day_start = shanghai_day_start(now);
         let studied_today = self.store.count_topics_studied_today(day_start)?;
+        let activity_days = self
+            .store
+            .list_study_activity_day_starts(SHANGHAI_UTC_OFFSET_SECONDS, now)?;
+        let recent_streak_days = current_study_streak_days(&activity_days, day_start);
         let avg_mastery = self.store.get_average_mastery()?;
         let review_stats = self.store.get_review_stats(now)?;
         let continue_items = self.store.get_continue_items(6)?;
@@ -130,7 +269,10 @@ impl LearningService {
         let explore = self.get_explore_recommendations(6)?;
 
         // 格式化日期与问候语
-        let hour = ((now % 86400) / 3600 + 8) % 24; // 简易时区粗略映射
+        let hour = now
+            .saturating_add(SHANGHAI_UTC_OFFSET_SECONDS)
+            .rem_euclid(SECONDS_PER_DAY)
+            / 3600;
         let greeting = if hour < 12 {
             "早上好，开启今天的知识探索与温故知新。"
         } else if hour < 18 {
@@ -145,7 +287,7 @@ impl LearningService {
             studied_topics_today: studied_today,
             pending_reviews_count: review_stats.total_due,
             average_mastery: (avg_mastery * 10.0).round() / 10.0,
-            recent_streak_days: if studied_today > 0 { 3 } else { 2 },
+            recent_streak_days,
             continue_items,
             review_stats,
             explore_recommendations: explore,
@@ -529,6 +671,51 @@ impl LearningService {
         self.store.list_collection_items(collection_id)
     }
 
+    /// Update only a user's note on a saved reference; the source and collection item stay intact.
+    pub fn update_collection_item_note(
+        &self,
+        item_id: &str,
+        note: Option<&str>,
+        now: i64,
+    ) -> Result<CollectionItem, LearningPortError> {
+        let item_id = required_card_text(item_id, "collection item ID", 512)?;
+        let note = normalize_collection_note(note)?;
+        self.store
+            .update_collection_item_note(&item_id, note.as_deref(), now)
+    }
+
+    /// Search saved collection references by entity title, personal note, or collection title.
+    /// The returned item retains the original module/type/stable ID for source navigation.
+    pub fn search_collection_items(
+        &self,
+        query: &str,
+    ) -> Result<Vec<CollectionSearchMatch>, LearningPortError> {
+        let query = query.trim().to_lowercase();
+        if query.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let collections = self.store.list_collections()?;
+        let mut matches = Vec::new();
+        for collection in collections {
+            let collection_matches = collection.title.to_lowercase().contains(&query);
+            for item in self.store.list_collection_items(&collection.id)? {
+                let item_matches = item.title.to_lowercase().contains(&query)
+                    || item
+                        .note
+                        .as_deref()
+                        .is_some_and(|note| note.to_lowercase().contains(&query));
+                if collection_matches || item_matches {
+                    matches.push(CollectionSearchMatch {
+                        collection_title: collection.title.clone(),
+                        item,
+                    });
+                }
+            }
+        }
+        Ok(matches)
+    }
+
     pub fn remove_collection_item(&self, item_id: &str) -> Result<(), LearningPortError> {
         self.store.remove_collection_item(item_id)
     }
@@ -542,6 +729,54 @@ impl LearningService {
 ///
 /// `id` 由 `module:entity_type:entity_id:timestamp` 派生：同一实体在同一秒内的
 /// 重复事件天然合并（`learning_events.id` 是主键），不同秒则各自成行。
+fn required_card_text(
+    value: &str,
+    label: &str,
+    max_chars: usize,
+) -> Result<String, LearningPortError> {
+    let value = value.trim();
+    if value.is_empty() {
+        return Err(LearningPortError::InvalidArgument(format!(
+            "{label} cannot be empty"
+        )));
+    }
+    if value.chars().count() > max_chars {
+        return Err(LearningPortError::InvalidArgument(format!(
+            "{label} exceeds {max_chars} characters"
+        )));
+    }
+    Ok(value.to_string())
+}
+
+fn optional_card_text(
+    value: Option<&str>,
+    label: &str,
+    max_chars: usize,
+) -> Result<Option<String>, LearningPortError> {
+    value
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(|value| required_card_text(value, label, max_chars))
+        .transpose()
+}
+
+fn normalize_collection_note(note: Option<&str>) -> Result<Option<String>, LearningPortError> {
+    let Some(note) = note.map(str::trim).filter(|note| !note.is_empty()) else {
+        return Ok(None);
+    };
+    if note.chars().count() > 4_000
+        || note
+            .chars()
+            .any(|character| character.is_control() && !matches!(character, '\n' | '\r' | '\t'))
+    {
+        return Err(LearningPortError::InvalidArgument(
+            "personal note exceeds 4000 characters or contains unsupported control characters"
+                .to_string(),
+        ));
+    }
+    Ok(Some(note.to_string()))
+}
+
 fn normalize_event(event: &LearningEvent, now: i64) -> LearningEvent {
     let mut normalized = event.clone();
     if normalized.timestamp == 0 {

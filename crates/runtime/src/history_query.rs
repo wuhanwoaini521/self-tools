@@ -11,10 +11,10 @@ use std::sync::Arc;
 use devtoolbox_application::history::{HistoryPortError, HistoryQueryPort};
 use devtoolbox_core::history_records::{
     DatasetStats, EventEvidenceResult, EventHistoricalTextResult, EventPersonResult,
-    EventPlaceResult, EventRelationResult, EventResult, HistoricalTextResult, PeriodEventItem,
-    PeriodPersonItem, PeriodResult, PersonEventResult, PersonPlaceResult, PersonRelationResult,
-    PersonResult, PersonStoryResult, RegimeResult, SourceResult, StoryEventResult, StoryResult,
-    WorkResult,
+    EventPlaceResult, EventRelationResult, EventResult, EventStoryResult, HistoricalTextResult,
+    PeriodEventItem, PeriodPersonItem, PeriodResult, PersonEventResult, PersonPlaceResult,
+    PersonRelationResult, PersonResult, PersonStoryResult, RegimeResult, SourceResult,
+    StoryEventResult, StoryResult, WorkResult,
 };
 use devtoolbox_infrastructure::{HistoryDuckDbRepository, InfrastructureError};
 
@@ -96,6 +96,14 @@ impl HistoryQueryPort for HistoryQueryAdapter {
     fn get_story_events(&self, story_id: &str) -> Result<Vec<StoryEventResult>, HistoryPortError> {
         self.repository.get_story_events(story_id).map_err(map_err)
     }
+    fn get_stories_for_event(
+        &self,
+        event_id: &str,
+    ) -> Result<Vec<EventStoryResult>, HistoryPortError> {
+        self.repository
+            .get_stories_for_event(event_id)
+            .map_err(map_err)
+    }
     fn get_story_people(&self, story_id: &str) -> Result<Vec<EventPersonResult>, HistoryPortError> {
         self.repository.get_story_people(story_id).map_err(map_err)
     }
@@ -118,6 +126,11 @@ impl HistoryQueryPort for HistoryQueryAdapter {
     }
     fn get_event(&self, event_id: &str) -> Result<Option<EventResult>, HistoryPortError> {
         self.repository.get_event(event_id).map_err(map_err)
+    }
+    fn get_events_for_place(&self, place_id: &str) -> Result<Vec<EventResult>, HistoryPortError> {
+        self.repository
+            .get_events_for_place(place_id)
+            .map_err(map_err)
     }
     fn get_event_people(&self, event_id: &str) -> Result<Vec<EventPersonResult>, HistoryPortError> {
         self.repository.get_event_people(event_id).map_err(map_err)

@@ -18,12 +18,14 @@ use devtoolbox_core::{AgentError, ModuleDescriptor, ToolResult, ToolRisk, ToolSp
 
 use crate::personal_ai::context::{ContextBudget, ContextBundle, ModuleContextProvider};
 use crate::personal_ai::registry::ToolExecutor;
+use crate::travel::TravelPlanChangeService;
 use crate::travel::ports::{TravelAiPort, TravelSearchHit, TripContext};
 
 const TOOL_SEARCH_DESTINATION: &str = "travel.search_destination";
 const TOOL_GET_DESTINATION: &str = "travel.get_destination";
 const TOOL_GET_TRIP_CONTEXT: &str = "travel.get_trip_context";
 const TOOL_PLAN_TRIP: &str = "travel.plan_trip";
+pub const TOOL_PROPOSE_ADD_PLACE: &str = "travel.propose_add_place";
 
 /// Travel 工具执行器（一个结构体、四个身份；dispatch 属模块内部实现细节）。
 pub struct TravelTools {
@@ -310,23 +312,94 @@ impl ModuleContextProvider for TravelContextProvider {
                 if let Some(days) = days {
                     summary["days"] = serde_json::json!(days);
                 }
+                if let Some(plan) = user_plan_context(app_context, budget) {
+                    summary["current_plan"] = plan;
+                }
                 Ok(ContextBundle {
                     module: "travel".to_string(),
                     headline,
                     summary,
                 })
             }
-            None => Ok(ContextBundle {
-                module: "travel".to_string(),
-                headline,
-                summary: serde_json::json!({
+            None => {
+                let mut summary = serde_json::json!({
                     "city": city,
                     "days": days.unwrap_or(0),
-                    "note": "当前无已缓存行程；如用户询问行程/偏好，提示先在 Travel 页发起研究"
-                }),
-            }),
+                    "note": "当前无已缓存攻略；如用户询问行程/偏好，应以当前编辑计划为准"
+                });
+                if let Some(plan) = user_plan_context(app_context, budget) {
+                    summary["current_plan"] = plan;
+                }
+                Ok(ContextBundle {
+                    module: "travel".to_string(),
+                    headline,
+                    summary,
+                })
+            }
         }
     }
+}
+
+fn user_plan_context(
+    app_context: &AppContext,
+    budget: &ContextBudget,
+) -> Option<serde_json::Value> {
+    let view = app_context.view_state.as_object()?;
+    let mut result = serde_json::Map::new();
+    for key in ["date_range", "departure"] {
+        if let Some(value) = view.get(key).filter(|value| !value.is_null()) {
+            result.insert(key.to_string(), value.clone());
+        }
+    }
+    for (key, source) in [
+        ("preferences", "preferences"),
+        ("must_visits", "must_visits"),
+        ("must_visit_stops", "must_visit_stops"),
+    ] {
+        if let Some(items) = view.get(source).and_then(serde_json::Value::as_array) {
+            let items = items
+                .iter()
+                .take(budget.max_items)
+                .filter_map(|item| {
+                    item.as_str()
+                        .map(|text| serde_json::Value::String(text.chars().take(120).collect()))
+                })
+                .collect::<Vec<_>>();
+            result.insert(key.to_string(), serde_json::Value::Array(items));
+        }
+    }
+    if let Some(stops) = view
+        .get("selected_stops")
+        .and_then(serde_json::Value::as_array)
+    {
+        let compact = stops
+            .iter()
+            .take(budget.max_items)
+            .filter_map(|stop| {
+                let object = stop.as_object()?;
+                let id = object.get("id")?.as_str()?;
+                let name = object.get("name")?.as_str()?;
+                Some(serde_json::json!({
+                    "id": id.chars().take(160).collect::<String>(),
+                    "name": name.chars().take(120).collect::<String>(),
+                    "day": object.get("day").and_then(serde_json::Value::as_u64),
+                    "note": object.get("note").and_then(serde_json::Value::as_str)
+                        .map(|note| note.chars().take(240).collect::<String>()),
+                }))
+            })
+            .collect::<Vec<_>>();
+        result.insert(
+            "selected_stops".to_string(),
+            serde_json::Value::Array(compact),
+        );
+    }
+    if let Some(notes) = view.get("notes").and_then(serde_json::Value::as_str) {
+        result.insert(
+            "notes".to_string(),
+            serde_json::Value::String(notes.chars().take(budget.max_chars.min(1200)).collect()),
+        );
+    }
+    (!result.is_empty()).then_some(serde_json::Value::Object(result))
 }
 
 fn view_state_days(app_context: &AppContext) -> Option<u8> {
@@ -348,7 +421,25 @@ pub fn register_travel(
     tools: &mut crate::personal_ai::registry::ToolRegistry,
     port: Arc<dyn TravelAiPort>,
 ) -> Result<(), AgentError> {
+    register_travel_with_proposals(modules, tools, port, None)
+}
+
+pub fn register_travel_with_proposals(
+    modules: &mut crate::personal_ai::registry::ModuleRegistry,
+    tools: &mut crate::personal_ai::registry::ToolRegistry,
+    port: Arc<dyn TravelAiPort>,
+    plans: Option<Arc<TravelPlanChangeService>>,
+) -> Result<(), AgentError> {
     let travel = Arc::new(TravelTools::new(Arc::clone(&port)));
+    let mut registered_tools = vec![
+        TOOL_SEARCH_DESTINATION,
+        TOOL_GET_DESTINATION,
+        TOOL_GET_TRIP_CONTEXT,
+        TOOL_PLAN_TRIP,
+    ];
+    if plans.is_some() {
+        registered_tools.push(TOOL_PROPOSE_ADD_PLACE);
+    }
     modules.register(crate::personal_ai::registry::ModuleRegistration {
         descriptor: ModuleDescriptor {
             id: "travel".into(),
@@ -360,12 +451,10 @@ pub fn register_travel(
                 "planning".into(),
                 "itinerary".into(),
             ],
-            tools: vec![
-                TOOL_SEARCH_DESTINATION.into(),
-                TOOL_GET_DESTINATION.into(),
-                TOOL_GET_TRIP_CONTEXT.into(),
-                TOOL_PLAN_TRIP.into(),
-            ],
+            tools: registered_tools
+                .iter()
+                .map(|name| (*name).to_string())
+                .collect(),
         },
         context_provider: Some(Arc::new(TravelContextProvider {
             port: Arc::clone(&port),
@@ -383,7 +472,90 @@ pub fn register_travel(
             spec_cache: std::sync::OnceLock::new(),
         }))?;
     }
+    if let Some(service) = plans {
+        tools.register(Arc::new(TravelPlanProposalTool {
+            service,
+            spec: ToolSpec {
+                name: TOOL_PROPOSE_ADD_PLACE.to_string(),
+                description: "基于当前已保存行程和 Geography stable ID 创建 5 分钟预览；不会写入 TravelPlan。只有用户在预览卡确认后，后端才会以当前 revision compare-and-swap 保存。".to_string(),
+                input_schema: serde_json::json!({
+                    "type": "object",
+                    "required": ["geography_entity_id", "day"],
+                    "properties": {
+                        "geography_entity_id": {"type": "string", "minLength": 1, "maxLength": 512},
+                        "day": {"type": "integer", "minimum": 1, "maximum": 30},
+                        "note": {"type": "string", "maxLength": 1000}
+                    },
+                    "additionalProperties": false
+                }),
+                risk: ToolRisk::Read,
+                module: "travel".to_string(),
+            },
+        }))?;
+    }
     Ok(())
+}
+
+struct TravelPlanProposalTool {
+    service: Arc<TravelPlanChangeService>,
+    spec: ToolSpec,
+}
+
+#[async_trait::async_trait]
+impl ToolExecutor for TravelPlanProposalTool {
+    fn spec(&self) -> &ToolSpec {
+        &self.spec
+    }
+
+    async fn execute(&self, _arguments: serde_json::Value) -> Result<ToolResult, AgentError> {
+        Ok(ToolResult::fail(
+            "travel plan preview requires the current Travel page context",
+        ))
+    }
+
+    async fn execute_with_context(
+        &self,
+        arguments: serde_json::Value,
+        context: &AppContext,
+    ) -> Result<ToolResult, AgentError> {
+        let geography_id = arguments
+            .get("geography_entity_id")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or_default();
+        let day = arguments
+            .get("day")
+            .and_then(serde_json::Value::as_u64)
+            .and_then(|value| u8::try_from(value).ok())
+            .unwrap_or_default();
+        let note = arguments
+            .get("note")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or_default();
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs() as i64;
+        match self
+            .service
+            .propose_add_geography_place(context, geography_id, day, note, now)
+        {
+            Ok(proposal) => {
+                let mut result = ToolResult::ok(serde_json::json!({
+                    "proposal_id": proposal.id,
+                    "operation": proposal.operation,
+                    "title": proposal.title,
+                    "expires_at": proposal.expires_at,
+                    "expected_revision": proposal.expected_revision,
+                    "before": proposal.before,
+                    "after": proposal.after,
+                    "requires_user_confirmation": true
+                }));
+                result.proposed_change = Some(proposal);
+                Ok(result)
+            }
+            Err(error) => Ok(ToolResult::fail(error.to_string())),
+        }
+    }
 }
 
 /// 导出工具常量（外部测试 / 组合根引用）。

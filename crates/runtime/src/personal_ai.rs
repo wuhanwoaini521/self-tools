@@ -12,8 +12,8 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use devtoolbox_application::personal_ai::{
     AgentConfig, InMemorySessionStore, PersonalAgent, PersonalHub, register_documents,
-    register_files, register_geography, register_history, register_knowledge, register_language,
-    register_memory, register_server, register_travel,
+    register_exploration, register_files, register_geography, register_history, register_knowledge,
+    register_language, register_learning, register_memory, register_server,
 };
 use devtoolbox_core::personal_ai::{ChatModelProvider, ChatRequest, ChatResponse, ProviderError};
 use devtoolbox_core::settings::AiSettings;
@@ -66,12 +66,14 @@ pub fn build_hub(
     history: Arc<HistoryDuckDbRepository>,
     runner: Option<Arc<dyn devtoolbox_application::history::enrichment::EnrichmentRunnerPort>>,
     travel: Arc<dyn devtoolbox_application::travel::TravelAiPort>,
+    travel_plans: Option<Arc<devtoolbox_application::travel::TravelPlanChangeService>>,
     geography: Arc<dyn devtoolbox_application::geography::GeographyQueryPort + Send + Sync>,
     language_store: Arc<dyn devtoolbox_application::language::LanguageStorePort>,
     language_llm: Option<Arc<dyn ChatModelProvider>>,
     knowledge: &devtoolbox_infrastructure::knowledge_runtime::KnowledgeRuntime,
     server: &crate::server::ServerRuntime,
     study_board_store: Arc<dyn devtoolbox_application::StudyBoardStorePort>,
+    learning: Arc<devtoolbox_application::learning::LearningService>,
     news: Arc<dyn devtoolbox_application::news::NewsPort>,
     news_ingest: Option<Arc<dyn devtoolbox_application::news::NewsIngestPort>>,
     rss_port: Arc<dyn devtoolbox_application::rss::RssPort>,
@@ -80,13 +82,46 @@ pub fn build_hub(
     client: reqwest::Client,
 ) -> Arc<PersonalHub> {
     let port: Arc<dyn devtoolbox_application::history::HistoryQueryPort> =
-        Arc::new(HistoryQueryAdapter::new(history));
+        Arc::new(HistoryQueryAdapter::new(Arc::clone(&history)));
     let mut hub = PersonalHub::default();
     register_history(&mut hub.modules, &mut hub.tools, port, runner)
         .expect("register history module");
-    register_travel(&mut hub.modules, &mut hub.tools, travel).expect("register travel module");
+    devtoolbox_application::personal_ai::register_travel_with_proposals(
+        &mut hub.modules,
+        &mut hub.tools,
+        travel,
+        travel_plans,
+    )
+    .expect("register travel module");
+    let geography_service = Arc::new(devtoolbox_application::geography::GeographyService::new(
+        geography.clone(),
+    ));
+    let history_service = Arc::new(devtoolbox_application::history::HistoryService::new(
+        Box::new(HistoryQueryAdapter::new(Arc::clone(&history))),
+    ));
+    let exploration = Arc::new(
+        devtoolbox_application::exploration::ExplorationService::new(
+            geography_service,
+            history_service,
+        ),
+    );
     register_geography(&mut hub.modules, &mut hub.tools, geography)
         .expect("register geography module");
+    register_exploration(
+        &mut hub.modules,
+        &mut hub.tools,
+        exploration as Arc<dyn devtoolbox_application::personal_ai::LocationHistoryLookup>,
+    )
+    .expect("register stable-ID exploration module");
+    let learning_query: Arc<dyn devtoolbox_application::personal_ai::LearningReviewQuery> =
+        learning;
+    register_learning(
+        &mut hub.modules,
+        &mut hub.tools,
+        learning_query,
+        Arc::new(devtoolbox_infrastructure::now_unix as fn() -> i64),
+    )
+    .expect("register Learning OS module");
     register_language(
         &mut hub.modules,
         &mut hub.tools,
@@ -295,8 +330,26 @@ mod tests {
         ));
         let client = devtoolbox_infrastructure::feed_client().expect("http client");
 
-        let travel_ai: Arc<dyn devtoolbox_application::travel::TravelAiPort> = Arc::new(
-            crate::travel_ai::TravelAiAdapter::new(client, Arc::clone(&settings), travel_store),
+        let travel_ai: Arc<dyn devtoolbox_application::travel::TravelAiPort> =
+            Arc::new(crate::travel_ai::TravelAiAdapter::new(
+                client,
+                Arc::clone(&settings),
+                Arc::clone(&travel_store),
+            ));
+        let travel_plan_store: Arc<dyn devtoolbox_application::travel::TravelPlanStorePort> =
+            Arc::new(crate::composition::TravelPlanStoreAdapter::new(Arc::clone(
+                &travel_store,
+            )));
+        let geography_for_travel = Arc::new(
+            devtoolbox_application::geography::GeographyService::new(Arc::new(
+                crate::composition::GeographyQueryAdapter::new(Arc::clone(&geography_store)),
+            )),
+        );
+        let travel_plan_changes = Arc::new(
+            devtoolbox_application::travel::TravelPlanChangeService::new(
+                travel_plan_store,
+                geography_for_travel,
+            ),
         );
         let geography_port: Arc<
             dyn devtoolbox_application::geography::GeographyQueryPort + Send + Sync,
@@ -307,6 +360,16 @@ mod tests {
             crate::composition::LanguageStoreAdapter::new(language_store),
         );
 
+        let learning_store =
+            devtoolbox_infrastructure::LearningStore::open(directory.path().join("learning.db"))
+                .expect("learning store");
+        let learning_port: Arc<dyn devtoolbox_application::learning::LearningStorePort> =
+            Arc::new(devtoolbox_infrastructure::ports::LearningStoreAdapter::new(
+                Arc::new(Mutex::new(learning_store)),
+            ));
+        let learning = Arc::new(devtoolbox_application::learning::LearningService::new(
+            learning_port,
+        ));
         let hub_settings = devtoolbox_core::settings::AppSettings::default();
         let hub_client = devtoolbox_infrastructure::feed_client().expect("http client");
         let study_board_store = devtoolbox_infrastructure::StudyBoardSqliteStore::open_in_memory()
@@ -343,6 +406,7 @@ mod tests {
             history_repo,
             None,
             travel_ai,
+            Some(travel_plan_changes),
             geography_port,
             language_port,
             None,
@@ -351,6 +415,7 @@ mod tests {
             Arc::new(crate::composition::StudyBoardStoreAdapter::new(Arc::new(
                 study_board_store,
             ))),
+            learning,
             news,
             Some(news_ingest),
             rss_port,
@@ -373,6 +438,8 @@ mod tests {
             "history",
             "travel",
             "geography",
+            "exploration",
+            "learning",
             "language",
             "memory",
             "documents",
@@ -391,24 +458,86 @@ mod tests {
     }
 
     #[test]
-    fn study_board_module_tools_are_reachable() {
+    fn registered_tool_catalog_has_valid_schemas_and_explicit_write_risks() {
         let Some(hub) = build_test_hub() else { return };
-        let names: Vec<String> = hub
-            .tools
-            .specs()
-            .into_iter()
-            .map(|spec| spec.name)
+        let specs = hub.tools.specs();
+        assert_eq!(
+            specs.len(),
+            66,
+            "Sprint 10 catalog snapshot changed; re-audit all tools"
+        );
+        let count_risk = |risk| specs.iter().filter(|spec| spec.risk == risk).count();
+        assert_eq!(count_risk(devtoolbox_core::ToolRisk::Read), 58);
+        assert_eq!(count_risk(devtoolbox_core::ToolRisk::SafeWrite), 4);
+        assert_eq!(count_risk(devtoolbox_core::ToolRisk::SensitiveWrite), 4);
+        assert_eq!(count_risk(devtoolbox_core::ToolRisk::System), 0);
+
+        let restricted: Vec<&str> = specs
+            .iter()
+            .filter(|spec| spec.risk == devtoolbox_core::ToolRisk::SensitiveWrite)
+            .map(|spec| spec.name.as_str())
             .collect();
-        for tool in [
-            "study-board.list",
-            "study-board.get",
-            "study-board.save",
-            "study-board.snapshot",
+        assert_eq!(
+            restricted,
+            vec![
+                "memory.archive",
+                "rss.mark_read",
+                "study-board.save",
+                "study-board.snapshot",
+            ]
+        );
+
+        let registered_modules: std::collections::HashSet<String> = hub
+            .modules
+            .descriptors()
+            .into_iter()
+            .map(|module| module.id)
+            .collect();
+        for spec in specs {
+            let (module_prefix, action) = spec.name.split_once('.').expect("module.action");
+            let prefix_matches_module = module_prefix == spec.module
+                || (spec.module == "server" && matches!(module_prefix, "apps" | "services"));
+            assert!(prefix_matches_module, "{} -> {}", spec.name, spec.module);
+            assert!(!action.is_empty(), "{}", spec.name);
+            assert!(registered_modules.contains(&spec.module), "{}", spec.name);
+            assert_eq!(spec.input_schema["type"], "object", "{}", spec.name);
+            for required in spec.input_schema["required"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter_map(|value| value.as_str())
+            {
+                assert!(
+                    spec.input_schema["properties"].get(required).is_some(),
+                    "{}.{}",
+                    spec.name,
+                    required
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn study_board_tools_are_catalogued_with_restricted_writes() {
+        let Some(hub) = build_test_hub() else { return };
+        let specs = hub.tools.specs();
+        for (tool, expected_risk) in [
+            ("study-board.list", devtoolbox_core::ToolRisk::Read),
+            ("study-board.get", devtoolbox_core::ToolRisk::Read),
+            (
+                "study-board.save",
+                devtoolbox_core::ToolRisk::SensitiveWrite,
+            ),
+            (
+                "study-board.snapshot",
+                devtoolbox_core::ToolRisk::SensitiveWrite,
+            ),
         ] {
-            assert!(
-                names.iter().any(|name| name == tool),
-                "工具 {tool} 必须可触达"
-            );
+            let spec = specs
+                .iter()
+                .find(|spec| spec.name == tool)
+                .unwrap_or_else(|| panic!("工具 {tool} 必须在权限目录中"));
+            assert_eq!(spec.risk, expected_risk, "{tool}");
         }
     }
 
@@ -463,7 +592,7 @@ mod tests {
                 "工具 {tool} 必须可触达"
             );
         }
-        // 写工具只允许 SafeWrite（registry 门禁强制；SYSTEM 语义不在工具上）。
+        // News 刷新只更新配置源的本地缓存；系统动作仍由确认 API 单独执行。
         for spec in hub.tools.specs() {
             if spec.module == "news" {
                 assert!(
@@ -501,6 +630,18 @@ mod tests {
                 "工具 {tool} 必须可触达"
             );
         }
+        assert_eq!(
+            hub.tools
+                .spec("rss.mark_read")
+                .expect("mark_read spec")
+                .risk,
+            devtoolbox_core::ToolRisk::SensitiveWrite,
+            "用户阅读状态变更未实现确认前不得自动执行"
+        );
+        assert_eq!(
+            hub.tools.spec("rss.refresh").expect("refresh spec").risk,
+            devtoolbox_core::ToolRisk::SafeWrite
+        );
         // ADR-010：RSS 与 News 是两个模块，工具命名空间不得交叉。
         for spec in hub.tools.specs() {
             match spec.module.as_str() {

@@ -15,8 +15,8 @@ use devtoolbox_application::learning::{LearningService, LearningStorePort};
 use devtoolbox_application::news::{NewsIngestPort, NewsPort, NewsService};
 use devtoolbox_application::rss::RssRepositoryPort;
 use devtoolbox_application::study_board::{StudyBoardService, StudyBoardStorePort};
-use devtoolbox_application::travel::TravelAiPort;
 use devtoolbox_application::travel::session::TravelSessionRegistry;
+use devtoolbox_application::travel::{TravelAiPort, TravelPlanChangeService, TravelPlanStorePort};
 use devtoolbox_application::workflows::ports::SettingsStorePort;
 use devtoolbox_core::knowledge::KnowledgeBudget;
 use devtoolbox_core::server::SessionTrust;
@@ -29,6 +29,7 @@ use devtoolbox_infrastructure::study_board::StudyBoardSqliteStore;
 use devtoolbox_infrastructure::travel::TravelStore;
 use devtoolbox_infrastructure::{FeedRepository, GeographyStore, LearningStore, feed_client};
 
+use crate::composition::TravelPlanStoreAdapter;
 use crate::composition::{
     CourseStoreAdapter, GeographyQueryAdapter, LanguageStoreAdapter, NewsRepositoryAdapter,
     RssRepositoryAdapter, SettingsStoreAdapter, StudyBoardStoreAdapter,
@@ -43,6 +44,7 @@ use devtoolbox_infrastructure::ports::LearningStoreAdapter;
 /// 桌面 / 网页共用的运行时。
 pub struct AppCore {
     pub config_dir: std::path::PathBuf,
+    _data_directory_lock: crate::backup::AppDataDirectoryLock,
     pub client: reqwest::Client,
     /// 设置读取器：每次调用读最新 settings.json。
     pub settings_loader: SettingsLoader,
@@ -52,6 +54,7 @@ pub struct AppCore {
     pub travel_store: Arc<Mutex<TravelStore>>,
     pub travel_registry: Arc<TravelSessionRegistry>,
     pub travel_ai: Arc<dyn TravelAiPort>,
+    pub travel_plan_changes: Arc<TravelPlanChangeService>,
     pub history_repo: Arc<HistoryDuckDbRepository>,
     pub history_port: Arc<dyn HistoryQueryPort>,
     pub history_enrichment: Arc<dyn EnrichmentRunnerPort>,
@@ -62,6 +65,10 @@ pub struct AppCore {
     pub geography_port: Arc<dyn GeographyQueryPort>,
     pub learning_store: Arc<dyn LearningStorePort>,
     pub learning: Arc<LearningService>,
+    /// Shared PersonalAgent modules/tools for the HTTP runtime.
+    pub personal_ai: Arc<devtoolbox_application::personal_ai::PersonalHub>,
+    pub ai_session: Arc<devtoolbox_application::personal_ai::InMemorySessionStore>,
+    pub ai_runs: Arc<devtoolbox_application::personal_ai::AgentRunRegistry>,
     /// 具体类型（server 的 router 需要；与 `news` 端口指向同一实例）。
     pub news_service: Arc<NewsService>,
     pub news: Arc<dyn NewsPort>,
@@ -93,6 +100,7 @@ impl AppCore {
         history_db: std::path::PathBuf,
         trust: SessionTrust,
     ) -> Result<Self, String> {
+        let data_directory_lock = crate::backup::AppDataDirectoryLock::acquire(config_dir)?;
         // 旧库迁移（feeds.kind='news' → news.db）。幂等，但必须在打开 FeedRepository 之前。
         devtoolbox_infrastructure::migrate_news_from_rss(
             &config_dir.join("dashboard.db"),
@@ -159,6 +167,15 @@ impl AppCore {
                     .map_err(|error| error.to_string())?,
             ))));
         let learning = Arc::new(LearningService::new(Arc::clone(&learning_store)));
+        let travel_plan_store: Arc<dyn TravelPlanStorePort> =
+            Arc::new(TravelPlanStoreAdapter::new(Arc::clone(&travel_store)));
+        let geography_service = Arc::new(devtoolbox_application::geography::GeographyService::new(
+            Arc::clone(&geography_port),
+        ));
+        let travel_plan_changes = Arc::new(TravelPlanChangeService::new(
+            travel_plan_store,
+            geography_service,
+        ));
 
         // News：只开一次库，读写共用同一个 NewsService（desktop 的既有做法）。
         let news_store = Arc::new(Mutex::new(
@@ -252,11 +269,33 @@ impl AppCore {
             ),
         );
 
-        // 供两端复用的学习视图语言 / AI 装配（未配置时 None，不编造）。
-        let _ = current_settings;
+        let rss_port: Arc<dyn devtoolbox_application::rss::RssPort> =
+            Arc::clone(&rss_service) as Arc<dyn devtoolbox_application::rss::RssPort>;
+        let personal_ai = crate::personal_ai::build_hub(
+            Arc::clone(&history_repo),
+            Some(Arc::clone(&history_enrichment)),
+            Arc::clone(&travel_ai),
+            Some(Arc::clone(&travel_plan_changes)),
+            geography_port.clone(),
+            Arc::clone(&language_port),
+            None,
+            &knowledge,
+            &server,
+            Arc::clone(&study_board_store),
+            Arc::clone(&learning),
+            Arc::clone(&news),
+            Some(Arc::clone(&news_ingest)),
+            rss_port,
+            Some(Arc::clone(&rss_ingest)),
+            &current_settings,
+            client.clone(),
+        );
+        let ai_session = Arc::new(devtoolbox_application::personal_ai::InMemorySessionStore::new());
+        let ai_runs = Arc::new(devtoolbox_application::personal_ai::AgentRunRegistry::new());
 
         Ok(Self {
             config_dir: config_dir.to_path_buf(),
+            _data_directory_lock: data_directory_lock,
             client,
             settings_loader,
             settings_store,
@@ -264,6 +303,7 @@ impl AppCore {
             travel_store,
             travel_registry,
             travel_ai,
+            travel_plan_changes,
             history_repo,
             history_port,
             history_enrichment,
@@ -274,6 +314,9 @@ impl AppCore {
             geography_port,
             learning_store,
             learning,
+            personal_ai,
+            ai_session,
+            ai_runs,
             news_service,
             news,
             rss_service,

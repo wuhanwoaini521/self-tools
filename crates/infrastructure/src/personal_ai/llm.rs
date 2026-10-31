@@ -132,19 +132,21 @@ impl ChatModelProvider for OpenAiCompatibleChatModelProvider {
         let response = builder
             .send()
             .await
-            .map_err(|error| ProviderError::transport(error.to_string()))?;
+            // reqwest errors may include the full URL. Avoid returning it because
+            // compatible endpoints can embed credentials in URL userinfo/query.
+            .map_err(|_| ProviderError::transport("model request failed"))?;
         if !response.status().is_success() {
-            let status = response.status();
-            let text = response.text().await.unwrap_or_default();
+            // Provider response bodies are untrusted and may echo authorization
+            // values; return only the status, never raw body text.
             return Err(ProviderError::transport(format!(
-                "model returned {status}: {}",
-                text.chars().take(200).collect::<String>()
+                "model returned {}",
+                response.status()
             )));
         }
         let body = response
             .bytes()
             .await
-            .map_err(|error| ProviderError::transport(error.to_string()))?;
+            .map_err(|_| ProviderError::transport("model response body unavailable"))?;
         let known: Vec<String> = request.tools.iter().map(|tool| tool.name.clone()).collect();
         parse_chat_response_with_tools(&body, &known).map_err(ProviderError::invalid_response)
     }
@@ -507,6 +509,49 @@ fn gen_call_id() -> String {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[tokio::test]
+    async fn provider_http_errors_do_not_expose_response_body_or_credentials() {
+        use tokio::io::AsyncWriteExt;
+        use tokio::net::TcpListener;
+
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let secret = "llm-secret-regression-marker";
+        let body = format!("provider echoed {secret}");
+        tokio::spawn(async move {
+            let (mut stream, _) = listener.accept().await.unwrap();
+            let response = format!(
+                "HTTP/1.1 401 Unauthorized\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                body.len(),
+                body,
+            );
+            stream.write_all(response.as_bytes()).await.unwrap();
+        });
+
+        let provider = OpenAiCompatibleChatModelProvider::new(
+            reqwest::Client::new(),
+            AiModelConfig {
+                base_url: Some(format!("http://{address}/v1")),
+                api_key: Some(secret.into()),
+                model: Some("test-model".into()),
+                timeout_secs: Some(2),
+            },
+        );
+        let error = provider
+            .chat(ChatRequest {
+                messages: vec![devtoolbox_core::ChatMessage::user("test")],
+                session_id: None,
+                tools: Vec::new(),
+                temperature: None,
+                max_tokens: None,
+            })
+            .await
+            .expect_err("401 must fail");
+        assert!(!error.message.contains(secret));
+        assert!(!error.message.contains("provider echoed"));
+        assert!(error.message.contains("401"));
+    }
 
     #[test]
     fn parses_content_response() {

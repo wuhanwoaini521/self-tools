@@ -4,7 +4,8 @@
 //! - **写入边界**：`memory.save` 风险为 `SafeWrite`，但语义上只产生 `CANDIDATE`
 //!   （§14/§113），并返回 `ConfirmMemorySave` Action 让前端向用户确认；
 //!   工具路径**永不**产生 `ACTIVE`（§15/§16）。
-//! - `memory.archive` 同样是可恢复操作（不删除，§20）。
+//! - `memory.archive` 虽可恢复但会改变用户记忆状态；当前只注册供权限审计，
+//!   在实现明确确认流程前不暴露给模型。
 //! - 读写都不返回 `SENSITIVE` 条目（§69）。
 
 use std::sync::Arc;
@@ -115,7 +116,7 @@ fn spec_for(name: &str) -> ToolSpec {
                 "required": ["id"],
                 "properties": {"id": {"type": "string"}}
             }),
-            ToolRisk::SafeWrite,
+            ToolRisk::SensitiveWrite,
         ),
     };
     ToolSpec {

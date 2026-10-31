@@ -123,6 +123,8 @@ impl LanguageLearningService {
             options: None,
             hint: item.pronunciation.clone(),
             context: Some(item.source.clone()),
+            source_title: None,
+            user_note: None,
             // 立即到期：用户刚决定要学它，下次进入复习就该见到。
             due_at: now,
             interval_days: 0.0,

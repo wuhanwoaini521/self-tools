@@ -31,6 +31,8 @@ pub enum InfrastructureError {
     TravelLlm(String),
     #[error("travel data provider failed: {0}")]
     TravelData(String),
+    #[error("行程已在其他位置更新；当前内容未覆盖服务器版本")]
+    TravelPlanConflict,
 }
 
 impl From<rusqlite::Error> for InfrastructureError {

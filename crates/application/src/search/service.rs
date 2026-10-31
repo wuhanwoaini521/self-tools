@@ -48,9 +48,31 @@ impl GlobalSearchService {
     /// - 命中按分数倒序（同分保持来源注册顺序 => 稳定排序）。
     #[must_use]
     pub fn search(&self, query: &GlobalSearchQuery) -> GlobalSearchResult {
+        Self::search_ports(query, self.ports.iter().map(|port| port.as_ref()))
+    }
+
+    /// Search with an additional per-request source without mutating the shared registry.
+    #[must_use]
+    pub fn search_with_port(
+        &self,
+        query: &GlobalSearchQuery,
+        additional: &dyn GlobalSearchPort,
+    ) -> GlobalSearchResult {
+        Self::search_ports(
+            query,
+            self.ports
+                .iter()
+                .map(|port| port.as_ref())
+                .chain(std::iter::once(additional)),
+        )
+    }
+
+    fn search_ports<'a>(
+        query: &GlobalSearchQuery,
+        ports: impl IntoIterator<Item = &'a dyn GlobalSearchPort>,
+    ) -> GlobalSearchResult {
         let trimmed = query.trimmed();
         if trimmed.is_empty() {
-            // 空白查询：空结果而非错误（前端渲染空态）。
             return GlobalSearchResult::default();
         }
 
@@ -63,15 +85,13 @@ impl GlobalSearchService {
         let mut hits: Vec<GlobalSearchHit> = Vec::new();
         let mut degraded_sources = Vec::new();
 
-        for port in &self.ports {
+        for port in ports {
             if !query.includes(port.source()) {
                 continue;
             }
             match port.search(query) {
                 Ok(mut source_hits) => {
                     let source = port.source();
-                    // 收紧端口返回的载荷：来源归属以端口为准（防止上游混入别的来源），
-                    // snippet 兜底截断（端口可用 `GlobalSearchHit::new` 已收敛，此处双保险）。
                     for hit in &mut source_hits {
                         hit.source = source;
                         hit.snippet = bound_snippet(&hit.snippet);
@@ -85,14 +105,10 @@ impl GlobalSearchService {
                     source_hits.truncate(limit_per_source);
                     hits.extend(source_hits);
                 }
-                Err(_message) => {
-                    // 单源降级：只记录来源，不影响其它源的结果。
-                    degraded_sources.push(port.source());
-                }
+                Err(_message) => degraded_sources.push(port.source()),
             }
         }
 
-        // 稳定排序：同分时保持「按来源、按端口提交顺序」的原有次序。
         hits.sort_by(|left, right| {
             right
                 .score

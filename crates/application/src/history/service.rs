@@ -7,10 +7,10 @@ use std::collections::BTreeSet;
 
 use devtoolbox_core::history_records::{
     DatasetStats, EventEvidenceResult, EventHistoricalTextResult, EventPersonResult,
-    EventPlaceResult, EventRelationResult, EventResult, HistoricalTextResult, PeriodEventItem,
-    PeriodPersonItem, PeriodResult, PersonEventResult, PersonPlaceResult, PersonRelationResult,
-    PersonResult, PersonStoryResult, RegimeResult, SourceResult, StoryEventResult, StoryResult,
-    WorkResult,
+    EventPlaceResult, EventRelationResult, EventResult, EventStoryResult, HistoricalTextResult,
+    PeriodEventItem, PeriodPersonItem, PeriodResult, PersonEventResult, PersonPlaceResult,
+    PersonRelationResult, PersonResult, PersonStoryResult, RegimeResult, SourceResult,
+    StoryEventResult, StoryResult, WorkResult,
 };
 use serde::Serialize;
 
@@ -69,6 +69,7 @@ pub struct HistorySemanticStoryDetail {
 #[derive(Debug, Serialize)]
 pub struct HistorySemanticEventDetail {
     pub event: EventResult,
+    pub related_stories: Vec<EventStoryResult>,
     pub people: Vec<EventPersonResult>,
     pub places: Vec<EventPlaceResult>,
     pub relations: Vec<EventRelationResult>,
@@ -371,6 +372,10 @@ impl HistoryService {
         else {
             return Ok(None);
         };
+        let related_stories = self
+            .port
+            .get_stories_for_event(&event.id)
+            .map_err(ApplicationError::History)?;
         let people = self
             .port
             .get_event_people(&event.id)
@@ -393,6 +398,11 @@ impl HistoryService {
             .map_err(ApplicationError::History)?;
         let mut ids = BTreeSet::new();
         ids.extend(semantic_ids(&event.source_ids));
+        ids.extend(
+            related_stories
+                .iter()
+                .flat_map(|item| semantic_ids(&item.story.source_ids)),
+        );
         ids.extend(people.iter().filter_map(|item| item.source_id.clone()));
         ids.extend(places.iter().filter_map(|item| item.source_id.clone()));
         ids.extend(relations.iter().filter_map(|item| item.source_id.clone()));
@@ -408,6 +418,7 @@ impl HistoryService {
             .map_err(ApplicationError::History)?;
         Ok(Some(HistorySemanticEventDetail {
             event,
+            related_stories,
             people,
             places,
             relations,
@@ -417,7 +428,46 @@ impl HistoryService {
         }))
     }
 
-    /// 人物详情：人物 + 关系 + 地点 + 事件 + 故事，并合并全部来源 ID。
+    /// Resolve historical material from a canonical place ID and retain only explicitly
+    /// linked, reviewed place records. This intentionally never falls back to name search.
+    pub fn events_for_place(
+        &self,
+        place_id: &str,
+    ) -> Result<Vec<HistorySemanticEventDetail>, ApplicationError> {
+        let events = self
+            .port
+            .get_events_for_place(place_id)
+            .map_err(ApplicationError::History)?;
+        let mut result = Vec::new();
+        for event in events {
+            let Some(detail) = self.event_detail(&event.id)? else {
+                continue;
+            };
+            let event_reviewed = matches!(
+                detail.event.quality_status.as_deref(),
+                Some("reviewed" | "verified" | "curated")
+            );
+            let place_reviewed = detail.places.iter().any(|place| {
+                place.place_id.as_deref() == Some(place_id)
+                    && place.link_status.as_deref() == Some("linked")
+                    && matches!(
+                        place.quality_status.as_deref(),
+                        Some("reviewed" | "verified" | "curated")
+                    )
+                    && matches!(
+                        place.link_quality_status.as_deref(),
+                        Some("reviewed" | "verified" | "curated")
+                    )
+                    && place.source_id.is_some()
+            });
+            if event_reviewed && place_reviewed {
+                result.push(detail);
+            }
+        }
+        Ok(result)
+    }
+
+    /// 人物详情：人物 + 关系 + 地点 + 事件 + 故事，并合并全部来源。
     pub fn person_detail(
         &self,
         person_id: &str,

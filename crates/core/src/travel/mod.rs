@@ -9,6 +9,7 @@ pub mod dedup;
 pub mod guide;
 pub mod llm_parse;
 pub mod model;
+pub mod plan;
 pub mod provider;
 pub mod quality;
 pub mod query_planner;
@@ -30,6 +31,7 @@ pub use model::{
     ContentState, FactCategory, MapCoordinates, ResearchPhase, SearchResult, SourceLevel,
     StepStatus, TravelDocument, TravelFact, TravelResearchEvent, TravelSource,
 };
+pub use plan::{TravelPlan, TravelPlanContext, TravelPlanError, TravelPlanPlace};
 pub use provider::{
     AMAP_SOURCE_URL, ProviderError, ProviderErrorKind, QWEATHER_SOURCE_URL, SearchOptions,
     SearchProvider, TravelDataProvider, TravelDataRequest, TravelRoute, TravelRouteRequest,

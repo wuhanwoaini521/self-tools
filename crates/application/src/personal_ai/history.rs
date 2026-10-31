@@ -1,26 +1,27 @@
 //! History 模块适配器（V4 §41-§47，Gate 5）。
 //!
-//! History 是 V4 第一个标准模块：注册 descriptor + 4 个 Read 工具 +
+//! History 是 V4 第一个标准模块：注册 descriptor + 5 个 Read 工具、1 个 SafeWrite 工具及
 //! ContextProvider。**不重新设计 V3**：所有数据经 `HistoryService`
 //! （V3 use case，端口 + 只读 DuckDB）复用；不新建 V3 数据面。
 //!
 //! - `history.search(query, entity_type?, limit?)` → 精炼命中列表
 //! - `history.get_event(id)` → canonical + relations + enrichment_state + evidence 元数据
 //! - `history.get_person(id)` → canonical + relations + events + stories
+//! - `history.events_for_place(place_id)` → reviewed place links + event evidence
 //! - `history.get_context(app_context)` → 当前实体 compact context
 //!
-//! 全部 `ToolRisk::Read`（V4 §21）。V3 无 on-demand enrichment（审计结论），
-//! 故本模块**不注册** `history.ensure_enrichment`；`enrichment_state` 如实
-//! 透传库内 quality_status + evidence 概况。
+//! Read tools use `ToolRisk::Read`（V4 §21）；`history.ensure_enrichment` 是唯一
+//! `ToolRisk::SafeWrite` 工具，仅写派生缓存、不改写 canonical。`enrichment_state` 如实透传库内
+//! quality_status + evidence 概况。
 
 use std::sync::Arc;
 
 use devtoolbox_core::history_records::{
     DatasetStats, EventEvidenceResult, EventHistoricalTextResult, EventPersonResult,
-    EventPlaceResult, EventRelationResult, EventResult, HistoricalTextResult, PeriodEventItem,
-    PeriodPersonItem, PeriodResult, PersonEventResult, PersonPlaceResult, PersonRelationResult,
-    PersonResult, PersonStoryResult, RegimeResult, SourceResult, StoryEventResult, StoryResult,
-    WorkResult,
+    EventPlaceResult, EventRelationResult, EventResult, EventStoryResult, HistoricalTextResult,
+    PeriodEventItem, PeriodPersonItem, PeriodResult, PersonEventResult, PersonPlaceResult,
+    PersonRelationResult, PersonResult, PersonStoryResult, RegimeResult, SourceResult,
+    StoryEventResult, StoryResult, WorkResult,
 };
 use devtoolbox_core::personal_ai::{AppContext, EntityRef};
 use devtoolbox_core::{AgentError, ModuleDescriptor, ToolResult, ToolRisk, ToolSpec};
@@ -91,6 +92,12 @@ impl HistoryQueryPort for PortRef {
     fn get_story_events(&self, story_id: &str) -> Result<Vec<StoryEventResult>, HistoryPortError> {
         self.0.get_story_events(story_id)
     }
+    fn get_stories_for_event(
+        &self,
+        event_id: &str,
+    ) -> Result<Vec<EventStoryResult>, HistoryPortError> {
+        self.0.get_stories_for_event(event_id)
+    }
     fn get_story_people(&self, story_id: &str) -> Result<Vec<EventPersonResult>, HistoryPortError> {
         self.0.get_story_people(story_id)
     }
@@ -111,6 +118,9 @@ impl HistoryQueryPort for PortRef {
     }
     fn get_event(&self, event_id: &str) -> Result<Option<EventResult>, HistoryPortError> {
         self.0.get_event(event_id)
+    }
+    fn get_events_for_place(&self, place_id: &str) -> Result<Vec<EventResult>, HistoryPortError> {
+        self.0.get_events_for_place(place_id)
     }
     fn get_event_people(&self, event_id: &str) -> Result<Vec<EventPersonResult>, HistoryPortError> {
         self.0.get_event_people(event_id)
@@ -197,11 +207,12 @@ impl HistoryQueryPort for PortRef {
 
 const TOOL_SEARCH: &str = "history.search";
 const TOOL_GET_EVENT: &str = "history.get_event";
+const TOOL_GET_EVENTS_FOR_PLACE: &str = "history.events_for_place";
 const TOOL_GET_PERSON: &str = "history.get_person";
 const TOOL_GET_CONTEXT: &str = "history.get_context";
 const TOOL_ENSURE_ENRICHMENT: &str = "history.ensure_enrichment";
 
-/// History 工具执行器（一个结构体、四个身份；dispatch 属模块内部实现细节，
+/// History 工具执行器（一个结构体、六个身份；dispatch 属模块内部实现细节，
 /// 不是 PersonalAgent 的分支）。
 pub struct HistoryTools {
     port: Arc<dyn HistoryQueryPort>,
@@ -248,6 +259,11 @@ impl HistoryTools {
                 "required": ["id"],
                 "properties": {"id": {"type": "string"}}
             }),
+            TOOL_GET_EVENTS_FOR_PLACE => serde_json::json!({
+                "type": "object",
+                "required": ["place_id"],
+                "properties": {"place_id": {"type": "string", "description": "History places 表中的稳定地点 ID；不接受地点名称"}}
+            }),
             TOOL_ENSURE_ENRICHMENT => serde_json::json!({
                 "type": "object",
                 "required": ["entity", "section"],
@@ -284,6 +300,9 @@ impl HistoryTools {
             TOOL_SEARCH => "搜索历史知识库（人物/事件/著作/故事），返回精炼命中列表",
             TOOL_GET_EVENT => "获取历史事件的 canonical 事实、关系、证据与富化状态",
             TOOL_GET_PERSON => "获取历史人物的 canonical 事实、关系、事件与故事时间线",
+            TOOL_GET_EVENTS_FOR_PLACE => {
+                "按 History place 稳定 ID 获取已审核关联事件及其来源；不会按名称匹配"
+            }
             TOOL_ENSURE_ENRICHMENT => {
                 "按需生成历史事件某 section 的 AI 富化（只写派生缓存，不改写 canonical；仅当缺失/过期/生成失败时调用）"
             }
@@ -317,7 +336,7 @@ struct ToolImpl {
 impl ToolExecutor for ToolImpl {
     fn spec(&self) -> &ToolSpec {
         // 静态 spec 缓存：按 name 构造（工具名固定）。
-        static CACHE: std::sync::OnceLock<[ToolSpec; 5]> = std::sync::OnceLock::new();
+        static CACHE: std::sync::OnceLock<[ToolSpec; 6]> = std::sync::OnceLock::new();
         let cache = CACHE.get_or_init(|| {
             let tools = HistoryTools {
                 port: Arc::<UnavailablePort>::new(UnavailablePort),
@@ -328,6 +347,7 @@ impl ToolExecutor for ToolImpl {
                 tools.spec_for(TOOL_SEARCH),
                 tools.spec_for(TOOL_GET_EVENT),
                 tools.spec_for(TOOL_GET_PERSON),
+                tools.spec_for(TOOL_GET_EVENTS_FOR_PLACE),
                 tools.spec_for(TOOL_GET_CONTEXT),
                 tools.spec_for(TOOL_ENSURE_ENRICHMENT),
             ]
@@ -336,8 +356,9 @@ impl ToolExecutor for ToolImpl {
             TOOL_SEARCH => &cache[0],
             TOOL_GET_EVENT => &cache[1],
             TOOL_GET_PERSON => &cache[2],
-            TOOL_ENSURE_ENRICHMENT => &cache[4],
-            _ => &cache[3],
+            TOOL_GET_EVENTS_FOR_PLACE => &cache[3],
+            TOOL_ENSURE_ENRICHMENT => &cache[5],
+            _ => &cache[4],
         }
     }
 
@@ -346,6 +367,7 @@ impl ToolExecutor for ToolImpl {
             TOOL_SEARCH => self.tools.search(&arguments),
             TOOL_GET_EVENT => self.tools.get_event(&arguments),
             TOOL_GET_PERSON => self.tools.get_person(&arguments),
+            TOOL_GET_EVENTS_FOR_PLACE => self.tools.get_events_for_place(&arguments),
             TOOL_ENSURE_ENRICHMENT => self.tools.ensure_enrichment(&arguments).await,
             _ => self.tools.get_context(&arguments),
         }
@@ -395,6 +417,9 @@ impl HistoryQueryPort for UnavailablePort {
     fn get_story_events(&self, _: &str) -> Result<Vec<StoryEventResult>, HistoryPortError> {
         Err(err("unavailable".into()))
     }
+    fn get_stories_for_event(&self, _: &str) -> Result<Vec<EventStoryResult>, HistoryPortError> {
+        Err(err("unavailable".into()))
+    }
     fn get_story_people(&self, _: &str) -> Result<Vec<EventPersonResult>, HistoryPortError> {
         Err(err("unavailable".into()))
     }
@@ -408,6 +433,9 @@ impl HistoryQueryPort for UnavailablePort {
         Err(err("unavailable".into()))
     }
     fn get_event(&self, _: &str) -> Result<Option<EventResult>, HistoryPortError> {
+        Err(err("unavailable".into()))
+    }
+    fn get_events_for_place(&self, _: &str) -> Result<Vec<EventResult>, HistoryPortError> {
         Err(err("unavailable".into()))
     }
     fn get_event_people(&self, _: &str) -> Result<Vec<EventPersonResult>, HistoryPortError> {
@@ -518,6 +546,33 @@ impl HistoryTools {
         ))
     }
 
+    pub fn get_events_for_place(
+        &self,
+        arguments: &serde_json::Value,
+    ) -> Result<ToolResult, AgentError> {
+        let place_id = arguments
+            .get("place_id")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or_default()
+            .trim();
+        if place_id.is_empty() {
+            return Err(AgentError::tool_invalid_argument(
+                "history.events_for_place: place_id is required",
+            ));
+        }
+        let events = self
+            .service()
+            .events_for_place(place_id)
+            .map_err(|error| AgentError::tool_execution_failed(error.to_string()))?;
+        let count = events.len();
+        let events = serde_json::to_value(events)
+            .map_err(|error| AgentError::tool_execution_failed(error.to_string()))?;
+        Ok(ToolResult::ok_with_metadata(
+            events,
+            serde_json::json!({"count": count, "history_place_id": place_id}),
+        ))
+    }
+
     pub fn get_event(&self, arguments: &serde_json::Value) -> Result<ToolResult, AgentError> {
         let id = arguments
             .get("id")
@@ -569,6 +624,7 @@ impl HistoryTools {
                 "place_id": place.place_id,
                 "place_name": place.place_name,
             })),
+            "geography_crosswalks": geography_crosswalks(&detail.places, budget.max_items),
             "enrichment_state": {
                 "availability": "batch",   // V3 无 on-demand enrichment（审计结论），如实标注
                 "quality_status": event.quality_status,
@@ -871,6 +927,12 @@ impl HistoryContextProvider<'_> {
                 "target_event_name": relation.target_event_name,
                 "description_zh_cn": relation.description_zh_cn,
             })),
+            "places": cap_list(&detail.places, budget.max_items, |place| serde_json::json!({
+                "place_id": place.place_id,
+                "place_name": place.place_name,
+                "link_status": place.link_status,
+            })),
+            "geography_crosswalks": geography_crosswalks(&detail.places, budget.max_items),
             "enrichment_state": {
                 "availability": "batch",
                 "quality_status": event.quality_status,
@@ -885,7 +947,27 @@ impl HistoryContextProvider<'_> {
     }
 }
 
-/// 注册 History 模块（descriptor + 4 工具 + context provider）。
+fn geography_crosswalks(places: &[EventPlaceResult], limit: usize) -> Vec<serde_json::Value> {
+    places
+        .iter()
+        .take(limit)
+        .filter_map(|place| {
+            let link = devtoolbox_core::exploration::crosswalk_for_history_place(
+                place.place_id.as_deref()?,
+            )?;
+            Some(serde_json::json!({
+                "crosswalk_id": link.id,
+                "geography_entity_id": link.geography_entity_id,
+                "history_place_id": link.history_place_id,
+                "status": link.status,
+                "geography_source_ids": link.geography_source_ids,
+                "history_source_ids": link.history_source_ids,
+            }))
+        })
+        .collect()
+}
+
+/// 注册 History 模块（descriptor + 5 read tools + context provider）。
 #[allow(clippy::too_many_arguments)]
 pub fn register_history(
     modules: &mut crate::personal_ai::registry::ModuleRegistry,
@@ -904,6 +986,7 @@ pub fn register_history(
                 TOOL_SEARCH.into(),
                 TOOL_GET_EVENT.into(),
                 TOOL_GET_PERSON.into(),
+                TOOL_GET_EVENTS_FOR_PLACE.into(),
                 TOOL_GET_CONTEXT.into(),
                 TOOL_ENSURE_ENRICHMENT.into(),
             ],
@@ -914,6 +997,7 @@ pub fn register_history(
         TOOL_SEARCH,
         TOOL_GET_EVENT,
         TOOL_GET_PERSON,
+        TOOL_GET_EVENTS_FOR_PLACE,
         TOOL_GET_CONTEXT,
         TOOL_ENSURE_ENRICHMENT,
     ] {
@@ -952,11 +1036,12 @@ impl ModuleContextProvider for HistoryProviderOwned {
 
 /// 导出工具常量（外部测试 / 组合根引用）。
 #[must_use]
-pub fn history_tool_names() -> [&'static str; 5] {
+pub fn history_tool_names() -> [&'static str; 6] {
     [
         TOOL_SEARCH,
         TOOL_GET_EVENT,
         TOOL_GET_PERSON,
+        TOOL_GET_EVENTS_FOR_PLACE,
         TOOL_GET_CONTEXT,
         TOOL_ENSURE_ENRICHMENT,
     ]

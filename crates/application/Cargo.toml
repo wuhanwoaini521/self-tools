@@ -18,6 +18,7 @@ regex.workspace = true
 thiserror.workspace = true
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }
 tokio-util = { version = "0.7", features = ["rt"] }
+uuid = { version = "1.26", features = ["v4"] }
 
 [lints]
 workspace = true

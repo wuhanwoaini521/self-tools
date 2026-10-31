@@ -6,6 +6,7 @@ pub mod documents;
 #[cfg(test)]
 pub mod e2e_journeys;
 pub mod error;
+pub mod exploration;
 pub mod feed;
 pub mod files;
 pub mod geography;
