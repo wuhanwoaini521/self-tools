@@ -235,48 +235,49 @@ export function ReviewCenterPage({ active, onNavigate, onAskAi }: ReviewCenterPa
 
       {/* Stats bar */}
       {stats && (
-        <div className="review-center-stats">
-          <div style={{ background: "var(--surface-secondary, #f9fafb)", padding: 16, borderRadius: 12, border: "1px solid var(--border-subtle, #e5e7eb)" }}>
-            <div style={{ color: "var(--review-stat-muted)", fontSize: 12, fontWeight: 500 }}>今日待复习</div>
-            <div style={{ fontSize: 24, fontWeight: 700, color: (stats.due_count ?? stats.total_due ?? 0) > 0 ? "var(--review-stat-rose)" : "var(--review-stat-green)", marginTop: 4 }}>
-              {stats.due_count ?? stats.total_due ?? 0} 张
-            </div>
+        <div className="review-center-metrics">
+          <div className="review-center-metric">
+            <span className="review-metric-label">今日待复习</span>
+            <strong
+              className="review-metric-value"
+              data-tone={(stats.due_count ?? stats.total_due ?? 0) > 0 ? "alert" : "done"}
+            >
+              {stats.due_count ?? stats.total_due ?? 0}
+              <small>张</small>
+            </strong>
           </div>
-          <div style={{ background: "var(--surface-secondary, #f9fafb)", padding: 16, borderRadius: 12, border: "1px solid var(--border-subtle, #e5e7eb)" }}>
-            <div style={{ color: "var(--review-stat-muted)", fontSize: 12, fontWeight: 500 }}>已掌握知识点</div>
-            <div style={{ fontSize: 24, fontWeight: 700, color: "var(--review-stat-blue)", marginTop: 4 }}>
-              {stats.mastered_count ?? 0} 个
-            </div>
+          <div className="review-center-metric">
+            <span className="review-metric-label">已掌握知识点</span>
+            <strong className="review-metric-value">
+              {stats.mastered_count ?? 0}
+              <small>个</small>
+            </strong>
           </div>
-          <div style={{ background: "var(--surface-secondary, #f9fafb)", padding: 16, borderRadius: 12, border: "1px solid var(--border-subtle, #e5e7eb)" }}>
-            <div style={{ color: "var(--review-stat-muted)", fontSize: 12, fontWeight: 500 }}>正在学习中</div>
-            <div style={{ fontSize: 24, fontWeight: 700, color: "var(--review-stat-amber)", marginTop: 4 }}>
-              {stats.learning_count ?? 0} 个
-            </div>
+          <div className="review-center-metric">
+            <span className="review-metric-label">正在学习中</span>
+            <strong className="review-metric-value">
+              {stats.learning_count ?? 0}
+              <small>个</small>
+            </strong>
           </div>
-          <div style={{ background: "var(--surface-secondary, #f9fafb)", padding: 16, borderRadius: 12, border: "1px solid var(--border-subtle, #e5e7eb)" }}>
-            <div style={{ color: "var(--review-stat-muted)", fontSize: 12, fontWeight: 500 }}>本次已完成</div>
-            <div style={{ fontSize: 24, fontWeight: 700, color: "var(--review-stat-green)", marginTop: 4 }}>
-              {sessionCompletedCount} 张
-            </div>
+          <div className="review-center-metric">
+            <span className="review-metric-label">本次已完成</span>
+            <strong className="review-metric-value">
+              {sessionCompletedCount}
+              <small>张</small>
+            </strong>
           </div>
         </div>
       )}
 
       {/* Module filter tabs */}
-      <div style={{ display: "flex", flexWrap: "wrap", rowGap: 8, gap: 8, marginBottom: 24, borderBottom: "1px solid var(--border-subtle)", paddingBottom: 8 }}>
+      <div className="review-module-tabs" role="tablist" aria-label="复习模块">
         <button
+          type="button"
+          role="tab"
+          aria-selected={selectedModule === "all"}
+          className={"review-module-tab" + (selectedModule === "all" ? " is-active" : "")}
           onClick={() => setSelectedModule("all")}
-          style={{
-            padding: "6px 14px",
-            borderRadius: 8,
-            border: "none",
-            background: selectedModule === "all" ? "var(--accent-primary, #2563eb)" : "transparent",
-            color: selectedModule === "all" ? "#ffffff" : "var(--text-secondary, #4b5563)",
-            fontWeight: 600,
-            fontSize: 13,
-            cursor: "pointer",
-          }}
         >
           全部模块 ({stats?.due_count ?? stats?.total_due ?? 0})
         </button>
@@ -285,20 +286,11 @@ export function ReviewCenterPage({ active, onNavigate, onAskAi }: ReviewCenterPa
           return (
             <button
               key={modKey}
+              type="button"
+              role="tab"
+              aria-selected={selectedModule === modKey}
+              className={"review-module-tab" + (selectedModule === modKey ? " is-active" : "")}
               onClick={() => setSelectedModule(modKey)}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 6,
-                padding: "6px 14px",
-                borderRadius: 8,
-                border: "none",
-                background: selectedModule === modKey ? "var(--accent-primary, #2563eb)" : "transparent",
-                color: selectedModule === modKey ? "#ffffff" : "var(--text-secondary, #4b5563)",
-                fontWeight: 600,
-                fontSize: 13,
-                cursor: "pointer",
-              }}
             >
               {modMeta.icon}
               {modMeta.label} ({count})

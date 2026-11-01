@@ -28,13 +28,13 @@ const DESKTOP_MIN_SEGMENT = 32;
 const COMPACT_MIN_SEGMENT = 46;
 const SEGMENT_GAP = 0;
 const DESKTOP_LANE_HEIGHT = 36;
-const COMPACT_LANE_HEIGHT = 50;
+const COMPACT_LANE_HEIGHT = 40;
 const DESKTOP_AXIS_HEIGHT = 54;
-const COMPACT_AXIS_HEIGHT = 58;
+const COMPACT_AXIS_HEIGHT = 46;
 const DESKTOP_DENSITY_HEIGHT = 30;
-const COMPACT_DENSITY_HEIGHT = 26;
+const COMPACT_DENSITY_HEIGHT = 34;
 const DESKTOP_MIN_TRACK = 640;
-const COMPACT_MIN_TRACK = 1040;
+const COMPACT_MIN_TRACK = 880;
 const COMPACT_QUERY = "(max-width: 1100px)";
 const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
 
@@ -83,7 +83,7 @@ export function eraDensityHeight(
   height: number,
 ): number {
   if (!count || count <= 0 || max <= 0 || height <= 0) return 0;
-  return Math.max(3, Math.round((count / max) * height));
+  return Math.max(6, Math.round((count / max) * height));
 }
 
 /** 约略年代：区间边界不是精确断代。 */

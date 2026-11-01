@@ -10,7 +10,7 @@
   color: #704214;
 }
 
-.review-center-stats {
+.review-center-metrics {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 16px;
@@ -113,7 +113,7 @@
 }
 
 @media (max-width: 900px) {
-  .review-center-stats {
+  .review-center-metrics {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 10px;
     margin-bottom: 16px;
@@ -142,5 +142,94 @@
 
   .review-choice-grid {
     grid-template-columns: minmax(0, 1fr) !important;
+  }
+}
+
+/* Review 中心：指标卡 + 模块筛选（2026-11-01 现代化） */
+.app-shell .app-content .review-center-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 18px 0 20px;
+}
+
+.app-shell .app-content .review-center-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel-raised);
+}
+
+.app-shell .app-content .review-metric-label {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.app-shell .app-content .review-metric-value {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  color: var(--text);
+  font-size: 26px;
+  font-weight: 680;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+.app-shell .app-content .review-metric-value small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.app-shell .app-content .review-metric-value[data-tone="alert"] {
+  color: var(--danger, #c74750);
+}
+
+.app-shell .app-content .review-module-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 18px;
+}
+
+.app-shell .app-content .review-module-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel-raised);
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.app-shell .app-content .review-module-tab:hover {
+  border-color: var(--line-strong);
+  color: var(--text);
+}
+
+.app-shell .app-content .review-module-tab.is-active {
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--line));
+  background: color-mix(in srgb, var(--accent) 10%, var(--panel-raised));
+  color: var(--accent);
+}
+
+@media (max-width: 767px) {
+  .app-shell .app-content .review-center-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .app-shell .app-content .review-module-tab {
+    min-height: 44px;
   }
 }

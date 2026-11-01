@@ -120,9 +120,9 @@ describe("eraDensityHeight", () => {
     expect(eraDensityHeight(5, 0, 24)).toBe(0);
   });
 
-  it("按事件数归一化，并保留最小可见高度", () => {
+  it("按事件数归一化，并保留最小可见高度（6px，便于触摸/观察）", () => {
     expect(eraDensityHeight(50, 100, 24)).toBe(12);
-    expect(eraDensityHeight(1, 1000, 24)).toBe(3);
+    expect(eraDensityHeight(1, 1000, 24)).toBe(6);
     expect(eraDensityHeight(100, 100, 24)).toBe(24);
   });
 });

@@ -371,3 +371,43 @@
     justify-content: center;
   }
 }
+
+/* ---------- 12. 移动端触控目标下限（针对实测 <44px 的控件） ---------- */
+@media (max-width: 767px) {
+  /* 次级文字操作：面板头的「查看全部 / 复习中心」等 */
+  .app-shell .app-content :is(.hd-link, .ui-btn, .collections-open-btn) {
+    min-height: 44px;
+    padding-block: 6px;
+  }
+
+  /* Tab / 分段控件 */
+  .app-shell .app-content :is(.news-tabs, .knowledge-tabs, .geo-tabs) button {
+    min-height: 44px;
+  }
+
+  /* 标签、筛选 chip */
+  .app-shell .app-content :is(.travel-popular-tag, .ui-chip),
+  .app-shell .app-content .travel-prefs button {
+    min-height: 36px;
+    padding-block: 4px;
+  }
+
+  /* 纯图标操作 */
+  .app-shell .app-content :is(.knowledge-refresh, .collections-card-remove) {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  /* Markdown 工具栏 */
+  .app-shell .app-content .command-actions button,
+  .app-shell .app-content .view-actions button {
+    min-height: 44px;
+  }
+}
+
+/* 时代轴顶部的密度条在手机上只有几像素高，不做点击目标（时期切换用时间带）。 */
+@media (max-width: 767px) {
+  .app-shell .app-content .history-era-density-bar {
+    pointer-events: none;
+  }
+}
