@@ -5,7 +5,7 @@
  * A-B 复读由工作台的 AudioPlayer 提供（repeat 打开后每句自动回到句首）。
  */
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, Repeat } from "@phosphor-icons/react";
+import { ArrowLeft, ArrowRight, Play, Repeat } from "@phosphor-icons/react";
 import type { LessonSentence, VocabWithState } from "../../../types";
 import { cx } from "../languageUi";
 import { SentenceText } from "./SentenceText";
@@ -113,6 +113,17 @@ export function SentenceStage({
               className={cx("en-sentence-row", active && "is-active")}
               onClick={() => onSelect(sentence.sequence)}
             >
+              <button
+                type="button"
+                className="en-sentence-play"
+                aria-label={`播放第 ${sentence.sequence + 1} 句`}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onSelect(sentence.sequence);
+                }}
+              >
+                <Play size={13} weight="fill" />
+              </button>
               <span className="en-sentence-time">{formatTimestamp(sentence.start_ms)}</span>
               <div>
                 <SentenceText

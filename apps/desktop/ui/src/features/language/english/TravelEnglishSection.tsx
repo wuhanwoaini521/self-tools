@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
+  CaretRight,
   CheckCircle,
   MagnifyingGlass,
+  PencilSimple,
   SpeakerHigh,
 } from "@phosphor-icons/react";
 import type { LearningProgress } from "../../../types";
@@ -237,7 +239,22 @@ export function TravelEnglishSection({ onBack }: TravelEnglishSectionProps) {
                   <p className="en-muted">{scene.desc}</p>
                   {scene.say.length ? (
                     <div className="en-travel-lines">
-                      <h3>先开口说 <small>{scene.say.length} 句</small></h3>
+                      <h3>
+                        先开口说 <small>{scene.say.length} 句</small>
+                        <button
+                          type="button"
+                          className="en-travel-say-link"
+                          onClick={() =>
+                            setExpandedSay((current) => ({
+                              ...current,
+                              [scene.id]: !current[scene.id],
+                            }))
+                          }
+                        >
+                          {expandedSay[scene.id] ? "收起" : "展开"}
+                          <CaretRight size={12} aria-hidden="true" />
+                        </button>
+                      </h3>
                       {(expandedSay[scene.id] ? scene.say : scene.say.slice(0, 3)).map(([english, chinese], index) => (
                         <RevealLine
                           key={`${scene.id}-say-${index}`}
@@ -281,7 +298,13 @@ export function TravelEnglishSection({ onBack }: TravelEnglishSectionProps) {
                     disabled={savingKey === entityKey("travel_scene", id)}
                     onClick={() => void recordActivity("travel_scene", id, scene.name, "study", { scene_id: scene.id })}
                   >
-                    {savingKey === entityKey("travel_scene", id) ? "保存中…" : "记录本次练习"}
+                    {savingKey === entityKey("travel_scene", id) ? (
+                      "保存中…"
+                    ) : (
+                      <>
+                        <PencilSimple size={15} aria-hidden="true" /> 记录本次练习
+                      </>
+                    )}
                   </button>
                 </article>
               );

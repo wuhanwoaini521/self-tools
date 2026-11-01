@@ -3,7 +3,16 @@
  *
  * 保持克制：只放**多处复用**的东西，避免每个文件各写一份百分比/时长格式化。
  */
+import {
+  BookOpen,
+  Check,
+  CheckSquare,
+  Headphones,
+  Microphone,
+  Quotes,
+} from "@phosphor-icons/react";
 import type { LessonStage, LessonStatus } from "../../../types";
+import type { ReactNode } from "react";
 import { cx } from "../languageUi";
 
 /** 秒 → 「12 min」/「1h 20m」。 */
@@ -71,6 +80,16 @@ export function stateLabel(state: "new" | "learning" | "known"): string {
 }
 
 /** 工作台顶部阶段导航（横向 pill）。 */
+export const STAGE_ICONS: Record<LessonStage, ReactNode> = {
+  vocabulary: <BookOpen size={17} />,
+  listen: <Headphones size={17} />,
+  read: <BookOpen size={17} />,
+  sentence: <Quotes size={17} />,
+  shadow: <Microphone size={17} />,
+  quiz: <CheckSquare size={17} />,
+  done: <Check size={17} />,
+};
+
 export function StageNav({
   stage,
   onChange,
@@ -95,8 +114,15 @@ export function StageNav({
           onClick={() => onChange(item)}
           aria-current={stage === item ? "step" : undefined}
         >
-          {completed?.[item] ? <span className="en-stage-check">✓</span> : null}
-          {STAGE_LABELS[item]}
+          <span className="en-stage-icon" aria-hidden="true">
+            {STAGE_ICONS[item]}
+          </span>
+          <span className="en-stage-label">{STAGE_LABELS[item]}</span>
+          {completed?.[item] ? (
+            <span className="en-stage-check" aria-label="已完成">
+              <Check size={13} weight="bold" />
+            </span>
+          ) : null}
         </button>
       ))}
     </nav>

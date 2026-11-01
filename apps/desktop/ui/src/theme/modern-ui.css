@@ -1097,3 +1097,347 @@
   font-size: 14px;
   line-height: 1.65;
 }
+
+/* ==========================================================================
+ * 21. 英语学习：按设计稿重做（柔和底色 / 大圆角卡片 / 阶段网格 / 音频条）
+ * ========================================================================== */
+.app-shell .app-content .lang-page.is-english {
+  background:
+    radial-gradient(120% 70% at 12% 0%, color-mix(in srgb, var(--accent) 9%, var(--bg)) 0%, transparent 58%),
+    radial-gradient(110% 80% at 100% 8%, color-mix(in srgb, #b9a6ff 12%, var(--bg)) 0%, transparent 60%),
+    var(--bg);
+}
+
+.app-shell .app-content .lang-page.is-english .en-workspace {
+  background: transparent;
+}
+
+.app-shell .app-content .lang-page.is-english .en-card {
+  border: 1px solid color-mix(in srgb, var(--accent) 10%, var(--line));
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--panel-raised) 92%, transparent);
+  box-shadow: 0 10px 30px rgb(46 58 120 / 6%);
+  backdrop-filter: none;
+}
+
+/* 课程 hero：返回圆钮 + 书本封面 + 课程信息 */
+.app-shell .app-content .lang-page.is-english .en-workspace-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.app-shell .app-content .lang-page.is-english .en-workspace-title .en-icon-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--panel-raised);
+}
+
+.app-shell .app-content .lang-page.is-english .en-hero-book {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  width: 54px;
+  height: 64px;
+  border-radius: 8px 12px 12px 8px;
+  background: linear-gradient(160deg, #7d8cf1 0%, #5566e6 55%, #4453c9 100%);
+  color: #ffffff;
+  box-shadow: 0 8px 18px rgb(70 85 200 / 32%), inset -6px 0 0 rgb(0 0 0 / 10%);
+}
+
+.app-shell .app-content .lang-page.is-english .en-hero-book small {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  opacity: 0.9;
+}
+
+.app-shell .app-content .lang-page.is-english .en-workspace-title > div {
+  min-width: 0;
+}
+
+.app-shell .app-content .lang-page.is-english .en-workspace-title h1 {
+  font-size: 21px;
+  font-weight: 680;
+  letter-spacing: -0.02em;
+}
+
+.app-shell .app-content .lang-page.is-english .en-workspace-course {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* 阶段导航：3×2 网格卡片 */
+.app-shell .app-content .lang-page.is-english .en-stage-nav {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  width: 100%;
+}
+
+.app-shell .app-content .lang-page.is-english .en-stage-tab {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 46px;
+  padding: 0 10px;
+  border: 1px solid color-mix(in srgb, var(--accent) 10%, var(--line));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--panel-raised) 92%, transparent);
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.app-shell .app-content .lang-page.is-english .en-stage-tab .en-stage-icon {
+  display: inline-flex;
+  color: var(--muted);
+}
+
+.app-shell .app-content .lang-page.is-english .en-stage-tab .en-stage-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.app-shell .app-content .lang-page.is-english .en-stage-tab .en-stage-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 17px;
+  height: 17px;
+  margin-left: auto;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 12%, var(--panel-raised));
+  color: var(--accent);
+}
+
+.app-shell .app-content .lang-page.is-english .en-stage-tab.is-active {
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--line));
+  background: color-mix(in srgb, var(--accent) 10%, var(--panel-raised));
+  color: var(--accent);
+}
+
+.app-shell .app-content .lang-page.is-english .en-stage-tab.is-active .en-stage-icon,
+.app-shell .app-content .lang-page.is-english .en-stage-tab.is-active .en-stage-check {
+  color: var(--accent);
+}
+
+/* 音频条：白卡 + 圆形控件 + 底部进度与倍速 */
+.app-shell .app-content .lang-page.is-english .en-audio {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid color-mix(in srgb, var(--accent) 10%, var(--line));
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--panel-raised) 94%, transparent);
+  box-shadow: 0 8px 24px rgb(46 58 120 / 5%);
+}
+
+.app-shell .app-content .lang-page.is-english .en-audio-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  order: 1;
+}
+
+.app-shell .app-content .lang-page.is-english .en-audio-controls .en-icon-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--panel-raised);
+  color: var(--text);
+}
+
+.app-shell .app-content .lang-page.is-english .en-audio-controls .en-icon-btn.is-primary {
+  width: 50px;
+  height: 50px;
+  border-color: transparent;
+  background: var(--accent);
+  color: #ffffff;
+}
+
+.app-shell .app-content .lang-page.is-english .en-audio-time {
+  order: 2;
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.app-shell .app-content .lang-page.is-english .en-audio-seek {
+  order: 3;
+  flex: 1 0 100%;
+  accent-color: var(--accent);
+}
+
+.app-shell .app-content .lang-page.is-english .en-rate-group {
+  order: 4;
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.app-shell .app-content .lang-page.is-english .en-rate {
+  min-height: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel-raised);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.app-shell .app-content .lang-page.is-english .en-rate.is-on {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--accent) 16%, var(--panel-raised));
+  color: var(--accent);
+}
+
+@media (min-width: 900px) {
+  .app-shell .app-content .lang-page.is-english .en-stage-nav {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+}
+
+/* 阶段标签在 3 列里要放得下：缩字号、缩图标、收紧间距 */
+.app-shell .app-content .lang-page.is-english .en-stage-tab {
+  gap: 5px;
+  padding: 0 8px;
+  font-size: 11.5px;
+}
+
+.app-shell .app-content .lang-page.is-english .en-stage-tab .en-stage-icon svg {
+  width: 15px;
+  height: 15px;
+}
+
+/* 课程 hero 独立成卡（设计稿：书本 + 课程信息 + 返回圆钮） */
+.app-shell .app-content .lang-page.is-english .en-workspace-head {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.app-shell .app-content .lang-page.is-english .en-workspace-title {
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--accent) 12%, var(--line));
+  border-radius: 20px;
+  background:
+    linear-gradient(140deg, color-mix(in srgb, var(--accent) 7%, var(--panel-raised)) 0%, var(--panel-raised) 62%);
+  box-shadow: 0 10px 28px rgb(46 58 120 / 7%);
+}
+
+.app-shell .app-content .lang-page.is-english .en-immersive-btn {
+  align-self: flex-start;
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel-raised);
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* 阶段标签：再收一点，保证 Vocabulary/Sentence 完整显示 */
+.app-shell .app-content .lang-page.is-english .en-stage-tab {
+  gap: 4px;
+  padding: 0 7px;
+  font-size: 11px;
+}
+
+.app-shell .app-content .lang-page.is-english .en-stage-tab .en-stage-icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+.app-shell .app-content .lang-page.is-english .en-stage-tab .en-stage-check {
+  width: 15px;
+  height: 15px;
+}
+
+.app-shell .app-content .lang-page.is-english .en-stage-tab .en-stage-check svg {
+  width: 11px;
+  height: 11px;
+}
+
+/* 逐句精听：标题左侧强调条 */
+.app-shell .app-content .lang-page.is-english .en-sentence-stage h2,
+.app-shell .app-content .lang-page.is-english .en-stage-head h2 {
+  position: relative;
+  padding-left: 12px;
+}
+
+.app-shell .app-content .lang-page.is-english .en-sentence-stage h2::before,
+.app-shell .app-content .lang-page.is-english .en-stage-head h2::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+
+/* 旅行场景卡：左侧强调条 + 标题行右侧「先开口说 N 句 ›」 */
+.app-shell .app-content .lang-page.is-english .en-travel-card {
+  position: relative;
+  padding: 14px 14px 14px 18px;
+}
+
+.app-shell .app-content .lang-page.is-english .en-travel-card::before {
+  content: "";
+  position: absolute;
+  left: 8px;
+  top: 20px;
+  width: 3px;
+  height: 18px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+
+.app-shell .app-content .lang-page.is-english .en-travel-lines h3 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.app-shell .app-content .lang-page.is-english .en-travel-say-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 0;
+  margin-left: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.app-shell .app-content .lang-page.is-english .en-travel-say-link:hover {
+  color: var(--accent);
+}
+
+.app-shell .app-content .lang-page.is-english .en-travel-card .en-primary-btn {
+  width: 100%;
+  min-height: 44px;
+  border-radius: 999px;
+  background: var(--accent);
+  background-image: none;
+  color: #ffffff;
+  font-weight: 650;
+}

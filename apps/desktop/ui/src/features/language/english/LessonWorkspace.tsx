@@ -14,7 +14,7 @@
  * - 没有 AI 时 Lesson 仍然完整可用（AI 只是右侧可选增强）。
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Sparkle, Note, X, BookOpenText } from "@phosphor-icons/react";
+import { ArrowLeft, Sparkle, Note, X, BookOpen, BookOpenText } from "@phosphor-icons/react";
 import type {
   LessonDetail,
   LessonStage,
@@ -255,9 +255,13 @@ export function LessonWorkspace({
       {/* ---- 顶部：返回 / 课程 / 阶段导航 ---- */}
       <header className="en-workspace-head">
         <div className="en-workspace-title">
-          <button type="button" className="en-icon-btn" onClick={onExit} title="返回">
+          <button type="button" className="en-icon-btn en-back-btn" onClick={onExit} title="返回">
             <ArrowLeft size={16} />
           </button>
+          <span className="en-hero-book" aria-hidden="true">
+            <BookOpen size={26} weight="fill" />
+            <small>NCE {book?.book_no ?? 1}</small>
+          </span>
           <div>
             <p className="en-workspace-course">
               {book?.title ?? "New Concept English"}
