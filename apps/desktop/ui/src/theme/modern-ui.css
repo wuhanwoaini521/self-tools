@@ -1080,3 +1080,20 @@
     padding: 0 2px;
   }
 }
+
+/* 阅读短文：段落之间留白，不再使用卡片/折叠框 */
+.app-shell .app-content .en-travel-paragraphs {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 10px 0 4px;
+}
+
+.app-shell .app-content .en-travel-paragraphs .en-reveal {
+  padding: 10px 0;
+}
+
+.app-shell .app-content .en-travel-paragraphs .en-reveal-en {
+  font-size: 14px;
+  line-height: 1.65;
+}

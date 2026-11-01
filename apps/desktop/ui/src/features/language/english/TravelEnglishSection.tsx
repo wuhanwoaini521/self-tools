@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
-  BookOpen,
   CheckCircle,
   MagnifyingGlass,
   SpeakerHigh,
@@ -396,7 +395,16 @@ export function TravelEnglishSection({ onBack }: TravelEnglishSectionProps) {
                 <article className="en-card en-travel-article" key={article.id}>
                   <header className="en-travel-card-head"><div><p className="en-travel-eyebrow">{article.level} · {article.tag}</p><h2>{article.title}</h2><p className="en-muted">{article.titleZh}</p></div>{saved ? <span className="en-chip">{statusLabel(saved.status)}</span> : null}</header>
                   <div className="en-travel-paragraphs">
-                    {article.paras.map(([english, chinese], index) => <details className="en-travel-paragraph" key={`${article.id}-paragraph-${index}`}><summary><BookOpen size={15} aria-hidden="true" /> {english}</summary><p>{chinese}</p><button type="button" className="en-link-btn" onClick={() => speakText(english)}>朗读这段</button></details>)}
+                    {article.paras.map(([english, chinese], index) => (
+                      <RevealLine
+                        key={`${article.id}-paragraph-${index}`}
+                        english={english}
+                        chinese={chinese}
+                        defaultRevealed={revealAll}
+                        hint="点击显示这段译文"
+                        onSpeak={() => speakText(english)}
+                      />
+                    ))}
                   </div>
                   <button type="button" className="en-primary-btn" disabled={savingKey === entityKey("travel_article", id)} onClick={() => void recordActivity("travel_article", id, article.title, "complete", { article_id: article.id })}>{savingKey === entityKey("travel_article", id) ? "保存中…" : "记录读完"}</button>
                 </article>
