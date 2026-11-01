@@ -944,3 +944,139 @@
     font-size: 12px;
   }
 }
+
+/* ==========================================================================
+ * 20. 英语学习：去掉包住文字的按钮边框
+ *
+ * 全局按钮基础样式（.app-shell button:not(...)）会给 <button> 加 1px 边框、
+ * 白底和圆角；英语例句/译文/链接按钮因此看起来像一个个「文字块」。
+ * 这里用更高特异性把它们还原成纯文本，只保留真正的胶囊提示与图标按钮。
+ * ========================================================================== */
+.app-shell .app-content .en-reveal .en-reveal-en,
+.app-shell .app-content .en-reveal .en-reveal-en:hover,
+.app-shell .app-content .en-reveal .en-reveal-en:focus-visible {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text);
+  font-size: 14.5px;
+  line-height: 1.45;
+  text-align: left;
+}
+
+.app-shell .app-content .en-reveal .en-reveal-en:hover strong {
+  text-decoration: underline;
+  text-decoration-color: var(--line-strong);
+  text-underline-offset: 3px;
+}
+
+.app-shell .app-content .en-reveal .en-reveal-zh,
+.app-shell .app-content .en-reveal .en-reveal-zh:hover,
+.app-shell .app-content .en-reveal .en-reveal-zh:focus-visible {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+  text-align: left;
+}
+
+.app-shell .app-content .en-reveal .en-reveal-hint,
+.app-shell .app-content .en-reveal .en-reveal-hint:hover {
+  min-height: 0;
+  padding: 2px 9px;
+  border: 1px dashed var(--line);
+  border-radius: 999px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--muted);
+  font-size: 11.5px;
+}
+
+.app-shell .app-content .en-reveal .en-reveal-hint:hover {
+  border-color: var(--line-strong);
+  color: var(--text);
+}
+
+/* 「展开全部 N 句」等链接按钮：还原为文字链接 */
+.app-shell .app-content .en-travel-lines .en-link-btn,
+.app-shell .app-content .en-travel-card .en-link-btn,
+.app-shell .app-content .en-travel-article .en-link-btn {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--accent);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.app-shell .app-content .en-travel-lines .en-link-btn:hover,
+.app-shell .app-content .en-travel-card .en-link-btn:hover,
+.app-shell .app-content .en-travel-article .en-link-btn:hover {
+  text-decoration: underline;
+}
+
+/* 表达提示等折叠块：去掉外框，只留一行标题 */
+.app-shell .app-content .en-travel-details {
+  padding: 6px 0;
+  border: 0;
+  border-top: 1px solid var(--line-soft);
+  border-radius: 0;
+  background: transparent;
+}
+
+.app-shell .app-content .en-travel-details > summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.app-shell .app-content .en-travel-details > summary:hover {
+  color: var(--text);
+}
+
+/* 逐句精听/精读的译文与提示同样去掉按钮外框 */
+.app-shell .app-content .en-text-line .en-sentence-zh,
+.app-shell .app-content .en-text-line .en-sentence-zh:hover,
+.app-shell .app-content .en-sentence-row .en-sentence-reveal {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.app-shell .app-content .en-sentence-row .en-sentence-reveal {
+  color: var(--muted);
+  font-size: 11.5px;
+  cursor: pointer;
+}
+
+.app-shell .app-content .en-sentence-row .en-sentence-reveal:hover {
+  color: var(--text);
+  text-decoration: underline;
+}
+
+@media (max-width: 767px) {
+  /* 手机上「显示译文」仍是触控目标，保留 32px 高度 */
+  .app-shell .app-content .en-sentence-row .en-sentence-reveal,
+  .app-shell .app-content .en-text-line .en-sentence-reveal {
+    min-height: 32px;
+    padding: 0 2px;
+  }
+}
