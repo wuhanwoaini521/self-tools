@@ -76,12 +76,12 @@ function outlineHeadings(text: string): OutlineHeading[] {
   });
 }
 
-function WorkspaceTree({ files, path, workspaceName, expanded, onToggleFolder, onOpen, onChooseWorkspace, headings, onJump }: { files: WorkspaceFile[]; path: string | null; workspaceName: string; expanded: Set<string>; onToggleFolder: (folderPath: string) => void; onOpen: (filePath: string) => void; onChooseWorkspace: () => void; headings: OutlineHeading[]; onJump: (line: number) => void }) {
+function WorkspaceTree({ files, path, workspaceName, expanded, onToggleFolder, onOpen, onChooseWorkspace, headings, onJump, mobileOpen = false }: { files: WorkspaceFile[]; path: string | null; workspaceName: string; expanded: Set<string>; onToggleFolder: (folderPath: string) => void; onOpen: (filePath: string) => void; onChooseWorkspace: () => void; headings: OutlineHeading[]; onJump: (line: number) => void; mobileOpen?: boolean }) {
   const tree = useMemo(() => buildFileTree(files), [files]);
   const rows: { node: FileTreeNode; depth: number }[] = [];
   const walk = (nodes: FileTreeNode[], depth: number) => { for (const node of nodes) { rows.push({ node, depth }); if (!node.isFile && expanded.has(node.path)) walk(node.children, depth + 1); } };
   walk(tree, 0);
-  return <aside className="command-sidebar">
+  return <aside className={"command-sidebar" + (mobileOpen ? " is-mobile-open" : "")}>
     <header className="project-heading"><span>Project</span><button title="项目选项"><DotsThree size={19} /></button></header>
     <button className="project-name" onClick={onChooseWorkspace} title="打开其他文件夹">{workspaceName}</button>
     <div className="tree-scroll">
@@ -124,6 +124,7 @@ export function MarkdownPage({ settings, onSettingsChange, setNotice, active, in
   const [workspaceFiles, setWorkspaceFiles] = useState<WorkspaceFile[]>([]);
   const [filter, setFilter] = useState<TaskFilter>("all");
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [treeOpen, setTreeOpen] = useState(false);
   const [paletteQuery, setPaletteQuery] = useState("");
   const [dirty, setDirty] = useState(false);
   const [focusMode, setFocusMode] = useState(true);
@@ -452,10 +453,11 @@ export function MarkdownPage({ settings, onSettingsChange, setNotice, active, in
         <button onClick={newDocument}><Plus size={18} />New</button><button onClick={() => void chooseDocument()}><FolderOpen size={18} />Open</button><button onClick={() => void chooseWorkspace()} title="打开文件夹（选择工作区）"><FolderOpen size={18} />Folder</button><button onClick={() => void persist()}><FloppyDisk size={17} />Save</button><button onClick={() => setPaletteOpen(true)}><MagnifyingGlass size={18} />Find</button>
         <button onClick={() => setFilter((value) => value === "all" ? "todo" : "all")}><CheckCircle size={18} />Tasks: {filter === "all" ? "All" : "Todo"}<CaretDown size={15} /></button><button onClick={() => void persist()}><CloudArrowUp size={18} />Sync</button><i className="sync-dot" />
       </div>
-      <div className="view-actions"><button className={focusMode ? "active" : ""} onClick={() => setFocusMode((value) => !value)}><Target size={18} />Focus Mode <kbd>{shortcutLabel("toggleFocusMode")}</kbd></button><button className={zenMode ? "active" : ""} onClick={() => setZenMode((value) => !value)}><Code size={18} />Zen Mode <kbd>{shortcutLabel("toggleZenMode")}</kbd></button><button className={tasksVisible ? "active" : ""} onClick={() => setTasksVisible((value) => !value)}><SplitHorizontal size={18} />Split</button></div>
+      <div className="view-actions"><button className="tree-toggle" aria-expanded={treeOpen} onClick={() => setTreeOpen((value) => !value)}><SidebarSimple size={18} />文件</button><button className={focusMode ? "active" : ""} onClick={() => setFocusMode((value) => !value)}><Target size={18} />Focus Mode <kbd>{shortcutLabel("toggleFocusMode")}</kbd></button><button className={zenMode ? "active" : ""} onClick={() => setZenMode((value) => !value)}><Code size={18} />Zen Mode <kbd>{shortcutLabel("toggleZenMode")}</kbd></button><button className={tasksVisible ? "active" : ""} onClick={() => setTasksVisible((value) => !value)}><SplitHorizontal size={18} />Split</button></div>
     </header>
     <section className="focus-workbench" style={workbenchStyle}>
-      {sidebarVisible ? <WorkspaceTree files={workspaceFiles} path={path} workspaceName={workspace ? fileName(workspace) : "打开文件夹…"} expanded={expandedFolders} onToggleFolder={toggleFolder} onOpen={(filePath) => void loadPath(filePath)} onChooseWorkspace={() => void chooseWorkspace()} headings={headings} onJump={jumpToLine} /> : null}
+      {sidebarVisible ? <WorkspaceTree files={workspaceFiles} path={path} workspaceName={workspace ? fileName(workspace) : "打开文件夹…"} expanded={expandedFolders} onToggleFolder={toggleFolder} onOpen={(filePath) => { setTreeOpen(false); void loadPath(filePath); }} onChooseWorkspace={() => void chooseWorkspace()} headings={headings} onJump={jumpToLine} mobileOpen={treeOpen} /> : null}
+      {treeOpen ? <div className="tree-backdrop" onClick={() => setTreeOpen(false)} aria-hidden="true" /> : null}
       {!zenMode && sidebarVisible ? <div className={"wb-resizer" + (resizingBar === "sidebar" ? " active" : "")} style={{ left: sidebarWidth - 3 }} title="拖动调整宽度，双击还原" onMouseDown={startResize("sidebar")} onDoubleClick={() => setSidebarWidth(312)} /> : null}
       <section className="editor-workbench">
         <div className="editor-tabs"><button className="editor-tab active"><Code size={17} weight="bold" />{documentTitle}<span title="关闭文档"><X size={15} onClick={(event) => { event.stopPropagation(); closeDocument(); }} /></span></button><button className="new-tab" aria-label="新建标签" title="新建标签" onClick={newDocument}><Plus size={17} /></button></div>

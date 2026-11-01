@@ -660,3 +660,43 @@
     color: var(--muted);
   }
 }
+
+/* ---------- 18. Markdown：手机端项目树抽屉 ---------- */
+.app-shell .app-content .tree-toggle {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .app-shell .app-content .tree-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 44px;
+  }
+
+  .app-shell .app-content .command-sidebar {
+    display: grid !important;
+    position: fixed;
+    top: 56px;
+    bottom: 0;
+    left: 0;
+    z-index: 70;
+    width: min(84vw, 320px);
+    border-right: 1px solid var(--line);
+    background: var(--panel-raised);
+    box-shadow: var(--shadow-md);
+    transform: translateX(-102%);
+    transition: transform 160ms ease;
+  }
+
+  .app-shell .app-content .command-sidebar.is-mobile-open {
+    transform: none;
+  }
+
+  .app-shell .app-content .tree-backdrop {
+    position: fixed;
+    inset: 56px 0 0;
+    z-index: 65;
+    background: rgb(10 12 22 / 40%);
+  }
+}
