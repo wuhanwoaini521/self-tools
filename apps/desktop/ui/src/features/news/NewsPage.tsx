@@ -13,6 +13,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  ArrowLeft,
   ArrowSquareOut,
   ArrowsClockwise,
   BookmarkSimple,
@@ -696,6 +697,9 @@ export function NewsPage({
             <p className="news-empty-pane">选择一条新闻开始阅读。</p>
           ) : (
             <article className="news-reading">
+              <button type="button" className="news-reader-back" onClick={() => setSelected(null)}>
+                <ArrowLeft size={15} /> 返回列表
+              </button>
               <h2>{selected.title}</h2>
               <p className="news-reading-meta">
                 {selected.source}

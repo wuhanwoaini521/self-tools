@@ -108,3 +108,223 @@
     transition: none;
   }
 }
+
+/* ---------- 6. 移动端导航：4 个一级入口 + 「更多」面板 ---------- */
+@media (max-width: 767px) {
+  .app-shell.app-shell .app-bottom-nav {
+    overflow-x: visible;
+    justify-content: space-around;
+    gap: 2px;
+    padding: 6px 6px calc(6px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .app-shell.app-shell .app-bottom-nav-item {
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 52px;
+    padding: 6px 2px;
+  }
+}
+
+.app-shell.app-shell .app-more-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgb(10 12 22 / 44%);
+}
+
+.app-shell.app-shell .app-more-sheet {
+  width: 100%;
+  max-height: min(76dvh, 620px);
+  overflow-y: auto;
+  padding: 12px 16px calc(20px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--line);
+  border-radius: 20px 20px 0 0;
+  background: var(--panel-raised);
+  box-shadow: 0 -8px 32px rgb(0 0 0 / 12%);
+}
+
+.app-shell.app-shell .app-more-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 2px 12px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.app-shell.app-shell .app-more-head strong {
+  font-size: 15px;
+  font-weight: 650;
+  color: var(--text);
+}
+
+.app-shell.app-shell .app-more-head button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--muted);
+}
+
+.app-shell.app-shell .app-more-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-top: 12px;
+}
+
+.app-shell.app-shell .app-more-label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.app-shell.app-shell .app-more-items {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.app-shell.app-shell .app-more-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 46px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel-raised);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+}
+
+.app-shell.app-shell .app-more-item.active {
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--line));
+  background: color-mix(in srgb, var(--accent) 10%, var(--panel-raised));
+  color: var(--accent);
+}
+
+/* ---------- 7. News：移动端单栏 + 列表/阅读态切换 ---------- */
+.news-reader-back {
+  display: none;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 12px;
+  padding: 0 10px;
+  min-height: 36px;
+  font-size: 13px;
+}
+
+@media (max-width: 900px) {
+  .news-page {
+    height: auto;
+    min-height: 100%;
+    grid-template-rows: auto auto;
+  }
+
+  .news-body {
+    display: block;
+    min-height: 0;
+  }
+
+  .news-list {
+    overflow: visible;
+    border-right: 0;
+    padding-bottom: 24px;
+  }
+
+  .news-reader {
+    border-top: 1px solid var(--line-soft);
+    min-height: 0;
+  }
+
+  .news-page:has(.news-reading) .news-list {
+    display: none;
+  }
+
+  .news-page:has(.news-reading) .news-reader {
+    border-top: 0;
+  }
+
+  .news-page:has(.news-empty-pane) .news-reader {
+    display: none;
+  }
+
+  .news-reader-back {
+    display: inline-flex;
+  }
+}
+
+/* ---------- 8. News 订阅源异常条：移动端换行，不再挤压重叠 ---------- */
+@media (max-width: 767px) {
+  .app-shell.app-shell .news-degraded {
+    gap: 6px;
+    margin: 0;
+    padding: 10px 14px;
+    border: 0;
+    border-bottom: 1px solid var(--line-soft);
+    border-radius: 0;
+    font-size: 12px;
+  }
+
+  .app-shell.app-shell .news-degraded p {
+    flex-wrap: wrap;
+    row-gap: 4px;
+    font-size: 12.5px;
+    line-height: 1.5;
+  }
+
+  .app-shell.app-shell .news-degraded-list li {
+    flex-wrap: wrap;
+    row-gap: 2px;
+    align-items: center;
+    line-height: 1.5;
+  }
+
+  .app-shell.app-shell .news-degraded-reason {
+    flex-basis: 100%;
+    color: var(--muted);
+    font-size: 11.5px;
+  }
+
+  .app-shell.app-shell .news-health-tag {
+    margin-left: 0;
+  }
+}
+
+/* ---------- 9. Collections：移动端上下堆叠，取消固定高度双栏 ---------- */
+@media (max-width: 900px) {
+  .app-shell.app-shell .collections-shell {
+    flex-direction: column !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  .app-shell.app-shell .collections-sidebar {
+    width: 100% !important;
+    max-height: none;
+    overflow: visible;
+    border-right: 0 !important;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .app-shell.app-shell .collections-content {
+    flex: 1 1 auto !important;
+    height: auto !important;
+    overflow: visible !important;
+    padding: 20px 16px 32px !important;
+  }
+}

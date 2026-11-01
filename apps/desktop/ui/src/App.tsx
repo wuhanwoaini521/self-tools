@@ -3,6 +3,7 @@ import {
   Brain,
   Cards,
   Compass,
+  DotsThree,
   FolderSimple,
   Gear,
   HardDrives,
@@ -218,6 +219,9 @@ const NAV_GROUPS: Array<{ label: string; items: NavItem[] }> = [
   },
 ];
 
+/** 移动端底部导航只放 4 个一级入口 + 「更多」，其余入口进底部面板。 */
+const BOTTOM_NAV_IDS: PageId[] = ["home", "review", "geography", "language"];
+
 const defaultSettings: AppSettings = {
   schema_version: 1,
   recent_files: [],
@@ -368,6 +372,15 @@ export default function App() {
   const themeIdRef = useRef(themeId);
   const themeChangedByUserRef = useRef(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
+  useEffect(() => {
+    if (!moreOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMoreOpen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [moreOpen]);
   const [notice, setNotice] = useState("");
   const [aiOpen, setAiOpen] = useState(false);
   /** AI 投递队列（V11：白板等外部入口把「问题 + 快照」一次送进面板）。 */
@@ -1236,26 +1249,96 @@ export default function App() {
         </main>
       </div>
       {navigationLayout(layout) === "bottom" ? (
-        <nav className="app-bottom-nav" aria-label="主导航">
-          {NAV_GROUPS.flatMap((group) => group.items)
-            .map((item) => (
-              <button
-                key={item.id}
-                className={"app-bottom-nav-item" + (page === item.id ? " active" : "")}
-                onClick={() => setPage(item.id)}
+        <>
+          <nav className="app-bottom-nav" aria-label="主导航">
+            {BOTTOM_NAV_IDS.map((id) => {
+              const item = NAV_GROUPS.flatMap((group) => group.items).find((entry) => entry.id === id);
+              if (!item) return null;
+              return (
+                <button
+                  key={item.id}
+                  className={"app-bottom-nav-item" + (page === item.id ? " active" : "")}
+                  onClick={() => {
+                    setPage(item.id);
+                    setMoreOpen(false);
+                  }}
+                  aria-current={page === item.id ? "page" : undefined}
+                >
+                  <item.icon size={20} />
+                  <span>{item.label}</span>
+                </button>
+              );
+            })}
+            <button
+              className={"app-bottom-nav-item" + (moreOpen ? " active" : "")}
+              onClick={() => setMoreOpen((open) => !open)}
+              aria-expanded={moreOpen}
+              aria-controls="app-more-sheet"
+            >
+              <DotsThree size={20} weight="bold" />
+              <span>更多</span>
+            </button>
+          </nav>
+          {moreOpen ? (
+            <div className="app-more-backdrop" onClick={() => setMoreOpen(false)}>
+              <div
+                id="app-more-sheet"
+                className="app-more-sheet"
+                role="dialog"
+                aria-modal="true"
+                aria-label="全部页面"
+                onClick={(event) => event.stopPropagation()}
               >
-                <item.icon size={20} />
-                <span>{item.label}</span>
-              </button>
-            ))}
-          <button
-            className={"app-bottom-nav-item" + (settingsOpen ? " active" : "")}
-            onClick={() => setSettingsOpen(true)}
-          >
-            <Gear size={20} />
-            <span>Settings</span>
-          </button>
-        </nav>
+                <div className="app-more-head">
+                  <strong>全部页面</strong>
+                  <button type="button" onClick={() => setMoreOpen(false)} aria-label="关闭">
+                    <X size={16} />
+                  </button>
+                </div>
+                <div className="app-more-groups">
+                  {NAV_GROUPS.map((group) => (
+                    <div className="app-more-group" key={group.label}>
+                      <span className="app-more-label">{group.label}</span>
+                      <div className="app-more-items">
+                        {group.items.map((item) => (
+                          <button
+                            key={item.id}
+                            type="button"
+                            className={"app-more-item" + (page === item.id ? " active" : "")}
+                            onClick={() => {
+                              setPage(item.id);
+                              setMoreOpen(false);
+                            }}
+                            aria-current={page === item.id ? "page" : undefined}
+                          >
+                            <item.icon size={18} />
+                            <span>{item.label}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                  <div className="app-more-group">
+                    <span className="app-more-label">设置</span>
+                    <div className="app-more-items">
+                      <button
+                        type="button"
+                        className={"app-more-item" + (settingsOpen ? " active" : "")}
+                        onClick={() => {
+                          setSettingsOpen(true);
+                          setMoreOpen(false);
+                        }}
+                      >
+                        <Gear size={18} />
+                        <span>Settings</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : null}
+        </>
       ) : null}
       {notice ? (
         <button className="toast" onClick={() => setNotice("")}>
