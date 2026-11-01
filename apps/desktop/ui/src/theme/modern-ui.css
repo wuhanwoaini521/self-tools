@@ -560,3 +560,40 @@
     font-size: 12.5px;
   }
 }
+
+/* ---------- 16. Markdown：手机端单列编辑（隐藏项目树，编辑区占主视野） ---------- */
+@media (max-width: 900px) {
+  .app-shell .app-content .focus-workbench {
+    display: flex !important;
+    flex-direction: column;
+    overflow: visible;
+    min-height: 0;
+  }
+
+  .app-shell .app-content .command-sidebar {
+    display: none;
+  }
+
+  .app-shell .app-content .editor-workbench {
+    flex: 0 0 auto;
+    height: 62vh;
+    min-height: 360px;
+  }
+
+  .app-shell .app-content .task-outline {
+    flex: 0 0 auto;
+    max-height: 46vh;
+    overflow-y: auto;
+    border-left: 0;
+    border-top: 1px solid var(--line);
+  }
+
+  .app-shell .app-content .editor-status > div:last-child span:nth-child(n + 3) {
+    display: none;
+  }
+
+  .app-shell .app-content .command-bar {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+  }
+}
