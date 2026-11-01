@@ -1332,6 +1332,23 @@ export default function App() {
                         <Gear size={18} />
                         <span>Settings</span>
                       </button>
+                      <button
+                        type="button"
+                        className="app-more-item"
+                        onClick={() => {
+                          changeTheme(
+                            getTheme(themeId).appearance === "dark" ? "default" : "warm-editorial-dark",
+                          );
+                          setMoreOpen(false);
+                        }}
+                      >
+                        {getTheme(themeId).appearance === "dark" ? (
+                          <Sun size={18} />
+                        ) : (
+                          <Moon size={18} />
+                        )}
+                        <span>切换主题</span>
+                      </button>
                     </div>
                   </div>
                 </div>

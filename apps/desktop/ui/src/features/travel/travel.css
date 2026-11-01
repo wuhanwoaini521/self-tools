@@ -854,3 +854,125 @@
     font-size: 14px;
   }
 }
+
+/* ==========================================================================
+ * Travel 表单现代化（2026-11-01）
+ *
+ * 目标：城市输入 + 主操作在桌面上排成一行；手机上输入占满整行、按钮两列；
+ * 卡片扁平（细线 + 16px 圆角），标签统一 12px muted。
+ * 选择器带页面前缀，特异性高于旧 skin，不需要 !important。
+ * ========================================================================== */
+.app-shell .app-content .travel-page .travel-hero {
+  background: transparent;
+  background-image: none;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 20px;
+}
+
+.app-shell .app-content .travel-page .travel-search-container {
+  gap: 18px;
+  padding: 18px 18px 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--panel-raised);
+  box-shadow: var(--shadow-xs);
+}
+
+.app-shell .app-content .travel-page .travel-input-group > label,
+.app-shell .app-content .travel-page .travel-must-visit-section > label,
+.app-shell .app-content .travel-page .travel-meta-item > label {
+  margin-bottom: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.app-shell .app-content .travel-page .travel-search-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.app-shell .app-content .travel-page .travel-search-row input {
+  height: var(--control-height, 36px);
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--control-radius, 10px);
+  background: var(--panel-raised);
+  color: var(--text);
+  font-size: var(--control-font, 13px);
+}
+
+.app-shell .app-content .travel-page .travel-submit-btn {
+  height: 38px;
+  padding: 0 16px;
+  border: 1px solid transparent;
+  border-radius: var(--control-radius, 10px);
+  background: var(--accent);
+  color: var(--text-on-accent, #ffffff);
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: none;
+}
+
+.app-shell .app-content .travel-page .travel-create-manual {
+  height: 38px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--control-radius, 10px);
+  background: var(--panel-raised);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.app-shell .app-content .travel-page .travel-search-meta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.app-shell .app-content .travel-page .travel-must-input-wrapper {
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--control-radius, 10px);
+  background: var(--panel-raised);
+}
+
+@media (max-width: 767px) {
+  .app-shell .app-content .travel-page .travel-search-container {
+    padding: 16px 14px 18px;
+    gap: 16px;
+  }
+
+  .app-shell .app-content .travel-page .travel-search-row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .app-shell .app-content .travel-page .travel-search-row input {
+    grid-column: 1 / -1;
+    height: 42px;
+    font-size: 14px;
+  }
+
+  .app-shell .app-content .travel-page .travel-submit-btn,
+  .app-shell .app-content .travel-page .travel-create-manual {
+    width: 100%;
+    height: 42px;
+    justify-content: center;
+  }
+
+  .app-shell .app-content .travel-page .travel-research-again {
+    grid-column: 1 / -1;
+    width: 100%;
+    height: 38px;
+    justify-content: center;
+  }
+
+  .app-shell .app-content .travel-page .travel-search-meta {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+  }
+}

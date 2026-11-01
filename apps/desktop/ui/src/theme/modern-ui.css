@@ -328,3 +328,70 @@
     padding: 20px 16px 32px !important;
   }
 }
+
+/* ---------- 10. 语言 / 旅行页面里残留的装饰渐变改为扁平面 ---------- */
+.app-shell.app-shell .app-content .travel-hero,
+.app-shell.app-shell .app-content .travel-search-container {
+  background-image: none;
+}
+
+.app-shell.app-shell .app-content .lang-page.is-english .en-continue,
+:root[data-theme] .app-shell.app-shell .app-content .lang-page.is-english .en-continue {
+  border: 1px solid var(--line);
+  background: var(--panel-raised);
+  background-image: none;
+  box-shadow: var(--shadow-xs);
+}
+
+.app-shell.app-shell .app-content .en-travel-entry {
+  background: var(--panel-raised);
+  background-image: none;
+  border: 1px solid var(--line);
+}
+
+.app-shell.app-shell .app-content .lang-page.is-english .en-metric {
+  border: 1px solid var(--line);
+  background: var(--panel-raised);
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.app-shell.app-shell .app-content .en-primary-btn,
+.app-shell.app-shell .app-content .lang-page.is-english .en-primary-btn,
+:root[data-theme] .app-shell.app-shell .app-content .lang-page.is-english .en-primary-btn {
+  background: var(--accent);
+  background-image: none;
+  border-color: transparent;
+}
+
+/* ---------- 11. 手机顶栏：收敛成 品牌 + 搜索图标 + 头像 ---------- */
+@media (max-width: 767px) {
+  .app-shell.app-shell .app-bar {
+    gap: 10px;
+    padding: 0 12px;
+  }
+
+  .app-shell.app-shell .app-bar-gear {
+    display: none;
+  }
+
+  .app-shell.app-shell .app-shell-search {
+    width: 40px;
+    min-width: 40px;
+    min-height: 40px;
+    padding: 0;
+    justify-content: center;
+  }
+
+  .app-shell.app-shell .app-shell-search-placeholder,
+  .app-shell.app-shell .app-shell-search kbd {
+    display: none;
+  }
+
+  .app-shell.app-shell .app-avatar {
+    width: 40px;
+    min-height: 40px;
+    justify-content: center;
+  }
+}
