@@ -100,31 +100,36 @@ export function StageNav({
   completed?: Partial<Record<LessonStage, boolean>>;
 }) {
   const order: LessonStage[] = ["vocabulary", "listen", "read", "sentence", "shadow", "quiz"];
+  const progress = Math.max(0, order.indexOf(stage)) / (order.length - 1);
   return (
     <nav className="en-stage-nav" aria-label="学习阶段">
-      {order.map((item) => (
-        <button
-          key={item}
-          type="button"
-          className={cx(
-            "en-stage-tab",
-            stage === item && "is-active",
-            completed?.[item] && "is-done",
-          )}
-          onClick={() => onChange(item)}
-          aria-current={stage === item ? "step" : undefined}
-        >
-          <span className="en-stage-icon" aria-hidden="true">
-            {STAGE_ICONS[item]}
-          </span>
-          <span className="en-stage-label">{STAGE_LABELS[item]}</span>
-          {completed?.[item] ? (
-            <span className="en-stage-check" aria-label="已完成">
-              <Check size={13} weight="bold" />
-            </span>
-          ) : null}
-        </button>
-      ))}
+      <span className="en-stage-rail" aria-hidden="true">
+        <span className="en-stage-progress" style={{ width: `${progress * 100}%` }} />
+      </span>
+      <ol className="en-stage-list">
+        {order.map((item) => {
+          const done = Boolean(completed?.[item]);
+          return (
+            <li className="en-stage-step" key={item}>
+              <button
+                type="button"
+                className={cx(
+                  "en-stage-tab",
+                  stage === item && "is-active",
+                  done && "is-done",
+                )}
+                onClick={() => onChange(item)}
+                aria-current={stage === item ? "step" : undefined}
+              >
+                <span className="en-stage-bubble" aria-hidden="true">
+                  {done ? <Check size={14} weight="bold" /> : STAGE_ICONS[item]}
+                </span>
+                <span className="en-stage-label">{STAGE_LABELS[item]}</span>
+              </button>
+            </li>
+          );
+        })}
+      </ol>
     </nav>
   );
 }
