@@ -987,3 +987,35 @@
   border-color: var(--line-strong);
   color: var(--text);
 }
+
+/* ==========================================================================
+ * Modern pass（2026-11-01）：时期导航与时间轴卡片改为扁平白底
+ * ========================================================================== */
+.app-shell .app-content .history-v2-era .history-v2-era-current,
+.app-shell .app-content .history-v2-era .history-v2-era-neighbor {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel-raised);
+  background-image: none;
+  box-shadow: none;
+}
+
+.app-shell .app-content .history-v2-era .history-v2-era-current {
+  border-color: color-mix(in srgb, var(--accent) 34%, var(--line));
+}
+
+.app-shell .app-content .history-v2-era .history-v2-era-current::before {
+  display: none;
+}
+
+.app-shell .app-content .history-era-timeline .history-era-card {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--panel-raised);
+  background-image: none;
+  box-shadow: var(--shadow-xs);
+}
+
+.app-shell .app-content .history-era-timeline .history-era-lane-guides span {
+  border-top-color: color-mix(in srgb, var(--line) 70%, transparent);
+}

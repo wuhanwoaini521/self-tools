@@ -434,3 +434,52 @@
     flex: 0 0 auto;
   }
 }
+
+/* ---------- 14. 知识库统计条：从「-stat 通用 KPI」冲突里恢复为紧凑指标格 ---------- */
+.app-shell .app-content .knowledge-statusbar {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  align-items: stretch;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.app-shell .app-content .knowledge-statusbar .knowledge-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel-raised);
+  box-shadow: none;
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.app-shell .app-content .knowledge-statusbar .knowledge-stat b {
+  display: block;
+  margin: 0;
+  color: var(--text);
+  font-size: 20px;
+  font-weight: 680;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 767px) {
+  .app-shell .app-content .knowledge-statusbar {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .app-shell .app-content .knowledge-statusbar .knowledge-stat {
+    min-height: 62px;
+  }
+}
