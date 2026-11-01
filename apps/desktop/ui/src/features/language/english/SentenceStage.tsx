@@ -4,7 +4,7 @@
  * 当前播放句高亮并自动滚入视野；支持上一句 / 重复 / 下一句；
  * A-B 复读由工作台的 AudioPlayer 提供（repeat 打开后每句自动回到句首）。
  */
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, Repeat } from "@phosphor-icons/react";
 import type { LessonSentence, VocabWithState } from "../../../types";
 import { cx } from "../languageUi";
@@ -37,6 +37,10 @@ export function SentenceStage({
   onFinish,
 }: SentenceStageProps) {
   const listRef = useRef<HTMLOListElement | null>(null);
+  // 默认隐藏中文译文：先回忆，再点开核对。
+  const [revealAll, setRevealAll] = useState(false);
+  const [revealed, setRevealed] = useState<Set<string>>(() => new Set());
+  const isRevealed = (id: string) => revealAll || revealed.has(id);
   const activeRowRef = useRef<HTMLLIElement | null>(null);
 
   // 没有显式选中时，用音频位置推导当前句（真正「跟音频走」）。
@@ -74,6 +78,14 @@ export function SentenceStage({
           </p>
         </div>
         <div className="en-row-actions">
+          <button
+            type="button"
+            className="en-ghost-btn en-sentence-reveal-all"
+            aria-pressed={revealAll}
+            onClick={() => setRevealAll((value) => !value)}
+          >
+            {revealAll ? "隐藏全部译文" : "显示全部译文"}
+          </button>
           <button type="button" className="en-icon-btn" onClick={onPrev} title="上一句">
             <ArrowLeft size={15} />
           </button>
@@ -111,7 +123,37 @@ export function SentenceStage({
                   active={active}
                 />
                 {sentence.chinese ? (
-                  <p className="en-sentence-zh">{sentence.chinese}</p>
+                  isRevealed(sentence.id) ? (
+                    <button
+                      type="button"
+                      className="en-sentence-zh is-revealed"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        if (revealAll) {
+                          setRevealAll(false);
+                          return;
+                        }
+                        setRevealed((current) => {
+                          const next = new Set(current);
+                          next.delete(sentence.id);
+                          return next;
+                        });
+                      }}
+                    >
+                      {sentence.chinese}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="en-sentence-reveal"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setRevealed((current) => new Set(current).add(sentence.id));
+                      }}
+                    >
+                      显示译文
+                    </button>
+                  )
                 ) : null}
               </div>
             </li>

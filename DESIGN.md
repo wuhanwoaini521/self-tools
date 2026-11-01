@@ -44,6 +44,28 @@
 - Travel English content is static typed content; learning records are written only through the existing `learning_record_event` contract. The UI never fakes review scheduling, a wrong-answer queue, or browser-local progress.
 - The English home exposes the Travel English entry in the no-course, imported-course, and dashboard-error states, because the material does not depend on New Concept English import.
 
+## 英语学习：先回忆，再核对
+
+目标是用「主动回忆」代替「中英文同时铺开」，同时把长列表拆小。实现位于
+`features/language/english/RevealLine.tsx`、`TravelEnglishSection.tsx`、
+`SentenceStage.tsx`、`ReadingStage.tsx`。
+
+- 例句、短语、词汇例句、逐句精听与精读的译文默认隐藏：英文下方是虚线胶囊「点击显示译文」，
+  点英文或胶囊才展开译文，再点译文可收起。
+- 每组提供「显示全部译文 / 隐藏全部译文」；逐句精听与精读还支持单句点开。
+- 列表分批：旅行场景首批 4 个、词汇首批 24 个、语法首批 3 节、短文首批 4 篇，
+  底部「显示更多（还剩 N）」继续加载；场景的「先开口说」每张卡先给 3 句，其余折叠。
+- 译文展开/收起只影响本页展示状态，不写入学习记录，也不改动后端 SRS 语义。
+
+开源参考（用 GitHub 检索到的项目）：
+- [Lute v3](https://github.com/LuteOrg/lute-v3)：以阅读为核心的语言学习工具，逐词状态 + 句译切换。
+- [FreeLingo](https://github.com/artcc/freelingo)：自托管 LLM 语言学习，闪卡 + 间隔重复 + 听说练习。
+- [FlashCardPro](https://github.com/Mohfath/FlashCardPro)：Leitner 间隔重复、滑动复习的 Android 闪卡应用。
+
+后续可借鉴：Lute 的「词状态」标记（未知/学习中/已知）、FlashCardPro 的左右滑动复习手势、
+FreeLingo 的「先自评再看答案」流程。第 14 项之后如果要写记录，只通过既有
+`learning_record_event` 契约完成，不由前端臆造调度。
+
 ## Travel
 
 - 规划入口先给起点：第一次打开且没有任何行程时，展示三条可点击的起步行程（只填城市/天数/偏好，不发请求、不写数据）；填了城市后显示「行程速览」条件条（天数、日期、必去数量、偏好），提交前就能确认将按什么整理。

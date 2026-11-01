@@ -700,3 +700,247 @@
     background: rgb(10 12 22 / 40%);
   }
 }
+
+/* ==========================================================================
+ * 19. 英语学习：先回忆后核对（点击显示译文）+ 分批列表
+ * ========================================================================== */
+.app-shell .app-content .en-travel-panel-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel-raised);
+}
+
+.app-shell .app-content .en-travel-panel-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.app-shell .app-content .en-travel-reveal-all {
+  flex: 0 0 auto;
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel-raised);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.app-shell .app-content .en-travel-reveal-all:hover {
+  border-color: var(--line-strong);
+}
+
+.app-shell .app-content .en-reveal {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.app-shell .app-content .en-reveal:last-of-type {
+  border-bottom: 0;
+}
+
+.app-shell .app-content .en-reveal-main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  min-width: 0;
+}
+
+.app-shell .app-content .en-reveal-en {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font-size: 14.5px;
+  line-height: 1.45;
+  text-align: left;
+  cursor: pointer;
+}
+
+.app-shell .app-content .en-reveal-en strong {
+  font-weight: 600;
+}
+
+.app-shell .app-content .en-reveal-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  width: fit-content;
+  padding: 2px 9px;
+  border: 1px dashed var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 11.5px;
+  cursor: pointer;
+}
+
+.app-shell .app-content .en-reveal-hint:hover {
+  border-color: var(--line-strong);
+  color: var(--text);
+}
+
+.app-shell .app-content .en-reveal-zh {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+  text-align: left;
+  cursor: pointer;
+}
+
+.app-shell .app-content .en-reveal-zh:hover {
+  color: var(--text);
+}
+
+.app-shell .app-content .en-reveal-speak {
+  flex: 0 0 auto;
+  width: 36px;
+  min-width: 36px;
+  height: 36px;
+}
+
+.app-shell .app-content .en-travel-lines h3 small {
+  margin-left: 6px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.app-shell .app-content .en-travel-more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  margin: 4px auto 0;
+  padding: 0 16px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel-raised);
+  color: var(--text);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.app-shell .app-content .en-travel-more:hover {
+  border-color: var(--line-strong);
+}
+
+/* 旅行英语卡片去掉残留的玻璃/渐变 */
+.app-shell .app-content .en-travel-card,
+.app-shell .app-content .en-travel-word,
+.app-shell .app-content .en-travel-grammar,
+.app-shell .app-content .en-travel-article,
+.app-shell .app-content .en-travel-stat,
+.app-shell .app-content .en-travel-progress-item {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--panel-raised);
+  background-image: none;
+  box-shadow: none;
+}
+
+/* 逐句精听：译文默认隐藏 */
+.app-shell .app-content .en-sentence-reveal {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  min-height: 28px;
+  margin-top: 4px;
+  padding: 0 9px;
+  border: 1px dashed var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 11.5px;
+  cursor: pointer;
+}
+
+.app-shell .app-content .en-sentence-zh.is-revealed {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.55;
+  text-align: left;
+  cursor: pointer;
+}
+
+.app-shell .app-content .en-sentence-reveal-all {
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel-raised);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+@media (max-width: 767px) {
+  .app-shell .app-content .en-travel-panel-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .app-shell .app-content .en-travel-reveal-all,
+  .app-shell .app-content .en-sentence-reveal-all {
+    min-height: 44px;
+    width: 100%;
+  }
+
+  .app-shell .app-content .en-reveal-speak {
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
+  }
+
+  .app-shell .app-content .en-reveal {
+    padding: 10px 0;
+  }
+
+  /* 译文提示本身也是触控目标，放大到易点的尺寸 */
+  .app-shell .app-content .en-reveal-hint {
+    min-height: 32px;
+    padding: 4px 12px;
+    font-size: 12px;
+  }
+
+  .app-shell .app-content .en-reveal-en {
+    padding: 4px 0;
+  }
+
+  .app-shell .app-content .en-sentence-reveal {
+    min-height: 32px;
+    padding: 0 12px;
+    font-size: 12px;
+  }
+}

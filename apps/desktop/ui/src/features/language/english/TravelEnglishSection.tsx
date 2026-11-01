@@ -16,6 +16,7 @@ import {
   WORDS,
   WORD_TAGS,
 } from "./travelContent";
+import { RevealLine } from "./RevealLine";
 
 const TRAVEL_TYPES = new Set(["travel_scene", "travel_word", "travel_grammar", "travel_article"]);
 
@@ -74,6 +75,13 @@ export function TravelEnglishSection({ onBack }: TravelEnglishSectionProps) {
   const [wordQuery, setWordQuery] = useState("");
   const [wordTag, setWordTag] = useState<string>("all");
   const [answers, setAnswers] = useState<Record<string, number>>({});
+  // 主动回忆：默认隐藏译文，可整组显示；列表分批渲染，避免一次铺满整屏。
+  const [revealAll, setRevealAll] = useState(false);
+  const [expandedSay, setExpandedSay] = useState<Record<string, boolean>>({});
+  const [sceneLimit, setSceneLimit] = useState(4);
+  const [wordLimit, setWordLimit] = useState(24);
+  const [grammarLimit, setGrammarLimit] = useState(3);
+  const [articleLimit, setArticleLimit] = useState(4);
 
   const loadProgress = useCallback(async () => {
     setLoadingProgress(true);
@@ -195,10 +203,30 @@ export function TravelEnglishSection({ onBack }: TravelEnglishSectionProps) {
         </div>
       ) : null}
 
-      <div className="en-travel-panel" role="tabpanel">
+      <div
+        className="en-travel-panel"
+        role="tabpanel"
+        key={`${tab}-${revealAll ? "revealed" : "hidden"}`}
+      >
+        {tab === "scenes" || tab === "words" || tab === "reading" ? (
+          <div className="en-travel-panel-bar">
+            <p className="en-travel-panel-hint">
+              先试着回忆中文意思，再点开核对——主动回忆比同时看中英文记得更牢。
+            </p>
+            <button
+              type="button"
+              className="en-travel-reveal-all"
+              aria-pressed={revealAll}
+              onClick={() => setRevealAll((value) => !value)}
+            >
+              {revealAll ? "隐藏全部译文" : "显示全部译文"}
+            </button>
+          </div>
+        ) : null}
         {tab === "scenes" ? (
+          <div className="en-travel-stack">
           <div className="en-travel-grid">
-            {SCENES.map((scene) => {
+            {SCENES.slice(0, sceneLimit).map((scene) => {
               const id = `travel:${scene.id}`;
               const saved = progressByEntity.get(entityKey("travel_scene", id));
               return (
@@ -210,28 +238,42 @@ export function TravelEnglishSection({ onBack }: TravelEnglishSectionProps) {
                   <p className="en-muted">{scene.desc}</p>
                   {scene.say.length ? (
                     <div className="en-travel-lines">
-                      <h3>先开口说</h3>
-                      {scene.say.map(([english, chinese], index) => (
-                        <div className="en-travel-line" key={`${scene.id}-say-${index}`}>
-                          <div><strong>{english}</strong><span>{chinese}</span></div>
-                          <button type="button" className="en-icon-btn" aria-label={`朗读：${english}`} onClick={() => speakText(english)}><SpeakerHigh size={16} /></button>
-                        </div>
+                      <h3>先开口说 <small>{scene.say.length} 句</small></h3>
+                      {(expandedSay[scene.id] ? scene.say : scene.say.slice(0, 3)).map(([english, chinese], index) => (
+                        <RevealLine
+                          key={`${scene.id}-say-${index}`}
+                          english={english}
+                          chinese={chinese}
+                          defaultRevealed={revealAll}
+                          onSpeak={() => speakText(english)}
+                        />
                       ))}
+                      {scene.say.length > 3 ? (
+                        <button
+                          type="button"
+                          className="en-link-btn"
+                          onClick={() =>
+                            setExpandedSay((current) => ({ ...current, [scene.id]: !current[scene.id] }))
+                          }
+                        >
+                          {expandedSay[scene.id] ? "收起" : `展开全部 ${scene.say.length} 句`}
+                        </button>
+                      ) : null}
                     </div>
                   ) : null}
                   {scene.listen.length ? (
                     <details className="en-travel-details"><summary>听力练习（{scene.listen.length} 句）</summary>
-                      {scene.listen.map(([english, chinese], index) => <p key={`${scene.id}-listen-${index}`}><strong>{english}</strong><br /><span>{chinese}</span></p>)}
+                      {scene.listen.map(([english, chinese], index) => <RevealLine key={`${scene.id}-listen-${index}`} english={english} chinese={chinese} defaultRevealed={revealAll} onSpeak={() => speakText(english)} />)}
                     </details>
                   ) : null}
                   {scene.dialogue.length ? (
                     <details className="en-travel-details"><summary>展开情景对话</summary>
-                      {scene.dialogue.map(([speaker, english, chinese], index) => <p className={`en-travel-dialogue is-${speaker}`} key={`${scene.id}-dialogue-${index}`}><strong>{english}</strong><span>{chinese}</span></p>)}
+                      {scene.dialogue.map(([speaker, english, chinese], index) => <RevealLine className={`en-travel-dialogue is-${speaker}`} key={`${scene.id}-dialogue-${index}`} english={english} chinese={chinese} defaultRevealed={revealAll} onSpeak={() => speakText(english)} />)}
                     </details>
                   ) : null}
                   {scene.notes.length ? (
                     <details className="en-travel-details"><summary>表达提示</summary>
-                      {scene.notes.map(([english, chinese], index) => <p key={`${scene.id}-note-${index}`}><strong>{english}</strong><br /><span>{chinese}</span></p>)}
+                      {scene.notes.map(([english, chinese], index) => <RevealLine key={`${scene.id}-note-${index}`} english={english} chinese={chinese} defaultRevealed={revealAll} onSpeak={() => speakText(english)} />)}
                     </details>
                   ) : null}
                   <button
@@ -246,6 +288,16 @@ export function TravelEnglishSection({ onBack }: TravelEnglishSectionProps) {
               );
             })}
           </div>
+          {SCENES.length > sceneLimit ? (
+            <button
+              type="button"
+              className="en-ghost-btn en-travel-more"
+              onClick={() => setSceneLimit((value) => value + 4)}
+            >
+              显示更多场景（还剩 {SCENES.length - sceneLimit} 个）
+            </button>
+          ) : null}
+          </div>
         ) : null}
 
         {tab === "words" ? (
@@ -258,13 +310,13 @@ export function TravelEnglishSection({ onBack }: TravelEnglishSectionProps) {
               {WORD_TAGS.map((tag) => <button key={tag.id} type="button" className={`en-chip en-travel-filter${wordTag === tag.id ? " is-active" : ""}`} aria-pressed={wordTag === tag.id} onClick={() => setWordTag(tag.id)}>{tag.label}</button>)}
             </div>
             <div className="en-travel-grid">
-              {filteredWords.map((word) => {
+              {filteredWords.slice(0, wordLimit).map((word) => {
                 const id = wordEntityId(word);
                 const saved = progressByEntity.get(entityKey("travel_word", id));
                 return (
                   <article className="en-card en-travel-word" key={id}>
                     <div className="en-travel-card-head"><div><h2>{word.en}</h2><span className="en-travel-pos">{word.pos}</span> <span className="en-travel-pos">{word.zh}</span></div>{saved ? <span className="en-chip">{statusLabel(saved.status)}</span> : null}</div>
-                    <p className="en-travel-example"><strong>{word.ex}</strong><span>{word.exZh}</span></p>
+                    <RevealLine className="en-travel-example" english={word.ex} chinese={word.exZh} defaultRevealed={revealAll} onSpeak={() => speakText(word.ex)} />
                     <div className="en-travel-actions">
                       <button type="button" className="en-icon-btn" aria-label={`朗读：${word.en}`} onClick={() => speakText(word.en)}><SpeakerHigh size={16} /> 朗读</button>
                       <button type="button" className="en-ghost-btn" disabled={savingKey === entityKey("travel_word", id)} onClick={() => void recordActivity("travel_word", id, word.en, "study", { category: word.tag })}>{savingKey === entityKey("travel_word", id) ? "保存中…" : "记录练习"}</button>
@@ -274,12 +326,21 @@ export function TravelEnglishSection({ onBack }: TravelEnglishSectionProps) {
               })}
             </div>
             {filteredWords.length === 0 ? <p className="en-muted">没有找到匹配的词，试试缩短关键词或切换分类。</p> : null}
+            {filteredWords.length > wordLimit ? (
+              <button
+                type="button"
+                className="en-ghost-btn en-travel-more"
+                onClick={() => setWordLimit((value) => value + 24)}
+              >
+                再显示 24 个（还剩 {filteredWords.length - wordLimit} 个）
+              </button>
+            ) : null}
           </div>
         ) : null}
 
         {tab === "grammar" ? (
           <div className="en-travel-stack">
-            {GRAMMAR_LESSONS.map((lesson) => {
+            {GRAMMAR_LESSONS.slice(0, grammarLimit).map((lesson) => {
               const id = `travel:${lesson.id}`;
               const saved = progressByEntity.get(entityKey("travel_grammar", id));
               return (
@@ -313,12 +374,22 @@ export function TravelEnglishSection({ onBack }: TravelEnglishSectionProps) {
                 </article>
               );
             })}
+            {GRAMMAR_LESSONS.length > grammarLimit ? (
+              <button
+                type="button"
+                className="en-ghost-btn en-travel-more"
+                onClick={() => setGrammarLimit((value) => value + 2)}
+              >
+                显示更多语法课（还剩 {GRAMMAR_LESSONS.length - grammarLimit} 节）
+              </button>
+            ) : null}
           </div>
         ) : null}
 
         {tab === "reading" ? (
+          <div className="en-travel-stack">
           <div className="en-travel-grid">
-            {ARTICLES.map((article) => {
+            {ARTICLES.slice(0, articleLimit).map((article) => {
               const id = `travel:${article.id}`;
               const saved = progressByEntity.get(entityKey("travel_article", id));
               return (
@@ -331,6 +402,16 @@ export function TravelEnglishSection({ onBack }: TravelEnglishSectionProps) {
                 </article>
               );
             })}
+          </div>
+          {ARTICLES.length > articleLimit ? (
+            <button
+              type="button"
+              className="en-ghost-btn en-travel-more"
+              onClick={() => setArticleLimit((value) => value + 4)}
+            >
+              显示更多短文（还剩 {ARTICLES.length - articleLimit} 篇）
+            </button>
+          ) : null}
           </div>
         ) : null}
 

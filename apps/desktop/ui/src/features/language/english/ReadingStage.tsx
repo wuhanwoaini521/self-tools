@@ -1,3 +1,4 @@
+import { useState } from "react";
 /**
  * 精读阶段（Reading）：完整课文 + 可选翻译 + 生词标记。
  *
@@ -32,6 +33,8 @@ export function ReadingStage({
   activeSeq,
   onSentence,
 }: ReadingStageProps) {
+  // 逐句「先回忆、再核对」：整段译文可一次打开，也可以只点开某一句。
+  const [revealed, setRevealed] = useState<Set<string>>(() => new Set());
   return (
     <section className="en-stage en-read-stage">
       <header className="en-stage-head">
@@ -79,8 +82,37 @@ export function ReadingStage({
                 sentenceId={sentence.id}
                 active={activeSeq === sentence.sequence}
               />
-              {showTranslation && sentence.chinese ? (
-                <p className="en-sentence-zh">{sentence.chinese}</p>
+              {sentence.chinese ? (
+                showTranslation || revealed.has(sentence.id) ? (
+                  <button
+                    type="button"
+                    className="en-sentence-zh is-revealed"
+                    title={showTranslation ? "关闭全部译文" : "隐藏这句译文"}
+                    onClick={() => {
+                      if (showTranslation) {
+                        onToggleTranslation();
+                        return;
+                      }
+                      setRevealed((current) => {
+                        const next = new Set(current);
+                        next.delete(sentence.id);
+                        return next;
+                      });
+                    }}
+                  >
+                    {sentence.chinese}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="en-sentence-reveal"
+                    onClick={() =>
+                      setRevealed((current) => new Set(current).add(sentence.id))
+                    }
+                  >
+                    显示译文
+                  </button>
+                )
               ) : null}
             </div>
           </div>
