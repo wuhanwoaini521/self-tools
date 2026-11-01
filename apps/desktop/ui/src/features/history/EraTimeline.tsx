@@ -284,6 +284,21 @@ export function EraTimeline({
   );
   const hasDensity = maxEventCount > 0;
 
+  // 手机上默认只显示前 2 条并行轨道，避免空轨把时间轴撑得过高；当前时期在隐藏
+  // 轨道里时自动展开，切回可见时期后仍保持用户的选择。
+  const [showAllLanes, setShowAllLanes] = useState(false);
+  const currentLane =
+    layout.segments.find((segment) => segment.period.id === currentId)?.lane ?? 0;
+  const effectiveShowAll = showAllLanes || (compact && currentLane >= 2);
+  const visibleLaneCount =
+    compact && !effectiveShowAll
+      ? Math.min(layout.laneCount, 2)
+      : layout.laneCount;
+  const bandHeight = visibleLaneCount * layout.laneHeight + 4;
+  const visibleSegments = layout.segments.filter(
+    (segment) => segment.lane < visibleLaneCount,
+  );
+
   // 当前时期自动进入视野；只滚动横向容器，不劫持页面纵向滚动。
   useEffect(() => {
     const scroller = scrollerRef.current;
@@ -371,7 +386,7 @@ export function EraTimeline({
                 width: `${layout.trackWidth}px`,
                 height: `${
                   (hasDensity ? densityHeight : 0) +
-                  layout.bandHeight +
+                  bandHeight +
                   layout.axisHeight
                 }px`,
               }}
@@ -383,7 +398,7 @@ export function EraTimeline({
                   style={{ height: `${densityHeight}px` }}
                   aria-hidden="true"
                 >
-                  {layout.segments.map((segment) => {
+                  {visibleSegments.map((segment) => {
                     const barHeight = eraDensityHeight(
                       segment.period.event_count,
                       maxEventCount,
@@ -417,24 +432,24 @@ export function EraTimeline({
                   style={{
                     left: `${layout.epochLeft}px`,
                     top: `${hasDensity ? densityHeight : 0}px`,
-                    height: `${layout.bandHeight}px`,
+                    height: `${bandHeight}px`,
                   }}
                   aria-hidden="true"
                 />
               ) : null}
               <div
                 className="history-era-band"
-                style={{ height: `${layout.bandHeight}px` }}
+                style={{ height: `${bandHeight}px` }}
               >
                 <div className="history-era-lane-guides" aria-hidden="true">
-                  {Array.from({ length: layout.laneCount }, (_, lane) => (
+                  {Array.from({ length: visibleLaneCount }, (_, lane) => (
                     <span
                       key={lane}
                       style={{ height: `${layout.laneHeight}px` }}
                     />
                   ))}
                 </div>
-                {layout.segments.map((segment) => {
+                {visibleSegments.map((segment) => {
                   const currentSegment = segment.period.id === currentId;
                   const showYears = segment.width >= 78;
                   const rangeLabel = segment.openStart
@@ -491,7 +506,7 @@ export function EraTimeline({
               <div
                 className="history-era-axis"
                 style={{
-                  top: `${(hasDensity ? densityHeight : 0) + layout.bandHeight}px`,
+                  top: `${(hasDensity ? densityHeight : 0) + bandHeight}px`,
                   height: `${layout.axisHeight}px`,
                 }}
               >
@@ -552,6 +567,18 @@ export function EraTimeline({
             ))}
           </div>
         )}
+        {compact && layout.laneCount > 2 ? (
+          <button
+            type="button"
+            className="history-era-lanes-toggle"
+            aria-expanded={effectiveShowAll}
+            onClick={() => setShowAllLanes((value) => !value)}
+          >
+            {effectiveShowAll
+              ? "收起并发轨道"
+              : `显示全部 ${layout.laneCount} 条并发轨道`}
+          </button>
+        ) : null}
         <div className="history-era-summary" aria-live="polite">
           <span className="history-era-summary-current">
             <i aria-hidden="true" />

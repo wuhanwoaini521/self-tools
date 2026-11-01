@@ -965,3 +965,25 @@
     transition: none;
   }
 }
+
+/* 手机端并发轨道折叠开关（2026-11-01） */
+.app-shell .app-content .history-era-timeline .history-era-lanes-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  margin: 10px 0 0;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel-raised);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.app-shell .app-content .history-era-timeline .history-era-lanes-toggle:hover {
+  border-color: var(--line-strong);
+  color: var(--text);
+}
