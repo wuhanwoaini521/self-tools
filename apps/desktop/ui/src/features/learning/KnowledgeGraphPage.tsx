@@ -29,17 +29,17 @@ interface KnowledgeGraphPageProps {
 }
 
 const TYPE_COLORS: Record<string, string> = {
-  person: "#ec4899",
-  place: "#10b981",
-  event: "#f59e0b",
-  time: "#8b5cf6",
-  concept: "#06b6d4",
-  article: "#3b82f6",
-  language: "#6366f1",
-  language_item: "#6366f1",
-  word: "#6366f1",
-  topic: "#f97316",
-  destination: "#14b8a6",
+  person: "#8b6fb8",
+  place: "#3f9d74",
+  event: "#c08a3e",
+  time: "#6b7280",
+  concept: "#4a8fd9",
+  article: "#5566e6",
+  language: "#7a6cc4",
+  language_item: "#7a6cc4",
+  word: "#7a6cc4",
+  topic: "#c47a4a",
+  destination: "#3f8f96",
 };
 
 /** 图例与筛选项的中文标签；后端未登记的类型回落到原始 key。 */
@@ -225,6 +225,7 @@ export function KnowledgeGraphPage({
     const textColor = styles.getPropertyValue("--text").trim() || "#1f2937";
     const mutedColor = styles.getPropertyValue("--muted").trim() || "#9ca3af";
     const accentColor = styles.getPropertyValue("--accent").trim() || "#3b82f6";
+    const surfaceColor = styles.getPropertyValue("--panel-raised").trim() || "#ffffff";
 
     let running = true;
 
@@ -343,12 +344,14 @@ export function KnowledgeGraphPage({
         const isHovered = hoveredNode?.id === node.id;
         const color = TYPE_COLORS[node.entity_type] ?? "#6b7280";
 
-        // Outer glow on hover or selected
+        // Outer glow on hover or selected（用主题 accent + 透明度，不写死色值）
         if (isSelected || isHovered) {
           ctx.beginPath();
           ctx.arc(node.x, node.y, node.radius + 6, 0, Math.PI * 2);
-          ctx.fillStyle = isSelected ? "rgba(37, 99, 235, 0.25)" : "rgba(59, 130, 246, 0.15)";
+          ctx.globalAlpha = isSelected ? 0.24 : 0.14;
+          ctx.fillStyle = accentColor;
           ctx.fill();
+          ctx.globalAlpha = 1;
         }
 
         // Node circle
@@ -359,7 +362,7 @@ export function KnowledgeGraphPage({
 
         if (isCenter) {
           ctx.lineWidth = 3;
-          ctx.strokeStyle = "#ffffff";
+          ctx.strokeStyle = surfaceColor;
           ctx.stroke();
         }
 
@@ -367,7 +370,7 @@ export function KnowledgeGraphPage({
         if (node.mastery_score && node.mastery_score > 0) {
           ctx.beginPath();
           ctx.arc(node.x, node.y, node.radius + 2, 0, (Math.PI * 2 * (node.mastery_score / 100)));
-          ctx.strokeStyle = "#10b981";
+          ctx.strokeStyle = accentColor;
           ctx.lineWidth = 2.5;
           ctx.stroke();
         }
