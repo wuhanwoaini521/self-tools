@@ -19,6 +19,7 @@ import { learningClient } from "./learningClient";
 import { KnowledgeReviewCardEditor } from "./KnowledgeReviewCardEditor";
 import { CollectionItemNoteEditor } from "./CollectionItemNoteEditor";
 import { sourceRoute } from "./sourceNavigation";
+import "./collections.css";
 import type { Collection, CollectionItem } from "../../types";
 
 interface CollectionsPageProps {
@@ -147,488 +148,204 @@ export function CollectionsPage({ active, onNavigate, onAskAi }: CollectionsPage
   };
 
   return (
-    <div className="collections-shell page-shell" style={{ display: "flex", height: "100%", overflow: "hidden", padding: 0 }}>
-      {/* Left Sidebar: Collection List */}
-      <div
-        className="collections-sidebar"
-        style={{
-          width: 320,
-          borderRight: "1px solid var(--border-color, #e5e7eb)",
-          background: "var(--surface-secondary, #f9fafb)",
-          display: "flex",
-          flexDirection: "column",
-        }}
-      >
-        <div
-          style={{
-            padding: "20px 20px 14px",
-            borderBottom: "1px solid var(--border-subtle, #e5e7eb)",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
-        >
-          <div style={{ fontSize: 16, fontWeight: 700, color: "var(--text-primary, #111827)" }}>
-            专题合集 ({collections.length})
-          </div>
-          <button
-            onClick={() => setShowCreateModal(true)}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 4,
-              padding: "6px 12px",
-              borderRadius: 6,
-              border: "none",
-              background: "var(--accent-primary, #2563eb)",
-              color: "#ffffff",
-              fontSize: 12,
-              fontWeight: 600,
-              cursor: "pointer",
-            }}
-          >
-            <Plus size={14} /> 新建合集
+    <div className="collections-shell page-shell">
+      <aside className="collections-sidebar" aria-label="专题合集列表">
+        <div className="collections-sidebar-head">
+          <span className="collections-sidebar-title">
+            专题合集 <b>{collections.length}</b>
+          </span>
+          <button type="button" className="collections-create-btn" onClick={() => setShowCreateModal(true)}>
+            <Plus size={15} /> 新建
           </button>
         </div>
-
-        <div style={{ flex: 1, overflowY: "auto", padding: 12 }}>
-          {collections.length === 0 ? (
-            /* 列表为空时不要留一块空白：给出与右侧一致的引导文案。 */
-            <div
-              style={{
-                padding: "28px 16px",
-                textAlign: "center",
-                color: "var(--text-tertiary, #9ca3af)",
-                fontSize: 12,
-                lineHeight: 1.7,
-              }}
-            >
-              列表为空
+        <div className="collections-list">
+          {loading ? <div className="collections-list-empty">正在读取合集…</div> : null}
+          {!loading && collections.length === 0 ? (
+            <div className="collections-list-empty">
+              还没有合集
               <br />
-              从右上角新建第一个合集
+              点右上角「新建」创建第一个专题
             </div>
           ) : null}
           {collections.map((col) => {
             const isSelected = selectedCollection?.id === col.id;
             return (
-              <div
+              <button
                 key={col.id}
+                type="button"
+                className={"collections-item" + (isSelected ? " is-active" : "")}
                 onClick={() => setSelectedCollection(col)}
-                style={{
-                  padding: "12px 16px",
-                  borderRadius: 8,
-                  marginBottom: 8,
-                  cursor: "pointer",
-                  background: isSelected ? "var(--surface-primary, #ffffff)" : "transparent",
-                  border: isSelected
-                    ? "1px solid var(--accent-primary, #2563eb)"
-                    : "1px solid transparent",
-                  boxShadow: isSelected ? "0 2px 8px rgba(0,0,0,0.04)" : "none",
-                }}
+                aria-current={isSelected ? "true" : undefined}
               >
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div style={{ fontWeight: 600, fontSize: 14, color: "var(--text-primary, #111827)" }}>
-                    {col.title}
-                  </div>
-                  <span style={{ fontSize: 11, color: "var(--text-tertiary, #9ca3af)", fontWeight: 500 }}>
-                    {col.item_count} 项
-                  </span>
-                </div>
-                {col.description && (
-                  <p style={{ fontSize: 12, color: "var(--text-secondary, #6b7280)", margin: "4px 0 0", lineClamp: 2 }}>
-                    {col.description}
-                  </p>
-                )}
-                {col.tags.length > 0 && (
-                  <div style={{ display: "flex", gap: 4, marginTop: 6, flexWrap: "wrap" }}>
-                    {col.tags.map((t) => (
-                      <span
-                        key={t}
-                        style={{
-                          fontSize: 10,
-                          padding: "1px 6px",
-                          borderRadius: 4,
-                          background: "rgba(59, 130, 246, 0.1)",
-                          color: "#2563eb",
-                        }}
-                      >
-                        #{t}
-                      </span>
+                <span className="collections-item-top">
+                  <span className="collections-item-title">{col.title}</span>
+                  <span className="collections-item-count">{col.item_count} 项</span>
+                </span>
+                {col.description ? <span className="collections-item-desc">{col.description}</span> : null}
+                {col.tags.length > 0 ? (
+                  <span className="collections-tags">
+                    {col.tags.map((tag) => (
+                      <span key={tag} className="collections-tag">#{tag}</span>
                     ))}
-                  </div>
-                )}
-              </div>
+                  </span>
+                ) : null}
+              </button>
             );
           })}
         </div>
-      </div>
+      </aside>
 
-      {/* Right Content Area */}
-      <div className="collections-content" style={{ flex: 1, background: "var(--surface-primary, #ffffff)", overflowY: "auto", padding: "32px 40px" }}>
+      <section className="collections-content">
         {selectedCollection ? (
-          <div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24 }}>
-              <div>
-                <h1 style={{ fontSize: 24, fontWeight: 700, color: "var(--text-primary, #111827)", margin: "0 0 8px" }}>
-                  {selectedCollection.title}
-                </h1>
-                {selectedCollection.description && (
-                  <p style={{ color: "var(--text-secondary, #6b7280)", fontSize: 14, margin: "0 0 12px", maxWidth: 640 }}>
-                    {selectedCollection.description}
-                  </p>
-                )}
-                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                  <span style={{ fontSize: 12, color: "var(--text-tertiary, #9ca3af)" }}>
-                    共收录 {items.length} 个跨模块知识条目
-                  </span>
-                  {onAskAi && (
+          <div className="collections-detail">
+            <header className="collections-detail-head">
+              <div className="collections-detail-main">
+                <h1 className="collections-detail-title">{selectedCollection.title}</h1>
+                {selectedCollection.description ? (
+                  <p className="collections-detail-desc">{selectedCollection.description}</p>
+                ) : null}
+                <div className="collections-detail-meta">
+                  <span>共收录 {items.length} 个跨模块知识条目</span>
+                  {onAskAi ? (
                     <button
+                      type="button"
+                      className="collections-ai-btn"
                       onClick={() =>
                         onAskAi(
                           `请针对专题合集《${selectedCollection.title}》（包含 ${items.map((i) => i.title).join("、")}）进行综合知识串讲与脉络梳理。`
                         )
                       }
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 4,
-                        padding: "4px 10px",
-                        borderRadius: 6,
-                        border: "1px solid rgba(139, 92, 246, 0.3)",
-                        background: "rgba(139, 92, 246, 0.08)",
-                        color: "#7c3aed",
-                        fontSize: 12,
-                        fontWeight: 600,
-                        cursor: "pointer",
-                      }}
                     >
                       <Sparkle size={14} /> AI 综合串讲
                     </button>
-                  )}
+                  ) : null}
                 </div>
               </div>
-
               <button
+                type="button"
+                className="collections-delete-btn"
                 onClick={() => handleDeleteCollection(selectedCollection.id)}
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 4,
-                  padding: "6px 12px",
-                  borderRadius: 6,
-                  border: "1px solid var(--border-color, #e5e7eb)",
-                  background: "transparent",
-                  color: "#ef4444",
-                  fontSize: 12,
-                  cursor: "pointer",
-                }}
               >
-                <Trash size={14} /> 删除合集
+                <Trash size={14} /> 删除
               </button>
-            </div>
+            </header>
 
-            {/* Items Grid */}
             {items.length === 0 ? (
-              <div
-                style={{
-                  textAlign: "center",
-                  padding: "80px 0",
-                  color: "var(--text-tertiary, #9ca3af)",
-                  background: "var(--surface-secondary, #f9fafb)",
-                  borderRadius: 12,
-                }}
-              >
-                <Folder size={40} style={{ marginBottom: 12 }} />
-                <div>合集中暂无内容</div>
-                <div style={{ fontSize: 13, marginTop: 4 }}>
-                  可以在知识图谱或今日主页中点击“加入专题合集”将历史、地理、语言、新闻条目归档至此。
-                </div>
+              <div className="collections-empty">
+                <Folder size={30} />
+                <strong>合集中暂无内容</strong>
+                <p>在知识图谱或今日主页点击「加入专题合集」，把历史、地理、语言、新闻条目归档到这里。</p>
               </div>
             ) : (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 16 }}>
+              <div className="collections-grid">
                 {items.map((item) => (
-                  <div
-                    key={item.id}
-                    style={{
-                      border: "1px solid var(--border-color, #e5e7eb)",
-                      borderRadius: 12,
-                      padding: 16,
-                      background: "var(--surface-primary, #ffffff)",
-                      display: "flex",
-                      flexDirection: "column",
-                      justifyContent: "space-between",
-                    }}
-                  >
-                    <div>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                          {MODULE_ICONS[item.module] ?? <BookOpen size={16} />}
-                          <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", color: "var(--text-tertiary, #9ca3af)" }}>
-                            {item.module} · {item.entity_type}
-                          </span>
-                        </div>
-                        <button
-                          onClick={() => handleRemoveItem(item.id)}
-                          style={{
-                            border: "none",
-                            background: "transparent",
-                            color: "var(--text-tertiary, #9ca3af)",
-                            cursor: "pointer",
-                            padding: 2,
-                          }}
-                        >
-                          <X size={14} />
-                        </button>
-                      </div>
-
-                      <h3 style={{ fontSize: 16, fontWeight: 600, color: "var(--text-primary, #111827)", margin: "0 0 6px" }}>
-                        {item.title}
-                      </h3>
-
-                      <CollectionItemNoteEditor
-                        item={item}
-                        onSaved={(updated) =>
-                          setItems((current) =>
-                            current.map((entry) => entry.id === updated.id ? updated : entry),
-                          )
-                        }
-                      />
-                    </div>
-
-                    <div style={{ marginTop: 14, paddingTop: 10, borderTop: "1px solid var(--border-subtle, #f3f4f6)" }}>
+                  <article className="collections-card" key={item.id}>
+                    <div className="collections-card-head">
+                      <span className="collections-card-type">
+                        {MODULE_ICONS[item.module] ?? <BookOpen size={15} />}
+                        {item.module} · {item.entity_type}
+                      </span>
                       <button
-                        onClick={() => handleOpenItem(item)}
-                        style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 4,
-                          fontSize: 12,
-                          fontWeight: 600,
-                          color: "var(--accent-primary, #2563eb)",
-                          background: "none",
-                          border: "none",
-                          cursor: "pointer",
-                          padding: 0,
-                        }}
+                        type="button"
+                        className="collections-card-remove"
+                        onClick={() => handleRemoveItem(item.id)}
+                        aria-label={`移除 ${item.title}`}
                       >
+                        <X size={14} />
+                      </button>
+                    </div>
+                    <h3 className="collections-card-title">{item.title}</h3>
+                    <CollectionItemNoteEditor
+                      item={item}
+                      onSaved={(updated) =>
+                        setItems((current) =>
+                          current.map((entry) => (entry.id === updated.id ? updated : entry)),
+                        )
+                      }
+                    />
+                    <div className="collections-card-foot">
+                      <button type="button" className="collections-open-btn" onClick={() => handleOpenItem(item)}>
                         <ArrowSquareOut size={14} /> 查看详情
                       </button>
                       <KnowledgeReviewCardEditor item={item} onNavigate={onNavigate} />
                     </div>
-                  </div>
+                  </article>
                 ))}
               </div>
             )}
           </div>
         ) : (
-          /* 未选中合集时，右侧不能是一整片空白——那看起来像坏了，
-             而不是「还没有内容」。这里给出占满内容区的空态与下一步。 */
-          <div
-            style={{
-              height: "100%",
-              minHeight: 420,
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 12,
-              textAlign: "center",
-            }}
-          >
-            <div
-              aria-hidden="true"
-              style={{
-                width: 56,
-                height: 56,
-                borderRadius: "var(--radius-lg, 16px)",
-                display: "grid",
-                placeItems: "center",
-                background: "var(--surface-raised, #f7f7f8)",
-                border: "1px solid var(--border-subtle, #ececef)",
-                color: "var(--text-tertiary, #9ca3af)",
-              }}
-            >
-              <FolderSimple size={24} />
-            </div>
-            <p
-              style={{
-                margin: 0,
-                fontSize: 15,
-                fontWeight: 600,
-                color: "var(--text-primary, #111827)",
-              }}
-            >
-              还没有打开专题合集
+          <div className="collections-empty collections-empty-page">
+            <span className="collections-empty-icon" aria-hidden="true">
+              <FolderSimple size={22} />
+            </span>
+            <strong>还没有打开专题合集</strong>
+            <p>
+              专题合集把跨模块内容放到一起：一个历史事件、相关地点、词典条目收进同一主题，随时一起复习。
             </p>
-            <p
-              style={{
-                margin: 0,
-                maxWidth: 380,
-                fontSize: 13,
-                lineHeight: 1.7,
-                color: "var(--text-tertiary, #9ca3af)",
-              }}
-            >
-              专题合集把跨模块的内容放在一起——比如把一个历史事件、相关地点、
-              词典条目收进同一个主题，随时一起复习。
-            </p>
-            <button
-              type="button"
-              onClick={() => setShowCreateModal(true)}
-              style={{
-                marginTop: 4,
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 6,
-                padding: "8px 16px",
-                borderRadius: "var(--radius-control, 10px)",
-                border: "1px solid var(--accent-primary, #1688ff)",
-                background: "var(--accent-primary, #1688ff)",
-                color: "#fff",
-                fontSize: 13,
-                fontWeight: 600,
-                cursor: "pointer",
-              }}
-            >
+            <button type="button" className="collections-create-btn" onClick={() => setShowCreateModal(true)}>
               <Plus size={14} /> 新建第一个专题合集
             </button>
           </div>
         )}
-      </div>
+      </section>
 
-      {/* Create Modal */}
-      {showCreateModal && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: "rgba(0, 0, 0, 0.4)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1100,
-          }}
-        >
+      {showCreateModal ? (
+        <div className="collections-modal-backdrop" onClick={() => setShowCreateModal(false)}>
           <div
-            style={{
-              background: "var(--surface-primary, #ffffff)",
-              borderRadius: 12,
-              padding: 24,
-              width: 420,
-              boxShadow: "0 10px 25px rgba(0, 0, 0, 0.15)",
-            }}
+            className="collections-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-label="新建专题合集"
+            onClick={(event) => event.stopPropagation()}
           >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-              <div style={{ fontSize: 16, fontWeight: 700 }}>新建专题合集</div>
-              <button
-                onClick={() => setShowCreateModal(false)}
-                style={{ border: "none", background: "none", cursor: "pointer", color: "#9ca3af" }}
-              >
+            <div className="collections-modal-head">
+              <strong>新建专题合集</strong>
+              <button type="button" onClick={() => setShowCreateModal(false)} aria-label="关闭">
                 <X size={18} />
               </button>
             </div>
-
-            <form onSubmit={handleCreate}>
-              <div style={{ marginBottom: 12 }}>
-                <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 4 }}>
-                  合集名称
-                </label>
+            <form className="collections-form" onSubmit={handleCreate}>
+              <label>
+                <span>合集名称</span>
                 <input
                   type="text"
                   required
                   placeholder="例如：丝绸之路历史与地理脉络"
                   value={newTitle}
-                  onChange={(e) => setNewTitle(e.target.value)}
-                  style={{
-                    width: "100%",
-                    padding: "8px 12px",
-                    borderRadius: 6,
-                    border: "1px solid var(--border-color, #d1d5db)",
-                    fontSize: 13,
-                    boxSizing: "border-box",
-                  }}
+                  onChange={(event) => setNewTitle(event.target.value)}
                 />
-              </div>
-
-              <div style={{ marginBottom: 12 }}>
-                <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 4 }}>
-                  合集简介 (可选)
-                </label>
+              </label>
+              <label>
+                <span>合集简介（可选）</span>
                 <textarea
+                  rows={3}
                   placeholder="简要说明此合集的学习目标或主题"
                   value={newDescription}
-                  onChange={(e) => setNewDescription(e.target.value)}
-                  rows={3}
-                  style={{
-                    width: "100%",
-                    padding: "8px 12px",
-                    borderRadius: 6,
-                    border: "1px solid var(--border-color, #d1d5db)",
-                    fontSize: 13,
-                    boxSizing: "border-box",
-                    resize: "none",
-                  }}
+                  onChange={(event) => setNewDescription(event.target.value)}
                 />
-              </div>
-
-              <div style={{ marginBottom: 20 }}>
-                <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 4 }}>
-                  标签 (逗号分隔，可选)
-                </label>
+              </label>
+              <label>
+                <span>标签（逗号分隔，可选）</span>
                 <input
                   type="text"
                   placeholder="历史, 丝绸之路, 中亚"
                   value={newTags}
-                  onChange={(e) => setNewTags(e.target.value)}
-                  style={{
-                    width: "100%",
-                    padding: "8px 12px",
-                    borderRadius: 6,
-                    border: "1px solid var(--border-color, #d1d5db)",
-                    fontSize: 13,
-                    boxSizing: "border-box",
-                  }}
+                  onChange={(event) => setNewTags(event.target.value)}
                 />
-              </div>
-
-              <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
-                <button
-                  type="button"
-                  onClick={() => setShowCreateModal(false)}
-                  style={{
-                    padding: "8px 14px",
-                    borderRadius: 6,
-                    border: "none",
-                    background: "var(--surface-secondary, #f3f4f6)",
-                    fontSize: 13,
-                    cursor: "pointer",
-                  }}
-                >
+              </label>
+              <div className="collections-form-actions">
+                <button type="button" className="collections-cancel-btn" onClick={() => setShowCreateModal(false)}>
                   取消
                 </button>
-                <button
-                  type="submit"
-                  style={{
-                    padding: "8px 16px",
-                    borderRadius: 6,
-                    border: "none",
-                    background: "var(--accent-primary, #2563eb)",
-                    color: "#ffffff",
-                    fontSize: 13,
-                    fontWeight: 600,
-                    cursor: "pointer",
-                  }}
-                >
+                <button type="submit" className="collections-create-btn">
                   创建合集
                 </button>
               </div>
             </form>
           </div>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

@@ -305,30 +305,6 @@
   }
 }
 
-/* ---------- 9. Collections：移动端上下堆叠，取消固定高度双栏 ---------- */
-@media (max-width: 900px) {
-  .app-shell.app-shell .collections-shell {
-    flex-direction: column !important;
-    height: auto !important;
-    overflow: visible !important;
-  }
-
-  .app-shell.app-shell .collections-sidebar {
-    width: 100% !important;
-    max-height: none;
-    overflow: visible;
-    border-right: 0 !important;
-    border-bottom: 1px solid var(--line);
-  }
-
-  .app-shell.app-shell .collections-content {
-    flex: 1 1 auto !important;
-    height: auto !important;
-    overflow: visible !important;
-    padding: 20px 16px 32px !important;
-  }
-}
-
 /* ---------- 10. 语言 / 旅行页面里残留的装饰渐变改为扁平面 ---------- */
 .app-shell.app-shell .app-content .travel-hero,
 .app-shell.app-shell .app-content .travel-search-container {
