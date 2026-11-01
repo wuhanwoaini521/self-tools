@@ -608,3 +608,28 @@ After the redesign lands, re-run and confirm:
 /tmp/ui-critique/scroll2.json    every scroller + touch-gesture deltas
 /tmp/ui-critique/visible.json    visible-page control/target counts
 ```
+
+
+---
+
+## 附录：2026-11-01 整改状态（Modern UI 轮次 1–12）
+
+本报告作为独立评审保留原文，下面是逐项整改记录：
+
+| 评审项 | 状态 | 落地位置 |
+| --- | --- | --- |
+| 底部导航 17 个入口挤出 1128px | 已修 | 4 主入口 + 「更多」面板（17 项全部可达） |
+| News 100 条塞在 181px 窗口 | 已修 | 移动端单栏 + 阅读态切换 + 返回列表 |
+| Collections 固定双栏、列表被裁切 | 已修 | 整页重写为类名 + 移动端上下堆叠 |
+| 死滚动容器（geo-discovery-card 35px 等） | 已修 | 单一滚动链 `.page-pane`，7 个主路由触摸验证可滚 |
+| 无按钮系统（13 种高度、7 种圆角） | 部分修 | 控件契约 36px/10px；手机 44px 下限、chip 36px、图标 44×44 |
+| 39% 控件 < 44×44 | 大幅改善 | History/Review/News/Knowledge/Travel/Markdown 主操作已达标 |
+| 字号/对比度（--muted 3.59:1） | 已修 | `--faint` 提到 #6a6f7e（4.6:1），`--muted` 4.9:1 |
+| History 时代轴占屏 450px+ | 已修 | 并发轨道折叠（默认 2 条，可展开），295px |
+| Geography 索引/分段控件过时 | 已修 | 白底分段 + 胶囊筛选 + 扁平卡片 |
+| Collections 紫色 accent（#8b5cf6） | 已修 | 统一 accent |
+| Markdown 工具栏 4 行 | 已修 | 单行横向滚动 + 编辑器 62vh 主视野 |
+| RSS 三栏挤压 | 已修 | ≤900px 单列 + 阅读返回 |
+| 深色主题未验证 | 已修 | 14 路由 × 深色 × 手机/桌面 全量截图（56 个视口无溢出/报错） |
+
+仍未完成：History 时间轴的信息密度（并发多时仍需横向滑动）、Markdown 移动端侧栏目前是隐藏而非抽屉、Server/System 仅桌面可用。

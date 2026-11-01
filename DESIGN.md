@@ -2,21 +2,32 @@
 
 ## Direction
 
-**Sunrise Glass** — a personal workspace for collecting and returning to work across learning, notes, reading, travel, and AI. The 2026-10-31 refinement replaces the earlier warm-paper treatment with a luminous field moving from sky blue through violet into apricot and soft yellow, translucent glass surfaces with crisp bright edges, quiet depth, and clear graphite text. The interface stays familiar, calm, and fast to scan.
+**Modern Flat（2026-11-01）** — 一个成熟、文字优先的个人工作区。当前设计语言取代 2026-10-31 的「Sunrise Glass」：去掉极光/玻璃/发光/手绘贴纸，改为近白画布、白色卡片 + 1px 细线、克制的单一 accent、密集但清晰的信息层级。目标是浏览器、桌面端和手机端看起来是同一套系统，且与 Ember 风格参考图一致。
+
+历史备注：2026-10-31 的 Sunrise Glass 方向（极光场 + 玻璃表面）仍保留在 `theme/sunrise-glass.css`，但已被 `theme/modern-ui.css` 在默认主题下覆盖为扁平面；该文件现在只作为其它主题的兜底层，不再定义视觉方向。
 
 ## Visual grammar
 
-- Keep the existing Manrope family and active theme tokens. Use a restrained type scale, readable weights, and sentence-case labels. Headings use tight tracking (`-0.02em` to `-0.025em`); avoid decorative or handwritten faces.
-- The aurora field is painted by the shell, not by content: a blue → violet → apricot light field with a soft horizon glow at the bottom. It must never sit behind long reading text.
-- Glass surfaces use high-opacity panel colour (`70%–88%`), a modest backdrop blur (`18px–28px`), a `1px` cool edge, and a bright inset top highlight. Keep reading content crisp: cards are frosted, article bodies are not.
-- Use the active theme's accent for the selected route, primary actions, and focus rings. Primary actions use the accent gradient when the theme defines `--accent-grad-a/b`; otherwise the theme accent is used as the fallback so the control never becomes transparent. Do not assign different hues to navigation groups or Home modules. Reserve success, warning, and error colours for their semantic states.
-- Keep information in aligned rows with a clear title, concise context, and action. Let real content and icon labels identify a module.
+- 画布 `--bg`（近白冷灰），卡片 `--panel-raised`（纯白），边界 `--line`（1px 细线），不再使用玻璃模糊、内高光、外部阴影堆叠；仅允许 `--shadow-xs` 级别的极轻投影（抽屉、弹窗、地图卡）。
+- 圆角契约：卡片 14–16px、控件 10px、标签/胶囊 999px。不要为单个页面发明新的圆角。
+- 强调色只有一个 `--accent`（默认主题 `#5566e6`）。成功/警告/危险只用于语义状态；不再给导航分组或模块分配独立色相。
+- 字号阶梯（移动端）：正文 13–14px、次级 12px、微标签 10.5–11px、大数字 24–28px；正文与说明文字对比度 ≥ 4.5:1（`--muted` 4.9:1、`--faint` 4.6:1）。
+- 控件契约：`--control-height: 36px`、`--control-radius: 10px`；手机上文本操作/标签页/工具栏按钮 44px、chip 36px、纯图标按钮 44×44。
+- 按钮只有四种：主（accent 实底）、次（白底细线）、幽灵（透明 + 文字色）、图标（正方形）。hover 只改变背景/边框颜色，不做位移和缩放。
+- 列表行 = 标题（13–14px/600）+ 右侧元信息（11–12px muted）+ 可选描述；间距 10–12px，整行可点。
 
 ## Application frame
 
-- Retain the existing persistent top bar, route-backed side navigation, mobile bottom navigation, search, and settings actions.
-- The top bar, navigation rail, search field, settings button, and mobile bottom bar are frosted glass surfaces with a crisp bright top edge. The desktop navigation remains a stable rail with one consistent active state across all groups.
-- Keep the user's current theme and stored preference intact. Keep controls familiar and keyboard-accessible, with visible focus and sufficiently large mobile targets.
+- 顶栏：桌面保留品牌 + AI 助手 + 搜索 + 设置 + 主题 + 头像；手机收敛为品牌 + 搜索图标 + 头像，设置与主题切换进入「更多」面板。
+- 桌面侧栏保持完整分组（17 个入口）；手机底栏只放 4 个主入口（Home / Review / Geography / Language）+「更多」，「更多」面板两列列出全部入口与 Settings，带 `aria-current` / `aria-expanded`，遮罩与 Esc 关闭。
+- 移动端每页只有一条滚动链：`.app-content > .page-pane` 负责滚动，`.page-scroll` 不再自行滚动；页面内容高度自适应，`100dvh` + safe-area inset。
+- 键盘可访问：所有交互保留 `:focus-visible` 焦点环；面板/弹窗有 role、aria 标签与 Esc 关闭。
+
+## Modern UI layer
+
+- `theme/modern-ui.css` 在 `main.tsx` 中最后导入，是覆盖层：平面画布、单一滚动链、手机底栏与「更多」面板、News/RSS/Markdown/Collections 等页的移动端布局、触控下限、以及各页残留渐变/玻璃的扁平化。
+- 页面自有 CSS（如 `geography-explore.css`、`collections.css`、`era-timeline.css`）统一用 `.app-shell .app-content …` 前缀提高特异性，不再用 `!important` 堆叠；新增组件避免使用 `-stat` / `-kpi` / `-tabs` 等会命中全局通用规则的类名子串。
+- 主题：默认主题 `data-theme="pencil"` 仍保留 id 与选择行为，但视觉由扁平 token 驱动；`sunrise-glass.css` 只作为其它主题的兜底，`modern-ui.css` 负责去掉其渐变。
 
 ## Home
 
@@ -27,8 +38,8 @@
 
 ## Language → English
 
-- The English workspace is the primary focus surface of the sunrise field: the greeting and page title sit directly on the aurora; cards, metric chips, and the single focused “continue” card are frosted glass.
-- The focused card keeps a warm apricot-to-violet tint; the primary action is the accent gradient with a soft accent shadow.
+- （2026-11-01 更新）English 工作区已改为扁平：指标卡与「继续学习」卡为白底细线，主按钮为纯 accent 实底；原先的极光问候区与暖色渐变已由 `modern-ui.css` 覆盖。以下两条描述保留为历史记录。
+- 历史：The English workspace is the primary focus surface of the sunrise field…（已被上式取代）
 - Travel English (`旅行英语`) is a self-contained learning surface inside the same route: a segmented glass tab bar for 场景 / 词汇 / 语法 / 阅读 / 学习进度, a responsive card grid (three columns on wide screens, one on mobile), inline sentence rows with a speech control, example blocks for vocabulary, corrected/incorrect grammar pairs, answer options with correct/wrong states, and progress metric tiles.
 - Travel English content is static typed content; learning records are written only through the existing `learning_record_event` contract. The UI never fakes review scheduling, a wrong-answer queue, or browser-local progress.
 - The English home exposes the Travel English entry in the no-course, imported-course, and dashboard-error states, because the material does not depend on New Concept English import.
@@ -70,7 +81,7 @@
 
 - Use the existing `--bg`, `--panel`, `--panel-raised`, `--line`, `--text`, `--muted`, `--accent`, `--accent-soft`, `--accent-grad-a`, `--accent-grad-b`, and semantic state tokens. Do not change theme IDs, selection behaviour, routes, feature data, API clients, persistence, or backend contracts.
 - The default theme keeps `id="default"` and `data-theme="pencil"`; its palette (`theme/pencil.css`) is updated to the sunrise values: pale periwinkle canvas, white surfaces, graphite text, blue-violet accent, apricot selection highlight.
-- `theme/sunrise-glass.css` is imported last and only paints: the aurora field, glass chrome, and the Language English / Travel English surfaces. Other light themes receive a warm haze from their own palette; dark themes (`warm-editorial-dark`, `nord`, `catppuccin-macchiato`) receive a low-opacity violet/apricot version of the same field and keep their own accent for actions.
+- `theme/sunrise-glass.css` 仍是极光/玻璃层的来源，但已不是最后导入：`theme/modern-ui.css` 在其后导入，默认主题下把画布、chrome、语言卡等统一压平（2026-11-01 起）。 Other light themes receive a warm haze from their own palette; dark themes (`warm-editorial-dark`, `nord`, `catppuccin-macchiato`) receive a low-opacity violet/apricot version of the same field and keep their own accent for actions.
 - The layer honours `prefers-reduced-transparency` (solid surfaces, no field) and `prefers-reduced-motion` (no transitions). Do not create raster assets for this scope.
 - This refinement covers the shared application frame, Home, the Language English workspace (including Travel English), and the global AI entry. Other feature-page content remains outside scope and keeps its existing markup.
 
