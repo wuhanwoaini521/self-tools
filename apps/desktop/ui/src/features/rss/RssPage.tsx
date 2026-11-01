@@ -192,7 +192,7 @@ export function RssPage({ active, version, refreshing, onRefresh, onFeedsChanged
     </aside>
     <section className="rss-articles">
       {selectedFeedId === null
-        ? <p className="rss-empty-pane">选择左侧订阅查看文章列表。</p>
+        ? <p className="rss-empty-pane">选择一个订阅查看文章列表。</p>
         : articles.length === 0
           ? <p className="rss-empty-pane">这个订阅还没有文章,试试刷新。</p>
           : <>
@@ -214,6 +214,9 @@ export function RssPage({ active, version, refreshing, onRefresh, onFeedsChanged
       {selectedArticle === null
         ? <p className="rss-empty-pane">点击文章开始阅读。</p>
         : <article className="rss-reading">
+          <button type="button" className="rss-reader-back" onClick={() => setSelectedArticle(null)}>
+            返回列表
+          </button>
           <h2>{selectedArticle.title}</h2>
           <p className="rss-reading-meta">{isReplyTitle(selectedArticle.title) ? <><span className="rss-reply-badge"><ArrowBendUpLeft size={12} weight="bold" />回复</span> · </> : null}{selectedArticle.feed_title} · {formatDateTime(selectedArticle.published_at)}</p>
           <div className="rss-reading-actions">

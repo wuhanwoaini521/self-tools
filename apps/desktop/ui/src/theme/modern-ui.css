@@ -483,3 +483,80 @@
     min-height: 62px;
   }
 }
+
+/* ---------- 15. RSS：移动端单列（订阅 → 文章 → 阅读）+ 空态收敛 ---------- */
+.app-shell .app-content .rss-reader-back {
+  display: none;
+  align-items: center;
+  min-height: 36px;
+  margin-bottom: 12px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--control-radius, 10px);
+  background: var(--panel-raised);
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+@media (max-width: 900px) {
+  .app-shell .app-content .rss-page {
+    display: flex;
+    flex-direction: column;
+    height: auto;
+    min-height: 100%;
+    background: transparent;
+  }
+
+  .app-shell .app-content .rss-feeds {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+    background: var(--panel-raised);
+  }
+
+  .app-shell .app-content .rss-feed-list {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .app-shell .app-content .rss-articles {
+    border-bottom: 1px solid var(--line);
+    background: transparent;
+  }
+
+  .app-shell .app-content .rss-article-list {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .app-shell .app-content .rss-page:has(.rss-reading) .rss-feeds,
+  .app-shell .app-content .rss-page:has(.rss-reading) .rss-articles {
+    display: none;
+  }
+
+  .app-shell .app-content .rss-page:has(.rss-empty-pane) .rss-reader {
+    display: none;
+  }
+
+  .app-shell .app-content .rss-reader-back {
+    display: inline-flex;
+  }
+
+  .app-shell .app-content .rss-reader {
+    background: transparent;
+  }
+}
+
+/* RSS 空态在移动端更紧凑，不再占半屏 */
+@media (max-width: 900px) {
+  .app-shell .app-content .rss-empty-pane {
+    margin: 10px 0;
+    padding: 14px;
+    border-radius: 12px;
+    font-size: 12.5px;
+  }
+}
