@@ -1360,3 +1360,186 @@
   color: var(--accent);
   border-color: color-mix(in srgb, var(--accent) 40%, var(--line));
 }
+
+/* ==========================================================================
+ * Modern pass（2026-11-01）：Explore 页按 Ember 参考收敛
+ *
+ * - 分段控件：白底细线容器 + 选中浅 accent 底（不再实心大胶囊）
+ * - 索引/收藏：小型胶囊筛选
+ * - 卡片：白底 1px 细线 + 14px 圆角，类型标签改为小号 muted 文本
+ * ========================================================================== */
+.app-shell .app-content .geography-page .geo-tabs {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel-raised);
+  box-shadow: none;
+}
+
+.app-shell .app-content .geography-page .geo-tabs button {
+  min-height: 38px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.app-shell .app-content .geography-page .geo-tabs button:hover {
+  background: var(--panel-hover);
+  color: var(--text);
+}
+
+.app-shell .app-content .geography-page .geo-tabs button.selected {
+  background: color-mix(in srgb, var(--accent) 10%, var(--panel-raised));
+  color: var(--accent);
+  box-shadow: none;
+}
+
+.app-shell .app-content .geography-page .geo-rail-tabs {
+  display: flex;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.app-shell .app-content .geography-page .geo-rail-tabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel-raised);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.app-shell .app-content .geography-page .geo-rail-tabs button.selected {
+  border-color: color-mix(in srgb, var(--accent) 38%, var(--line));
+  background: color-mix(in srgb, var(--accent) 10%, var(--panel-raised));
+  color: var(--accent);
+}
+
+.app-shell .app-content .geography-page .geo-rail-tabs button span {
+  color: inherit;
+  opacity: 0.72;
+}
+
+.app-shell .app-content .geography-page .geo-rail-tile {
+  padding: 12px 13px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel-raised);
+  background-image: none;
+  box-shadow: none;
+}
+
+.app-shell .app-content .geography-page .geo-rail-tile:hover {
+  border-color: var(--line-strong);
+  box-shadow: var(--shadow-xs);
+  transform: none;
+}
+
+.app-shell .app-content .geography-page .geo-rail-tile-type {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 10.5px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+}
+
+.app-shell .app-content .geography-page .geo-rail-tile strong {
+  font-size: 14px;
+  font-weight: 620;
+}
+
+.app-shell .app-content .geography-page .geo-rail-tile small {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.app-shell .app-content .geography-page .geo-rail-tile-facts dt {
+  color: var(--muted);
+  font-size: 10.5px;
+}
+
+.app-shell .app-content .geography-page .geo-rail-tile-facts dd {
+  color: var(--text);
+  font-size: 11.5px;
+}
+
+.app-shell .app-content .geography-page .geo-rail-tile-locate {
+  top: 10px;
+  right: 10px;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel-raised);
+  color: var(--muted);
+  box-shadow: none;
+}
+
+.app-shell .app-content .geography-page .geo-rail-tile-locate:hover {
+  border-color: var(--line-strong);
+  background: var(--panel-hover);
+  color: var(--accent);
+  transform: none;
+}
+
+.app-shell .app-content .geography-page .geo-discovery-card {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--panel-raised);
+  background-image: none;
+  box-shadow: none;
+}
+
+.app-shell .app-content .geography-page .geo-discovery-question {
+  font-size: 17px;
+  font-weight: 620;
+  letter-spacing: -0.01em;
+}
+
+.app-shell .app-content .geography-page .geo-discovery-actions .geo-outline-button {
+  min-height: 38px;
+  border: 1px solid var(--line);
+  border-radius: var(--control-radius, 10px);
+  background: var(--panel-raised);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.app-shell .app-content .geography-page .geo-discovery-actions .geo-outline-button:first-child {
+  border-color: transparent;
+  background: var(--accent);
+  color: var(--text-on-accent, #ffffff);
+}
+
+@media (max-width: 767px) {
+  .app-shell .app-content .geography-page .geo-tabs button {
+    min-height: 42px;
+  }
+
+  .app-shell .app-content .geography-page .geo-rail-tabs button {
+    min-height: 36px;
+  }
+
+  .app-shell .app-content .geography-page .geo-rail-tile-locate {
+    width: 34px;
+    height: 34px;
+  }
+}
