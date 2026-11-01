@@ -411,3 +411,26 @@
     pointer-events: none;
   }
 }
+
+/* ---------- 13. Markdown：手机上工具栏改为单行横向滚动 ---------- */
+@media (max-width: 767px) {
+  .app-shell .app-content .command-actions,
+  .app-shell .app-content .view-actions {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 6px;
+    overflow-x: auto;
+    padding-bottom: 6px;
+    scrollbar-width: none;
+  }
+
+  .app-shell .app-content .command-actions::-webkit-scrollbar,
+  .app-shell .app-content .view-actions::-webkit-scrollbar {
+    display: none;
+  }
+
+  .app-shell .app-content .command-actions button,
+  .app-shell .app-content .view-actions button {
+    flex: 0 0 auto;
+  }
+}
