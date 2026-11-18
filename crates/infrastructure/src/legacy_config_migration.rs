@@ -202,6 +202,12 @@ fn snapshot_sqlite_if_absent(source: &Path, target: &Path) -> Result<bool, Strin
     install_without_overwrite(&staged_db, target)
 }
 
+/// 报告里的相对路径统一用 `/` 分隔：这份报告会写日志、给前端展示，
+/// 用 `Path::to_string_lossy()` 在 Windows 上会变成 `a\b\c`，与 macOS/Linux 不一致。
+fn report_relative(relative: &Path) -> String {
+    relative.to_string_lossy().replace('\\', "/")
+}
+
 fn copy_media_tree(
     source_dir: &Path,
     relative_dir: &Path,
@@ -233,14 +239,14 @@ fn copy_media_tree(
             let target = target_root.join(&relative);
             ensure_target_directories(target_root, relative.parent().unwrap_or(Path::new("")))?;
             if target.exists() {
-                report.skipped.push(relative.to_string_lossy().into_owned());
+                report.skipped.push(report_relative(&relative));
                 continue;
             }
             let installed = copy_regular_file_if_absent(&entry.path(), &target)?;
             if installed {
-                report.copied.push(relative.to_string_lossy().into_owned());
+                report.copied.push(report_relative(&relative));
             } else {
-                report.skipped.push(relative.to_string_lossy().into_owned());
+                report.skipped.push(report_relative(&relative));
             }
         } else {
             return Err(format!(

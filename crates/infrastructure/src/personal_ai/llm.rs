@@ -512,7 +512,7 @@ mod tests {
 
     #[tokio::test]
     async fn provider_http_errors_do_not_expose_response_body_or_credentials() {
-        use tokio::io::AsyncWriteExt;
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
         use tokio::net::TcpListener;
 
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -527,6 +527,11 @@ mod tests {
                 body,
             );
             stream.write_all(response.as_bytes()).await.unwrap();
+            // 半关闭并读干对端字节再退出：直接 drop 在 Windows 上可能发 RST，
+            // 客户端会拿到 "connection reset" 而不是这里伪造的 401（断言随之失败）。
+            let _ = stream.shutdown().await;
+            let mut sink = [0_u8; 1024];
+            while matches!(stream.read(&mut sink).await, Ok(n) if n > 0) {}
         });
 
         let provider = OpenAiCompatibleChatModelProvider::new(

@@ -1,2 +1,17 @@
+# 本仓库的 C/C++ 编译旗标。
+#
+# duckdb（libduckdb-sys, bundled）需要 C++17，但编译器族接受的写法不同：
+#   - MSVC (cl.exe) 认 /std:c++17；收到 -std=c++17 会报 D9002（unknown option）
+#     并在后续编译阶段失败，Windows 上表现为 libduckdb-sys build script 退出码 1。
+#   - GCC / Clang 认 -std=c++17。
+#
+# cc-rs 的查找顺序是 CXXFLAGS_<target> → CXXFLAGS_<target_u> → HOST_CXXFLAGS → CXXFLAGS，
+# 且 envflags() 会把命中的多个变量**追加**在一起。因此这里**不能**保留通用 CXXFLAGS，
+# 否则 MSVC 目标会同时收到 GCC 风格旗标。按目标三元组分别声明（下划线形式）。
 [env]
-CXXFLAGS = "-std=c++17"
+CXXFLAGS_x86_64_pc_windows_msvc = "/std:c++17"
+CXXFLAGS_aarch64_pc_windows_msvc = "/std:c++17"
+CXXFLAGS_x86_64_unknown_linux_gnu = "-std=c++17"
+CXXFLAGS_aarch64_unknown_linux_gnu = "-std=c++17"
+CXXFLAGS_x86_64_apple_darwin = "-std=c++17"
+CXXFLAGS_aarch64_apple_darwin = "-std=c++17"

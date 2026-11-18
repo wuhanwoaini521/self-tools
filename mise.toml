@@ -77,6 +77,10 @@ run = [
 description = "Rust workspace 测试"
 run = "cargo test --workspace"
 
+[tasks.data]
+description = "重建 History 语义库（submodule 的 dist/history.duckdb；拉取/换机后必跑）"
+run = "cd history-data-pipeline && uv run history-data backbone build"
+
 [tasks."test:ui"]
 description = "前端单元测试（vitest）"
 depends = ["install"]
