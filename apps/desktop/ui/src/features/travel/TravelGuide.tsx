@@ -1571,7 +1571,8 @@ export function TravelGuide({
         >
           <ForkKnife size={17} weight={activeTab === "food" ? "fill" : "regular"} />
           <span>地道风味美食</span>
-          <span className="tab-badge">{guide.foods.length}</span>
+          {/* 高德 POI 的餐厅进的是 restaurants，不是 foods；徽标只数 foods 会显示 0 */}
+          <span className="tab-badge">{guide.foods.length + guide.restaurants.length}</span>
         </button>
 
         <button
@@ -2233,9 +2234,9 @@ export function TravelGuide({
                 ))}
               </div>
             </Section>
-          ) : (
+          ) : guide.restaurants.length === 0 ? (
             <p className="travel-empty-data">当前攻略没有可核验的美食资料；你仍可把餐馆作为自定义地点加入行程。</p>
-          )}
+          ) : null}
 
           {/* 路线沿途精选餐厅 */}
           {guide.restaurants.length > 0 && (

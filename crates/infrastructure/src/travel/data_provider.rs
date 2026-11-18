@@ -10,9 +10,9 @@
 use async_trait::async_trait;
 
 use devtoolbox_core::travel::{
-    AMAP_SOURCE_URL, FactCategory, MapCoordinates, ProviderError, QWEATHER_SOURCE_URL,
-    TravelDataProvider, TravelDataRequest, TravelFact, TravelRoute, TravelRouteRequest,
-    normalize_city_query,
+    AMAP_SOURCE_URL, FactCategory, MapCoordinates, OPEN_METEO_SOURCE_URL, ProviderError,
+    QWEATHER_SOURCE_URL, TravelDataProvider, TravelDataRequest, TravelFact, TravelRoute,
+    TravelRouteRequest, normalize_city_query,
 };
 
 const DATA_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
@@ -31,6 +31,7 @@ pub fn providers_for(
     if let Some(key) = amap_key.filter(|k| !k.trim().is_empty()) {
         providers.push(Box::new(AmapPoiProvider::new(client.clone(), key)));
     }
+    let mut qweather_configured = false;
     if let (Some(key), Some(api_host)) = (
         qweather_key.filter(|key| !key.trim().is_empty()),
         qweather_api_host.filter(|host| !host.trim().is_empty()),
@@ -40,7 +41,17 @@ pub fn providers_for(
             key,
             api_host,
         )));
+        qweather_configured = true;
     }
+    // 未配置和风天气 Key 时用 Open-Meteo 兜底：免费、无需 Key。
+    // 否则「天气获取」这一步永远为空，页面只剩一句「未配置数据源 Key」。
+    if !qweather_configured {
+        providers.push(Box::new(OpenMeteoWeatherProvider::new(client.clone())));
+    }
+    // OSM 系（Nominatim 补坐标 + OSRM 算驾车时长）同样不需要 Key，
+    // 让没有高德 Key 时行程仍能排出顺序与交通时间。
+    providers.push(Box::new(NominatimGeocoder::new(client.clone())));
+    providers.push(Box::new(OsrmRouteProvider::new(client.clone())));
     // 百度地图开放平台（V2 TODO：baidu_map_key 接入「地点检索」）
     providers
 }
@@ -436,18 +447,276 @@ pub fn parse_qweather_daily(
     }])
 }
 
+// ---------- Open-Meteo（无 Key 天气） ----------
+
+/// Open-Meteo 天气数据源：地理编码 + 3 天预报，全程无需 API Key。
+pub struct OpenMeteoWeatherProvider {
+    client: reqwest::Client,
+}
+
+impl OpenMeteoWeatherProvider {
+    #[must_use]
+    pub fn new(client: reqwest::Client) -> Self {
+        Self { client }
+    }
+}
+
+#[async_trait]
+impl TravelDataProvider for OpenMeteoWeatherProvider {
+    fn name(&self) -> &'static str {
+        "open-meteo"
+    }
+
+    async fn fetch(&self, request: TravelDataRequest) -> Result<Vec<TravelFact>, ProviderError> {
+        if request.kind != "weather" {
+            return Ok(Vec::new());
+        }
+        let city = normalize_city_query(&request.city);
+        let point = open_meteo_geocode(&self.client, &city)
+            .await?
+            .ok_or_else(|| ProviderError::data(format!("open-meteo: city not found for {city}")))?;
+        let url = format!(
+            "https://api.open-meteo.com/v1/forecast?latitude={latitude}&longitude={longitude}&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=Asia%2FShanghai&forecast_days=3",
+            latitude = point.latitude,
+            longitude = point.longitude,
+        );
+        let body = get_json(&self.client, &url, "open-meteo").await?;
+        Ok(parse_open_meteo_daily(&body, &city, now_unix()))
+    }
+}
+
+async fn open_meteo_geocode(
+    client: &reqwest::Client,
+    city: &str,
+) -> Result<Option<MapCoordinates>, ProviderError> {
+    let url = format!(
+        "https://geocoding-api.open-meteo.com/v1/search?name={name}&count=1&language=zh&format=json",
+        name = percent_encode(city),
+    );
+    let body = get_json(client, &url, "open-meteo").await?;
+    Ok(parse_open_meteo_location(&body))
+}
+
+/// 取地理编码结果里的第一个精确点。
+#[must_use]
+pub fn parse_open_meteo_location(body: &serde_json::Value) -> Option<MapCoordinates> {
+    let first = body.get("results")?.as_array()?.first()?;
+    Some(MapCoordinates {
+        latitude: first.get("latitude")?.as_f64()?,
+        longitude: first.get("longitude")?.as_f64()?,
+    })
+}
+
+/// WMO 天气代码 → 中文描述（Open-Meteo 返回的是 WMO code，不是文字）。
+#[must_use]
+pub fn weather_text_for_code(code: i64) -> &'static str {
+    match code {
+        0 => "晴",
+        1 => "晴间多云",
+        2 => "多云",
+        3 => "阴",
+        45 | 48 => "雾",
+        51 | 53 | 55 => "毛毛雨",
+        56 | 57 => "冻雨",
+        61 => "小雨",
+        63 => "中雨",
+        65 => "大雨",
+        66 | 67 => "冻雨",
+        71 => "小雪",
+        73 => "中雪",
+        75 => "大雪",
+        77 => "米雪",
+        80 | 81 => "阵雨",
+        82 => "强阵雨",
+        85 | 86 => "阵雪",
+        95 => "雷阵雨",
+        96 | 99 => "雷雨伴冰雹",
+        _ => "未知",
+    }
+}
+
+/// 解析 Open-Meteo 日预报：合并成一条 Weather 事实（与和风同格式）。
+#[must_use]
+pub fn parse_open_meteo_daily(
+    body: &serde_json::Value,
+    city: &str,
+    fetched_at: i64,
+) -> Vec<TravelFact> {
+    let daily = body.get("daily");
+    let times = daily
+        .and_then(|value| value.get("time"))
+        .and_then(serde_json::Value::as_array);
+    let codes = daily
+        .and_then(|value| value.get("weather_code"))
+        .and_then(serde_json::Value::as_array);
+    let maxima = daily
+        .and_then(|value| value.get("temperature_2m_max"))
+        .and_then(serde_json::Value::as_array);
+    let minima = daily
+        .and_then(|value| value.get("temperature_2m_min"))
+        .and_then(serde_json::Value::as_array);
+    let (Some(times), Some(codes), Some(maxima), Some(minima)) = (times, codes, maxima, minima)
+    else {
+        return Vec::new();
+    };
+
+    let mut parts: Vec<String> = Vec::new();
+    for (index, date) in times.iter().take(3).enumerate() {
+        let Some(date) = date.as_str() else { continue };
+        let code = codes
+            .get(index)
+            .and_then(serde_json::Value::as_i64)
+            .unwrap_or(-1);
+        let max = maxima.get(index).and_then(serde_json::Value::as_f64);
+        let min = minima.get(index).and_then(serde_json::Value::as_f64);
+        let (Some(max), Some(min)) = (max, min) else {
+            continue;
+        };
+        parts.push(format!(
+            "{date} {text} {min}~{max}°C",
+            text = weather_text_for_code(code),
+            min = min.round() as i64,
+            max = max.round() as i64,
+        ));
+    }
+    if parts.is_empty() {
+        return Vec::new();
+    }
+    vec![TravelFact {
+        category: FactCategory::Weather,
+        subject: format!("{city}天气"),
+        value: parts.join("；"),
+        source_id: OPEN_METEO_SOURCE_URL.to_string(),
+        confidence: 0.75,
+        fetched_at,
+        coordinates: None,
+        poi_id: None,
+        area: None,
+        address: None,
+    }]
+}
+
+// ---------- OSM：Nominatim 坐标 + OSRM 驾车路线（均无需 Key） ----------
+
+/// Nominatim 地理编码：给景点补坐标，用于行程聚类与驾车时长。
+pub struct NominatimGeocoder {
+    client: reqwest::Client,
+}
+
+impl NominatimGeocoder {
+    #[must_use]
+    pub fn new(client: reqwest::Client) -> Self {
+        Self { client }
+    }
+}
+
+#[async_trait]
+impl TravelDataProvider for NominatimGeocoder {
+    fn name(&self) -> &'static str {
+        "nominatim"
+    }
+
+    async fn fetch(&self, _request: TravelDataRequest) -> Result<Vec<TravelFact>, ProviderError> {
+        Ok(Vec::new())
+    }
+
+    async fn geocode(
+        &self,
+        city: &str,
+        name: &str,
+    ) -> Result<Option<MapCoordinates>, ProviderError> {
+        let query = format!("{name} {city}");
+        let url = format!(
+            "https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&accept-language=zh-CN&q={query}",
+            query = percent_encode(&query),
+        );
+        let body = get_json(&self.client, &url, "nominatim").await?;
+        Ok(parse_nominatim_first(&body))
+    }
+}
+
+/// Nominatim 返回的 `lat` / `lon` 是字符串。
+#[must_use]
+pub fn parse_nominatim_first(body: &serde_json::Value) -> Option<MapCoordinates> {
+    let first = body.as_array()?.first()?;
+    Some(MapCoordinates {
+        latitude: first.get("lat")?.as_str()?.parse().ok()?,
+        longitude: first.get("lon")?.as_str()?.parse().ok()?,
+    })
+}
+
+/// OSRM 公共路由服务：提供驾车距离与时长（无需 Key）。
+pub struct OsrmRouteProvider {
+    client: reqwest::Client,
+}
+
+impl OsrmRouteProvider {
+    #[must_use]
+    pub fn new(client: reqwest::Client) -> Self {
+        Self { client }
+    }
+}
+
+#[async_trait]
+impl TravelDataProvider for OsrmRouteProvider {
+    fn name(&self) -> &'static str {
+        "osrm"
+    }
+
+    async fn fetch(&self, _request: TravelDataRequest) -> Result<Vec<TravelFact>, ProviderError> {
+        Ok(Vec::new())
+    }
+
+    async fn driving_route(
+        &self,
+        request: TravelRouteRequest,
+    ) -> Result<Option<TravelRoute>, ProviderError> {
+        let url = format!(
+            "https://router.project-osrm.org/route/v1/driving/{origin_lon},{origin_lat};{target_lon},{target_lat}?overview=false&alternatives=false",
+            origin_lon = request.origin.longitude,
+            origin_lat = request.origin.latitude,
+            target_lon = request.destination.longitude,
+            target_lat = request.destination.latitude,
+        );
+        let body = get_json(&self.client, &url, "osrm").await?;
+        Ok(parse_osrm_route(&body))
+    }
+}
+
+/// OSRM `routes[0].duration` 是秒、`distance` 是米。
+#[must_use]
+pub fn parse_osrm_route(body: &serde_json::Value) -> Option<TravelRoute> {
+    let route = body.get("routes")?.as_array()?.first()?;
+    let duration = route.get("duration")?.as_f64()?;
+    let distance = route.get("distance")?.as_f64()?;
+    Some(TravelRoute {
+        distance_km: (distance / 1000.0) as f32,
+        duration_minutes: (duration / 60.0).round() as u32,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
-        AMAP_SOURCE_URL, QWEATHER_SOURCE_URL, parse_amap_driving_route, parse_amap_pois,
-        parse_qweather_daily, parse_qweather_location, providers_for,
+        AMAP_SOURCE_URL, OPEN_METEO_SOURCE_URL, QWEATHER_SOURCE_URL, parse_amap_driving_route,
+        parse_amap_pois, parse_nominatim_first, parse_open_meteo_daily, parse_open_meteo_location,
+        parse_osrm_route, parse_qweather_daily, parse_qweather_location, providers_for,
+        weather_text_for_code,
     };
     use devtoolbox_core::travel::FactCategory;
 
     #[test]
-    fn providers_for_skips_unconfigured_keys() {
+    fn providers_for_uses_keyless_sources_when_keys_missing() {
         let client = reqwest::Client::new();
-        assert!(providers_for(None, None, None, None, &client).is_empty());
+        // 没有高德/和风 Key 时：天气由 Open-Meteo 兜底，坐标/路线由 OSM 提供。
+        let providers = providers_for(None, None, None, None, &client);
+        // open-meteo（天气）+ nominatim（坐标）+ osrm（路线）
+        assert_eq!(providers.len(), 3);
+        assert!(providers.iter().any(|p| p.name() == "open-meteo"));
+        assert!(providers.iter().any(|p| p.name() == "nominatim"));
+        assert!(providers.iter().any(|p| p.name() == "osrm"));
+        assert!(!providers.iter().any(|p| p.name() == "qweather"));
+
         let providers = providers_for(
             Some("amap-key".to_string()),
             Some("qweather-key".to_string()),
@@ -455,9 +724,66 @@ mod tests {
             None,
             &client,
         );
-        assert_eq!(providers.len(), 2);
+        // amap + qweather + nominatim + osrm（有高德/和风时不再叠加 open-meteo）
+        assert_eq!(providers.len(), 4);
+        assert!(!providers.iter().any(|p| p.name() == "open-meteo"));
         assert!(providers.iter().any(|p| p.name() == "amap-poi"));
         assert!(providers.iter().any(|p| p.name() == "qweather"));
+        // 和风已配置时不再叠加 Open-Meteo（同主体会产生冲突版本）。
+        assert!(!providers.iter().any(|p| p.name() == "open-meteo"));
+    }
+
+    #[test]
+    fn open_meteo_daily_becomes_a_weather_fact() {
+        let body = serde_json::json!({
+            "daily": {
+                "time": ["2026-11-19", "2026-11-20", "2026-11-21", "2026-11-22"],
+                "weather_code": [0, 61, 3, 80],
+                "temperature_2m_max": [21.4, 18.6, 17.2, 19.0],
+                "temperature_2m_min": [11.6, 10.2, 9.8, 10.5]
+            }
+        });
+        let facts = parse_open_meteo_daily(&body, "杭州", 1_700_000_000);
+        assert_eq!(facts.len(), 1);
+        assert_eq!(facts[0].category, FactCategory::Weather);
+        assert_eq!(facts[0].subject, "杭州天气");
+        assert_eq!(
+            facts[0].value,
+            "2026-11-19 晴 12~21°C；2026-11-20 小雨 10~19°C；2026-11-21 阴 10~17°C"
+        );
+        assert_eq!(facts[0].source_id, OPEN_METEO_SOURCE_URL);
+    }
+
+    #[test]
+    fn open_meteo_location_and_wmo_text() {
+        let body = serde_json::json!({
+            "results": [{"name": "杭州", "latitude": 30.29365, "longitude": 120.16142}]
+        });
+        let point = parse_open_meteo_location(&body).expect("coords");
+        assert!((point.latitude - 30.29365).abs() < 1e-6);
+        assert_eq!(weather_text_for_code(0), "晴");
+        assert_eq!(weather_text_for_code(95), "雷阵雨");
+        assert_eq!(weather_text_for_code(42), "未知");
+        assert!(parse_open_meteo_location(&serde_json::json!({"results": []})).is_none());
+    }
+
+    #[test]
+    fn nominatim_and_osrm_parse() {
+        let nominatim = serde_json::json!([
+            {"lat": "30.2489", "lon": "120.1494", "display_name": "西湖, 杭州"}
+        ]);
+        let point = parse_nominatim_first(&nominatim).expect("coords");
+        assert!((point.latitude - 30.2489).abs() < 1e-6);
+        assert!((point.longitude - 120.1494).abs() < 1e-6);
+
+        let osrm = serde_json::json!({
+            "code": "Ok",
+            "routes": [{"distance": 8400.0, "duration": 1140.0}]
+        });
+        let route = parse_osrm_route(&osrm).expect("route");
+        assert!((route.distance_km - 8.4).abs() < 1e-3);
+        assert_eq!(route.duration_minutes, 19);
+        assert!(parse_osrm_route(&serde_json::json!({"code": "NoRoute"})).is_none());
     }
 
     #[test]

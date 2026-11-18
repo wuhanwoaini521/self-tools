@@ -116,13 +116,20 @@ pub trait SearchProvider: Send + Sync {
     ) -> Result<Vec<SearchResult>, ProviderError>;
 }
 
+/// Open-Meteo（无 Key 天气）在 Sources 中的展示地址。
+pub const OPEN_METEO_SOURCE_URL: &str = "https://open-meteo.com/";
+/// Nominatim（OSM 地理编码）展示地址。
+pub const NOMINATIM_SOURCE_URL: &str = "https://nominatim.openstreetmap.org";
+/// OSRM（OSM 驾车路线）展示地址。
+pub const OSRM_SOURCE_URL: &str = "https://project-osrm.org/";
+
 /// 网页抓取接口（可 mock）。
 #[async_trait]
 pub trait WebFetcher: Send + Sync {
     async fn fetch(&self, url: &str) -> Result<TravelDocument, ProviderError>;
 }
 
-/// 数据 Provider 接口（高德 / 和风等结构化数据源）。
+/// 数据 Provider 接口（高德 / 和风 / Open-Meteo / OSM 等结构化数据源）。
 #[async_trait]
 pub trait TravelDataProvider: Send + Sync {
     fn name(&self) -> &'static str;
@@ -133,6 +140,18 @@ pub trait TravelDataProvider: Send + Sync {
         &self,
         _request: TravelRouteRequest,
     ) -> Result<Option<TravelRoute>, ProviderError> {
+        Ok(None)
+    }
+
+    /// 按「城市 + 地名」补坐标（无地图 Key 时的 OSM 路径）。
+    ///
+    /// 默认不支持；实现方只在确实能给出坐标时返回 `Some`，
+    /// 调用方（行程编排）据此决定能否算驾车时长、能否按地理聚类排天。
+    async fn geocode(
+        &self,
+        _city: &str,
+        _name: &str,
+    ) -> Result<Option<MapCoordinates>, ProviderError> {
         Ok(None)
     }
 }

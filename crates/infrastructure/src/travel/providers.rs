@@ -65,7 +65,9 @@ fn llm_provider(
             base_url: travel.llm_base_url.clone(),
             api_key: travel.llm_api_key.clone(),
             model: travel.llm_model.clone(),
-            timeout_secs: None,
+            // 在线模型（尤其带推理的）整理整篇攻略可能明显超过默认 120s；
+            // 这里放宽到 300s，避免「资料都抽到了、最后一步超时降级」。
+            timeout_secs: Some(300),
         },
     )))
 }
