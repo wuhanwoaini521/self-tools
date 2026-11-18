@@ -59,7 +59,7 @@ import { SystemReadinessPage } from "./features/system/SystemReadinessPage";
 import { GlobalSearchPage } from "./features/system/GlobalSearchPage";
 import { TravelPage } from "./features/travel/TravelPage";
 import { GeographyPage } from "./features/geography/GeographyPage";
-import { ReviewCenterPage } from "./features/learning/ReviewCenterPage";
+import { ReviewCenterPage } from "./features/review/ReviewCenterPage";
 import { KnowledgeGraphPage } from "./features/learning/KnowledgeGraphPage";
 import { CollectionsPage } from "./features/learning/CollectionsPage";
 import {

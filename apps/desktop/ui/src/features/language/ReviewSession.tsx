@@ -27,7 +27,7 @@ import {
   useAsyncPanel,
   useLanguageShortcuts,
 } from "./languageUi";
-import { matchAnswer, matchFeedback } from "./reviewMatch";
+import { matchAnswer, matchFeedback } from "../shared/answerMatching";
 
 const RATINGS: UniversalReviewRating[] = ["again", "hard", "good", "easy"];
 

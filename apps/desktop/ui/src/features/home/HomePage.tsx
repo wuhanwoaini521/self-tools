@@ -28,7 +28,7 @@ import { errorMessage, fileName } from "../../utils";
 import { learningClient } from "../learning/learningClient";
 import { newsClient } from "../news/newsClient";
 import { stripRssHtml } from "../rss/rssContent";
-import { sourceRoute } from "../learning/sourceNavigation";
+import { sourceRoute } from "../shared/sourceNavigation";
 import { travelClient } from "../travel/travelClient";
 import "./home.css";
 
