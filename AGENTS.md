@@ -4,6 +4,15 @@ These rules apply to all work in this repository, including `apps/`, `crates/`, 
 
 Before editing, inspect the current worktree and preserve unrelated user changes. Read the relevant module guidance and tests. Keep changes scoped, run the narrowest relevant tests, and report incomplete work honestly.
 
+# Git workflow: `main` is the integration branch
+
+`main` is the single integration branch. Do not develop new work as commits directly on `main`.
+
+- Start every task from up-to-date `main`: create a feature branch (`git switch -c … origin/main`) or a linked worktree (`git worktree add … -b … origin/main`).
+- Finish the work on that branch/worktree, then merge into `main` with a **merge commit** (`git merge --no-ff`) so branch commits remain in history.
+- Do **not** squash-merge, rebase-onto-main in a way that drops feature commits, or amend/force-push `main`. History must stay recoverable.
+- Unrelated local changes on other branches stay where they are; do not fold them into an unrelated merge.
+
 # Frontend / Backend Architecture Boundary
 
 This project follows a strict frontend/backend separation.

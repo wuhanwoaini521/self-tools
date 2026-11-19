@@ -1,0 +1,13 @@
+---
+description: All development branches from main and merges back with history preserved
+alwaysApply: true
+---
+
+# Git: integrate on `main`
+
+`main` is the only integration branch. New work never lands as direct development commits on `main`.
+
+- Create a branch or `git worktree` from current `main` (or `origin/main`) before implementing.
+- When the change is complete, merge into `main` with `git merge --no-ff` so the feature commits stay in history.
+- Do not squash-merge, rewrite `main`, or force-push `main`.
+- Keep unrelated uncommitted or in-progress branch work out of the merge.
