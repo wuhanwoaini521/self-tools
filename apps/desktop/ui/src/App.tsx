@@ -367,7 +367,7 @@ export default function App() {
     }
   }, [page]);
   const [settings, setSettings] = useState<AppSettings>(defaultSettings);
-  const [settingsLoaded, setSettingsLoaded] = useState(!isTauriRuntime());
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [themeId, setThemeId] = useState(initialThemeId);
   const themeIdRef = useRef(themeId);
   const themeChangedByUserRef = useRef(false);
@@ -480,18 +480,27 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!isTauriRuntime()) return;
     void settingsClient
       .get()
       .then(async (loaded) => {
         const resolvedThemeId = themeChangedByUserRef.current
           ? themeIdRef.current
-          : getTheme(loaded.ui_theme).id;
-        const resolvedSettings = { ...loaded, ui_theme: resolvedThemeId };
+          : getTheme(loaded.ui_theme ?? defaultSettings.ui_theme).id;
+        const resolvedSettings = {
+          ...defaultSettings,
+          ...loaded,
+          travel: { ...defaultSettings.travel, ...loaded.travel },
+          ai: { ...defaultSettings.ai, ...loaded.ai },
+          knowledge: { ...defaultSettings.knowledge, ...loaded.knowledge },
+          server: { ...defaultSettings.server, ...loaded.server },
+          decision: { ...defaultSettings.decision, ...loaded.decision },
+          secrets: { ...defaultSettings.secrets, ...loaded.secrets },
+          ui_theme: resolvedThemeId,
+        };
         setSettings(resolvedSettings);
         themeIdRef.current = resolvedThemeId;
         setThemeId(resolvedThemeId);
-        if (themeChangedByUserRef.current) {
+        if (themeChangedByUserRef.current && isTauriRuntime()) {
           await settingsClient.put(resolvedSettings);
         }
         setSettingsLoaded(true);

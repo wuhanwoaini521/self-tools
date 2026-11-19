@@ -123,20 +123,10 @@ export function SettingsDialog({
     try {
       const result =
         kind === "llm"
-          ? await travelClient.testLlm({
-              baseUrl: travel.llm_base_url ?? "",
-              apiKey: secretDrafts.travel_llm_api_key ?? null,
-              model: travel.llm_model ?? "",
-            })
+          ? await travelClient.testLlm()
           : kind === "amap"
-            ? await travelClient.testAmap({
-                apiKey: secretDrafts.travel_amap_api_key ?? "",
-                apiHost: null,
-              })
-            : await travelClient.testQweather({
-                apiKey: secretDrafts.travel_qweather_api_key ?? "",
-                apiHost: travel.qweather_api_host,
-              });
+            ? await travelClient.testAmap()
+            : await travelClient.testQweather();
       setTestResults((current) => ({ ...current, [kind]: result }));
     } catch (error) {
       setTestResults((current) => ({
@@ -372,8 +362,7 @@ export function SettingsDialog({
                 !canManageSettings ||
                 testing !== null ||
                 !travel.llm_base_url?.trim() ||
-                !travel.llm_model?.trim() ||
-                (secretStatus.travel_llm_api_key_configured && !secretDrafts.travel_llm_api_key)
+                !travel.llm_model?.trim()
               }
               onClick={() => void runTest("llm")}
             >
@@ -482,7 +471,8 @@ export function SettingsDialog({
               高德 POI
               与和风天气已接入；百度地图预留。和风天气请填写控制台“设置”中的专属
               API Host（不再使用 devapi.qweather.com）。全部可选：不填时 Travel
-              核心功能不受影响。
+              核心功能不受影响。连通性测试只使用已保存到后端的凭据，不会把 Key
+              发回浏览器。
             </p>
             <input
               className="settings-select"
@@ -495,7 +485,7 @@ export function SettingsDialog({
             />
             <button
               className="settings-test-button"
-              disabled={!canManageSettings || testing !== null || !secretDrafts.travel_amap_api_key?.trim()}
+              disabled={!canManageSettings || testing !== null || !secretStatus.travel_amap_api_key_configured}
               onClick={() => void runTest("amap")}
             >
               {testing === "amap" ? "正在测试…" : "测试高德连接"}
@@ -535,7 +525,7 @@ export function SettingsDialog({
               disabled={
                 !canManageSettings ||
                 testing !== null ||
-                !secretDrafts.travel_qweather_api_key?.trim() ||
+                !secretStatus.travel_qweather_api_key_configured ||
                 !travel.qweather_api_host?.trim()
               }
               onClick={() => void runTest("qweather")}

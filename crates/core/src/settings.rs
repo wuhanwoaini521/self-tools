@@ -344,6 +344,66 @@ fn has_secret(value: &Option<String>) -> bool {
         .is_some_and(|value| !value.trim().is_empty())
 }
 
+/// Object keys that must never appear on a client-readable settings payload.
+/// `*_configured` flags are allowed; they are status, not credentials.
+pub fn is_secret_settings_field_name(key: &str) -> bool {
+    if key.ends_with("_configured") || key.ends_with("Configured") {
+        return false;
+    }
+    let normalized = key
+        .chars()
+        .filter(|ch| ch.is_ascii_alphanumeric())
+        .flat_map(char::to_lowercase)
+        .collect::<String>();
+    matches!(
+        normalized.as_str(),
+        "apikey"
+            | "llmapikey"
+            | "amapapikey"
+            | "qweatherapikey"
+            | "baidumapapikey"
+            | "jevapikey"
+            | "amapsecurityjscode"
+            | "securityjscode"
+    )
+}
+
+/// Paths of any object keys in `value` that look like provider credentials.
+#[must_use]
+pub fn secret_settings_field_paths(value: &serde_json::Value) -> Vec<String> {
+    let mut paths = Vec::new();
+    collect_secret_settings_field_paths(value, "", &mut paths);
+    paths
+}
+
+fn collect_secret_settings_field_paths(
+    value: &serde_json::Value,
+    path: &str,
+    paths: &mut Vec<String>,
+) {
+    match value {
+        serde_json::Value::Object(map) => {
+            for (key, child) in map {
+                let next = if path.is_empty() {
+                    key.clone()
+                } else {
+                    format!("{path}.{key}")
+                };
+                if is_secret_settings_field_name(key) {
+                    paths.push(next.clone());
+                }
+                collect_secret_settings_field_paths(child, &next, paths);
+            }
+        }
+        serde_json::Value::Array(items) => {
+            for (index, child) in items.iter().enumerate() {
+                collect_secret_settings_field_paths(child, &format!("{path}[{index}]"), paths);
+            }
+        }
+        _ => {}
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ThemeMode {
@@ -826,6 +886,11 @@ mod tests {
         assert!(parsed["travel"].get("llm_api_key").is_none());
         assert!(parsed["geography"].get("amap_api_key").is_none());
         assert!(parsed["decision"].get("jev_api_key").is_none());
+        assert!(
+            secret_settings_field_paths(&parsed).is_empty(),
+            "public settings contained secret field names: {:?}",
+            secret_settings_field_paths(&parsed)
+        );
     }
 
     #[test]

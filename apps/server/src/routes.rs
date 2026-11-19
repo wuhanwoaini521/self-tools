@@ -1212,13 +1212,12 @@ mod tests {
         let serialized = body.to_string();
         assert!(!serialized.contains("server-test-secret-marker"));
         assert!(!serialized.contains("weather-test-secret-marker"));
+        assert!(body["ai"].get("api_key").is_none());
+        assert!(body["travel"].get("qweather_api_key").is_none());
         assert!(
-            body.get("ai").is_none(),
-            "HTTP must not expose full AI config"
-        );
-        assert!(
-            body.get("knowledge").is_none(),
-            "HTTP must not expose filesystem roots"
+            devtoolbox_core::settings::secret_settings_field_paths(&body).is_empty(),
+            "settings GET leaked secret field names: {:?}",
+            devtoolbox_core::settings::secret_settings_field_paths(&body)
         );
     }
 
@@ -1234,6 +1233,20 @@ mod tests {
         assert_eq!(status, StatusCode::FORBIDDEN);
         assert_eq!(body["code"], "settings_write_requires_desktop");
         assert!(!body.to_string().contains("attacker-controlled"));
+    }
+
+    #[tokio::test]
+    async fn travel_provider_tests_use_stored_secrets_and_ignore_request_keys() {
+        let app = test_router(false);
+        let (status, body) = post_json(
+            &app,
+            "/api/v1/travel/test/amap",
+            &serde_json::json!({ "api_key": "attacker-controlled-amap-key" }),
+        )
+        .await;
+        assert_eq!(status, StatusCode::BAD_REQUEST);
+        assert_eq!(body["code"], "travel_amap_not_configured");
+        assert!(!body.to_string().contains("attacker-controlled-amap-key"));
     }
 
     #[tokio::test]

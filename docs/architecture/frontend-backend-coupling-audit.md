@@ -4,7 +4,7 @@
 
 ## Executive Summary
 
-The Rust domain/application/infrastructure split is substantially real, and the server now exposes a broad `/api/v1` surface. However, the product is **not yet a backend-first, replaceable-client architecture**. The main blockers are Travel business state/algorithms in React, UI-shaped AI contracts in core, settings responses that expose provider secrets, browser-side provider access, and incomplete/informal HTTP coverage. A second UI cannot currently reproduce all important operations through stable APIs.
+The Rust domain/application/infrastructure split is substantially real, and the server now exposes a broad `/api/v1` surface. However, the product is **not yet a backend-first, replaceable-client architecture**. The main blockers are Travel business state/algorithms in React, UI-shaped AI contracts in core, and incomplete HTTP coverage for trip editing. Provider secret reads and browser AMap JS credentials were closed in P1 (2026-11-19); see the P1 note below. A second UI still cannot reproduce Travel itinerary edits through stable APIs.
 
 ## CRITICAL COUPLING
 
@@ -13,10 +13,10 @@ The Rust domain/application/infrastructure split is substantially real, and the 
    - `TravelPage.tsx`: validates date ranges/day limits and assembles a natural-language research request from city, preferences, and must-visit places. `research state`, event polling and result transitions are coordinated in the React page.
    - Current Travel HTTP API has research start/progress/recent-guide/load-guide and provider-test endpoints, but **no** trip CRUD, persisted itinerary edits, optimize/validate, ideas, budget, notebook, undo/version API, or AI propose/apply resources. No trip create/get/update/optimize replacement test is possible against the present API.
 
-2. **Backend-owned provider secrets cross into renderer/UI state and a provider is called directly by the browser.**
-   - `apps/server/src/ai_api.rs` GET/PUT serializes the full `AppSettings`; the settings contract includes AI, Travel, Geography and other provider-key fields (`crates/core/src/settings.rs`). `SettingsDialog.tsx`, `App.tsx`, and feature props receive those values.
-   - `features/geography/AmapMap.tsx` places the AMap JS key and security code in browser globals/script URL and loads `webapi.amap.com` directly. Travel also passes Geography credentials to a frontend map component.
-   - This violates the provider boundary and means renderer-visible settings are not a backend-only secret store. Secret values should be write-only at the client boundary; responses should expose configured/status metadata only.
+2. **~~Backend-owned provider secrets in renderer / AMap JS in the browser.~~ Closed in P1 (2026-11-19).**
+   - `GET /api/v1/settings` and desktop `get_settings` return `PublicAppSettings` / configured flags only. Writes of credentials go through `put_secret_settings`.
+   - Geography maps use MapLibre/offline coordinates; the AMap JS SDK is not loaded in the renderer. Provider connectivity tests use stored backend secrets and ignore request-body keys.
+   - Remaining: UI theme still lives on the public settings DTO; that is preference mixing, not secret leakage.
 
 3. **AI response contracts are explicitly UI-shaped in the backend.**
    - `crates/core/src/personal_ai/types.rs`: `UiBlock` / `UiBlockKind` is part of `AgentResponse`; `ActionKind` includes `navigate`, `show_panel`, `refresh_view`, etc.
@@ -84,4 +84,12 @@ Supersedes the “no OpenAPI / contract tests FAIL” inventory for **operation 
 - Gate: `cargo test -p devtoolbox-server openapi_snapshot_matches_router_surface`
 - Web subset: `cargo test -p devtoolbox-server web_transport_paths_are_in_openapi_snapshot`
 - Runtime: `GET /api/v1/openapi.json`
-- Not in scope: secret redaction, Travel CRUD, AI `UiBlock` removal, generated TypeScript types.
+- Not in scope: Travel CRUD, AI `UiBlock` removal, generated TypeScript types.
+
+## P1 secret boundary (2026-11-19)
+
+- Settings GET (HTTP and desktop) returns public DTO + `*_configured` flags; `secret_settings_field_paths` fails the build if credential field names appear.
+- Credential writes remain `put_secret_settings` / desktop-only HTTP POST `/api/v1/settings` stays forbidden.
+- Travel provider tests (`test_travel_*`) read stored keys; request bodies that include `api_key` are ignored and must not be echoed.
+- Geography map UI does not load `webapi.amap.com` or accept JS keys.
+- Not in scope: moving `theme_mode` / `ui_theme` off the backend settings document.
