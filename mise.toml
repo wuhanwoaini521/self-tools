@@ -77,6 +77,11 @@ run = [
 description = "Rust workspace 测试"
 run = "cargo test --workspace"
 
+[tasks.openapi]
+description = "根据当前 Axum 路由重写 docs/api/openapi.v1.json 快照"
+env.UPDATE_OPENAPI = "1"
+run = "cargo test -p devtoolbox-server openapi_snapshot_matches_router_surface"
+
 [tasks.data]
 description = "重建 History 语义库（submodule 的 dist/history.duckdb；拉取/换机后必跑）"
 run = "cd history-data-pipeline && uv run history-data backbone build"
