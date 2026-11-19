@@ -83,6 +83,7 @@ pub fn router(
     Router::new()
         .merge(crate::backup_api::router::<AppState>(data_dir.clone()))
         .route("/health", get(health))
+        .route("/api/v1/openapi.json", get(crate::openapi::spec))
         .route(
             "/api/v1/readiness",
             get(crate::readiness_api::readiness_report),

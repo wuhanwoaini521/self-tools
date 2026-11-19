@@ -29,7 +29,7 @@ The Rust domain/application/infrastructure split is substantially real, and the 
 
 ## HIGH COUPLING
 
-1. **No formal/generated OpenAPI contract or contract snapshot was found.** No `utoipa`, `specta`, `ts-rs`, OpenAPI file, or contract-generation command exists. TypeScript API shapes (`src/types.ts`, `features/*/*Types.ts`) are hand-maintained. Server handlers serialize application/core types directly in multiple places. The AI request test documents one payload shape, but does not establish a complete generated contract or breaking-change gate.
+1. **OpenAPI path/method snapshot exists (P0, 2026-11-19); field-level DTO schemas do not.** `docs/api/openapi.v1.json` plus `apps/server` contract tests freeze method + path templates and `ErrorBody`. There is still no `utoipa`/`specta`/`ts-rs` payload schema, and TypeScript API shapes (`src/types.ts`, `features/*/*Types.ts`) remain hand-maintained. Server handlers still serialize application/core types in multiple places. Adding or renaming an HTTP operation now fails CI until the snapshot is updated; changing JSON field shapes does not yet.
 2. **Errors are not a shared semantic contract.** Server `ErrorBody` contains only `code` and `message`; the frontend parses `message | error | detail` heuristically and treats every HTTP 404 as `null`, including errors that may not mean an optional resource is absent. There are no common retryable/details fields or typed client error mapping.
 3. **Async operation protocol is feature-specific and transport-dependent.** Travel uses a session ID plus React `setInterval` polling; the generic frontend `subscribe` implementation is a no-op for HTTP, while AI progress is delivered through Tauri events. There is no common `QUEUED/RUNNING/SUCCEEDED/FAILED` job DTO/API usable by any client.
 4. **Backend and UI settings are mixed.** `AppSettings` contains provider/server configuration and `theme_mode`; the same broad settings object is loaded/saved through the UI. Theme preferences should be frontend-owned; provider and server secrets should be backend-owned and redacted on reads.
@@ -60,7 +60,7 @@ The Rust domain/application/infrastructure split is substantially real, and the 
 |---|---|---|
 | Backend-only tests | PARTIAL | Rust workspace/domain/application tests exist; several infrastructure and server composition paths remain concrete. |
 | Frontend-only tests | PARTIAL | UI tests exist, but no full API-contract mock boundary or generated contract test is enforced. |
-| Contract tests | FAIL | No OpenAPI generation/snapshot/compatibility check; only endpoint-specific Rust tests. |
+| Contract tests | PASS (P0 path/method freeze, 2026-11-19) | `docs/api/openapi.v1.json` is generated from the Axum router and checked in `devtoolbox-server` (`openapi_snapshot_matches_router_surface`). Web `transport.ts` paths must be a subset (`web_transport_paths_are_in_openapi_snapshot`). Payload schemas are still opaque JSON objects; DTO/`utoipa` field freeze is not this P0. |
 | Thin-client replacement | FAIL | Travel has no persisted trip-edit/optimize/ideas APIs, and the current API cannot reproduce frontend localStorage route state. |
 | Backend change with unchanged UI | UNPROVEN | No explicit contract-invariant test proving internal business changes leave generated client types/UI untouched. |
 | Full E2E | PARTIAL | Existing visual/navigation coverage is not a live Travel CRUD/AI/optimize workflow. |
@@ -74,4 +74,14 @@ The Rust domain/application/infrastructure split is substantially real, and the 
 5. Migrate other business rules (for example language review matching), then replace AI `UiBlock`/view actions with semantic response/action contracts.
 6. Expand API clients and replacement tests by bounded context; keep React tests mocked at the API contract boundary. Run backend-only, frontend-only, contract, and live E2E gates independently.
 
-**Verdict: FAIL for the requested end-state today; the existing layered Rust architecture and `/api/v1` server provide a useful foundation.** No changes were made during the audit itself.
+**Verdict: FAIL for the requested end-state today; the existing layered Rust architecture and `/api/v1` server provide a useful foundation.** P0 (2026-11-19) added a generated OpenAPI path/method snapshot and compatibility tests; it does not complete replaceable-client decoupling.
+
+## P0 contract freeze (2026-11-19)
+
+Supersedes the “no OpenAPI / contract tests FAIL” inventory for **operation identity only**:
+
+- Snapshot: [`docs/api/openapi.v1.json`](../api/openapi.v1.json)
+- Gate: `cargo test -p devtoolbox-server openapi_snapshot_matches_router_surface`
+- Web subset: `cargo test -p devtoolbox-server web_transport_paths_are_in_openapi_snapshot`
+- Runtime: `GET /api/v1/openapi.json`
+- Not in scope: secret redaction, Travel CRUD, AI `UiBlock` removal, generated TypeScript types.

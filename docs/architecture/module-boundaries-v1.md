@@ -58,7 +58,7 @@ Home 与 Review 是独立的产品能力，但职责不同于叶子业务模块�
 - **News / RSS**：Rust bounded context 已明确分离，各有领域、application service 和存储；前端仍共享 RSS 的 HTML 清洗 helper 与全局类型。Server 目前缺独立 RSS HTTP API。
 - **Travel**：业务域已有后端模型和 API，但路线/行程计算与持久化仍有 UI 职责，Travel 页面还直接连接 Geography、History 和 Learning。这是最需要完整纵向迁移的模块。
 - **Home**：前端页面直接调用多个业务 client/helper；后端首页能力目前落在 Learning/Todays dashboard 命名下，没有独立 Home 模块命名。
-- **组合与契约**：server 路由大多由 `routes.rs` 统一注册；部分 response 直接序列化 core/application 类型；没有完整 OpenAPI/契约兼容门禁。
+- **组合与契约**：server 路由大多由 `routes.rs` 统一注册；部分 response 直接序列化 core/application 类型。P0（2026-11-19）已有 `docs/api/openapi.v1.json` 路径/方法快照与兼容门禁；仍无按字段生成的 DTO OpenAPI。
 
 ## 5. 迁移顺序
 

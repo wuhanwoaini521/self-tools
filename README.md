@@ -184,7 +184,7 @@ docs/            架构、运维、数据来源、验收记录与截图
 tests/           共享测试夹具
 ```
 
-依赖方向为 `core ← application ← infrastructure`；桌面、MCP 和 HTTP 服务负责接入具体运行环境。MCP 是工具协议适配层，具体能力由应用服务注册。`apps/server` 暴露版本化 `/api/v1` HTTP API（History、Language、Knowledge、Learning、Geography、News、Travel 等；不是所有桌面能力都有等价 API，Travel CRUD/优化仍缺失），默认监听 `127.0.0.1:8080`；MCP 默认使用本地 STDIO，HTTP 模式默认绑定 `127.0.0.1:8787`，远程绑定需要显式启用并配置身份提供者。
+依赖方向为 `core ← application ← infrastructure`；桌面、MCP 和 HTTP 服务负责接入具体运行环境。MCP 是工具协议适配层，具体能力由应用服务注册。`apps/server` 暴露版本化 `/api/v1` HTTP API（History、Language、Knowledge、Learning、Geography、News、Travel 等；不是所有桌面能力都有等价 API，Travel CRUD/优化仍缺失），默认监听 `127.0.0.1:8080`。路径/方法契约见 [`docs/api/openapi.v1.json`](docs/api/openapi.v1.json)（`GET /api/v1/openapi.json`）。；MCP 默认使用本地 STDIO，HTTP 模式默认绑定 `127.0.0.1:8787`，远程绑定需要显式启用并配置身份提供者。
 
 ## 开发架构规则
 

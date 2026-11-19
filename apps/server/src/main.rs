@@ -16,6 +16,7 @@ mod language_data_api;
 mod language_write_api;
 mod learning_api;
 mod news_api;
+mod openapi;
 mod readiness_api;
 mod routes;
 mod security;
