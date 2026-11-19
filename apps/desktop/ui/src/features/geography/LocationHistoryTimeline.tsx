@@ -9,15 +9,16 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import type { GeoEntity } from "../../types";
 import { errorMessage } from "../../utils";
-import { historyClient } from "../history/historyClient";
-import type {
-  SemanticEventDetail,
-  SemanticEventEvidence,
-  SemanticEventStory,
-  SemanticStoryDetail,
-  SemanticStoryEvent,
-} from "../history/semanticTypes";
-import type { GeoHistoryCrosswalk, LocationHistoryContext } from "../exploration/explorationClient";
+import {
+  explorationClient,
+  type GeoHistoryCrosswalk,
+  type LocationHistoryContext,
+  type SemanticEventDetail,
+  type SemanticEventEvidence,
+  type SemanticEventStory,
+  type SemanticStoryDetail,
+  type SemanticStoryEvent,
+} from "../exploration/explorationClient";
 import {
   formatHistoricalRange,
   isReviewedStatus,
@@ -138,7 +139,7 @@ export function LocationHistoryTimeline({
     setStoryDetail(null);
     setStoryError(null);
     setStoryLoading(true);
-    void historyClient.storyDetail(activeStoryId).then(
+    void explorationClient.storyDetail(activeStoryId).then(
       (detail) => {
         if (cancelled) return;
         if (!detail || detail.story.id !== activeStoryId) {

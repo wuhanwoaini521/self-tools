@@ -41,6 +41,12 @@ fi
 
 mkdir -p "$LOG_DIR"
 
+# 与桌面开发模式共用同一份数据：desktop 在 dev 构建下使用 <repo>/config。
+# 不显式指定时 server 会退回自己的默认目录（apps/desktop/config），
+# 于是网页端配好的 AI provider 与学习进度，桌面端看不到（反之亦然）。
+export SELF_TOOLS_DATA_DIR="${SELF_TOOLS_DATA_DIR:-$REPO_ROOT/config}"
+mkdir -p "$SELF_TOOLS_DATA_DIR"
+
 # 本机在局域网中的 IPv4（macOS：优先 en0/en1/en2 的 Wi-Fi/有线地址）。
 lan_ip() {
   local ip=""

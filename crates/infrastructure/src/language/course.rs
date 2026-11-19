@@ -5,7 +5,7 @@
 //! `language_plan` 三张用户状态表。单词的 SRS 排期在平台 `learning.db`，本模块只记
 //! 「在哪见过这个词」（occurrences）——排期单点真相不破。
 
-use rusqlite::{Connection, OptionalExtension, params};
+use rusqlite::{params, Connection, OptionalExtension};
 
 use devtoolbox_core::language::{
     BookSummary, Course, CourseBook, CourseLesson, LearningPlan, LessonListEntry, LessonProgress,
@@ -404,6 +404,27 @@ impl LanguageStore {
                 .map_err(sqlite)?;
             }
         }
+        // Course vocabulary is reimportable content; keep the user's marks for
+        // words that remain in the refreshed lesson instead of resetting them.
+        let user_marks = {
+            let mut stmt = tx
+                .prepare(
+                    "SELECT word, user_mark FROM language_lesson_vocab
+                     WHERE lesson_id = ?1 AND user_mark IS NOT NULL",
+                )
+                .map_err(sqlite)?;
+            let rows = stmt
+                .query_map(params![lesson.id], |row| {
+                    Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+                })
+                .map_err(sqlite)?;
+            let mut marks = std::collections::HashMap::new();
+            for row in rows {
+                let (word, mark) = row.map_err(sqlite)?;
+                marks.insert(word.to_ascii_lowercase(), mark);
+            }
+            marks
+        };
         tx.execute(
             "DELETE FROM language_lesson_vocab WHERE lesson_id = ?1",
             params![lesson.id],
@@ -414,8 +435,8 @@ impl LanguageStore {
                 .prepare(
                     "INSERT INTO language_lesson_vocab
                         (lesson_id, word, surface, sentence_id, context, phonetic, pos,
-                         translation_zh, definition_en, frequency, tags, importance)
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
+                         translation_zh, definition_en, frequency, tags, importance, user_mark)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
                 )
                 .map_err(sqlite)?;
             for word in vocab {
@@ -431,7 +452,8 @@ impl LanguageStore {
                     word.definition_en,
                     word.frequency,
                     word.tags.join(","),
-                    word.importance
+                    word.importance,
+                    user_marks.get(&word.word.to_ascii_lowercase())
                 ])
                 .map_err(sqlite)?;
             }
@@ -991,7 +1013,11 @@ impl LanguageStore {
             .execute(
                 "INSERT INTO language_word_occurrences
                     (word, source_type, source_id, sentence, occurred_at)
-                 VALUES (?1, ?2, ?3, ?4, ?5)",
+                 SELECT ?1, ?2, ?3, ?4, ?5
+                 WHERE NOT EXISTS (
+                    SELECT 1 FROM language_word_occurrences
+                    WHERE word = ?1 AND source_type = ?2 AND source_id = ?3
+                 )",
                 params![
                     occurrence.word,
                     occurrence.source_type,
@@ -1404,6 +1430,9 @@ mod tests {
         store
             .replace_lesson_content(&lesson, &sentences, &vocab)
             .expect("lesson");
+        store
+            .set_lesson_vocab_mark("nce:1:1", "excuse", Some("know"))
+            .expect("mark vocabulary");
         let mut progress = LessonProgress::new("nce:1:1", 1000);
         progress.stage = LessonStage::Listen;
         progress.position_ms = 12_000;
@@ -1423,6 +1452,10 @@ mod tests {
             .expect("some");
         assert_eq!(loaded.stage, LessonStage::Listen);
         assert_eq!(loaded.position_ms, 12_000);
+        let marks = store
+            .lesson_vocab_marks("nce:1:1")
+            .expect("vocabulary marks");
+        assert_eq!(marks.get("excuse").and_then(Option::as_deref), Some("know"));
     }
 
     #[test]
@@ -1457,6 +1490,16 @@ mod tests {
                 occurred_at: 100,
             })
             .expect("record");
+        // The same content source is an idempotency key even if the mark is retried.
+        store
+            .record_word_occurrence(&WordOccurrence {
+                word: "hesitate".into(),
+                source_type: "lesson".into(),
+                source_id: "nce:2:17".into(),
+                sentence: Some("Don't hesitate to ask.".into()),
+                occurred_at: 101,
+            })
+            .expect("duplicate source is ignored");
         store
             .record_word_occurrence(&WordOccurrence {
                 word: "hesitate".into(),
@@ -1491,17 +1534,13 @@ mod tests {
             .expect("found");
         assert_eq!(entry.lemma, "hesitate");
         assert_eq!(entry.translation_zh.as_deref(), Some("犹豫"));
-        assert!(
-            entry
-                .forms
-                .contains(&("p".to_string(), "hesitated".to_string()))
-        );
-        assert!(
-            store
-                .dict_lookup("nonexistentword")
-                .expect("miss")
-                .is_none()
-        );
+        assert!(entry
+            .forms
+            .contains(&("p".to_string(), "hesitated".to_string())));
+        assert!(store
+            .dict_lookup("nonexistentword")
+            .expect("miss")
+            .is_none());
     }
 
     #[test]

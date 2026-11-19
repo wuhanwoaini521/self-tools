@@ -368,9 +368,7 @@ export function EraTimeline({
         </span>
         <small>
           {hasGeometry
-            ? `${periods.length} 个时期 · 按年代跨度等比例 · 重叠时期自动分轨${
-                approximateCount ? " · 虚线为约略年代" : ""
-              }${hasDensity ? " · 顶部条高=事件数量" : ""}`
+            ? `${periods.length} 个时期${approximateCount ? " · 虚线为约略年代" : ""}`
             : `${periods.length} 个时期 · 年代数据待补充，仍可按时序浏览`}
         </small>
       </div>

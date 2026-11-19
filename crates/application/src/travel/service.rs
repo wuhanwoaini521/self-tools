@@ -53,6 +53,10 @@ use crate::{ApplicationError, TravelErrorKind, TravelFailure};
 const RESULTS_PER_QUERY: usize = 8;
 /// 参与抓取的最大结果数（控制并发与耗时）。
 const MAX_FETCH_CANDIDATES: usize = 20;
+/// 候选数低于此值时不再剔除站点首页（宁可用摘要，也不要把来源清空）。
+const MIN_CANDIDATES_BEFORE_ROOT_FILTER: usize = 6;
+/// 补坐标的最大地理编码次数（Nominatim 公共接口限 1 请求/秒）。
+const MAX_GEOCODE_LOOKUPS: usize = 10;
 /// 抓取并发上限：分组分批执行。
 const FETCH_CONCURRENCY: usize = 6;
 
@@ -483,6 +487,11 @@ impl TravelResearchService {
                 .partial_cmp(&a.1.score)
                 .unwrap_or(std::cmp::Ordering::Equal)
         });
+        // 站点首页（路径为 "/"）抓不到正文，只会挤掉真正的文章页。
+        // 候选足够时直接剔除；候选本来就少时保留，避免无源可用。
+        if rated.len() > MIN_CANDIDATES_BEFORE_ROOT_FILTER {
+            rated.retain(|(result, _)| !is_site_root(&result.url));
+        }
         rated.truncate(MAX_FETCH_CANDIDATES);
         emit(
             ResearchPhase::RankSources,
@@ -988,6 +997,9 @@ impl TravelResearchService {
                 notes.append(&mut guide.meta.notes);
             }
         }
+        // LLM 常把住宿区域写进 `area` 而把 `name` 留空，前端按 name 渲染就是空卡片；
+        // 统一在合并前收敛一次。
+        normalize_accommodation_areas(&mut guide);
         // 程序层合并已验证事实（LLM 与降级两条路径都执行）：
         // - 高德 POI 的景点/美食/住宿条目补进攻略；
         // - 和风天气进入独立天气卡片；
@@ -1032,16 +1044,74 @@ impl TravelResearchService {
         guide
     }
 
+    /// 没有地图 POI 数据源时，用 OSM 地理编码给景点补坐标。
+    ///
+    /// 坐标决定两件事：行程按地理聚类排天、相邻点算驾车时长。
+    /// 没有高德 Key 时这两项此前全为空，行程只能一天一景、没有交通信息。
+    async fn fill_missing_coordinates(&self, guide: &mut CityGuide) {
+        const THROTTLE: std::time::Duration = std::time::Duration::from_millis(1100);
+        // 1) 先用攻略里已有的坐标互相补：POI 合并常把坐标挂在 alternatives 上，
+        //    而行程用的是 top_picks —— 同名（含子串）就直接复用，省一次外部请求。
+        let known: Vec<(String, MapCoordinates)> = guide
+            .attractions
+            .iter()
+            .chain(guide.top_picks.iter())
+            .chain(guide.alternatives.iter())
+            .filter_map(|item| {
+                item.coordinates
+                    .clone()
+                    .map(|point| (item.name.clone(), point))
+            })
+            .collect();
+        for item in guide
+            .attractions
+            .iter_mut()
+            .chain(guide.top_picks.iter_mut())
+        {
+            if item.coordinates.is_some() {
+                continue;
+            }
+            if let Some((_, point)) = known.iter().find(|(name, _)| names_match(name, &item.name)) {
+                item.coordinates = Some(point.clone());
+            }
+        }
+
+        // 2) 仍然缺坐标的走 OSM 地理编码（Nominatim 公共接口限 1 请求/秒）。
+        let city = guide.city.name.clone();
+        let mut lookups = 0_usize;
+        for item in guide
+            .attractions
+            .iter_mut()
+            .chain(guide.top_picks.iter_mut())
+        {
+            if item.coordinates.is_some() {
+                continue;
+            }
+            if lookups >= MAX_GEOCODE_LOOKUPS {
+                break;
+            }
+            for provider in &self.data_providers {
+                if let Ok(Some(point)) = provider.geocode(&city, &item.name).await {
+                    item.coordinates = Some(point);
+                    break;
+                }
+            }
+            lookups += 1;
+            tokio::time::sleep(THROTTLE).await;
+        }
+    }
+
     /// 用结构化路线服务补齐相邻行程点的驾车距离/时间，并把餐饮 POI 归属到最近的一天。
     /// 没有可用路线 Provider 时保持字段为空，不把坐标直线距离伪装成驾车时间。
     async fn enrich_route_data(&self, guide: &mut CityGuide) {
+        self.fill_missing_coordinates(guide).await;
         let coordinates = guide_coordinates(guide);
         for day in &mut guide.itinerary_days {
             let mut previous: Option<MapCoordinates> = None;
             for stop in &mut day.stops {
                 let current = coordinates
                     .iter()
-                    .find(|(name, _)| contains(name, &stop.name) || contains(&stop.name, name))
+                    .find(|(name, _)| names_match(name, &stop.name))
                     .and_then(|(_, point)| point.clone());
                 if let (Some(origin), Some(destination)) = (previous.clone(), current.clone()) {
                     for provider in &self.data_providers {
@@ -1162,10 +1232,22 @@ pub(crate) fn is_llm_transport_error(error: &str) -> bool {
 }
 
 /// 数据源 Provider 名 → 其 Sources 展示地址（同时是事实 source_id，保证权威权重可匹配）。
+/// 判断 URL 是否只是站点首页 / 产品首页（这类页面抓下来只有导航条）。
+pub(crate) fn is_site_root(url: &str) -> bool {
+    let trimmed = url.trim();
+    let after_scheme = trimmed.split_once("://").map_or(trimmed, |(_, rest)| rest);
+    let path = after_scheme.split_once('/').map_or("", |(_, rest)| rest);
+    let path = path.split(['?', '#']).next().unwrap_or("");
+    path.is_empty() || path == "/"
+}
+
 fn data_source_url(provider_name: &str) -> String {
     match provider_name {
         "amap-poi" => AMAP_SOURCE_URL.to_string(),
         "qweather" => QWEATHER_SOURCE_URL.to_string(),
+        "open-meteo" => devtoolbox_core::travel::OPEN_METEO_SOURCE_URL.to_string(),
+        "nominatim" => devtoolbox_core::travel::NOMINATIM_SOURCE_URL.to_string(),
+        "osrm" => devtoolbox_core::travel::OSRM_SOURCE_URL.to_string(),
         other => format!("https://data.{other}"),
     }
 }
@@ -1175,6 +1257,9 @@ fn data_source_label(provider_name: &str) -> &'static str {
     match provider_name {
         "amap-poi" => "高德地图 POI",
         "qweather" => "和风天气",
+        "open-meteo" => "Open-Meteo 天气",
+        "nominatim" => "OpenStreetMap 坐标",
+        "osrm" => "OSRM 路线",
         _ => "结构化数据源",
     }
 }
@@ -1522,6 +1607,47 @@ fn format_documents(sources: &[TravelSource]) -> String {
 
 /// 把已验证事实合并回攻略（LLM 输出可能遗漏，程序层保证验证结果落地）。
 /// 覆盖：高德 POI（景点/美食/住宿）、和风天气、开放时间/门票/预约挂景点。
+/// 名称相似判定：忽略空白与全/半角括号差异再做子串比较。
+///
+/// POI 名「浙江省博物馆(孤山馆区)」与 LLM 名「浙江省博物馆（孤山馆区）」
+/// 只差括号全半角，直接 `contains` 会漏配，进而丢坐标、丢行程连线。
+fn names_match(left: &str, right: &str) -> bool {
+    fn normalize(value: &str) -> String {
+        value
+            .chars()
+            .map(|ch| match ch {
+                '（' => '(',
+                '）' => ')',
+                '【' => '[',
+                '】' => ']',
+                '　' => ' ',
+                other => other,
+            })
+            .filter(|ch| !ch.is_whitespace())
+            .collect()
+    }
+    let (left, right) = (normalize(left), normalize(right));
+    if left.is_empty() || right.is_empty() {
+        return false;
+    }
+    contains(&left, &right) || contains(&right, &left)
+}
+
+/// 住宿区域归一：`name` 为空而 `area` 有值时互换，两个都空则丢弃。
+fn normalize_accommodation_areas(guide: &mut CityGuide) {
+    for list in [&mut guide.stay_areas, &mut guide.accommodation_areas] {
+        for area in list.iter_mut() {
+            if area.name.trim().is_empty()
+                && let Some(value) = area.area.clone().filter(|value| !value.trim().is_empty())
+            {
+                area.name = value;
+                area.area = None;
+            }
+        }
+        list.retain(|area| !area.name.trim().is_empty());
+    }
+}
+
 fn merge_external_data(
     guide: &mut CityGuide,
     verified: &[VerifiedFact],

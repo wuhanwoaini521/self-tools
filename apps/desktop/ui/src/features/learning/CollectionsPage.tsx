@@ -18,7 +18,7 @@ import {
 import { learningClient } from "./learningClient";
 import { KnowledgeReviewCardEditor } from "./KnowledgeReviewCardEditor";
 import { CollectionItemNoteEditor } from "./CollectionItemNoteEditor";
-import { sourceRoute } from "./sourceNavigation";
+import { sourceRoute } from "../shared/sourceNavigation";
 import "./collections.css";
 import type { Collection, CollectionItem } from "../../types";
 

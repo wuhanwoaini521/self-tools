@@ -27,7 +27,8 @@ import {
   useAsyncPanel,
   useLanguageShortcuts,
 } from "./languageUi";
-import { matchAnswer, matchFeedback } from "./reviewMatch";
+import { matchAnswer, matchFeedback } from "../shared/answerMatching";
+import { afterReviewSubmission } from "./reviewSessionState";
 
 const RATINGS: UniversalReviewRating[] = ["again", "hard", "good", "easy"];
 
@@ -70,6 +71,9 @@ export function ReviewSession({
   onSubmitted,
   resolvesMistake,
 }: ReviewSessionProps) {
+  // Keep a session snapshot: the parent refreshes its dashboard queue after each
+  // submission, but that refreshed queue must not shift this session's cursor.
+  const [sessionQueue, setSessionQueue] = useState(queue);
   const [index, setIndex] = useState(0);
   const [revealed, setRevealed] = useState(false);
   const [answer, setAnswer] = useState("");
@@ -78,7 +82,7 @@ export function ReviewSession({
   const [lastOutcome, setLastOutcome] = useState<ReviewScheduleOutcome | null>(null);
   const [done, setDone] = useState(0);
 
-  const entry = queue[index] ?? null;
+  const entry = sessionQueue[index] ?? null;
   const card = entry?.card ?? null;
 
   const reset = useCallback((nextIndex: number) => {
@@ -104,15 +108,21 @@ export function ReviewSession({
         setLastOutcome(outcome);
         setDone((count) => count + 1);
         onSubmitted?.(outcome);
-        if (index + 1 < queue.length) reset(index + 1);
-        else setRevealed(false);
+        // Remove the submitted card at the current position. The next card slides
+        // into the same index, so external refreshes cannot skip it.
+        const next = afterReviewSubmission(sessionQueue, index);
+        setSessionQueue(next.queue);
+        setIndex(next.index);
+        setRevealed(false);
+        setAnswer("");
+        setError(null);
       } catch (err) {
         setError(errorMessage(err));
       } finally {
         setSubmitting(false);
       }
     },
-    [answer, card, index, onSubmitted, queue.length, reset, submitting],
+    [answer, card, index, onSubmitted, sessionQueue, submitting],
   );
 
   useLanguageShortcuts({
@@ -128,7 +138,7 @@ export function ReviewSession({
       if (index > 0) reset(index - 1);
     },
     onNext: () => {
-      if (index + 1 < queue.length) reset(index + 1);
+      if (index + 1 < sessionQueue.length) reset(index + 1);
     },
     onClose,
   });
@@ -146,7 +156,7 @@ export function ReviewSession({
     [answer, card],
   );
 
-  if (queue.length === 0) {
+  if (sessionQueue.length === 0) {
     return (
       <div className="lang-review" role="dialog" aria-modal="true">
         <header className="lang-review-top">
@@ -155,7 +165,10 @@ export function ReviewSession({
             <X size={15} /> 退出
           </button>
         </header>
-        <p className="lang-empty">{EMPTY_COPY.review}</p>
+        <p className="lang-empty">
+          {done === 0 ? EMPTY_COPY.review : `本轮复习完成，共提交 ${done} 张。`}
+        </p>
+        {done > 0 ? <Action onClick={onClose}>回到首页</Action> : null}
       </div>
     );
   }
@@ -175,9 +188,9 @@ export function ReviewSession({
       <header className="lang-review-top">
         <div>
           <h2>
-            复习 {index + 1} / {queue.length}
+            复习 {index + 1} / {sessionQueue.length}
           </h2>
-          <ProgressTrack value={index + 1} total={queue.length} />
+          <ProgressTrack value={index + 1} total={sessionQueue.length} />
         </div>
         <div className="lang-row-actions">
           <Chip tone={entry?.is_overdue ? "danger" : "plain"}>

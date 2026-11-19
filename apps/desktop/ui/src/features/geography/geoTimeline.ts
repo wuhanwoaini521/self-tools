@@ -3,7 +3,7 @@ import type {
   SemanticEventDetail,
   SemanticEventStory,
   SemanticStoryEvent,
-} from "../history/semanticTypes";
+} from "../exploration/explorationClient";
 
 const REVIEWED = new Set(["reviewed", "verified", "curated"]);
 

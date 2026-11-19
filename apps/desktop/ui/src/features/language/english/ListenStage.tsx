@@ -30,9 +30,7 @@ export function ListenStage({
   const [guess, setGuess] = useState("");
   const [revealedGuess, setRevealedGuess] = useState(false);
 
-  const heardText = showEnglish
-    ? sentences.map((item) => item.english).join(" ")
-    : "";
+  const heardText = sentences.map((item) => item.english).join(" ");
   // 严格全等几乎不可能命中：按词重合度给「接近 / 差很多」的诚实反馈。
   const overlap = similarity(heardText, guess);
 
@@ -64,19 +62,6 @@ export function ListenStage({
             placeholder="凭听力写下听到的句子…"
             onChange={(event) => setGuess(event.target.value)}
           />
-          {revealedGuess ? (
-            <p
-              className={cx("en-guess-result", overlap >= 0.85 ? "is-good" : "is-partial")}
-            >
-              {showEnglish
-                ? overlap >= 0.85
-                  ? "听得很准！"
-                  : overlap >= 0.5
-                    ? "大体听出来了——对照原文看还差什么。"
-                    : "差得比较多，建议逐句复读这一段。"
-                : ""}
-            </p>
-          ) : null}
         </div>
       ) : null}
 
@@ -111,11 +96,24 @@ export function ListenStage({
         ))}
       </ol>
 
+      {revealedGuess && showEnglish ? (
+        <p className={cx("en-guess-result", overlap >= 0.85 ? "is-good" : "is-partial")}>
+          {overlap >= 0.85
+            ? "听得很准！"
+            : overlap >= 0.5
+              ? "大体听出来了——对照原文看还差什么。"
+              : "差得比较多，建议逐句复读这一段。"}
+        </p>
+      ) : null}
+
       {!showEnglish && guess.trim().length > 0 ? (
         <button
           type="button"
           className="en-primary-btn"
-          onClick={() => setRevealedGuess(true)}
+          onClick={() => {
+            setRevealedGuess(true);
+            onToggleReveal();
+          }}
         >
           对照原文
         </button>
@@ -125,7 +123,7 @@ export function ListenStage({
 }
 
 /** 词重合度 0..1（忽略大小写、标点与多余空白）。 */
-function similarity(heard: string, guess: string): number {
+export function similarity(heard: string, guess: string): number {
   const normalize = (value: string) =>
     value
       .toLowerCase()

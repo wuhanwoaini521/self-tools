@@ -4,7 +4,7 @@ import type {
   SemanticEventDetail,
   SemanticEventStory,
   SemanticStoryEvent,
-} from "../history/semanticTypes";
+} from "../exploration/explorationClient";
 import {
   formatHistoricalRange,
   formatHistoricalYear,

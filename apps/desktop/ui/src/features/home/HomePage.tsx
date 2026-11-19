@@ -16,20 +16,13 @@ import {
 } from "@phosphor-icons/react";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import type {
-  Collection,
-  CollectionItem,
   ContinueItem,
-  NewsArticle,
   ReviewQueueStats,
-  TodayDashboardData,
   TravelPlan,
 } from "../../types";
 import { errorMessage, fileName } from "../../utils";
-import { learningClient } from "../learning/learningClient";
-import { newsClient } from "../news/newsClient";
-import { stripRssHtml } from "../rss/rssContent";
-import { sourceRoute } from "../learning/sourceNavigation";
-import { travelClient } from "../travel/travelClient";
+import { homeClient, type HomeHeadline, type SavedReference } from "./homeClient";
+import { sourceRoute } from "../shared/sourceNavigation";
 import "./home.css";
 
 interface HomePageProps {
@@ -44,8 +37,6 @@ type HomeResource<T> =
   | { status: "loading" }
   | { status: "error"; message: string }
   | { status: "ready"; data: T; refreshing: boolean; refreshError: string | null };
-
-type SavedReference = { collection: Collection; item: CollectionItem };
 
 function useHomeResource<T>(
   loader: () => Promise<T>,
@@ -219,27 +210,10 @@ export function HomePage({
   onNewNote,
   onNavigate,
 }: HomePageProps) {
-  const todayLoader = useCallback(() => learningClient.getToday(), []);
-  const collectionLoader = useCallback(async (): Promise<SavedReference[]> => {
-    const collections = await learningClient.listCollections();
-    const recent = [...collections]
-      .sort((left, right) => right.updated_at - left.updated_at)
-      .slice(0, 5);
-    const groups = await Promise.all(
-      recent.map(async (collection) => ({
-        collection,
-        items: await learningClient.listCollectionItems(collection.id),
-      })),
-    );
-    return groups
-      .flatMap(({ collection, items }) =>
-        items.map((item) => ({ collection, item })),
-      )
-      .sort((left, right) => right.item.added_at - left.item.added_at)
-      .slice(0, 5);
-  }, []);
-  const travelLoader = useCallback(() => travelClient.recentPlans(5), []);
-  const newsLoader = useCallback(() => newsClient.headlines("all", null, null, 4), []);
+  const todayLoader = useCallback(() => homeClient.today(), []);
+  const collectionLoader = useCallback(() => homeClient.savedReferences(), []);
+  const travelLoader = useCallback(() => homeClient.recentTravelPlans(5), []);
+  const newsLoader = useCallback(() => homeClient.headlines(4), []);
 
   const [today, retryToday] = useHomeResource(todayLoader, active);
   const [savedReferences, retrySavedReferences] = useHomeResource(collectionLoader, active);
@@ -429,7 +403,7 @@ export function HomePage({
                 </div>
               )}
             >
-              {(articles: NewsArticle[]) => (
+              {(articles: HomeHeadline[]) => (
                 <div className="hd-rows">
                   {articles.map((article) => (
                     <button type="button" className="hd-row hd-row-news" key={article.id} onClick={() => navigate("#news")}>
@@ -440,7 +414,7 @@ export function HomePage({
                           {article.is_read ? null : <em>未读</em>}
                         </small>
                         <strong>{article.title}</strong>
-                        {article.summary ? <span>{stripRssHtml(article.summary, article.url)}</span> : null}
+                        {article.summary ? <span>{article.summary}</span> : null}
                       </span>
                       <ArrowRight size={15} />
                     </button>

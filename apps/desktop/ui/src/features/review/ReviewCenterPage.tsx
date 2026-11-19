@@ -16,8 +16,8 @@ import {
   Cards,
   Flame,
 } from "@phosphor-icons/react";
-import { learningClient } from "./learningClient";
-import { matchAnswer, matchFeedback } from "../language/reviewMatch";
+import { reviewClient } from "./reviewClient";
+import { matchAnswer, matchFeedback } from "../shared/answerMatching";
 import type {
   LearningProgress,
   ReviewQueueItem,
@@ -26,7 +26,7 @@ import type {
   UniversalReviewCard,
   UniversalReviewRating,
 } from "../../types";
-import { sourceRoute } from "./sourceNavigation";
+import { sourceRoute } from "../shared/sourceNavigation";
 import "./reviewCenter.css";
 
 interface ReviewCenterPageProps {
@@ -101,8 +101,8 @@ export function ReviewCenterPage({ active, onNavigate, onAskAi }: ReviewCenterPa
     setLoadError(null);
     try {
       const [newStats, newQueue] = await Promise.all([
-        learningClient.getReviewStats(),
-        learningClient.getReviewQueue(selectedModule === "all" ? undefined : selectedModule, 50),
+        reviewClient.getStats(),
+        reviewClient.getQueue(selectedModule === "all" ? undefined : selectedModule, 50),
       ]);
       setStats(newStats);
       setQueue(newQueue);
@@ -155,11 +155,11 @@ export function ReviewCenterPage({ active, onNavigate, onAskAi }: ReviewCenterPa
     setPendingRating(rating);
     setSubmitError(null);
     try {
-      const outcome = await learningClient.submitReview(reviewedCard.id, rating, requestId);
+      const outcome = await reviewClient.submit(reviewedCard.id, rating, requestId);
       const entityKey = `${reviewedCard.module}:${reviewedCard.entity_type}:${reviewedCard.entity_id}`;
       const [progress, refreshedStats] = await Promise.all([
-        learningClient.getProgress(entityKey).catch(() => null),
-        learningClient.getReviewStats().catch(() => null),
+        reviewClient.getProgress(entityKey).catch(() => null),
+        reviewClient.getStats().catch(() => null),
       ]);
       setLastReceipt({ card: reviewedCard, outcome, progress });
       if (refreshedStats) setStats(refreshedStats);

@@ -112,6 +112,7 @@ export function ShadowStage({
     const audio = audioRef.current;
     if (!audio || !current) return;
     audio.currentTime = current.start_ms / 1000;
+    setPaused(false);
     await audio.play().catch(() => undefined);
   }, [current]);
 
@@ -335,7 +336,18 @@ export function ShadowStage({
         <button
           type="button"
           className="en-ghost-btn"
-          onClick={() => setPaused((previous) => !previous)}
+          onClick={() => {
+            const audio = audioRef.current;
+            if (!audio) return;
+            if (audio.paused) {
+              void audio.play().catch(() => undefined);
+              setPaused(false);
+            } else {
+              audio.pause();
+              setPaused(true);
+            }
+          }}
+          disabled={!audioUrl}
         >
           {paused ? <Play size={14} /> : <Pause size={14} />}
           {paused ? "继续" : "暂停"}

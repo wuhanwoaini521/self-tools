@@ -908,3 +908,23 @@ async fn travel_complete_empty_content_is_controlled_error() {
     let ok = crate::travel::service::travel_complete(llm.as_ref(), "s", "u").await;
     assert!(ok.is_ok());
 }
+
+#[test]
+fn site_root_urls_are_recognized() {
+    use crate::travel::service::is_site_root;
+    for url in [
+        "https://www.amap.com/",
+        "https://map.baidu.com",
+        "https://www.hangzhou.gov.cn",
+        "https://example.com/?from=search",
+    ] {
+        assert!(is_site_root(url), "{url} 应判定为站点首页");
+    }
+    for url in [
+        "https://www.hangzhou.gov.cn/col/col805/index.html",
+        "https://baike.baidu.com/item/杭州",
+        "https://zhuanlan.zhihu.com/p/123456",
+    ] {
+        assert!(!is_site_root(url), "{url} 是具体页面");
+    }
+}

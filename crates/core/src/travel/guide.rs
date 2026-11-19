@@ -14,6 +14,7 @@ use crate::travel::query_planner::TravelDateRange;
 pub struct CityGuide {
     pub city: CityInfo,
     pub summary: String,
+    #[serde(default, deserialize_with = "crate::travel::lenient::string_seq")]
     pub highlights: Vec<String>,
     pub best_time: Option<String>,
     /// 来自天气数据源的近期逐日预报；不由 LLM 编造。
@@ -80,6 +81,7 @@ pub struct DistrictInfo {
     /// 该区域的亮点 / 说明。
     pub note: Option<String>,
     /// 主要景点名列表。
+    #[serde(default, deserialize_with = "crate::travel::lenient::string_seq")]
     pub landmarks: Vec<String>,
 }
 
@@ -100,18 +102,25 @@ pub struct Attraction {
     /// 建议游玩时长（如 "半天"）。
     pub suggested_duration: Option<String>,
     /// 开放时间（经过多源验证的字段，见 `VerifiedValue`）。
+    #[serde(default, deserialize_with = "crate::travel::lenient::opt_verified")]
     pub opening_hours: Option<VerifiedValue>,
     /// 门票信息（多源验证字段）。
+    #[serde(default, deserialize_with = "crate::travel::lenient::opt_verified")]
     pub ticket: Option<VerifiedValue>,
     /// 预约政策（多源验证字段）。
+    #[serde(default, deserialize_with = "crate::travel::lenient::opt_verified")]
     pub reservation: Option<VerifiedValue>,
     /// 本地游览贴士。
+    #[serde(default, deserialize_with = "crate::travel::lenient::string_seq")]
     pub tips: Vec<String>,
+    #[serde(default, deserialize_with = "crate::travel::lenient::string_seq")]
     pub best_for: Vec<String>,
     pub recommended_day: Option<u8>,
+    #[serde(default, deserialize_with = "crate::travel::lenient::opt_verified")]
     pub open_status: Option<VerifiedValue>,
     pub confidence: Option<String>,
     /// 支撑该条目的事实来源 URL。
+    #[serde(default, deserialize_with = "crate::travel::lenient::string_seq")]
     pub source_ids: Vec<String>,
     /// 仅来自地图 POI 的坐标，用于攻略地图展示。
     pub coordinates: Option<MapCoordinates>,
@@ -127,6 +136,7 @@ pub struct Food {
     pub intro: Option<String>,
     /// 结构化数据识别到的菜品 / 餐饮所在区域。
     pub area: Option<String>,
+    #[serde(default, deserialize_with = "crate::travel::lenient::string_seq")]
     pub source_ids: Vec<String>,
 }
 
@@ -159,6 +169,7 @@ pub struct TransportGuide {
     pub metro: Option<String>,
     /// 公交 / 打车贴士。
     pub bus_taxi: Option<String>,
+    #[serde(default, deserialize_with = "crate::travel::lenient::string_seq")]
     pub tips: Vec<String>,
 }
 
@@ -218,6 +229,7 @@ pub struct QuickDecisions {
     pub best_area_to_stay: Option<String>,
     pub signature_food: Option<String>,
     pub trip_style: Option<String>,
+    #[serde(default, deserialize_with = "crate::travel::lenient::string_seq")]
     pub must_visit: Vec<String>,
     pub main_warning: Option<String>,
 }
@@ -303,6 +315,7 @@ pub struct VerifiedFact {
     #[serde(default = "default_true")]
     pub verified: bool,
     /// 冲突时存在的其他版本（供 UI 展示「多个版本」）。
+    #[serde(default, deserialize_with = "crate::travel::lenient::string_seq")]
     pub candidates: Vec<String>,
 }
 

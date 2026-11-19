@@ -137,9 +137,9 @@ export function LessonWorkspace({
   const flushProgress = useCallback(
     (immediate = false) => {
       const patch = pendingPatch.current;
-      if (Object.keys(patch).length === 0) return;
-      pendingPatch.current = {};
       const studySeconds = studySecondsRef.current;
+      if (Object.keys(patch).length === 0 && studySeconds === 0) return;
+      pendingPatch.current = {};
       studySecondsRef.current = 0;
       void englishClient
         .updateProgress(lesson.id, {

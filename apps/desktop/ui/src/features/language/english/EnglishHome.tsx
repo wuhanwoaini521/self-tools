@@ -23,7 +23,6 @@ import type {
 } from "../../../types";
 import { greetingByHour } from "../../../utils";
 import { englishClient } from "./englishClient";
-import { cx } from "../languageUi";
 import { formatDurationShort, StageDots } from "./shared";
 
 export interface EnglishHomeProps {
@@ -105,35 +104,37 @@ export function EnglishHome({
 
   const tasks = useMemo(() => {
     if (!dashboard) return [];
-    const summary = dashboard.book_summary;
     const lesson = dashboard.continue_lesson ?? dashboard.next_lesson;
-    const items: Array<{ label: string; done: boolean; action?: () => void }> = [];
+    const items: Array<{
+      label: string;
+      detail: string;
+      action: () => void;
+    }> = [];
+
     if (dashboard.due_reviews > 0) {
       items.push({
         label: `复习 ${dashboard.due_reviews} 个到期词`,
-        done: false,
+        detail: "按记忆情况安排下一次复习",
         action: onOpenReview,
       });
     }
     if (lesson) {
-      const stage = dashboard.continue_lesson ? lesson.percent : 0;
       items.push({
-        label: `Lesson ${lesson.lesson_no} 单词预习`,
-        done: stage > 0,
-      });
-      items.push({ label: "听力精听", done: stage > 40 });
-      items.push({ label: "课文精读", done: stage > 60 });
-      items.push({ label: "跟读复述", done: stage > 75 });
-      items.push({ label: "Lesson Quiz", done: stage >= 100 });
-    }
-    if (summary) {
-      items.push({
-        label: `本册已完成 ${summary.completed_lessons}/${summary.total_lessons} 课`,
-        done: false,
+        label: `学习 Lesson ${lesson.lesson_no}`,
+        detail: [
+          dashboard.plan?.new_words_per_day
+            ? `今日新词目标 ${dashboard.plan.new_words_per_day} 个`
+            : null,
+          `${lesson.sentence_count} 句`,
+          `${lesson.vocab_count} 个生词`,
+        ]
+          .filter(Boolean)
+          .join(" · "),
+        action: () => onContinue(lesson),
       });
     }
     return items;
-  }, [dashboard, onOpenReview]);
+  }, [dashboard, onContinue, onOpenReview]);
 
   if (error) {
     return (
@@ -158,7 +159,7 @@ export function EnglishHome({
         <header className="en-greeting">
           <div>
             <p className="en-greeting-hello">{greetingByHour(new Date().getHours())}</p>
-            <h1>Today's English</h1>
+            <h1>English Lab</h1>
           </div>
         </header>
         <section className="en-card en-onboard">
@@ -195,7 +196,7 @@ export function EnglishHome({
       <header className="en-greeting">
         <div>
           <p className="en-greeting-hello">{greetingByHour(new Date().getHours())}</p>
-          <h1>Today's English</h1>
+          <h1>English Lab</h1>
         </div>
         <div className="en-row-actions">
           <button type="button" className="en-link-btn" onClick={onOpenRoadmap}>
@@ -277,7 +278,47 @@ export function EnglishHome({
         </section>
       ) : null}
 
-      {/* ---- 旅行英语：PWA 内容的独立入口（不依赖课程导入） ---- */}
+      {/* ---- 今日任务：只列出有真实数据和可执行入口的内容 ---- */}
+      <section className="en-card en-daily-plan">
+        <header className="en-card-head">
+          <div>
+            <h3>今日学习计划</h3>
+            <p className="en-muted">
+              {dashboard?.plan
+                ? `目标 ${dashboard.plan.daily_minutes} 分钟 · ${dashboard.plan.new_words_per_day} 个新词`
+                : "设置每日目标，让课程安排贴合你的节奏。"}
+            </p>
+          </div>
+          {!dashboard?.plan ? (
+            <button type="button" className="en-link-btn" onClick={onOpenPlan}>
+              设置目标
+            </button>
+          ) : null}
+        </header>
+        {tasks.length === 0 ? (
+          <p className="en-muted">
+            {loading
+              ? "正在整理今天的学习内容…"
+              : "今天没有到期复习。选择一课开始积累新内容。"}
+          </p>
+        ) : (
+          <ol className="en-task-list">
+            {tasks.map((task) => (
+              <li key={task.label}>
+                <span className="en-task-mark" aria-hidden="true">•</span>
+                <div className="en-task-copy">
+                  <button type="button" className="en-link-btn" onClick={task.action}>
+                    {task.label}
+                  </button>
+                  <small>{task.detail}</small>
+                </div>
+              </li>
+            ))}
+          </ol>
+        )}
+      </section>
+
+      {/* ---- 旅行英语：可选的情景练习入口 ---- */}
       <section className="en-card en-travel-entry">
         <div>
           <p className="en-travel-eyebrow">Travel English</p>
@@ -290,35 +331,6 @@ export function EnglishHome({
           开始练习
           <ArrowRight size={15} />
         </button>
-      </section>
-
-      {/* ---- 今日任务清单 ---- */}
-      <section className="en-card">
-        <header className="en-card-head">
-          <h3>今日任务</h3>
-        </header>
-        <ul className="en-task-list">
-          {tasks.length === 0 ? (
-            <li className="en-muted">
-              {loading ? "加载中…" : "还没有任务，先设置每日目标或选一本书开始。"}
-            </li>
-          ) : (
-            tasks.map((task) => (
-              <li key={task.label} className={cx(task.done && "is-done")}>
-                <span className="en-task-mark" aria-hidden="true">
-                  {task.done ? "✓" : "○"}
-                </span>
-                {task.action ? (
-                  <button type="button" className="en-link-btn" onClick={task.action}>
-                    {task.label}
-                  </button>
-                ) : (
-                  <span>{task.label}</span>
-                )}
-              </li>
-            ))
-          )}
-        </ul>
       </section>
 
       {/* ---- 复习入口 ---- */}

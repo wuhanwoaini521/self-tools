@@ -9,17 +9,26 @@ use std::sync::Arc;
 use axum::Extension;
 use devtoolbox_application::readiness::{ReadinessProbe, ReadinessService, default_probes};
 use devtoolbox_core::readiness::{DiagnosticCheck, ReadinessReport};
+use devtoolbox_infrastructure::knowledge_runtime::KnowledgeRuntime;
 
 use crate::ai_api::SettingsAccess;
 
-fn build(store: &dyn SettingsAccess, data_dir: &std::path::Path) -> ReadinessService {
+fn build(
+    store: &dyn SettingsAccess,
+    data_dir: &std::path::Path,
+    search_sources: usize,
+) -> ReadinessService {
     let settings = store.load();
     let probes: Vec<Arc<dyn ReadinessProbe>> = default_probes(
         &settings,
         data_dir,
         false, // secure_context：前端判定
         false, // identity：前端判定
-        settings.server.services.len(),
+        // 检索源数量必须取自真正的全局检索注册表。
+        // 历史实现传的是 `settings.server.services.len()`（Home Server 服务数），
+        // 两者无关，导致即使 memory/documents/files/language 四个源都已装配，
+        // readiness 也永远报「尚未注册检索源」。
+        search_sources,
         false, // vision：当前未接入
     );
     ReadinessService::new(probes)
@@ -38,8 +47,14 @@ fn mark_frontend_owned(report: &mut ReadinessReport) {
 pub async fn readiness_report(
     Extension(store): Extension<Arc<dyn SettingsAccess>>,
     Extension(data_dir): Extension<Arc<PathBuf>>,
+    Extension(knowledge): Extension<Arc<KnowledgeRuntime>>,
 ) -> Result<axum::Json<ReadinessReport>, crate::ai_api::ApiError> {
-    let mut report = build(store.as_ref(), data_dir.as_path()).report();
+    let mut report = build(
+        store.as_ref(),
+        data_dir.as_path(),
+        knowledge.search.source_count(),
+    )
+    .report();
     mark_frontend_owned(&mut report);
     Ok(axum::Json(report))
 }
@@ -48,8 +63,14 @@ pub async fn readiness_report(
 pub async fn readiness_diagnostics(
     Extension(store): Extension<Arc<dyn SettingsAccess>>,
     Extension(data_dir): Extension<Arc<PathBuf>>,
+    Extension(knowledge): Extension<Arc<KnowledgeRuntime>>,
 ) -> Result<axum::Json<Vec<DiagnosticCheck>>, crate::ai_api::ApiError> {
     Ok(axum::Json(
-        build(store.as_ref(), data_dir.as_path()).diagnostics(),
+        build(
+            store.as_ref(),
+            data_dir.as_path(),
+            knowledge.search.source_count(),
+        )
+        .diagnostics(),
     ))
 }

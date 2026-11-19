@@ -10,7 +10,7 @@ import {
 } from "@phosphor-icons/react";
 import type { CollectionItem, UniversalReviewCard } from "../../types";
 import { learningClient } from "./learningClient";
-import { sourceRoute } from "./sourceNavigation";
+import { sourceRoute } from "../shared/sourceNavigation";
 import "./knowledgeReviewCard.css";
 
 interface KnowledgeReviewCardEditorProps {

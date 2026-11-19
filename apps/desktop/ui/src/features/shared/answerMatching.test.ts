@@ -5,7 +5,7 @@
  * 太松（包含就算对）会让学习者糊弄过去。阈值必须锁住。
  */
 import { describe, expect, it } from "vitest";
-import { matchAnswer, matchFeedback, reviewTokens } from "./reviewMatch";
+import { matchAnswer, matchFeedback, reviewTokens } from "./answerMatching";
 
 describe("复习作答匹配", () => {
   it("大小写与标点差异不算错", () => {

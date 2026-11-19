@@ -1229,12 +1229,15 @@ impl LearningStore {
         day_start_ts: i64,
     ) -> Result<u32, InfrastructureError> {
         let day_end_ts = day_start_ts.saturating_add(86_400);
-        let count: u32 = self.connection.query_row(
-            "SELECT COUNT(DISTINCT entity_key) FROM learning_progress
+        let count: u32 = self
+            .connection
+            .query_row(
+                "SELECT COUNT(DISTINCT entity_key) FROM learning_progress
              WHERE last_studied_at >= ?1 AND last_studied_at < ?2",
-            params![day_start_ts, day_end_ts],
-            |r| r.get(0),
-        ).unwrap_or(0);
+                params![day_start_ts, day_end_ts],
+                |r| r.get(0),
+            )
+            .unwrap_or(0);
         Ok(count)
     }
 

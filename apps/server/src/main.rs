@@ -43,8 +43,12 @@ const ENV_BIND: &str = "SELF_TOOLS_BIND";
 const ENV_HISTORY_DB: &str = "SELF_TOOLS_HISTORY_DB";
 /// Language / 学习库 / 设置目录。默认指向**桌面端同一个目录**，
 /// 这样网页端配好的 AI provider 与学习进度，桌面端立刻可见，反之亦然。
+///
+/// 桌面端在 dev 构建下用 `<仓库根>/config`（见 `project_config_directory`），
+/// 且两端启动时都会对同一目录加进程锁（见 `docs/operations/BACKUP_RESTORE.md`）。
+/// 这里必须用同一个相对路径，否则网页端会读到一套空数据。
 const ENV_DATA_DIR: &str = "SELF_TOOLS_DATA_DIR";
-const DEFAULT_DATA_DIR: &str = "apps/desktop/config";
+const DEFAULT_DATA_DIR: &str = "config";
 
 #[derive(Debug)]
 struct Config {
@@ -63,9 +67,21 @@ fn load_config() -> Result<Config, String> {
         .ok()
         .filter(|value| !value.trim().is_empty())
         .unwrap_or_else(|| DEFAULT_HISTORY_DB.to_string());
+    // 数据目录优先级与桌面端一致：SELF_TOOLS_DATA_DIR（服务端专用）
+    // > SELF_TOOLS_HOME/config（V11 统一 home）> 仓库内 config（dev 默认）。
     let mut data_dir = std::env::var(ENV_DATA_DIR)
         .ok()
         .filter(|value| !value.trim().is_empty())
+        .or_else(|| {
+            std::env::var_os("SELF_TOOLS_HOME")
+                .filter(|home| !home.is_empty())
+                .map(|home| {
+                    PathBuf::from(home)
+                        .join("config")
+                        .to_string_lossy()
+                        .into_owned()
+                })
+        })
         .unwrap_or_else(|| DEFAULT_DATA_DIR.to_string());
 
     let mut args = std::env::args().skip(1);

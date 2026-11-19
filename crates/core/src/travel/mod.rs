@@ -7,6 +7,7 @@
 pub mod cache;
 pub mod dedup;
 pub mod guide;
+pub mod lenient;
 pub mod llm_parse;
 pub mod model;
 pub mod plan;
@@ -33,9 +34,9 @@ pub use model::{
 };
 pub use plan::{TravelPlan, TravelPlanContext, TravelPlanError, TravelPlanPlace};
 pub use provider::{
-    AMAP_SOURCE_URL, ProviderError, ProviderErrorKind, QWEATHER_SOURCE_URL, SearchOptions,
-    SearchProvider, TravelDataProvider, TravelDataRequest, TravelRoute, TravelRouteRequest,
-    WebFetcher,
+    AMAP_SOURCE_URL, NOMINATIM_SOURCE_URL, OPEN_METEO_SOURCE_URL, OSRM_SOURCE_URL, ProviderError,
+    ProviderErrorKind, QWEATHER_SOURCE_URL, SearchOptions, SearchProvider, TravelDataProvider,
+    TravelDataRequest, TravelRoute, TravelRouteRequest, WebFetcher,
 };
 pub use quality::{QualityReport, apply_quality_gate, normalize_entity_name};
 pub use query_planner::{

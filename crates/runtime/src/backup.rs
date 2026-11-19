@@ -827,11 +827,9 @@ fn install_manifest_files(
                 restrict_file(&temporary).map_err(|error| {
                     format!("secure restored database {}: {error}", spec.file_name)
                 })?;
-                File::open(&temporary)
-                    .and_then(|file| file.sync_all())
-                    .map_err(|error| {
-                        format!("sync restored database {}: {error}", spec.file_name)
-                    })?;
+                sync_file(&temporary).map_err(|error| {
+                    format!("sync restored database {}: {error}", spec.file_name)
+                })?;
                 replace_file(&temporary, &target)?;
                 sync_directory(data_directory)?;
                 let source = SqliteBackupSource::new(
@@ -1137,6 +1135,8 @@ fn ensure_private_directory(path: &Path) -> Result<(), String> {
 }
 
 fn create_private_directory(path: &Path) -> Result<(), String> {
+    // `mode()` 只在 unix 分支存在，Windows 上 `mut` 用不到；clippy -D warnings 会因此失败。
+    #[cfg_attr(windows, allow(unused_mut))]
     let mut builder = DirBuilder::new();
     #[cfg(unix)]
     {
@@ -1216,9 +1216,7 @@ fn restrict_tree_files(directory: &Path) -> Result<(), String> {
             .path();
         ensure_regular_file(&path)?;
         restrict_file(&path).map_err(|error| format!("secure backup file: {error}"))?;
-        File::open(&path)
-            .and_then(|file| file.sync_all())
-            .map_err(|error| format!("sync backup file: {error}"))?;
+        sync_file(&path).map_err(|error| format!("sync backup file: {error}"))?;
     }
     sync_directory(directory)?;
     Ok(())
@@ -1230,6 +1228,9 @@ fn restrict_directory(path: &Path) -> io::Result<()> {
         use std::os::unix::fs::PermissionsExt;
         fs::set_permissions(path, fs::Permissions::from_mode(0o700))?;
     }
+    // Windows 没有 unix 权限位；参数仅在 unix 分支使用，显式消费以免 clippy 报 unused。
+    #[cfg(windows)]
+    let _ = path;
     Ok(())
 }
 
@@ -1239,13 +1240,35 @@ fn restrict_file(path: &Path) -> io::Result<()> {
         use std::os::unix::fs::PermissionsExt;
         fs::set_permissions(path, fs::Permissions::from_mode(0o600))?;
     }
+    #[cfg(windows)]
+    let _ = path;
     Ok(())
 }
 
+/// 以可写句柄同步文件内容。
+///
+/// Windows 的 `FlushFileBuffers` 要求句柄带写权限；用 `File::open`（只读）调 `sync_all()`
+/// 会返回 ERROR_ACCESS_DENIED(5)。Unix 对只读 fd 做 fsync 是合法的，所以这个问题只在 Windows 出现。
+fn sync_file(path: &Path) -> io::Result<()> {
+    OpenOptions::new().write(true).open(path)?.sync_all()
+}
+
 fn sync_directory(path: &Path) -> Result<(), String> {
-    File::open(path)
-        .and_then(|file| file.sync_all())
-        .map_err(|error| format!("sync directory {}: {error}", path.display()))
+    // Windows 上不能用 `File::open` 打开目录：会直接返回 ERROR_ACCESS_DENIED(os error 5)，
+    // 而 FlushFileBuffers 对目录句柄也不受支持。于是备份/恢复在 Windows 上会整体失败
+    //（测试里表现为 "sync directory … 拒绝访问"）。
+    // 目录项本身的持久化交给 CreateDirectory / Rename 的文件系统语义，这里退化为无操作。
+    #[cfg(unix)]
+    {
+        File::open(path)
+            .and_then(|file| file.sync_all())
+            .map_err(|error| format!("sync directory {}: {error}", path.display()))
+    }
+    #[cfg(windows)]
+    {
+        let _ = path;
+        Ok(())
+    }
 }
 
 fn validate_uuid(id: &str) -> Result<(), String> {

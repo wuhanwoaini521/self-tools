@@ -34,8 +34,11 @@ import type {
 } from "../../types";
 import { errorMessage } from "../../utils";
 import { geographyClient } from "./geographyClient";
-import { explorationClient, type LocationHistoryContext } from "../exploration/explorationClient";
-import type { SemanticEventDetail } from "../history/semanticTypes";
+import {
+  explorationClient,
+  type LocationHistoryContext,
+  type SemanticEventDetail,
+} from "../exploration/explorationClient";
 import { learningClient } from "../learning/learningClient";
 import { SaveToCollection } from "../learning/SaveToCollection";
 import type { AppContextPayload } from "../ai/aiTypes";

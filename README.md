@@ -28,8 +28,8 @@ DevToolbox 是一款以本地数据为基础的个人知识工作台。它把 AI
 项目工具链由 [mise](https://mise.jdx.dev) 统一管理：
 
 - Node.js 24（见 `mise.toml`，与 CI 一致）
-- Rust stable，最低版本 1.95（版本、组件与 target 见 `rust-toolchain.toml`，mise 直接读取）
-- 桌面构建所需的 Tauri 平台依赖；Windows 使用 MSVC 工具链
+- Rust 1.95.0（固定版本，见 `rust-toolchain.toml`；mise 直接读取）
+- 桌面构建所需的 Tauri 平台依赖；Windows 使用 MSVC 工具链（`cl.exe` + Windows SDK）
 
 安装 mise 后，在仓库根目录执行：
 
@@ -37,12 +37,25 @@ DevToolbox 是一款以本地数据为基础的个人知识工作台。它把 AI
 mise trust && mise install
 ```
 
-`mise install` 会按 `mise.toml`、`rust-toolchain.toml` 与 `mise.lock` 安装（或校验）工具链。不使用 mise 时，也可以自行准备 Rust stable 与 Node.js 20+。
+`mise install` 会按 `mise.toml`、`rust-toolchain.toml` 与 `mise.lock` 安装（或校验）工具链。不使用 mise 时，可以自行准备 Rust 1.95.0（或更高）与 Node.js 20+。
+
+### 拉取代码：submodule 与 History 数据（否则 History 不可用、5 个测试会红）
+
+`history-data-pipeline` 是 submodule，它的产物 `dist/history.duckdb` **不随 Git 分发**。
+克隆时带 `--recursive`，或者在任何一次 `git pull` 之后补两步：
+
+```bash
+git submodule update --init --recursive   # 同步 submodule 代码
+mise run data                             # 重建 dist/history.duckdb（uv 会自动装管线依赖）
+```
+
+不做这一步的表现：桌面端 History 降级为「数据未生成」卡片，`cargo test --workspace` 里
+`history::duckdb::semantic_tests::*` 会因为缺列/缺知识条目失败。
 
 ### 启动桌面应用
 
 ```bash
-git clone https://github.com/wuhanwoaini521/self-tools.git
+git clone --recursive https://github.com/wuhanwoaini521/self-tools.git
 cd self-tools
 
 # 安装前端依赖（mise run dev 会自动执行）
@@ -72,6 +85,15 @@ mise run web        # 或 make web；Ctrl+C 停止全部
 ```
 
 macOS 上也可以直接双击 `scripts/open-self-tools-web.command`（会额外打开浏览器）。页面就绪后在 Chrome/Edge 点地址栏右侧「安装」图标，或用 Safari 的 文件 → 添加到程序坞，即可得到独立窗口的桌面图标。
+
+Windows 上 `scripts/self-tools-web.sh` 依赖 `lsof` / `ipconfig getifaddr` / `open`（macOS 专属），请直接用两个终端分别启动：
+
+```powershell
+target\debug\devtoolbox-server.exe          # 数据服务 127.0.0.1:8080（首次先 cargo build -p devtoolbox-server）
+npm --prefix apps/desktop/ui run dev        # 网页端 127.0.0.1:1420
+```
+
+两者默认都指向仓库内 `config/`（与桌面端 dev 模式同一份数据）。若想换目录，服务端用 `--data-dir` 或 `SELF_TOOLS_DATA_DIR`，桌面端用 `SELF_TOOLS_HOME`。
 
 同一 Wi-Fi 下的手机 / 平板 / 另一台电脑访问：
 
