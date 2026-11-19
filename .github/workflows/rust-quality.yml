@@ -26,6 +26,13 @@ jobs:
         run: |
           npm ci --prefix apps/desktop
           npm ci --prefix apps/desktop/ui
+      # duckdb 不进 Git；Tauri bundle.resources 在缺文件时会让整个 E2E 构建失败。
+      - name: Provide placeholder history duckdb for bundle
+        run: |
+          New-Item -ItemType Directory -Force -Path history-data-pipeline/dist | Out-Null
+          if (-not (Test-Path history-data-pipeline/dist/history.duckdb)) {
+            New-Item -ItemType File -Path history-data-pipeline/dist/history.duckdb | Out-Null
+          }
       - name: Run native Tauri regression suite
         run: npm --prefix apps/desktop run test:e2e
       - name: Upload desktop failure artifacts

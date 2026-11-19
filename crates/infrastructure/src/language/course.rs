@@ -5,7 +5,7 @@
 //! `language_plan` 三张用户状态表。单词的 SRS 排期在平台 `learning.db`，本模块只记
 //! 「在哪见过这个词」（occurrences）——排期单点真相不破。
 
-use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite::{Connection, OptionalExtension, params};
 
 use devtoolbox_core::language::{
     BookSummary, Course, CourseBook, CourseLesson, LearningPlan, LessonListEntry, LessonProgress,
@@ -1534,13 +1534,17 @@ mod tests {
             .expect("found");
         assert_eq!(entry.lemma, "hesitate");
         assert_eq!(entry.translation_zh.as_deref(), Some("犹豫"));
-        assert!(entry
-            .forms
-            .contains(&("p".to_string(), "hesitated".to_string())));
-        assert!(store
-            .dict_lookup("nonexistentword")
-            .expect("miss")
-            .is_none());
+        assert!(
+            entry
+                .forms
+                .contains(&("p".to_string(), "hesitated".to_string()))
+        );
+        assert!(
+            store
+                .dict_lookup("nonexistentword")
+                .expect("miss")
+                .is_none()
+        );
     }
 
     #[test]
