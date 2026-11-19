@@ -22,8 +22,7 @@ import { explorationClient } from "../exploration/explorationClient";
 import { learningClient } from "../learning/learningClient";
 import { SaveToCollection } from "../learning/SaveToCollection";
 import { EnrichmentPanel } from "./EnrichmentPanel";
-import { EraTimeline } from "./EraTimeline";
-import { PeriodDetail } from "./PeriodDetail";
+import { HistoryLineage } from "./HistoryLineage";
 import { parseEvidenceNote } from "./evidenceText";
 import { storyTypeLabel } from "./periodDetailHelpers";
 import type {
@@ -163,6 +162,12 @@ export function HistoryPage({
     null,
   );
   const [selectedPeriodId, setSelectedPeriodId] = useState("");
+  const [periodCache, setPeriodCache] = useState<
+    Record<string, SemanticPeriodDetail>
+  >({});
+  const [lineageOpen, setLineageOpen] = useState(false);
+  const [lineageLoading, setLineageLoading] = useState(false);
+  const [openStageIndex, setOpenStageIndex] = useState<number | null>(null);
   const [selectedStory, setSelectedStory] =
     useState<SemanticStoryDetail | null>(null);
   const [drawer, setDrawer] = useState<DrawerState>(null);
@@ -191,9 +196,13 @@ export function HistoryPage({
     async (periodId: string) => {
       setPeriodDetail(null);
       try {
-        setPeriodDetail(
-          normalizePeriodDetail(await historyClient.periodDetail(periodId)),
+        const detail = normalizePeriodDetail(
+          await historyClient.periodDetail(periodId),
         );
+        setPeriodDetail(detail);
+        if (detail?.period?.id) {
+          setPeriodCache((current) => ({ ...current, [detail.period.id]: detail }));
+        }
       } catch (cause) {
         setNotice(errorMessage(cause));
       }
@@ -325,14 +334,6 @@ export function HistoryPage({
   }, [active, homeLoaded, loadHome]);
   const periods = home.periods;
   const homeStories = home.stories;
-  const storyCountsByPeriod = useMemo(() => {
-    const counts: Record<string, number> = {};
-    for (const story of homeStories) {
-      if (!story.period_id) continue;
-      counts[story.period_id] = (counts[story.period_id] ?? 0) + 1;
-    }
-    return counts;
-  }, [homeStories]);
   const selectedPeriod =
     periods.find((period) => period.id === selectedPeriodId) ??
     periods[0] ??
@@ -452,13 +453,6 @@ export function HistoryPage({
       window.clearTimeout(timer);
     };
   }, [query, setNotice]);
-  const choosePeriod = useCallback((period: SemanticPeriod) => {
-    setSelectedPeriodId(period.id);
-    setSelectedStory(null);
-    setDrawer(null);
-    // 切换时期后回到内容顶端（外壳滚动容器）；避免新时期残留在旧滚动位置。
-    document.querySelector<HTMLElement>(".history-pane")?.scrollTo({ top: 0 });
-  }, []);
   const entityRouteMap: Record<
     SemanticSearchHit["kind"],
     (id: string) => void
@@ -494,6 +488,38 @@ export function HistoryPage({
     };
   })();
 
+  const expandLineage = useCallback(async () => {
+    if (lineageOpen) {
+      setLineageOpen(false);
+      setOpenStageIndex(null);
+      return;
+    }
+    setLineageLoading(true);
+    try {
+      const missing = periods.filter((period) => !periodCache[period.id]);
+      const loaded = await Promise.all(
+        missing.map(async (period) => {
+          const detail = normalizePeriodDetail(
+            await historyClient.periodDetail(period.id),
+          );
+          return detail;
+        }),
+      );
+      setPeriodCache((current) => {
+        const next = { ...current };
+        for (const detail of loaded) {
+          if (detail?.period?.id) next[detail.period.id] = detail;
+        }
+        return next;
+      });
+      setLineageOpen(true);
+    } catch (cause) {
+      setNotice(errorMessage(cause));
+    } finally {
+      setLineageLoading(false);
+    }
+  }, [lineageOpen, periods, periodCache, setNotice]);
+
   const geographyReturnAction = onReturnToGeography ? (
     <button type="button" className="history-v2-return-map" onClick={onReturnToGeography}>
       <MapPin size={15} /> 返回 {returnGeographyName ? `${returnGeographyName}地图` : "地理探索"}
@@ -505,7 +531,7 @@ export function HistoryPage({
       <div className="history-v2-state">
         {geographyReturnAction}
         <div className="history-v2-spinner" />
-        <span>正在载入中国历史时间轴…</span>
+        <span>正在载入中国历史全览…</span>
       </div>
     );
   if (error && !homeStories.length && !periods.length)
@@ -543,7 +569,7 @@ export function HistoryPage({
       </div>
     );
   return (
-    <div className={`history-v2${selectedStory ? " is-reading" : ""}`}>
+    <div className={`history-v2${selectedStory ? " is-reading" : " is-lineage"}`}>
       <header className="history-v2-header">
         <div className="history-v2-brand">
           <span className="history-v2-mark">
@@ -610,50 +636,55 @@ export function HistoryPage({
       ) : (
         <>
           {selectedPeriod ? (
-            <EraTimeline
+            <HistoryLineage
               periods={periods}
-              currentId={selectedPeriod.id}
-              onSelect={choosePeriod}
+              selectedId={selectedPeriod.id}
+              openStageIndex={openStageIndex}
+              lineageOpen={lineageOpen}
+              lineageLoading={lineageLoading}
+              details={periodCache}
+              onSelectPeriod={(id) => {
+                setSelectedPeriodId(id);
+                setOpenStageIndex(null);
+                setDrawer(null);
+              }}
+              onSelectStage={(periodId, stageIndex) => {
+                setSelectedPeriodId(periodId);
+                setOpenStageIndex((current) =>
+                  current === stageIndex && selectedPeriodId === periodId
+                    ? null
+                    : stageIndex,
+                );
+              }}
+              onOpenEvent={(id) => void loadEvent(id)}
+              onToggleLineage={() => void expandLineage()}
+              onOpenPerson={(id) => void loadPerson(id)}
             />
-          ) : null}
-          {selectedPeriod && periodDetail?.period?.id === selectedPeriod.id ? (
-            <>
-              <PeriodDetail
-                period={selectedPeriod}
-                allPeriods={periods}
-                storyCounts={storyCountsByPeriod}
-                detail={periodDetail}
-                onSelectPeriod={choosePeriod}
-                onOpenEvent={(id) => void loadEvent(id)}
-                onOpenPerson={(id) => void loadPerson(id)}
-              />
-              {stories.some((story) => story.usable !== false) ? (
-                <section className="history-v2-stories">
-                  <div className="history-v2-section-label">
-                    <span className="history-v2-section-title">精选典故</span>
-                    <small>
-                      {stories.filter((story) => story.usable !== false).length}{" "}
-                      条可阅读
-                    </small>
-                  </div>
-                  <div className="history-v2-story-list">
-                    {stories
-                      .filter((story) => story.usable !== false)
-                      .map((story, index) => (
-                        <StoryCard
-                          key={story.id}
-                          story={story}
-                          index={index}
-                          onOpen={() => void loadStory(story.id)}
-                        />
-                      ))}
-                  </div>
-                </section>
-              ) : null}
-            </>
           ) : (
-            <div className="history-v2-state">正在整理时期信息…</div>
+            <div className="history-v2-state">没有可展示的历史时期。</div>
           )}
+          {stories.some((story) => story.usable !== false) ? (
+            <section className="history-v2-stories">
+              <div className="history-v2-section-label">
+                <span className="history-v2-section-title">精选典故</span>
+                <small>
+                  {stories.filter((story) => story.usable !== false).length} 条可阅读
+                </small>
+              </div>
+              <div className="history-v2-story-list">
+                {stories
+                  .filter((story) => story.usable !== false)
+                  .map((story, index) => (
+                    <StoryCard
+                      key={story.id}
+                      story={story}
+                      index={index}
+                      onOpen={() => void loadStory(story.id)}
+                    />
+                  ))}
+              </div>
+            </section>
+          ) : null}
           {drawer ? (
             <DetailDrawer
               drawer={drawer}
@@ -762,7 +793,7 @@ function StoryReader({
     <div className="history-v2-reader">
       <button type="button" className="history-v2-back" onClick={onBack}>
         <ArrowLeft size={16} />
-        返回时间轴
+        返回全览
       </button>
       <header className="history-v2-story-hero">
         <div>

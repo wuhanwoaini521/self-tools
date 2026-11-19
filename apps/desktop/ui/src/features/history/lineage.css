@@ -1,0 +1,319 @@
+.history-v2.is-lineage {
+  padding-bottom: 48px;
+}
+
+.history-lineage {
+  max-width: 1320px;
+  margin: 0 auto;
+  color: var(--history-v2-ink, var(--text));
+}
+
+.history-lineage-toolbar {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  margin: 8px 0 28px;
+}
+
+.history-lineage-toolbar p {
+  margin: 0;
+  color: var(--history-v2-muted, var(--muted));
+  font-size: 13px;
+}
+
+.history-lineage-toggle {
+  border: 0;
+  background: transparent;
+  color: var(--history-v2-accent, var(--accent));
+  padding: 0;
+  font: inherit;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  text-decoration-thickness: 1px;
+}
+
+.history-lineage-toggle:hover:not(:disabled) {
+  color: var(--history-v2-accent-ink, var(--accent-hover));
+}
+
+.history-lineage-toggle:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+.history-lineage-scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  padding: 0 4px 8px;
+  scrollbar-width: thin;
+}
+
+.history-lineage-track {
+  position: relative;
+  min-width: min-content;
+  padding: 0 20px 6px;
+}
+
+.history-lineage-spine {
+  position: absolute;
+  left: 36px;
+  right: 36px;
+  top: 76px;
+  height: 1px;
+  background: color-mix(in srgb, var(--history-v2-ink, var(--text)) 22%, transparent);
+  pointer-events: none;
+}
+
+.history-lineage-eras {
+  display: flex;
+  align-items: flex-start;
+  gap: 36px;
+}
+
+.history-lineage-era {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.history-lineage-era-label {
+  height: 22px;
+  margin: 0 0 18px;
+  color: var(--history-v2-muted, var(--muted));
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  white-space: nowrap;
+}
+
+.history-lineage-rail {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.history-lineage-period {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 96px;
+}
+
+.history-lineage-period.is-open {
+  width: 168px;
+}
+
+.history-lineage-node {
+  display: grid;
+  grid-template-rows: 28px 16px 32px;
+  justify-items: center;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.history-lineage-node:hover strong {
+  color: var(--history-v2-accent, var(--accent));
+}
+
+.history-lineage-node strong {
+  align-self: end;
+  font-family: Georgia, "Noto Serif SC", "Songti SC", serif;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.04em;
+}
+
+.history-lineage-dot {
+  width: 7px;
+  height: 7px;
+  margin-top: 4px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--history-v2-ink, var(--text)) 45%, transparent);
+}
+
+.history-lineage-period.is-current .history-lineage-dot {
+  width: 9px;
+  height: 9px;
+  background: var(--history-v2-accent, var(--accent));
+}
+
+.history-lineage-node small {
+  color: var(--history-v2-muted, var(--muted));
+  font-size: 11px;
+  line-height: 1.25;
+  text-align: center;
+}
+
+.history-lineage-branch {
+  position: relative;
+  width: 100%;
+  margin-top: 4px;
+  padding: 8px 0 4px;
+}
+
+.history-lineage-branch::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 10px;
+  width: 1px;
+  background: color-mix(in srgb, var(--history-v2-ink, var(--text)) 16%, transparent);
+}
+
+.history-lineage-stage-wrap {
+  position: relative;
+}
+
+.history-lineage-stage,
+.history-lineage-event {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 9px 8px 8px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: center;
+  cursor: pointer;
+}
+
+.history-lineage-stage::before,
+.history-lineage-event::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  width: 5px;
+  height: 5px;
+  margin: -2px 0 0 -2px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--history-v2-ink, var(--text)) 28%, transparent);
+}
+
+.history-lineage-stage {
+  position: relative;
+}
+
+.history-lineage-stage strong,
+.history-lineage-event strong {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+.history-lineage-stage span,
+.history-lineage-event span {
+  display: block;
+  margin-top: 2px;
+  color: var(--history-v2-muted, var(--muted));
+  font-size: 11px;
+}
+
+.history-lineage-stage.is-current strong {
+  color: var(--history-v2-accent, var(--accent));
+}
+
+.history-lineage-stage.is-current::before {
+  background: var(--history-v2-accent, var(--accent));
+}
+
+.history-lineage-events {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0 0 6px;
+}
+
+.history-lineage-event {
+  position: relative;
+  opacity: 0.9;
+}
+
+.history-lineage-event:hover strong,
+.history-lineage-stage:hover strong {
+  color: var(--history-v2-accent, var(--accent));
+}
+
+.history-lineage-pending {
+  display: block;
+  padding: 12px 0;
+  color: var(--history-v2-muted, var(--muted));
+  font-size: 12px;
+  text-align: center;
+}
+
+.history-lineage-focus {
+  margin-top: 36px;
+  padding-top: 22px;
+  border-top: 1px solid var(--history-v2-line, var(--line));
+}
+
+.history-lineage-focus-kicker {
+  color: var(--history-v2-muted, var(--muted));
+  font-size: 11px;
+  letter-spacing: 0.16em;
+}
+
+.history-lineage-focus h2 {
+  margin: 8px 0 6px;
+  font-family: Georgia, "Noto Serif SC", "Songti SC", serif;
+  font-size: 40px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  line-height: 1.1;
+}
+
+.history-lineage-focus-years {
+  margin: 0 0 14px;
+  color: var(--history-v2-muted, var(--muted));
+  font-size: 13px;
+}
+
+.history-lineage-focus-intro {
+  margin: 0 0 16px;
+  max-width: 46em;
+  line-height: 1.7;
+  color: var(--history-v2-ink-soft, var(--text));
+}
+
+.history-lineage-people {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 18px;
+}
+
+.history-lineage-people button {
+  border: 0;
+  background: transparent;
+  color: var(--history-v2-ink, var(--text));
+  padding: 0;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.history-lineage-people button:hover {
+  color: var(--history-v2-accent, var(--accent));
+}
+
+@media (max-width: 720px) {
+  .history-lineage-focus h2 {
+    font-size: 30px;
+  }
+  .history-lineage-period,
+  .history-lineage-period.is-open {
+    width: 108px;
+  }
+}
