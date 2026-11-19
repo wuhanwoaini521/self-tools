@@ -29,19 +29,9 @@ export interface TravelClient {
   ): Promise<CityGuide | null>;
   getPlan(context: TravelPlanContext): Promise<TravelPlan | null>;
   savePlan(plan: TravelPlan): Promise<TravelPlan>;
-  testLlm(request: {
-    baseUrl: string;
-    apiKey: string | null;
-    model: string;
-  }): Promise<string>;
-  testAmap(request: {
-    apiKey: string | null;
-    apiHost: string | null;
-  }): Promise<string>;
-  testQweather(request: {
-    apiKey: string | null;
-    apiHost: string | null;
-  }): Promise<string>;
+  testLlm(): Promise<string>;
+  testAmap(): Promise<string>;
+  testQweather(): Promise<string>;
 }
 
 export function isTravelPlanConflict(error: unknown): boolean {
@@ -74,12 +64,9 @@ export function createTravelClient(
       transport.invoke<TravelPlan | null>("travel_plan_get", { context }),
     savePlan: (plan) =>
       transport.invoke<TravelPlan>("travel_plan_save", { plan }),
-    testLlm: (request) =>
-      transport.invoke<string>("test_travel_llm", { request }),
-    testAmap: (request) =>
-      transport.invoke<string>("test_travel_amap", { request }),
-    testQweather: (request) =>
-      transport.invoke<string>("test_travel_qweather", { request }),
+    testLlm: () => transport.invoke<string>("test_travel_llm"),
+    testAmap: () => transport.invoke<string>("test_travel_amap"),
+    testQweather: () => transport.invoke<string>("test_travel_qweather"),
   };
 }
 

@@ -1,7 +1,7 @@
 //! AI 与设置的 HTTP 接口（网页端）。
 //!
 //! 网页端通过同一组合根 PersonalAgent 访问数据：
-//! - `GET /api/v1/settings` 只返回脱敏状态；
+//! - `GET /api/v1/settings` 返回 `PublicAppSettings`（无密钥值）；
 //! - `POST /api/v1/settings` 拒绝写入，直到管理 API 有独立认证边界；
 //! - AI chat、运行取消、Travel proposal 确认/取消均委派给运行时。
 //!
@@ -11,7 +11,7 @@ use std::future::Future;
 use std::sync::Arc;
 
 use devtoolbox_core::personal_ai::types::AgentRequest;
-use devtoolbox_core::settings::{AppSettings, SecretSettingsStatus};
+use devtoolbox_core::settings::AppSettings;
 use devtoolbox_core::{AgentError, AgentResponse, ModuleDescriptor, ToolSpec};
 use serde::{Deserialize, Serialize};
 
@@ -24,7 +24,7 @@ pub struct ApiError {
 
 impl axum::response::IntoResponse for ApiError {
     fn into_response(self) -> axum::response::Response {
-        const BAD_REQUEST_CODES: [&str; 8] = [
+        const BAD_REQUEST_CODES: [&str; 12] = [
             "invalid",
             "ai_not_configured",
             "language_invalid_mark",
@@ -33,6 +33,10 @@ impl axum::response::IntoResponse for ApiError {
             "study_board_invalid",
             "travel_plan_invalid",
             "travel_plan_proposal_invalid",
+            "travel_amap_not_configured",
+            "travel_qweather_not_configured",
+            "travel_llm_test_failed",
+            "travel_qweather_test_failed",
         ];
         let status = match self.code {
             "not_found" => axum::http::StatusCode::NOT_FOUND,
@@ -53,11 +57,12 @@ pub trait SettingsAccess: Send + Sync {
     fn load(&self) -> AppSettings;
 }
 
-/// Public HTTP view: configuration status only; no credentials, paths, or admin settings.
+/// Public HTTP view: `PublicAppSettings` plus `ai_configured`. No credentials.
 #[derive(Debug, Serialize)]
 pub struct SettingsStatus {
     pub ai_configured: bool,
-    pub secrets: SecretSettingsStatus,
+    #[serde(flatten)]
+    pub public: devtoolbox_core::settings::PublicAppSettings,
 }
 
 /// `GET /api/v1/settings`
@@ -65,10 +70,9 @@ pub async fn get_settings(
     axum::Extension(store): axum::Extension<Arc<dyn SettingsAccess>>,
 ) -> Result<axum::Json<SettingsStatus>, ApiError> {
     let settings = store.load();
-    let public = settings.public_view();
     Ok(axum::Json(SettingsStatus {
         ai_configured: settings.ai.is_configured(),
-        secrets: public.secrets,
+        public: settings.public_view(),
     }))
 }
 

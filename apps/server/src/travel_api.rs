@@ -220,27 +220,7 @@ pub async fn travel_plan_save(
     Ok(Json(saved))
 }
 
-// ---- 连通性测试（与桌面端 test_travel_* 同语义）----
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct LlmTestBody {
-    pub base_url: String,
-    pub api_key: Option<String>,
-    pub model: String,
-}
-
-#[derive(Deserialize)]
-pub struct AmapTestBody {
-    pub api_key: String,
-}
-
-#[derive(Deserialize)]
-pub struct QweatherTestBody {
-    pub api_key: String,
-    #[serde(alias = "host", alias = "apiHost")]
-    pub api_host: String,
-}
+// ---- 连通性测试：只用后端已保存的凭据，请求体不得携带密钥 ----
 
 /// 连通性测试：与桌面端 `test_travel_*` 用**同一套 provider 与同一句判词**，
 /// 避免「桌面说通、网页说不通」这种漂移。
@@ -248,15 +228,41 @@ fn travel_test_error(code: &'static str, message: String) -> crate::ai_api::ApiE
     crate::ai_api::ApiError { code, message }
 }
 
+fn stored_settings(
+    deps: &TravelDeps,
+) -> Result<devtoolbox_core::settings::AppSettings, crate::ai_api::ApiError> {
+    (deps.settings_loader)().map_err(|error| err("settings_error", error))
+}
+
+fn require_saved(
+    value: Option<String>,
+    code: &'static str,
+    message: &str,
+) -> Result<String, crate::ai_api::ApiError> {
+    value
+        .filter(|value| !value.trim().is_empty())
+        .ok_or_else(|| travel_test_error(code, message.to_string()))
+}
+
 pub async fn test_travel_llm(
     Extension(deps): Extension<Arc<TravelDeps>>,
-    Json(body): Json<LlmTestBody>,
 ) -> Result<Json<String>, crate::ai_api::ApiError> {
+    let travel = stored_settings(&deps)?.travel;
+    let base_url = require_saved(
+        travel.llm_base_url,
+        "travel_llm_test_failed",
+        "请先保存 Travel LLM Base URL",
+    )?;
+    let model = require_saved(
+        travel.llm_model,
+        "travel_llm_test_failed",
+        "请先保存 Travel LLM 模型名",
+    )?;
     let provider = devtoolbox_infrastructure::travel::providers::llm_test_provider(
         &deps.client,
-        body.base_url,
-        body.api_key,
-        body.model,
+        base_url,
+        travel.llm_api_key,
+        model,
     );
     let answer = provider
         .chat(devtoolbox_core::ChatRequest {
@@ -281,12 +287,14 @@ pub async fn test_travel_llm(
 
 pub async fn test_travel_amap(
     Extension(deps): Extension<Arc<TravelDeps>>,
-    Json(body): Json<AmapTestBody>,
 ) -> Result<Json<String>, crate::ai_api::ApiError> {
-    let provider = devtoolbox_infrastructure::travel::providers::amap_test_provider(
-        &deps.client,
-        body.api_key,
-    );
+    let key = require_saved(
+        stored_settings(&deps)?.travel.amap_api_key,
+        "travel_amap_not_configured",
+        "请先在设置中保存高德 Key，再测试连接",
+    )?;
+    let provider =
+        devtoolbox_infrastructure::travel::providers::amap_test_provider(&deps.client, key);
     let facts = provider
         .fetch(devtoolbox_core::travel::TravelDataRequest {
             city: "北京".to_string(),
@@ -302,18 +310,22 @@ pub async fn test_travel_amap(
 
 pub async fn test_travel_qweather(
     Extension(deps): Extension<Arc<TravelDeps>>,
-    Json(body): Json<QweatherTestBody>,
 ) -> Result<Json<String>, crate::ai_api::ApiError> {
-    if body.api_host.trim().is_empty() {
-        return Err(travel_test_error(
-            "travel_qweather_test_failed",
-            "请先填写和风天气 API Host".to_string(),
-        ));
-    }
+    let travel = stored_settings(&deps)?.travel;
+    let host = require_saved(
+        travel.qweather_api_host,
+        "travel_qweather_test_failed",
+        "请先保存和风天气 API Host",
+    )?;
+    let key = require_saved(
+        travel.qweather_api_key,
+        "travel_qweather_not_configured",
+        "请先在设置中保存和风天气 Key，再测试连接",
+    )?;
     let provider = devtoolbox_infrastructure::travel::providers::qweather_test_provider(
         &deps.client,
-        body.api_key,
-        body.api_host,
+        key,
+        host,
     );
     let facts = provider
         .fetch(devtoolbox_core::travel::TravelDataRequest {

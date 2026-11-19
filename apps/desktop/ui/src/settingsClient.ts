@@ -5,7 +5,7 @@
  * 设置表单校验、主题逻辑、provider 选择等 UI 状态不属于本 client。
  */
 import type { CommandTransport } from "./transport";
-import { tauriTransport } from "./transport";
+import { defaultTransport } from "./transport";
 import type {
   AppSettings,
   SecretSettingsStatus,
@@ -19,7 +19,7 @@ export interface SettingsClient {
 }
 
 export function createSettingsClient(
-  transport: CommandTransport = tauriTransport,
+  transport: CommandTransport = defaultTransport,
 ): SettingsClient {
   return {
     get: () => transport.invoke<AppSettings>("get_settings"),

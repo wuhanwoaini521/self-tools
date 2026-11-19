@@ -846,21 +846,6 @@ fn travel_research_start(
     Ok(session_id)
 }
 
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct TravelLlmTestRequest {
-    base_url: String,
-    api_key: Option<String>,
-    model: String,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct TravelKeyTestRequest {
-    api_key: String,
-    api_host: Option<String>,
-}
-
 fn travel_test_error(code: &'static str, error: impl std::fmt::Display) -> CommandError {
     CommandError {
         code,
@@ -868,17 +853,45 @@ fn travel_test_error(code: &'static str, error: impl std::fmt::Display) -> Comma
     }
 }
 
-/// 用当前输入值测试 OpenAI Compatible 连通性；不读取或写入 settings.json。
+fn require_saved_setting(
+    value: Option<String>,
+    code: &'static str,
+    message: &str,
+) -> Result<String, CommandError> {
+    value
+        .filter(|value| !value.trim().is_empty())
+        .ok_or_else(|| CommandError {
+            code,
+            message: message.to_string(),
+        })
+}
+
+/// 用已保存的 Travel LLM 设置测试连通性；不接受客户端传来的密钥。
 #[tauri::command]
 async fn test_travel_llm(
+    app: AppHandle,
     state: State<'_, AppState>,
-    request: TravelLlmTestRequest,
 ) -> Result<String, CommandError> {
+    let travel = load_settings(&devtoolbox_runtime::composition::SettingsStoreAdapter::new(
+        settings_store(&app)?,
+    ))
+    .map_err(CommandError::from)?
+    .travel;
+    let base_url = require_saved_setting(
+        travel.llm_base_url,
+        "travel_llm_test_failed",
+        "请先保存 Travel LLM Base URL",
+    )?;
+    let model = require_saved_setting(
+        travel.llm_model,
+        "travel_llm_test_failed",
+        "请先保存 Travel LLM 模型名",
+    )?;
     let provider = devtoolbox_runtime::travel_providers::llm_test_provider(
         &state.client,
-        request.base_url,
-        request.api_key,
-        request.model,
+        base_url,
+        travel.llm_api_key,
+        model,
     );
     let answer = provider
         .chat(devtoolbox_core::ChatRequest {
@@ -901,14 +914,23 @@ async fn test_travel_llm(
     ))
 }
 
-/// 用当前高德 Key 执行一条北京 POI 查询；不写入 settings.json。
+/// 用已保存的高德 Key 执行一条北京 POI 查询；不接受客户端传来的密钥。
 #[tauri::command]
 async fn test_travel_amap(
+    app: AppHandle,
     state: State<'_, AppState>,
-    request: TravelKeyTestRequest,
 ) -> Result<String, CommandError> {
-    let provider =
-        devtoolbox_runtime::travel_providers::amap_test_provider(&state.client, request.api_key);
+    let key = require_saved_setting(
+        load_settings(&devtoolbox_runtime::composition::SettingsStoreAdapter::new(
+            settings_store(&app)?,
+        ))
+        .map_err(CommandError::from)?
+        .travel
+        .amap_api_key,
+        "travel_amap_not_configured",
+        "请先在设置中保存高德 Key，再测试连接",
+    )?;
+    let provider = devtoolbox_runtime::travel_providers::amap_test_provider(&state.client, key);
     let facts = provider
         .fetch(TravelDataRequest {
             city: "北京".to_string(),
@@ -919,24 +941,29 @@ async fn test_travel_amap(
     Ok(format!("高德连接成功（北京 POI 返回 {} 条）", facts.len()))
 }
 
-/// 用当前和风 API Host 与 Key 查询北京三日天气；不写入 settings.json。
+/// 用已保存的和风 API Host 与 Key 查询北京三日天气；不接受客户端传来的密钥。
 #[tauri::command]
 async fn test_travel_qweather(
+    app: AppHandle,
     state: State<'_, AppState>,
-    request: TravelKeyTestRequest,
 ) -> Result<String, CommandError> {
-    let host = request
-        .api_host
-        .filter(|host| !host.trim().is_empty())
-        .ok_or_else(|| CommandError {
-            code: "travel_qweather_test_failed",
-            message: "请先填写和风天气 API Host".to_string(),
-        })?;
-    let provider = devtoolbox_runtime::travel_providers::qweather_test_provider(
-        &state.client,
-        request.api_key,
-        host,
-    );
+    let travel = load_settings(&devtoolbox_runtime::composition::SettingsStoreAdapter::new(
+        settings_store(&app)?,
+    ))
+    .map_err(CommandError::from)?
+    .travel;
+    let host = require_saved_setting(
+        travel.qweather_api_host,
+        "travel_qweather_test_failed",
+        "请先保存和风天气 API Host",
+    )?;
+    let key = require_saved_setting(
+        travel.qweather_api_key,
+        "travel_qweather_not_configured",
+        "请先在设置中保存和风天气 Key，再测试连接",
+    )?;
+    let provider =
+        devtoolbox_runtime::travel_providers::qweather_test_provider(&state.client, key, host);
     let facts = provider
         .fetch(TravelDataRequest {
             city: "北京".to_string(),
