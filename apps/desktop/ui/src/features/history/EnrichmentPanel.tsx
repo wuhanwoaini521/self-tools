@@ -215,9 +215,6 @@ function EnrichmentRow({
     return (
       <div className="history-enrichment-row">
         <span className="history-enrichment-label">{label}</span>
-        <span className={`history-enrichment-state ${state.toLowerCase()}`}>
-          {STATE_LABEL[state]}
-        </span>
         <button
           type="button"
           className="history-enrichment-action"

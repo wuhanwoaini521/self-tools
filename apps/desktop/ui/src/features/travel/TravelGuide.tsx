@@ -60,8 +60,10 @@ import type {
   WeatherForecast,
 } from "../../types";
 import { errorMessage, formatDateTime, isTauriRuntime } from "../../utils";
-import { geographyClient } from "../geography/geographyClient";
-import { explorationClient, type LocationHistoryContext } from "../exploration/explorationClient";
+import {
+  explorationClient,
+  type LocationHistoryContext,
+} from "../exploration/explorationClient";
 import {
   clearPendingTravelPlanIfUnchanged,
   pendingTravelPlanStorageKey,
@@ -832,7 +834,7 @@ export function TravelGuide({
     setGeographyContextError(null);
     setLocationContexts([]);
     setContextLoading(true);
-    void geographyClient.search(city.name, null, 10).then(
+    void explorationClient.searchGeography(city.name, 10).then(
       async (groups) => {
         if (cancelled) return;
         setGeographyContext(groups);

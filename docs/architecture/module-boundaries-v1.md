@@ -114,3 +114,10 @@ Home 与 Review 是独立的产品能力，但职责不同于叶子业务模块�
 ## 7. 与当前改动的关系
 
 本路线以当前工作树为基线，不重写或覆盖已有未提交的 Windows、Travel 和其他改动。后续每个模块迁移都必须先读取当时的 diff，限定触及范围，并在完成时明确报告局部验证结果；未执行全量验证时不得宣称全仓通过。
+
+## 8. 增量迁移记录（2026-11-19）
+
+- Home 页面改为调用自身的只读 `homeClient` 聚合接口；页面不再直接导入 Learning、News、Travel clients 或 RSS 内容清洗函数。Home client 将新闻 DTO 映射为 Home 摘要模型，再交给页面渲染。当前仍由前端聚合多个公开模块 client，尚未迁为独立的后端 Home dashboard API。
+- Geography 与 Travel 不再直接调用对方或 History 的 client。地点历史查询、历史故事详情和 Travel 所需地理搜索统一通过 `features/exploration/explorationClient.ts`；History 与 Geography 仍分别持有各自 API 和事实源，Exploration 只负责跨域查询适配。
+- Language 课程重导入会保留已有 `user_mark`，并对同一 `(word, source_type, source_id)` 的词频记录做幂等写入。这是 Language 模块自身持久化行为，不改变公开 API 命令名。
+- 下一步仍需处理 Geography 对 Learning 收藏 UI/client 的集成，并继续审查 Settings 与 shell 中的模块装配、News/RSS 共用内容处理和其余跨模块 DTO。

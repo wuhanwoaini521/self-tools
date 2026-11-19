@@ -250,6 +250,7 @@ export function StudyCardSession({
   const [done, setDone] = useState(0);
   const [wrong, setWrong] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [retryKind, setRetryKind] = useState<"know" | "again" | "review" | null>(null);
 
   const queue = useAsyncPanel<StudyCard[]>(
     () => languageClient.studyQueue(language, 20),
@@ -272,6 +273,7 @@ export function StudyCardSession({
     setDone(0);
     setWrong([]);
     setError(null);
+    setRetryKind(null);
   }, [queue.data]);
 
   const cards = queue.data ?? [];
@@ -292,8 +294,10 @@ export function StudyCardSession({
     if (!card || busy) return;
     setBusy(true);
     setError(null);
+    setRetryKind("know");
     try {
       await languageClient.recordStudy(card.item.id, "study");
+      setRetryKind(null);
       setDone((count) => count + 1);
       advance();
     } catch (err) {
@@ -308,9 +312,12 @@ export function StudyCardSession({
     if (!card || busy) return;
     setBusy(true);
     setError(null);
+    setRetryKind("again");
     try {
       await languageClient.recordStudy(card.item.id, "view");
+      setRetryKind("review");
       await languageClient.addToReview(card.item.id);
+      setRetryKind(null);
       setWrong((list) => [...list, card.item.content]);
       advance();
     } catch (err) {
@@ -319,6 +326,28 @@ export function StudyCardSession({
       setBusy(false);
     }
   }, [card, busy, advance]);
+
+  const retryReview = useCallback(async () => {
+    if (!card || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await languageClient.addToReview(card.item.id);
+      setRetryKind(null);
+      setWrong((list) => [...list, card.item.content]);
+      advance();
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  }, [advance, busy, card]);
+
+  const retry = () => {
+    if (retryKind === "again") void again();
+    else if (retryKind === "review") void retryReview();
+    else void know();
+  };
 
   const summary = useMemo(
     () => `本轮 ${done} 会 · ${wrong.length} 不会`,
@@ -362,8 +391,8 @@ export function StudyCardSession({
       {error ? (
         <p className="lang-inline-error-text">
           {error}
-          <button type="button" className="lang-link" onClick={() => void know()}>
-            重试
+          <button type="button" className="lang-link" onClick={retry}>
+            重试上次操作
           </button>
         </p>
       ) : null}

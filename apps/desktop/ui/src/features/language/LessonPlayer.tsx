@@ -171,14 +171,8 @@ export function LessonPlayer({
       <FocusMode
         target={target}
         position={{ index, total: items.length }}
-        onKnow={() => {
-          // 这两个调用失败必须可见：否则「记住了」点下去没反应、
-          // 「加入复习」失败后用户以为已加入，下次复习根本不会见到它。
-          void languageClient
-            .recordStudy(current.id, "complete")
-            .catch((err: unknown) => setSaveError(errorMessage(err)));
-          goTo(index + 1);
-        }}
+        // FocusMode owns the completion record; this callback only advances the lesson.
+        onKnow={() => goTo(index + 1)}
         onNeedReview={() => {
           void languageClient
             .addToReview(current.id)

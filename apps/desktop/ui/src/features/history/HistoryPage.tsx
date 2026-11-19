@@ -4,7 +4,6 @@ import {
   BookOpen,
   CalendarBlank,
   CaretRight,
-  CheckCircle,
   Clock,
   Funnel,
   MagnifyingGlass,
@@ -15,7 +14,7 @@ import {
   WarningCircle,
   X,
 } from "@phosphor-icons/react";
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { AppContextPayload } from "../ai/aiTypes";
 import { errorMessage } from "../../utils";
 import { historyClient } from "./historyClient";
@@ -25,6 +24,8 @@ import { SaveToCollection } from "../learning/SaveToCollection";
 import { EnrichmentPanel } from "./EnrichmentPanel";
 import { EraTimeline } from "./EraTimeline";
 import { PeriodDetail } from "./PeriodDetail";
+import { parseEvidenceNote } from "./evidenceText";
+import { storyTypeLabel } from "./periodDetailHelpers";
 import type {
   SemanticEventDetail,
   SemanticEventEvidence,
@@ -324,6 +325,14 @@ export function HistoryPage({
   }, [active, homeLoaded, loadHome]);
   const periods = home.periods;
   const homeStories = home.stories;
+  const storyCountsByPeriod = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const story of homeStories) {
+      if (!story.period_id) continue;
+      counts[story.period_id] = (counts[story.period_id] ?? 0) + 1;
+    }
+    return counts;
+  }, [homeStories]);
   const selectedPeriod =
     periods.find((period) => period.id === selectedPeriodId) ??
     periods[0] ??
@@ -612,6 +621,7 @@ export function HistoryPage({
               <PeriodDetail
                 period={selectedPeriod}
                 allPeriods={periods}
+                storyCounts={storyCountsByPeriod}
                 detail={periodDetail}
                 onSelectPeriod={choosePeriod}
                 onOpenEvent={(id) => void loadEvent(id)}
@@ -620,10 +630,10 @@ export function HistoryPage({
               {stories.some((story) => story.usable !== false) ? (
                 <section className="history-v2-stories">
                   <div className="history-v2-section-label">
-                    <span className="history-v2-section-title">精选 Story</span>
+                    <span className="history-v2-section-title">精选典故</span>
                     <small>
                       {stories.filter((story) => story.usable !== false).length}{" "}
-                      条可阅读 Story
+                      条可阅读
                     </small>
                   </div>
                   <div className="history-v2-story-list">
@@ -677,7 +687,6 @@ function StoryCard({
   index: number;
   onOpen: () => void;
 }) {
-  const quality = qualityLabel(story.quality_status);
   return (
     <div
       role="button"
@@ -693,28 +702,13 @@ function StoryCard({
     >
       <span className="history-v2-story-index">0{index + 1}</span>
       <div className="history-v2-story-card-main">
-        <span className="history-v2-kicker">
-          {story.story_type || "HISTORICAL STORY"}
-        </span>
+        <span className="history-v2-kicker">{storyTypeLabel(story.story_type)}</span>
         <h3>{story.title_zh_cn}</h3>
         <p>{story.summary_zh_cn || "这条历史故事正在整理中。"}</p>
         <div className="history-v2-story-meta">
           <span>
             <Clock size={14} />
             {rangeText(story.start_year, story.end_year)}
-          </span>
-          <span className="history-v2-quality">
-            {quality ? (
-              <>
-                <WarningCircle size={14} />
-                {quality}
-              </>
-            ) : (
-              <>
-                <SealCheck size={14} />
-                已通过 QA
-              </>
-            )}
           </span>
         </div>
       </div>
@@ -773,7 +767,7 @@ function StoryReader({
       <header className="history-v2-story-hero">
         <div>
           <span className="history-v2-kicker">
-            STORY / {story.story.story_type || "CURATED"}
+            典故 · {storyTypeLabel(story.story.story_type)}
           </span>
           <h1>{story.story.title_zh_cn}</h1>
           <p>{story.story.summary_zh_cn}</p>
@@ -793,8 +787,8 @@ function StoryReader({
       <div className="history-v2-reader-layout">
         <main>
           <div className="history-v2-section-label">
-            <span>03 / STORY FLOW</span>
-            <small>按语义层 sequence 阅读</small>
+            <span>事件脉络</span>
+            <small>{story.events.length} 个事件</small>
           </div>
           <ol className="history-v2-flow">
             {story.events.map((event, index) => (
@@ -856,16 +850,14 @@ function StoryReader({
             label="关联地点"
             value={`${places.size} 处`}
           />
-          <StatLine
-            icon={<BookOpen size={17} />}
-            label="史料证据"
-            value={`${Math.max(story.evidences.length, story.historical_texts.length)} 条`}
-          />
+          {Math.max(story.evidences.length, story.historical_texts.length) ? (
+            <StatLine
+              icon={<BookOpen size={17} />}
+              label="史料证据"
+              value={`${Math.max(story.evidences.length, story.historical_texts.length)} 条`}
+            />
+          ) : null}
           <SourceSection sources={story.sources} compact />
-          <div className="history-v2-aside-note">
-            <CheckCircle size={15} />
-            {story.story.usable ? "Story 已通过 Semantic QA" : "Story 正在校验"}
-          </div>
         </aside>
       </div>
       {storyIndex >= 0 && (prevStory || nextStory) ? (
@@ -1087,7 +1079,7 @@ function WorkPanel({
   return (
     <div className="history-v2-drawer-body">
       <div className="history-v2-drawer-hero">
-        <span>WORK / {work.quality_status || "SEMANTIC"}</span>
+        <span>史籍</span>
         <h2>{name}</h2>
         <p>
           {work.title_zh_cn
@@ -1112,7 +1104,7 @@ function WorkPanel({
                   {text.chapter || text.title_zh_cn || "未命名章节"}
                 </strong>
                 <small>
-                  {qualityLabel(text.quality_status) || "已结构化文本"}
+                  {qualityLabel(text.quality_status)}
                   <ArrowRight size={14} />
                 </small>
               </button>
@@ -1163,8 +1155,8 @@ function EventPanel({
         entityId={event.id}
         title={event.name_zh_cn}
       />
-      <DrawerSection title="事件始末" icon={<Clock size={16} />}>
-        {narrative.some(([, text]) => text) ? (
+      {narrative.some(([, text]) => text) ? (
+        <DrawerSection title="事件始末" icon={<Clock size={16} />}>
           <div className="history-v2-narrative">
             {narrative.map(([label, text]) =>
               text ? (
@@ -1175,13 +1167,11 @@ function EventPanel({
               ) : null,
             )}
           </div>
-        ) : (
-          <EmptyInline text="事件始末的史料叙述正在整理中。" />
-        )}
-      </DrawerSection>
+        </DrawerSection>
+      ) : null}
       <EnrichmentPanel eventId={event.id} />
-      <DrawerSection title="参与人物" icon={<UsersThree size={16} />}>
-        {data.people.length ? (
+      {data.people.length ? (
+        <DrawerSection title="参与人物" icon={<UsersThree size={16} />}>
           <div className="history-v2-entity-list">
             {data.people.map((person) => (
               <button
@@ -1194,38 +1184,52 @@ function EventPanel({
               </button>
             ))}
           </div>
-        ) : (
-          <EmptyInline text="当前事件未关联人物。" />
-        )}
-      </DrawerSection>
-      <DrawerSection title="地点" icon={<MapPin size={16} />}>
-        {data.places.length ? (
-          <div className="history-v2-place-list">
-            {data.places.map((place, index) => (
-              <div className="history-v2-place-wrap" key={`${place.event_id}-${index}`}>
-                <PlaceRow
-                  place={place}
-                  eventName={event.name_zh_cn}
-                  onOpen={onOpenPlace}
-                />
-                {place.place_id && place.link_status === "linked" ? (
-                  <button
-                    type="button"
-                    className="history-v2-place-explore"
-                    onClick={() => onNavigateToGeographyPlace(place.place_id!)}
-                  >
-                    在 Geography 打开对应实体
-                  </button>
-                ) : null}
+        </DrawerSection>
+      ) : null}
+      {data.places.length ? (
+        <DrawerSection title="地点" icon={<MapPin size={16} />}>
+          <>
+            {data.places.some(isLinkedPlace) ? (
+              <div className="history-v2-place-list">
+                {data.places
+                  .map((place, index) => ({ place, index }))
+                  .filter(({ place }) => isLinkedPlace(place))
+                  .map(({ place, index }) => (
+                    <div
+                      className="history-v2-place-wrap"
+                      key={`${place.event_id}-${index}`}
+                    >
+                      <PlaceRow
+                        place={place}
+                        eventName={event.name_zh_cn}
+                        onOpen={onOpenPlace}
+                      />
+                      <button
+                        type="button"
+                        className="history-v2-place-explore"
+                        onClick={() => onNavigateToGeographyPlace(place.place_id!)}
+                      >
+                        在地图中查看
+                      </button>
+                    </div>
+                  ))}
               </div>
-            ))}
-          </div>
-        ) : (
-          <EmptyInline text="当前事件未关联地点。" />
-        )}
-      </DrawerSection>
-      <DrawerSection title="前置与后续事件" icon={<ArrowRight size={16} />}>
-        {related.length ? (
+            ) : null}
+            {data.places.some((place) => !isLinkedPlace(place)) ? (
+              <p className="history-v2-place-pending">
+                地名：
+                {data.places
+                  .filter((place) => !isLinkedPlace(place))
+                  .map((place) => place.place_name || place.place_name_raw)
+                  .filter(Boolean)
+                  .join("、")}
+              </p>
+            ) : null}
+          </>
+        </DrawerSection>
+      ) : null}
+      {related.length ? (
+        <DrawerSection title="前置与后续事件" icon={<ArrowRight size={16} />}>
           <div className="history-v2-entity-list">
             {related.map((item) => (
               <button
@@ -1241,23 +1245,19 @@ function EventPanel({
               </button>
             ))}
           </div>
-        ) : (
-          <EmptyInline text="当前事件暂无结构化前后关系。" />
-        )}
-      </DrawerSection>
-      <DrawerSection title="史料证据" icon={<Scroll size={16} />}>
-        {data.evidences.length ? (
+        </DrawerSection>
+      ) : null}
+      {data.evidences.length ? (
+        <DrawerSection title="史料证据" icon={<Scroll size={16} />}>
           <div className="history-v2-evidence-list">
             {data.evidences.map((evidence) => (
               <EvidenceRow key={evidence.id} evidence={evidence} />
             ))}
           </div>
-        ) : (
-          <EmptyInline text="当前事件暂无章节级史料证据。" />
-        )}
-      </DrawerSection>
-      <DrawerSection title="史料全文" icon={<BookOpen size={16} />}>
-        {data.historical_texts.length ? (
+        </DrawerSection>
+      ) : null}
+      {data.historical_texts.length ? (
+        <DrawerSection title="史料全文" icon={<BookOpen size={16} />}>
           <div className="history-v2-text-list">
             {data.historical_texts.map((text) => (
               <button
@@ -1270,16 +1270,14 @@ function EventPanel({
                   {text.chapter || text.title_zh_cn || "进入阅读"}
                 </strong>
                 <small>
-                  {qualityLabel(text.source_quality_status) || "真实关联史料"}
+                  {qualityLabel(text.source_quality_status)}
                   <ArrowRight size={14} />
                 </small>
               </button>
             ))}
           </div>
-        ) : (
-          <EmptyInline text="暂无进入阅读器的全文史料；章节级证据见上。" />
-        )}
-      </DrawerSection>
+        </DrawerSection>
+      ) : null}
       <SourceSection sources={data.sources} />
     </div>
   );
@@ -1382,28 +1380,18 @@ function evidenceRoleLabel(value: string | null | undefined): string {
     (value || "相关文献")
   );
 }
-function evidenceLinkLabel(value: string | null | undefined): string {
-  return (
-    (
-      {
-        linked: "已关联原文",
-        needs_linking: "待关联原文",
-        pending_knowledge: "待知识库解析",
-      } as Record<string, string>
-    )[value || ""] ??
-    (value || "原文关联状态待考")
-  );
-}
 function EvidenceRow({ evidence }: { evidence: SemanticEventEvidence }) {
+  const { quote, note } = parseEvidenceNote(evidence.review_note);
+  const sourceLabel =
+    [evidence.work, evidence.term || evidence.chapter_hint].filter(Boolean).join(" · ") ||
+    "史籍";
   return (
     <article className="history-v2-evidence">
-      <strong>
-        {evidence.work || "史籍"}
-        {evidence.term || evidence.chapter_hint
-          ? ` · ${evidence.term || evidence.chapter_hint}`
-          : ""}
-      </strong>
-      {evidence.review_note ? <p>{evidence.review_note}</p> : null}
+      <strong>{sourceLabel}</strong>
+      {quote ? (
+        <blockquote className="history-v2-evidence-quote">{quote}</blockquote>
+      ) : null}
+      {note ? <p className="history-v2-evidence-note">{note}</p> : null}
       {evidence.chapter_hint && evidence.chapter_hint !== evidence.term ? (
         <small className="history-v2-evidence-chapter">
           篇章：{evidence.chapter_hint}
@@ -1411,13 +1399,12 @@ function EvidenceRow({ evidence }: { evidence: SemanticEventEvidence }) {
       ) : null}
       <div className="history-v2-evidence-meta">
         <span>{evidenceRoleLabel(evidence.evidence_role)}</span>
-        <span>{evidenceLinkLabel(evidence.link_status)}</span>
-        {evidence.quality_status === "reviewed" ? (
-          <span className="is-ok">已复核</span>
-        ) : null}
       </div>
     </article>
   );
+}
+function isLinkedPlace(place: SemanticEventPlace): boolean {
+  return Boolean(place.place_id) && place.link_status === "linked";
 }
 function PlaceRow({
   place,
@@ -1432,20 +1419,18 @@ function PlaceRow({
   return (
     <button
       type="button"
-      className={`history-v2-place-row${!place.place_id || place.link_status === "needs_linking" ? " is-pending" : ""}`}
+      className="history-v2-place-row"
       onClick={() => onOpen(place, eventName)}
     >
       <MapPin size={16} />
       <div>
         <strong>{name}</strong>
         <small>
-          {!place.place_id || place.link_status === "needs_linking"
-            ? "位置待考 / 尚未完成地理关联"
-            : place.modern_name ||
-              place.historical_name ||
-              (place.latitude !== null && place.latitude !== undefined
-                ? `${place.latitude.toFixed(2)}°, ${place.longitude?.toFixed(2)}°`
-                : "历史地点")}
+          {place.modern_name ||
+            place.historical_name ||
+            (place.latitude !== null && place.latitude !== undefined
+              ? `${place.latitude.toFixed(2)}°, ${place.longitude?.toFixed(2)}°`
+              : "")}
         </small>
       </div>
       <CaretRight size={14} />
@@ -1744,15 +1729,16 @@ function SourceSection({
               <strong>
                 {source.dataset || source.source_type || "数据来源"}
               </strong>
-              <span>
-                {source.dataset_version ||
-                  source.snapshot_version ||
-                  "版本未提供"}
-              </span>
-              <small>
-                {source.license || "License 信息见数据说明"} ·{" "}
-                {source.quality || source.quality_status || "质量状态未提供"}
-              </small>
+              {source.dataset_version || source.snapshot_version ? (
+                <span>{source.dataset_version || source.snapshot_version}</span>
+              ) : null}
+              {source.license || source.quality || source.quality_status ? (
+                <small>
+                  {[source.license, source.quality || source.quality_status]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </small>
+              ) : null}
             </article>
           ))}
         </div>

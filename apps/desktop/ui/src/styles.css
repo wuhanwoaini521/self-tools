@@ -10165,8 +10165,150 @@ main.history-v2-period {
  border-color: var(--history-v2-accent);
 }
 .history-v2-era-chip.is-current {
- border-color: var(--history-v2-accent);
- background: var(--history-v2-accent-soft);
+  border-color: var(--history-v2-accent);
+  background: var(--history-v2-accent-soft);
+}
+/* ---------- 朝代长卷：一屏看完 4000 年的时空总览 ---------- */
+.app-shell .history-pane .history-dynasty-strip {
+  margin: 10px 0 6px;
+  padding: 12px 2px 10px;
+  border-top: 1px solid var(--history-v2-line);
+  border-bottom: 1px solid var(--history-v2-line);
+}
+.app-shell .history-pane .history-dynasty-strip .history-dynasty-strip-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+.app-shell .history-pane .history-dynasty-strip .history-dynasty-strip-head span {
+  color: var(--history-v2-accent-ink);
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+}
+.app-shell .history-pane .history-dynasty-strip .history-dynasty-strip-head small {
+  color: var(--history-v2-faint);
+  font-size: 10px;
+}
+.app-shell .history-pane .history-dynasty-strip .history-dynasty-strip-canvas {
+  position: relative;
+  width: 100%;
+}
+.app-shell .history-pane .history-dynasty-strip .history-dynasty-strip-era {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-left: 1px dashed color-mix(in srgb, var(--history-v2-accent) 25%, transparent);
+  background: color-mix(in srgb, var(--history-v2-accent) 4%, transparent);
+  pointer-events: none;
+}
+.app-shell .history-pane .history-dynasty-strip .history-dynasty-strip-era:nth-of-type(even) {
+  background: color-mix(in srgb, var(--history-v2-accent) 8%, transparent);
+}
+.app-shell .history-pane .history-dynasty-strip .history-dynasty-strip-era i {
+  position: absolute;
+  top: 2px;
+  left: 5px;
+  color: var(--history-v2-muted);
+  font-size: 9px;
+  font-style: normal;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+.app-shell .history-pane .history-dynasty-strip .history-dynasty-strip-grid {
+  position: absolute;
+  width: 0;
+  border-left: 1px dashed color-mix(in srgb, var(--history-v2-line) 85%, transparent);
+  pointer-events: none;
+}
+.app-shell .history-pane .history-dynasty-strip .history-dynasty-strip-bar {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  border: 1px solid color-mix(in srgb, var(--history-v2-accent-ink) 55%, transparent);
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--history-v2-accent) 30%, var(--panel));
+  color: var(--history-v2-ink);
+  font: inherit;
+  cursor: pointer;
+  overflow: visible;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease;
+}
+.app-shell .history-pane .history-dynasty-strip .history-dynasty-strip-bar:hover {
+  border-color: var(--history-v2-accent-ink);
+  background: color-mix(in srgb, var(--history-v2-accent) 55%, var(--panel));
+}
+.app-shell .history-pane .history-dynasty-strip .history-dynasty-strip-bar.is-current {
+  border-color: color-mix(in srgb, var(--history-v2-accent-ink) 70%, #0a2a3d);
+  background: color-mix(in srgb, var(--history-v2-accent-ink) 74%, #0a2a3d);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--history-v2-accent-ink) 35%, transparent);
+}
+.app-shell .history-pane .history-dynasty-strip .history-dynasty-strip-bar.is-current .history-dynasty-strip-name {
+  color: #fff;
+  font-weight: 600;
+}
+.app-shell .history-pane .history-dynasty-strip .history-dynasty-strip-bar.is-open-start {
+  border-left-style: dashed;
+  border-left-width: 2px;
+}
+.app-shell .history-pane .history-dynasty-strip .history-dynasty-strip-name {
+  font-family: var(--font-sans);
+  font-size: 10.5px;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+}
+.app-shell .history-pane .history-dynasty-strip .history-dynasty-strip-name.is-outside {
+  position: absolute;
+  left: 0;
+  overflow: visible;
+  color: var(--history-v2-ink);
+  font-size: 9.5px;
+  text-shadow: 0 0 2px var(--panel);
+}
+.app-shell .history-pane .history-dynasty-strip .history-dynasty-strip-name.is-above {
+  top: -12px;
+}
+.app-shell .history-pane .history-dynasty-strip .history-dynasty-strip-name.is-above2 {
+  top: -22px;
+}
+.app-shell .history-pane .history-dynasty-strip .history-dynasty-strip-name.is-below {
+  top: calc(100% + 3px);
+}
+.app-shell .history-pane .history-dynasty-strip .history-dynasty-strip-bar.is-current .history-dynasty-strip-name.is-outside {
+  color: var(--history-v2-accent-ink);
+  font-weight: 600;
+}
+.app-shell .history-pane .history-dynasty-strip .history-dynasty-strip-dot {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--history-v2-accent-ink);
+  box-shadow: 0 0 0 1.5px var(--panel);
+}
+.app-shell .history-pane .history-dynasty-strip .history-dynasty-strip-bar.is-current .history-dynasty-strip-dot {
+  background: #fff;
+}
+.app-shell .history-pane .history-dynasty-strip .history-dynasty-strip-tick {
+  position: absolute;
+  transform: translateX(-50%);
+  color: var(--history-v2-faint);
+  font-size: 9px;
+  white-space: nowrap;
+  pointer-events: none;
 }
 
 /* ---------- Period Header：时代标题 / 简介 / 小型 metadata ---------- */
@@ -11492,10 +11634,26 @@ main.history-v2-period {
  font-weight: 600;
 }
 .history-v2-evidence p {
- margin: 0;
- color: var(--history-v2-muted);
- font-size: 11px;
- line-height: 1.7;
+  margin: 0;
+  color: var(--history-v2-muted);
+  font-size: 11px;
+  line-height: 1.7;
+}
+.history-v2-evidence-quote {
+  margin: 0;
+  padding: 1px 0 1px 11px;
+  border-left: 2px solid color-mix(in srgb, var(--history-v2-accent) 40%, transparent);
+  color: var(--history-v2-ink, inherit);
+  font-family: Georgia, "Noto Serif SC", serif;
+  font-size: 13px;
+  line-height: 1.85;
+  text-align: justify;
+}
+.history-v2-evidence-note {
+  margin: 0;
+  color: var(--history-v2-muted);
+  font-size: 11px;
+  line-height: 1.7;
 }
 .history-v2-evidence-chapter {
  color: var(--history-v2-faint);
@@ -18034,9 +18192,61 @@ main.history-v2-period {
 }
 .lang-daily-text {
  margin: 0;
- font-size: 15px;
- line-height: 1.8;
+ font-size: 13px;
+ line-height: 1.7;
+ color: var(--text-secondary);
+}
+.lang-daily-plan {
+ list-style: none;
+ display: grid;
+ grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+ gap: 8px;
+ margin: 12px 0;
+ padding: 0;
+}
+.lang-daily-plan > li > button {
+ width: 100%;
+ min-height: 58px;
+ display: flex;
+ align-items: center;
+ justify-content: space-between;
+ gap: 12px;
+ padding: 10px 12px;
+ border: 1px solid var(--line-soft);
+ border-radius: var(--radius-control);
+ background: var(--surface-secondary);
  color: var(--text-primary);
+ text-align: left;
+ cursor: pointer;
+}
+.lang-daily-plan > li > button:hover {
+ border-color: var(--accent);
+ background: var(--panel-hover);
+}
+.lang-daily-plan > li > button:focus-visible {
+ outline: 2px solid var(--accent);
+ outline-offset: 2px;
+}
+.lang-plan-copy {
+ min-width: 0;
+ display: flex;
+ flex-direction: column;
+ gap: 3px;
+}
+.lang-plan-copy b {
+ overflow-wrap: anywhere;
+ font-size: 13px;
+ font-weight: 600;
+}
+.lang-plan-copy small,
+.lang-plan-empty {
+ color: var(--text-secondary);
+ font-size: 12px;
+ line-height: 1.5;
+}
+.lang-daily-plan > li > button > svg {
+ flex: 0 0 auto;
+ color: var(--accent);
 }
 .lang-meanings,
 .lang-examples,
@@ -19876,6 +20086,34 @@ main.history-v2-period {
 .en-task-mark {
   color: var(--accent);
   width: 14px;
+  flex: 0 0 14px;
+}
+.en-task-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+.en-task-copy small {
+  color: var(--muted);
+  font: var(--text-caption);
+}
+.en-daily-plan .en-card-head {
+  align-items: center;
+}
+.en-daily-plan .en-card-head > div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.en-task-list .en-link-btn {
+  padding: 0;
+  text-align: left;
+  justify-content: flex-start;
+}
+.en-task-list .en-link-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
 }
 .en-task-list li.is-done .en-task-mark {
   color: var(--success, #27c67b);

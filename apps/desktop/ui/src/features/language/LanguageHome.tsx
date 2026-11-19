@@ -101,8 +101,8 @@ export function LanguageHome({
     <div className="lang-home">
       {/* -------------------------------------------------- Today */}
       <Panel
-        title="今天"
-        hint="来自复习队列、错题与未完成课程"
+        title="今日学习计划"
+        hint="根据到期复习、课程进度与薄弱项整理"
         actions={
           <>
             <button type="button" className="lang-primary" onClick={onStartReview}>
@@ -136,10 +136,63 @@ export function LanguageHome({
             <span>课程进行中</span>
           </li>
         </ul>
+        <ol className="lang-daily-plan">
+          {breakdown.total > 0 ? (
+            <li>
+              <button type="button" onClick={onStartReview}>
+                <span className="lang-plan-copy">
+                  <b>复习 {breakdown.total} 张到期卡片</b>
+                  <small>
+                    {breakdown.overdue > 0
+                      ? `${breakdown.overdue} 张已逾期，优先处理`
+                      : `${breakdown.fresh} 张新卡`}
+                  </small>
+                </span>
+                <ArrowRight size={15} aria-hidden="true" />
+              </button>
+            </li>
+          ) : null}
+          {lessons.data?.[0] ? (
+            <li>
+              <button
+                type="button"
+                onClick={() => onOpenLesson(lessons.data![0].lesson.id)}
+              >
+                <span className="lang-plan-copy">
+                  <b>继续「{lessons.data[0].lesson.title}」</b>
+                  <small>
+                    已完成 {lessons.data[0].completed_steps} / {lessons.data[0].total_steps} 步
+                  </small>
+                </span>
+                <ArrowRight size={15} aria-hidden="true" />
+              </button>
+            </li>
+          ) : weak.data?.[0] ? (
+            <li>
+              <button
+                type="button"
+                onClick={() => onStudyItem(weak.data![0].entity_id)}
+              >
+                <span className="lang-plan-copy">
+                  <b>巩固薄弱项：{weak.data[0].content}</b>
+                  <small>掌握度 {Math.round(weak.data[0].mastery_score)}%</small>
+                </span>
+                <ArrowRight size={15} aria-hidden="true" />
+              </button>
+            </li>
+          ) : null}
+          {breakdown.total === 0 && !lessons.data?.[0] && !weak.data?.[0] ? (
+            <li className="lang-plan-empty">
+              {queue.loading || lessons.loading || weak.loading
+                ? "正在整理今天的学习内容…"
+                : "今天没有到期复习。开始学习新内容后，系统会根据进度继续安排。"}
+            </li>
+          ) : null}
+        </ol>
         <p className="lang-daily-text">
           {breakdown.total > 0
-            ? `今天有 ${breakdown.total} 张卡片到期，其中 ${breakdown.fresh} 张是第一次见。空格揭晓答案，1–4 打分。`
-            : EMPTY_COPY.review}
+            ? `复习完成后继续课程。系统会根据每次复习表现安排下次复习。`
+            : "学习记录与复习安排会随你的学习表现持续更新。"}
         </p>
       </Panel>
 

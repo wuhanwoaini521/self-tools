@@ -84,7 +84,7 @@ export function LanguagePage({
 }: LanguagePageProps & {
   onContextChange?: (ctx: AppContextPayload | null) => void;
 }) {
-  const [tab, setTab] = useState<LanguageTab>("study");
+  const [tab, setTab] = useState<LanguageTab>("home");
   // English 是 Language 的主语言（新概念课程），默认就落在它上面。
   const [language, setLanguage] = useState<LanguageCode>("eng");
   // 栈顶即当前显示的覆盖层；`null` 栈表示没有覆盖层。
@@ -326,7 +326,7 @@ export function LanguagePage({
       <WordDetailView
         itemId={overlay.itemId}
         onClose={() => closeOverlay()}
-        onAskAi={undefined}
+        onAskAi={onAskAi}
         // 收藏后的「已收藏」状态由复习队列推导，详情页只需触发一次刷新。
         onBookmarked={bump}
         onAddToLesson={(id, text) =>

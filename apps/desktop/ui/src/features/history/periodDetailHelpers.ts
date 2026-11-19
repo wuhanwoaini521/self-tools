@@ -25,10 +25,34 @@ export const EVENT_TYPE_LABELS: Record<string, string> = {
   alliance: "联盟",
   reform: "改革",
   "political-military": "军政",
+  "dynastic-transition": "王朝更替",
+  unification: "统一",
+  economic: "经济",
+  migration: "迁徙",
+  disaster: "灾害",
 };
 
 export function eventTypeLabel(value: string | null | undefined): string {
-  return value ? (EVENT_TYPE_LABELS[value] ?? value) : "事件";
+  if (!value) return "事件";
+  return EVENT_TYPE_LABELS[value] ?? "事件";
+}
+
+/** Story 类型标签：与 Story 卡/阅读页的 kicker 共用，避免露出英文枚举 id。 */
+export const STORY_TYPE_LABELS: Record<string, string> = {
+  rebellion: "叛乱",
+  reform: "变法",
+  war: "战争",
+  expansion: "开边",
+  collapse: "崩解",
+  "dynastic-transition": "王朝更替",
+  unification: "统一",
+  "political-military": "军政",
+  conflict: "冲突",
+};
+
+export function storyTypeLabel(value: string | null | undefined): string {
+  if (!value) return "典故";
+  return STORY_TYPE_LABELS[value] ?? "典故";
 }
 
 /** 前进方向的关系动词（用于「↓ 引向 五四运动」一类的主线链）。 */
@@ -230,3 +254,50 @@ export function stageChain(
   if (to === from) to = "时期终点";
   return { from, to };
 }
+
+
+/** 朝代总览分组：把 31 个浏览时期按传统大时代归并（固定顺序，缺项自动跳过）。 */
+export const PERIOD_ERA_GROUPS: { label: string; ids: string[] }[] = [
+  {
+    label: "上古 · 夏商周",
+    ids: ["period-antiquity", "period-xia", "period-shang", "period-western-zhou"],
+  },
+  { label: "春秋战国", ids: ["period-spring-autumn", "period-warring-states"] },
+  {
+    label: "秦汉",
+    ids: [
+      "period-qin",
+      "period-western-han",
+      "period-xin",
+      "period-eastern-han",
+      "period-late-eastern-han",
+    ],
+  },
+  {
+    label: "魏晋南北朝",
+    ids: [
+      "period-three-kingdoms",
+      "period-western-jin",
+      "period-sixteen-kingdoms",
+      "period-eastern-jin",
+      "period-northern-southern",
+    ],
+  },
+  {
+    label: "隋唐五代",
+    ids: ["period-sui", "period-tang", "period-five-dynasties-ten-kingdoms"],
+  },
+  {
+    label: "宋辽金夏",
+    ids: [
+      "period-song-liao-jin",
+      "period-liao",
+      "period-northern-song",
+      "period-western-xia",
+      "period-jin",
+      "period-southern-song",
+    ],
+  },
+  { label: "元明清", ids: ["period-yuan", "period-ming", "period-qing", "period-late-qing"] },
+  { label: "近现代", ids: ["period-modern", "period-republic"] },
+];

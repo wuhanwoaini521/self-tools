@@ -1,7 +1,18 @@
 import type { CommandTransport } from "../../transport";
 import { defaultTransport } from "../../transport";
-import type { GeoEntityDetail } from "../../types";
-import type { SemanticEventDetail } from "../history/semanticTypes";
+import type { GeoEntityDetail, GeoSearchGroup } from "../../types";
+import type {
+  SemanticEventDetail,
+  SemanticStoryDetail,
+} from "../history/semanticTypes";
+
+export type {
+  SemanticEventDetail,
+  SemanticEventEvidence,
+  SemanticEventStory,
+  SemanticStoryDetail,
+  SemanticStoryEvent,
+} from "../history/semanticTypes";
 
 export interface GeoHistoryCrosswalk {
   id: string;
@@ -37,6 +48,8 @@ export interface LocationHistoryContext {
 export interface ExplorationClient {
   locationHistory(geographyEntityId: string): Promise<LocationHistoryContext | null>;
   geographyForHistoryPlace(historyPlaceId: string): Promise<GeoEntityDetail | null>;
+  searchGeography(query: string, limit?: number): Promise<GeoSearchGroup[]>;
+  storyDetail(storyId: string): Promise<SemanticStoryDetail | null>;
 }
 
 export function createExplorationClient(
@@ -47,6 +60,14 @@ export function createExplorationClient(
       transport.invoke<LocationHistoryContext | null>("exploration_location_history", { id }),
     geographyForHistoryPlace: (placeId) =>
       transport.invoke<GeoEntityDetail | null>("exploration_geography_for_history_place", { placeId }),
+    searchGeography: (query, limit = 10) =>
+      transport.invoke<GeoSearchGroup[]>("geography_search", {
+        query,
+        entityType: null,
+        limit,
+      }),
+    storyDetail: (storyId) =>
+      transport.invoke<SemanticStoryDetail | null>("history_semantic_story", { storyId }),
   };
 }
 
