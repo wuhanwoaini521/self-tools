@@ -1,24 +1,10 @@
 import {
   BookOpen,
-  Brain,
-  Cards,
-  Compass,
   DotsThree,
-  FolderSimple,
   Gear,
-  HardDrives,
-  Heartbeat,
-  House,
   MagnifyingGlass,
-  MapTrifold,
   Moon,
-  Newspaper,
-  Notebook,
-  Rss,
-  Scroll,
   Sun,
-  Translate,
-  TreeStructure,
   UserCircle,
   X,
 } from "@phosphor-icons/react";
@@ -26,6 +12,7 @@ import { openPath } from "@tauri-apps/plugin-opener";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SettingsDialog } from "./SettingsDialog";
 import { HomePage } from "./features/home/HomePage";
+import { LearnHubPage } from "./features/learn/LearnHubPage";
 import {
   MarkdownPage,
   type MarkdownIntent,
@@ -74,7 +61,24 @@ import {
   useLayout,
   navigationLayout,
 } from "./layout";
-import { shortcutDigitForPage, useGlobalShortcuts } from "./useGlobalShortcuts";
+import { useGlobalShortcuts } from "./useGlobalShortcuts";
+import {
+  BOTTOM_NAV_IDS,
+  LEARN_SUBNAV,
+  NEWS_SUBNAV,
+  OVERFLOW_NAV_GROUPS,
+  PAGE_IDS,
+  PRIMARY_NAV,
+  isLearnSection,
+  isNewsSection,
+  parseHashPath,
+  primaryNavIdForPage,
+  resolvePrimaryNavigation,
+  shortcutDigitForPage,
+  type PageId,
+  type PrimaryNavId,
+} from "./shell/productNav";
+import "./shell/product-shell.css";
 import { PwaBanner } from "./PwaBanner";
 import type {
   AppSettings,
@@ -87,39 +91,13 @@ import type {
 import { errorMessage, isTauriRuntime } from "./utils";
 
 /**
- * Personal Dashboard 外壳：
- * - 顶栏(品牌 + 全局设置) + 左侧功能导航 + 右侧当前 Feature 页面;
- * - 每个 Feature(Home / Markdown / RSS / Travel / …)保持挂载,切换仅显隐,状态自然保留;
- * - 新增模块 = 新增一个 feature 目录 + 注册一个导航项,外壳不需要感知模块内部。
+ * Self Tools 外壳：顶栏一级（学习 / 旅行 / 资讯）+ 分区子导航。
+ * 各 Feature 保持挂载，切换仅显隐。旧 hash 深链全部保留。
  */
 
-type PageId =
-  | "home"
-  | "review"
-  | "graph"
-  | "collections"
-  | "markdown"
-  | "rss"
-  | "news"
-  | "travel"
-  | "geography"
-  | "history"
-  | "language"
-  | "knowledge"
-  | "study-board"
-  | "server"
-  | "system"
-  | "search";
-
-interface NavItem {
-  id: PageId;
-  label: string;
-  icon: typeof House;
-}
-
-/** 页面 id 集合（hash 路由与导航共用）。 */
 const PAGE_AI_CONTEXT_PAGES: Partial<Record<PageId, readonly string[]>> = {
   home: ["personal-hub"],
+  learn: ["learn-hub"],
   review: ["review-center"],
   graph: ["knowledge-graph"],
   collections: ["collections"],
@@ -127,6 +105,7 @@ const PAGE_AI_CONTEXT_PAGES: Partial<Record<PageId, readonly string[]>> = {
 
 const PAGE_AI_MODULES: Record<PageId, readonly string[]> = {
   home: ["learning"],
+  learn: ["learning"],
   review: ["learning", "knowledge"],
   graph: ["learning", "knowledge"],
   collections: ["learning"],
@@ -143,84 +122,6 @@ const PAGE_AI_MODULES: Record<PageId, readonly string[]> = {
   system: [],
   search: [],
 };
-
-const PAGE_IDS: PageId[] = [
-  "home",
-  "review",
-  "graph",
-  "collections",
-  "markdown",
-  "rss",
-  "news",
-  "travel",
-  "geography",
-  "history",
-  "language",
-  "knowledge",
-  "study-board",
-  "server",
-  "system",
-  "search",
-];
-
-/**
- * 侧边导航分组。
- *
- * 分组只影响呈现，不影响路由：每个条目仍然是独立 hash route，`PAGE_IDS`
- * 与历史深链接全部保持不变。目的是让 16 个入口不再平铺成一层，让用户一眼
- * 看出「学习 / 发现 / 创作 / 知识 / 系统」这几条主线。
- */
-const NAV_GROUPS: Array<{ label: string; items: NavItem[] }> = [
-  {
-    label: "概览",
-    items: [
-      { id: "home", label: "Home", icon: House },
-      { id: "review", label: "Review", icon: Cards },
-    ],
-  },
-  {
-    label: "学习",
-    items: [
-      { id: "history", label: "History", icon: Scroll },
-      { id: "geography", label: "Geography", icon: MapTrifold },
-      { id: "language", label: "Language", icon: Translate },
-      { id: "study-board", label: "Study", icon: Notebook },
-    ],
-  },
-  {
-    label: "发现",
-    items: [
-      { id: "news", label: "News", icon: Newspaper },
-      { id: "rss", label: "RSS", icon: Rss },
-      { id: "travel", label: "Travel", icon: Compass },
-    ],
-  },
-  {
-    label: "创作",
-    items: [
-      { id: "markdown", label: "Markdown", icon: Notebook },
-      { id: "collections", label: "Collections", icon: FolderSimple },
-    ],
-  },
-  {
-    label: "知识",
-    items: [
-      { id: "knowledge", label: "Knowledge", icon: Brain },
-      { id: "graph", label: "Graph", icon: TreeStructure },
-      { id: "search", label: "Search", icon: MagnifyingGlass },
-    ],
-  },
-  {
-    label: "系统",
-    items: [
-      { id: "server", label: "Server", icon: HardDrives },
-      { id: "system", label: "System", icon: Heartbeat },
-    ],
-  },
-];
-
-/** 移动端底部导航只放 4 个一级入口 + 「更多」，其余入口进底部面板。 */
-const BOTTOM_NAV_IDS: PageId[] = ["home", "review", "geography", "language"];
 
 const defaultSettings: AppSettings = {
   schema_version: 1,
@@ -314,11 +215,7 @@ export default function App() {
   // setPage 生效前用初始值 home 覆盖 URL，直链就永远丢了。
   useEffect(() => {
     const rawHash = () => window.location.hash.replace(/^#/, "").trim();
-    const fromHash = (): PageId | null => {
-      const path = rawHash().split("?")[0];
-      if (!path) return null;
-      return (PAGE_IDS as string[]).includes(path) ? (path as PageId) : null;
-    };
+    const fromHash = (): PageId | null => parseHashPath(rawHash());
     const applyTravelPlanIntent = () => {
       const [path, query = ""] = rawHash().split("?");
       if (path !== "travel") return;
@@ -755,7 +652,7 @@ export default function App() {
       } else if (pathPart === "language") {
         const id = params.get("id") || params.get("word");
         openLanguage(id ?? undefined);
-      } else if (pathPart === "news") setPage("news");
+      } else if (pathPart === "news" || pathPart === "learn" || pathPart === "rss") setPage(pathPart);
       else if (pathPart === "study-board" || pathPart === "study") setPage("study-board");
       else if (pathPart === "knowledge") {
         const tab = params.get("tab") as "memory" | "documents" | "files" | null;
@@ -813,7 +710,7 @@ export default function App() {
       setConversationOpen(false);
     }, []),
     onSelectPage: useCallback((targetPage) => {
-      setPage(targetPage);
+      setPage((current) => resolvePrimaryNavigation(current, targetPage));
     }, []),
   });
 
@@ -901,8 +798,15 @@ export default function App() {
     return entityName ?? moduleName;
   }, [activeAiContext]);
 
+  const primaryId = primaryNavIdForPage(page);
+  const infoUnread = unreadTotal + newsUnreadTotal;
+  const goPrimary = (target: PrimaryNavId) => {
+    setPage((current) => resolvePrimaryNavigation(current, target));
+    setMoreOpen(false);
+  };
+
   return (
-    <div className={"app-shell app-shell-" + layout.device}>
+    <div className={"app-shell app-shell-topnav app-shell-" + layout.device}>
       <PwaBanner />
       <header className="app-bar">
         <div
@@ -919,11 +823,30 @@ export default function App() {
             <span className="brand-book" aria-hidden>
               <BookOpen size={26} weight="regular" />
             </span>
-            <strong>DevToolbox</strong>
+            <strong>Self Tools</strong>
           </div>
-          <span className="brand-sticker">self-tools</span>
-          <span className="brand-tag">Personal AI Hub</span>
         </div>
+        <nav className="app-bar-primary" aria-label="主导航">
+          {PRIMARY_NAV.filter((item) => item.id !== "home").map((item) => {
+            const active = primaryId === item.id;
+            const digit = shortcutDigitForPage(item.id);
+            return (
+              <button
+                key={item.id}
+                type="button"
+                className={"app-bar-primary-link" + (active ? " active" : "")}
+                onClick={() => goPrimary(item.id as PrimaryNavId)}
+                aria-current={active ? "page" : undefined}
+              >
+                {item.label}
+                {digit ? <span className="nav-shortcut">⌘{digit}</span> : null}
+                {item.id === "news" && infoUnread > 0 ? (
+                  <b>{infoUnread > 99 ? "99+" : infoUnread}</b>
+                ) : null}
+              </button>
+            );
+          })}
+        </nav>
         <div className="app-bar-actions">
           <button
             className="app-shell-search"
@@ -931,9 +854,20 @@ export default function App() {
             onClick={() => setPage(page === "search" ? "home" : "search")}
           >
             <MagnifyingGlass size={16} />
-            <span className="app-shell-search-placeholder">搜索知识、工具、文档…</span>
+            <span className="app-shell-search-placeholder">搜索…</span>
             <kbd>⌘ K</kbd>
           </button>
+          {navigationLayout(layout) === "side" ? (
+            <button
+              className={"app-bar-gear" + (moreOpen ? " active" : "")}
+              title="更多页面"
+              aria-label="更多页面"
+              aria-expanded={moreOpen}
+              onClick={() => setMoreOpen((open) => !open)}
+            >
+              <DotsThree size={19} weight="bold" />
+            </button>
+          ) : null}
           <button
             className="app-bar-gear"
             title="Settings (⌘,)"
@@ -963,52 +897,39 @@ export default function App() {
           </span>
         </div>
       </header>
-      <div className="app-body">
-        {navigationLayout(layout) === "side" ? (
-        <nav className="app-nav" aria-label="功能导航">
-          {NAV_GROUPS.map((group) => (
-            <div className="app-nav-group" key={group.label}>
-              <span className="app-nav-group-label">{group.label}</span>
-              {group.items.map((item) => (
-                <button
-                  key={item.id}
-                  className={"app-nav-item" + (page === item.id ? " active" : "")}
-                  onClick={() => setPage(item.id)}
-                  // 按钮内含快捷键徽标与未读数，文本节点不是稳定标识；
-                  // 显式 aria-label 同时让读屏只念模块名而不念「⌘1」。
-                  aria-label={item.label}
-                  aria-current={page === item.id ? "page" : undefined}
-                >
-                  <item.icon size={18} />
-                  {item.label}
-                  {shortcutDigitForPage(item.id) ? (
-                    // 按真实快捷键映射渲染，而不是侧边栏顺序：
-                    // Review/Graph/Collections 没有数字快捷键，显示序号会误导。
-                    <span className="nav-shortcut">
-                      ⌘{shortcutDigitForPage(item.id)}
-                    </span>
-                  ) : null}
-                  {item.id === "rss" && unreadTotal > 0 ? (
-                    <b>{unreadTotal > 99 ? "99+" : unreadTotal}</b>
-                  ) : null}
-                  {item.id === "news" && newsUnreadTotal > 0 ? (
-                    <b>{newsUnreadTotal > 99 ? "99+" : newsUnreadTotal}</b>
-                  ) : null}
-                </button>
-              ))}
-            </div>
+      {isLearnSection(page) ? (
+        <nav className="product-subnav" aria-label="学习分区">
+          {LEARN_SUBNAV.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              className={"product-subnav-link" + (page === item.id ? " active" : "")}
+              onClick={() => setPage(item.id)}
+              aria-current={page === item.id ? "page" : undefined}
+            >
+              <item.icon size={15} />
+              {item.label}
+            </button>
           ))}
-          <div className="app-nav-divider" />
-          <button
-            className={"app-nav-item" + (settingsOpen ? " active" : "")}
-            onClick={() => setSettingsOpen(true)}
-          >
-            <Gear size={18} />
-            Settings
-          </button>
-          <footer className="app-nav-footer">Personal Workspace</footer>
         </nav>
-        ) : null}
+      ) : null}
+      {isNewsSection(page) ? (
+        <nav className="product-subnav" aria-label="资讯分区">
+          {NEWS_SUBNAV.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              className={"product-subnav-link" + (page === item.id ? " active" : "")}
+              onClick={() => setPage(item.id)}
+              aria-current={page === item.id ? "page" : undefined}
+            >
+              <item.icon size={15} />
+              {item.label}
+            </button>
+          ))}
+        </nav>
+      ) : null}
+      <div className="app-body">
         <main className="app-content">
           <section
             className={"page-pane" + (page === "home" ? "" : " page-hidden")}
@@ -1019,6 +940,14 @@ export default function App() {
               onOpenNote={openNote}
               onNewNote={newNote}
               onNavigate={navigateToHash}
+            />
+          </section>
+          <section
+            className={"page-pane" + (page === "learn" ? "" : " page-hidden")}
+          >
+            <LearnHubPage
+              active={page === "learn"}
+              onOpen={(module) => setPage(module)}
             />
           </section>
           <section
@@ -1261,17 +1190,15 @@ export default function App() {
         <>
           <nav className="app-bottom-nav" aria-label="主导航">
             {BOTTOM_NAV_IDS.map((id) => {
-              const item = NAV_GROUPS.flatMap((group) => group.items).find((entry) => entry.id === id);
+              const item = PRIMARY_NAV.find((entry) => entry.id === id);
               if (!item) return null;
+              const active = primaryId === item.id;
               return (
                 <button
                   key={item.id}
-                  className={"app-bottom-nav-item" + (page === item.id ? " active" : "")}
-                  onClick={() => {
-                    setPage(item.id);
-                    setMoreOpen(false);
-                  }}
-                  aria-current={page === item.id ? "page" : undefined}
+                  className={"app-bottom-nav-item" + (active ? " active" : "")}
+                  onClick={() => goPrimary(item.id as PrimaryNavId)}
+                  aria-current={active ? "page" : undefined}
                 >
                   <item.icon size={20} />
                   <span>{item.label}</span>
@@ -1288,7 +1215,9 @@ export default function App() {
               <span>更多</span>
             </button>
           </nav>
-          {moreOpen ? (
+        </>
+      ) : null}
+      {moreOpen ? (
             <div className="app-more-backdrop" onClick={() => setMoreOpen(false)}>
               <div
                 id="app-more-sheet"
@@ -1305,7 +1234,7 @@ export default function App() {
                   </button>
                 </div>
                 <div className="app-more-groups">
-                  {NAV_GROUPS.map((group) => (
+                  {OVERFLOW_NAV_GROUPS.map((group) => (
                     <div className="app-more-group" key={group.label}>
                       <span className="app-more-label">{group.label}</span>
                       <div className="app-more-items">
@@ -1363,8 +1292,6 @@ export default function App() {
                 </div>
               </div>
             </div>
-          ) : null}
-        </>
       ) : null}
       {notice ? (
         <button className="toast" onClick={() => setNotice("")}>
