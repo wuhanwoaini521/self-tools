@@ -1,8 +1,14 @@
 /* 七项产品壳：顶栏一级导航 + 分区子导航。不改主题 token，只排版。 */
 
-.app-shell-topnav {
+.app-shell.app-shell-topnav {
   display: flex;
   flex-direction: column;
+  grid-template-rows: none;
+}
+
+.app-shell.app-shell-topnav .app-bar,
+.app-shell.app-shell-topnav .product-subnav {
+  flex: 0 0 auto;
 }
 
 .app-shell-topnav .app-body,
@@ -15,6 +21,24 @@
 
 .app-bar {
   gap: 16px;
+  background: var(--surface-bar);
+}
+
+.app-shell-topnav .app-bar {
+  min-height: 56px;
+  padding: 0 20px;
+}
+
+.app-shell-topnav .app-shell-search {
+  background: var(--surface-sunken);
+  border-color: transparent;
+  color: var(--muted);
+}
+
+.app-shell-topnav .app-shell-search kbd {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  color: var(--faint);
 }
 
 .app-bar-primary {
@@ -33,11 +57,12 @@
   height: 36px;
   padding: 0 12px;
   border: 0;
-  border-radius: var(--radius-sm);
+  border-radius: 8px;
   background: transparent;
   color: var(--muted);
-  font-size: 14px;
-  font-weight: 600;
+  font-size: 13.5px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
   cursor: pointer;
 }
 
@@ -264,6 +289,25 @@
   margin-bottom: 8px;
   color: var(--text);
   font: var(--text-card-title);
+}
+
+.app-shell-topnav .news-page,
+.app-shell-topnav .news-page-shell {
+  background: transparent;
+}
+
+.app-shell-topnav .news-header,
+.app-shell-topnav .news-shell-head {
+  background: transparent;
+}
+
+.app-shell-topnav .news-tabs button.selected {
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+}
+
+.app-content {
+  background: var(--bg);
 }
 
 @media (max-width: 767px) {

@@ -12,6 +12,7 @@ describe("Theme Registry", () => {
     expect(ids).toContain("warm-editorial-dark");
     expect(ids).toContain("nord");
     expect(ids).toContain("catppuccin-macchiato");
+    expect(getTheme("default").name).toBe("Self Tools");
   });
 
   it("provides preview colors for every theme", () => {

@@ -9,21 +9,21 @@
  * 因此本文件不需要 !important。
  * ========================================================================== */
 .app-shell .app-content .page-scroll.home-dash {
-  --hd-card: color-mix(in srgb, var(--panel-raised) 92%, var(--hd-canvas));
-  --hd-canvas: color-mix(in srgb, var(--bg) 84%, #ffffff);
-  --hd-line: color-mix(in srgb, var(--line) 80%, transparent);
-  --hd-line-soft: color-mix(in srgb, var(--line) 46%, transparent);
+  --hd-card: var(--panel-raised);
+  --hd-canvas: transparent;
+  --hd-line: var(--line);
+  --hd-line-soft: var(--line-soft);
   --hd-ink: var(--text);
   --hd-muted: var(--muted);
   --hd-accent: var(--accent);
-  --hd-radius: 16px;
-  --hd-red: #dd5f52;
-  --hd-amber: #d99a34;
-  --hd-green: #3f9d74;
+  --hd-radius: 14px;
+  --hd-red: #c4473a;
+  --hd-amber: #b07920;
+  --hd-green: #0e6b58;
 
-  padding: 26px 30px 44px;
-  background: var(--hd-canvas);
-  border-radius: 20px;
+  padding: 28px 32px 48px;
+  background: transparent;
+  border-radius: 0;
 }
 
 /* ---------- 头部 ---------- */
@@ -39,19 +39,19 @@
 }
 .app-shell .app-content .home-dash .hd-kicker {
   margin: 0 0 6px;
-  color: var(--hd-muted);
+  color: var(--accent);
   font-size: 11px;
   font-weight: 650;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 .app-shell .app-content .home-dash .hd-title {
   margin: 0;
   color: var(--hd-ink);
-  font-size: 30px;
-  font-weight: 700;
-  letter-spacing: -0.015em;
-  line-height: 1.15;
+  font-size: 26px;
+  font-weight: 650;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
 }
 .app-shell .app-content .home-dash .hd-sub {
   max-width: 64ch;
@@ -220,7 +220,7 @@
   border: 1px solid var(--hd-line);
   border-radius: var(--hd-radius);
   background: var(--hd-card);
-  box-shadow: 0 1px 0 rgb(17 20 45 / 3%);
+  box-shadow: none;
 }
 .app-shell .app-content .home-dash .hd-panel-head {
   display: flex;
@@ -231,10 +231,11 @@
 }
 .app-shell .app-content .home-dash .hd-panel-head h2 {
   margin: 0;
-  color: var(--hd-ink);
-  font-size: 12.5px;
-  font-weight: 700;
-  letter-spacing: 0.01em;
+  color: var(--hd-muted);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 .app-shell .app-content .home-dash .hd-link {
   display: inline-flex;

@@ -17,20 +17,19 @@ const nordDarkEditor = EditorView.theme({}, { dark: true });
 const catppuccinDarkEditor = EditorView.theme({}, { dark: true });
 
 /**
- * 默认主题 = Sky Blue Workbench。
+ * 默认主题 = Self Tools。
  *
- * 全站几何语言由现有样式层统一提供；主题负责浅蓝白色画布、青蓝强调色和冷调文字。
- * 保留 id="default" 以兼容历史 settings.json，data-theme 仍指向
- * `:root[data-theme="pencil"]` 调色板（主题 ID 与选择行为不变）。
+ * 暖石色画布、墨色正文、墨绿强调。保留 id="default" 以兼容历史 settings.json，
+ * data-theme 仍指向 `:root[data-theme="pencil"]`（主题 ID 与选择行为不变）。
  */
 const defaultTheme: ThemeDefinition = {
   id: DEFAULT_THEME_ID,
-  name: "Sky Blue Workbench",
-  description: "浅蓝白色工作台、清晰蓝灰文字与轻盈青蓝重点色。",
+  name: "Self Tools",
+  description: "暖石色画布、墨色排版与墨绿重点，给学习和资讯用的安静工作台。",
   appearance: "light",
   dataTheme: "pencil",
   editorTheme: pixelLightEditor,
-  previewColors: ["#eef4fc", "#ffffff", "#35bdf5"],
+  previewColors: ["#f3efe6", "#fffcf8", "#0e6b58"],
 };
 
 const warmEditorial: ThemeDefinition = {
