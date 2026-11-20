@@ -4,7 +4,6 @@ import {
   CalendarBlank,
   Compass,
   MapPin,
-  Sparkle,
   Star,
   Tag,
   X,
@@ -618,10 +617,7 @@ export function TravelPage({
   return (
     <div className="page-scroll travel-page page-shell">
       <header className="travel-hero">
-        <div className="travel-hero-badge">
-          <Sparkle size={14} weight="fill" />
-          <span>沉浸式城市旅行探索与行程规划</span>
-        </div>
+        <div className="travel-hero-badge">旅行</div>
         <h1>探索下一座城市</h1>
         <p>
           先查看已有城市资料，再按自己的节奏安排地点、日期与备注。模型、天气或地图资料不可用时，仍可手动编排和保存行程；缺失的信息会明确留空。

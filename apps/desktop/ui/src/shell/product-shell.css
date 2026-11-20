@@ -310,6 +310,76 @@
   background: var(--bg);
 }
 
+.app-shell.app-shell-topnav .app-bar {
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-bar);
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+.app-shell-topnav .page-shell-eyebrow {
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.app-shell-topnav .page-shell-title h1,
+.app-shell-topnav .travel-hero h1,
+.app-shell-topnav .en-page-head h1 {
+  font-family: var(--font-sans, var(--font-body));
+  font-size: 26px;
+  font-weight: 650;
+  letter-spacing: -0.03em;
+}
+
+.app-shell-topnav .travel-hero-badge {
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.app-shell-topnav .history-v2-mark {
+  border: 0;
+  background: var(--accent);
+  color: var(--text-on-accent);
+}
+
+.app-shell-topnav .history-v2-brand span {
+  color: var(--accent);
+  letter-spacing: 0.12em;
+}
+
+.app-shell-topnav .history-v2-brand strong {
+  font-family: var(--font-sans, var(--font-body));
+  font-size: 18px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+.app-shell-topnav .study-board {
+  padding: 16px 20px 20px;
+  background: var(--bg);
+}
+
+.app-shell-topnav .study-title,
+.app-shell-topnav .study-toolbar {
+  background: var(--panel-raised);
+  color: var(--text);
+}
+
+.app-shell-topnav .travel-submit-btn {
+  background: var(--accent);
+  color: var(--text-on-accent);
+  border-color: transparent;
+}
+
 @media (max-width: 767px) {
   .app-bar-primary {
     display: none;

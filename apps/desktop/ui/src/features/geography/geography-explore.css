@@ -18,24 +18,16 @@
  * ========================================================================== */
 
 .app-shell .app-content .geography-page {
-  --geo-glass-edge: #c5d4e4;
-  --geo-glass-edge-bright: #9eb4c8;
-  --geo-glass-highlight: rgb(255 255 255 / 80%);
-  --geo-glass-surface: #f4f8fc;
-  --geo-glass-surface-strong: #ffffff;
-  --geo-glass-shadow: 0 16px 36px rgb(16 38 58 / 10%);
-  --geo-accent: #1f6fbf;
-  --geo-card-gradient: linear-gradient(
-    156deg,
-    color-mix(in srgb, var(--panel-raised) 94%, transparent),
-    color-mix(in srgb, var(--geo-accent) 7%, var(--panel-raised))
-  );
-  --geo-card-shadow:
-    inset 0 1px 0 var(--geo-glass-highlight),
-    0 10px 24px color-mix(in srgb, #3a3f6b 9%, transparent);
-  --geo-card-shadow-hover:
-    inset 0 1px 0 var(--geo-glass-highlight),
-    0 16px 32px color-mix(in srgb, #3a3f6b 14%, transparent);
+  --geo-glass-edge: var(--line);
+  --geo-glass-edge-bright: var(--line-strong);
+  --geo-glass-highlight: rgb(255 255 255 / 55%);
+  --geo-glass-surface: var(--panel);
+  --geo-glass-surface-strong: var(--panel-raised);
+  --geo-glass-shadow: var(--shadow-sm);
+  --geo-accent: var(--accent);
+  --geo-card-gradient: var(--panel-raised);
+  --geo-card-shadow: none;
+  --geo-card-shadow-hover: none;
 }
 
 .app-shell .app-content .geo-visually-hidden {

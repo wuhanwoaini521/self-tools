@@ -576,8 +576,8 @@ export function HistoryPage({
             <Scroll size={17} />
           </span>
           <div>
-            <span>HISTORY / SEMANTIC ATLAS</span>
-            <strong>中国历史</strong>
+            <span>历史</span>
+            <strong>中国史</strong>
           </div>
         </div>
         {geographyReturnAction}
