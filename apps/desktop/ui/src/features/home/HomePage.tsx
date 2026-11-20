@@ -1,27 +1,18 @@
 import {
-  ArrowDownRight,
   ArrowRight,
   BookOpenText,
-  Brain,
   CalendarDots,
   Cards,
-  CheckCircle,
   ClockCounterClockwise,
   Compass,
-  FolderSimple,
   MapPin,
-  NotePencil,
   Newspaper,
   ArrowClockwise,
 } from "@phosphor-icons/react";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import type {
-  ContinueItem,
-  ReviewQueueStats,
-  TravelPlan,
-} from "../../types";
-import { errorMessage, fileName } from "../../utils";
-import { homeClient, type HomeHeadline, type SavedReference } from "./homeClient";
+import type { TravelPlan } from "../../types";
+import { errorMessage } from "../../utils";
+import { homeClient, type HomeHeadline } from "./homeClient";
 import { sourceRoute } from "../shared/sourceNavigation";
 import "./home.css";
 
@@ -151,11 +142,6 @@ function homeContentLabel(module: string, entityType: string, fallback: string):
   return labels.length > 0 ? labels.join(" · ") : fallback;
 }
 
-function monthDay(timestamp: number | null | undefined): string {
-  if (!timestamp) return "日期未记录";
-  return new Date(timestamp * 1000).toLocaleDateString("zh-CN", { month: "short", day: "numeric" });
-}
-
 function shortDate(timestamp: number | null | undefined): string {
   if (!timestamp) return "日期未记录";
   return new Date(timestamp * 1000).toLocaleDateString("zh-CN", {
@@ -175,48 +161,15 @@ export function travelPlanRoute(plan: TravelPlan): string {
   return `#travel?${query.toString()}`;
 }
 
-function reviewSegments(stats: ReviewQueueStats) {
-  return [
-    { key: "overdue", label: "逾期", value: Math.max(0, stats.overdue_count) },
-    { key: "due", label: "到期", value: Math.max(0, stats.due_count - stats.overdue_count) },
-    { key: "upcoming", label: "未到期", value: Math.max(0, stats.upcoming_count) },
-    { key: "learning", label: "学习中", value: Math.max(0, stats.learning_count) },
-    { key: "mastered", label: "已掌握", value: Math.max(0, stats.mastered_count) },
-  ];
-}
-
-/** 复习队列构成条：每段宽度=该状态卡片占比，只画有数据的段。 */
-function ReviewMeter({ stats, large = false }: { stats: ReviewQueueStats; large?: boolean }) {
-  const segments = reviewSegments(stats).filter((segment) => segment.value > 0);
-  const total = segments.reduce((sum, segment) => sum + segment.value, 0);
-  if (!total) return null;
-  return (
-    <div className={`hd-meter${large ? " hd-meter-lg" : ""}`} aria-hidden="true">
-      {segments.map((segment) => (
-        <span
-          key={segment.key}
-          className={`hd-seg hd-seg-${segment.key}`}
-          style={{ width: `${(segment.value / total) * 100}%` }}
-        />
-      ))}
-    </div>
-  );
-}
-
 export function HomePage({
   active,
-  recentFiles,
-  onOpenNote,
-  onNewNote,
   onNavigate,
 }: HomePageProps) {
   const todayLoader = useCallback(() => homeClient.today(), []);
-  const collectionLoader = useCallback(() => homeClient.savedReferences(), []);
   const travelLoader = useCallback(() => homeClient.recentTravelPlans(5), []);
   const newsLoader = useCallback(() => homeClient.headlines(4), []);
 
   const [today, retryToday] = useHomeResource(todayLoader, active);
-  const [savedReferences, retrySavedReferences] = useHomeResource(collectionLoader, active);
   const [travelPlans, retryTravelPlans] = useHomeResource(travelLoader, active);
   const [headlines, retryHeadlines] = useHomeResource(newsLoader, active);
 
@@ -232,14 +185,7 @@ export function HomePage({
     day: "numeric",
   });
   const navigate = (route: string) => onNavigate?.(route);
-  const dueCount = today.status === "ready" ? today.data.pending_reviews_count : null;
   const continueItems = today.status === "ready" ? today.data.continue_items.slice(0, 4) : [];
-  const latestStudy = today.status === "ready"
-    ? today.data.continue_items.reduce<ContinueItem | null>((latest, item) => {
-        if (!item.last_studied_at) return latest;
-        return !latest || item.last_studied_at > latest.last_studied_at ? item : latest;
-      }, null)
-    : null;
 
   return (
     <div className="page-scroll personal-hub-page home-dash">
@@ -249,68 +195,22 @@ export function HomePage({
           <h1 className="hd-title">{greeting}，继续上次的内容。</h1>
           <p className="hd-sub">
             {today.status === "ready"
-              ? `今天有 ${today.data.pending_reviews_count} 张卡片待复习，已连续学习 ${today.data.recent_streak_days} 天。收藏、行程与新闻更新都在下面。`
-              : "从待复习内容继续，也可以查看收藏的知识、行程和新闻更新。"}
+              ? `今天有 ${today.data.pending_reviews_count} 张卡片待复习，已连续学习 ${today.data.recent_streak_days} 天。下面是继续学习、最近行程和资讯。`
+              : "从待复习内容继续，也可以查看行程和资讯。"}
           </p>
         </div>
         <div className="hd-head-actions">
-          <button type="button" className="hd-btn" onClick={onNewNote}>
-            <NotePencil size={15} /> 写笔记
+          <button type="button" className="hd-btn" onClick={() => navigate("#learn")}>
+            <BookOpenText size={15} /> 学习
           </button>
-          <button type="button" className="hd-btn hd-btn-primary" onClick={() => navigate("#review")}>
-            <Cards size={15} /> 打开复习中心
+          <button type="button" className="hd-btn" onClick={() => navigate("#travel")}>
+            <Compass size={15} /> 旅行
+          </button>
+          <button type="button" className="hd-btn hd-btn-primary" onClick={() => navigate("#news")}>
+            <Newspaper size={15} /> 资讯
           </button>
         </div>
       </header>
-
-      <section className="hd-metrics" aria-label="今天的学习概览">
-        <article className="hd-metric">
-          <span className="hd-metric-label"><Cards size={14} /> 今日待复习</span>
-          <strong className="hd-metric-value">
-            {today.status === "ready" ? today.data.pending_reviews_count : "—"}
-            <small>张卡片</small>
-          </strong>
-          <span className="hd-metric-note">
-            {today.status === "ready"
-              ? `逾期 ${today.data.review_stats.overdue_count} · 未到期 ${today.data.review_stats.upcoming_count}`
-              : "读取你的学习进度"}
-          </span>
-          {today.status === "ready" ? <ReviewMeter stats={today.data.review_stats} /> : null}
-        </article>
-        <article className="hd-metric">
-          <span className="hd-metric-label"><Brain size={14} /> 平均掌握度</span>
-          <strong className="hd-metric-value">
-            {today.status === "ready" ? `${Math.round(today.data.average_mastery)}%` : "—"}
-          </strong>
-          <span className="hd-metric-note">来自已有学习记录</span>
-          {today.status === "ready" ? (
-            <div className="hd-meter" aria-hidden="true">
-              <span
-                className="hd-seg hd-seg-due"
-                style={{ width: `${Math.max(0, Math.min(100, today.data.average_mastery))}%` }}
-              />
-            </div>
-          ) : null}
-        </article>
-        <article className="hd-metric">
-          <span className="hd-metric-label"><CheckCircle size={14} /> 连续学习</span>
-          <strong className="hd-metric-value">
-            {today.status === "ready" ? today.data.recent_streak_days : "—"}
-            <small>天</small>
-          </strong>
-          <span className="hd-metric-note">
-            {latestStudy ? `最近学习 ${monthDay(latestStudy.last_studied_at)}` : "从首次学习开始记录"}
-          </span>
-        </article>
-        <article className="hd-metric">
-          <span className="hd-metric-label"><BookOpenText size={14} /> 今日学习</span>
-          <strong className="hd-metric-value">
-            {today.status === "ready" ? today.data.studied_topics_today : "—"}
-            <small>个主题</small>
-          </strong>
-          <span className="hd-metric-note">今天新增的学习记录</span>
-        </article>
-      </section>
 
       <div className="hd-split">
         <div className="hd-col">
@@ -377,58 +277,20 @@ export function HomePage({
                   ) : null}
                   <div className="hd-panel-foot">
                     <span>今日学习 <strong>{data.studied_topics_today}</strong> 个主题</span>
-                    <button type="button" onClick={() => navigate("#collections")}>管理学习资料 <ArrowRight size={13} /></button>
+                    <button type="button" onClick={() => navigate("#learn")}>学习入口 <ArrowRight size={13} /></button>
                   </div>
                 </>
               )}
             </ResourceState>
           </section>
+        </div>
 
-          <section className="hd-panel" aria-labelledby="hd-reading-title">
-            <div className="hd-panel-head">
-              <h2 id="hd-reading-title">新闻更新</h2>
-              <button type="button" className="hd-link" onClick={() => navigate("#news")}>
-                打开 News <ArrowRight size={13} />
-              </button>
-            </div>
-            <ResourceState
-              resource={headlines}
-              retry={retryHeadlines}
-              isEmpty={(articles) => articles.length === 0}
-              empty={(
-                <div className="hd-empty hd-empty-compact">
-                  <Newspaper size={20} />
-                  <p>当前没有可显示的新闻。打开 News 查看新闻来源。</p>
-                  <button type="button" onClick={() => navigate("#news")}>查看新闻来源 <ArrowRight size={13} /></button>
-                </div>
-              )}
-            >
-              {(articles: HomeHeadline[]) => (
-                <div className="hd-rows">
-                  {articles.map((article) => (
-                    <button type="button" className="hd-row hd-row-news" key={article.id} onClick={() => navigate("#news")}>
-                      <span className="hd-row-main">
-                        <small>
-                          {article.source}
-                          <i>{shortDate(article.published_at)}</i>
-                          {article.is_read ? null : <em>未读</em>}
-                        </small>
-                        <strong>{article.title}</strong>
-                        {article.summary ? <span>{article.summary}</span> : null}
-                      </span>
-                      <ArrowRight size={15} />
-                    </button>
-                  ))}
-                </div>
-              )}
-            </ResourceState>
-          </section>
-
+        <div className="hd-col">
           <section className="hd-panel" aria-labelledby="hd-travel-title">
             <div className="hd-panel-head">
-              <h2 id="hd-travel-title">继续规划旅程</h2>
+              <h2 id="hd-travel-title">最近行程</h2>
               <button type="button" className="hd-link" onClick={() => navigate("#travel")}>
-                打开 Travel <ArrowRight size={13} />
+                打开旅行 <ArrowRight size={13} />
               </button>
             </div>
             <ResourceState
@@ -473,68 +335,37 @@ export function HomePage({
         </div>
 
         <div className="hd-col">
-          <section className="hd-panel" aria-labelledby="hd-review-title">
+          <section className="hd-panel" aria-labelledby="hd-reading-title">
             <div className="hd-panel-head">
-              <h2 id="hd-review-title">复习队列组成</h2>
-              <button type="button" className="hd-link" onClick={() => navigate("#review")}>
-                开始复习 <ArrowRight size={13} />
-              </button>
-            </div>
-            {today.status === "ready" ? (
-              today.data.review_stats.total_cards > 0 ? (
-                <>
-                  <ReviewMeter stats={today.data.review_stats} large />
-                  <ul className="hd-legend">
-                    {reviewSegments(today.data.review_stats).map((segment) => (
-                      <li key={segment.key}>
-                        <i className={`hd-dot hd-dot-${segment.key}`} aria-hidden="true" />
-                        <span>{segment.label}</span>
-                        <b>{segment.value}</b>
-                      </li>
-                    ))}
-                  </ul>
-                </>
-              ) : (
-                <p className="hd-muted">还没有复习卡片，开始学习后这里会显示队列构成。</p>
-              )
-            ) : (
-              <p className="hd-muted">正在读取复习队列…</p>
-            )}
-          </section>
-
-          <section className="hd-panel" aria-labelledby="hd-knowledge-title">
-            <div className="hd-panel-head">
-              <h2 id="hd-knowledge-title">最近收藏</h2>
-              <button type="button" className="hd-link" onClick={() => navigate("#collections")}>
-                全部收藏 <ArrowRight size={13} />
+              <h2 id="hd-reading-title">资讯</h2>
+              <button type="button" className="hd-link" onClick={() => navigate("#news")}>
+                打开资讯 <ArrowRight size={13} />
               </button>
             </div>
             <ResourceState
-              resource={savedReferences}
-              retry={retrySavedReferences}
-              isEmpty={(items) => items.length === 0}
+              resource={headlines}
+              retry={retryHeadlines}
+              isEmpty={(articles) => articles.length === 0}
               empty={(
                 <div className="hd-empty hd-empty-compact">
-                  <FolderSimple size={20} />
-                  <p>把历史或地理条目加入专题合集，之后可从这里继续查看。</p>
-                  <button type="button" onClick={() => navigate("#collections")}>打开专题合集 <ArrowRight size={13} /></button>
+                  <Newspaper size={20} />
+                  <p>当前没有可显示的新闻。打开资讯查看来源，RSS 在同一入口的另一个 Tab。</p>
+                  <button type="button" onClick={() => navigate("#news")}>查看新闻来源 <ArrowRight size={13} /></button>
                 </div>
               )}
             >
-              {(references) => (
+              {(articles: HomeHeadline[]) => (
                 <div className="hd-rows">
-                  {references.map(({ collection, item }) => (
-                    <button
-                      type="button"
-                      className="hd-row hd-row-saved"
-                      key={item.id}
-                      onClick={() => navigate(routeForEntity(item.module, item.entity_type, item.entity_id))}
-                    >
-                      <span className={`hd-dot hd-dot-${item.module}`} aria-hidden="true" />
+                  {articles.map((article) => (
+                    <button type="button" className="hd-row hd-row-news" key={article.id} onClick={() => navigate("#news")}>
                       <span className="hd-row-main">
-                        <small>{homeContentLabel(item.module, item.entity_type, "收藏内容")} / {collection.title}</small>
-                        <strong>{item.title}</strong>
-                        <span>{item.note || "还没有个人笔记"}</span>
+                        <small>
+                          {article.source}
+                          <i>{shortDate(article.published_at)}</i>
+                          {article.is_read ? null : <em>未读</em>}
+                        </small>
+                        <strong>{article.title}</strong>
+                        {article.summary ? <span>{article.summary}</span> : null}
                       </span>
                       <ArrowRight size={15} />
                     </button>
@@ -543,44 +374,13 @@ export function HomePage({
               )}
             </ResourceState>
           </section>
-
-          <section className="hd-panel" aria-labelledby="hd-notes-title">
-            <div className="hd-panel-head">
-              <h2 id="hd-notes-title">最近写作</h2>
-              <button type="button" className="hd-link" onClick={onNewNote}>
-                新建笔记 <NotePencil size={13} />
-              </button>
-            </div>
-            {recentFiles.length === 0 ? (
-              <div className="hd-empty hd-empty-compact">
-                <NotePencil size={20} />
-                <p>还没有最近编辑的笔记。</p>
-                <button type="button" onClick={onNewNote}>写下第一条 <ArrowRight size={13} /></button>
-              </div>
-            ) : (
-              <ul className="hd-notes">
-                {recentFiles.slice(0, 4).map((path) => (
-                  <li key={path}>
-                    <button type="button" onClick={() => onOpenNote(path)}>
-                      <span className="hd-row-icon"><NotePencil size={15} /></span>
-                      <span className="hd-row-main">
-                        <strong>{fileName(path)}</strong>
-                        <small>{path}</small>
-                      </span>
-                      <ArrowRight size={14} />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
         </div>
       </div>
 
       <footer className="hd-footer">
         <ClockCounterClockwise size={14} />
-        <span>学习进度、收藏与行程保存在本地，刷新页面后可以继续。</span>
-        <button type="button" onClick={() => navigate("#search")}>搜索所有内容 <ArrowRight size={13} /></button>
+        <span>学习、行程与新闻进度在后端；关闭应用后资讯不会继续抓取。</span>
+        <button type="button" onClick={() => navigate("#learn")}>进入学习 <ArrowRight size={13} /></button>
       </footer>
     </div>
   );
