@@ -204,7 +204,7 @@
 /* ---------- 双栏 ---------- */
 .app-shell .app-content .home-dash .hd-split {
   display: grid;
-  grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
   align-items: start;
 }
