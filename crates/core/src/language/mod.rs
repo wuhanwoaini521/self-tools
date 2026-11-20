@@ -12,7 +12,9 @@ pub mod mining;
 pub mod model;
 pub mod roadmap;
 pub mod romaji;
+pub mod scenario;
 pub mod speaking;
+pub mod speaking_session;
 
 pub use course::{
     BookSummary, Course, CourseBook, CourseLesson, LearningPlan, LessonListEntry, LessonProgress,
@@ -42,4 +44,14 @@ pub use roadmap::{
     week_complete, week_plan,
 };
 pub use romaji::{kana_to_romaji, normalize_roman, tones_from_syllables};
+pub use scenario::{
+    CefrLevel, ScenarioGoal, ScriptedReply, SpeakingScenario, TargetWord, all_goals_complete,
+    builtin_scenarios, completed_goals, next_open_goal, scenario_by_id, scripted_reply_for,
+    utterance_hits_goal,
+};
 pub use speaking::{SpeakingScore, WordDiff, compare_words, score, tokenize};
+pub use speaking_session::{
+    InvalidSessionTransition, SpeakingCorrection, SpeakingDictMatch, SpeakingDrillItem,
+    SpeakingFeedback, SpeakingSession, SpeakingSessionEvent, SpeakingSessionStatus, SpeakingTurn,
+    SpeakingTurnRole, SpeakingTurnSource, apply_event,
+};

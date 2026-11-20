@@ -73,6 +73,7 @@ pub fn router(
     mining: Arc<devtoolbox_application::language::course::MiningService>,
     // 26 周能力路线图（V13 W6）：静态计划 + 真实统计。
     roadmap: Arc<devtoolbox_application::language::course::RoadmapService>,
+    speaking_practice: Arc<devtoolbox_application::language::SpeakingPracticeService>,
 ) -> Router {
     let exploration = Arc::new(
         devtoolbox_application::exploration::ExplorationService::new(
@@ -482,6 +483,62 @@ pub fn router(
                 .post(crate::language_write_api::mining_add),
         )
         .route(
+            "/api/v1/language/speaking/capabilities",
+            get(crate::language_speaking_api::capabilities),
+        )
+        .route(
+            "/api/v1/language/speaking/scenarios",
+            get(crate::language_speaking_api::list_scenarios),
+        )
+        .route(
+            "/api/v1/language/speaking/scenarios/{id}",
+            get(crate::language_speaking_api::get_scenario),
+        )
+        .route(
+            "/api/v1/language/speaking/sessions",
+            post(crate::language_speaking_api::create_session),
+        )
+        .route(
+            "/api/v1/language/speaking/sessions/{id}",
+            get(crate::language_speaking_api::get_session),
+        )
+        .route(
+            "/api/v1/language/speaking/sessions/{id}/turns",
+            post(crate::language_speaking_api::submit_turn),
+        )
+        .route(
+            "/api/v1/language/speaking/sessions/{id}/audio",
+            post(crate::language_speaking_api::submit_audio),
+        )
+        .route(
+            "/api/v1/language/speaking/sessions/{id}/tts",
+            post(crate::language_speaking_api::synthesize),
+        )
+        .route(
+            "/api/v1/language/speaking/sessions/{id}/pause",
+            post(crate::language_speaking_api::pause),
+        )
+        .route(
+            "/api/v1/language/speaking/sessions/{id}/resume",
+            post(crate::language_speaking_api::resume),
+        )
+        .route(
+            "/api/v1/language/speaking/sessions/{id}/complete",
+            post(crate::language_speaking_api::complete),
+        )
+        .route(
+            "/api/v1/language/speaking/sessions/{id}/report",
+            get(crate::language_speaking_api::report),
+        )
+        .route(
+            "/api/v1/language/speaking/sessions/{id}/interrupt",
+            post(crate::language_speaking_api::interrupt),
+        )
+        .route(
+            "/api/v1/language/speaking/sessions/{id}/review",
+            post(crate::language_speaking_api::add_review),
+        )
+        .route(
             "/api/v1/study-boards",
             get(crate::study_board_api::list_boards).post(crate::study_board_api::save_board),
         )
@@ -514,6 +571,7 @@ pub fn router(
         .layer(axum::Extension(speaking))
         .layer(axum::Extension(mining))
         .layer(axum::Extension(roadmap))
+        .layer(axum::Extension(speaking_practice))
         .with_state(AppState { service })
         // 显式擦除成 `Arc<dyn Fn()>`：`Extension<T>` 按具体类型匹配，
         // `Arc<fn() -> i64>` 与 `Arc<dyn Fn() -> i64 + Send + Sync>` 不是同一个类型。
@@ -1087,6 +1145,7 @@ mod tests {
             Arc::clone(&test_core().speaking),
             Arc::clone(&test_core().mining),
             Arc::clone(&test_core().roadmap),
+            Arc::clone(&test_core().speaking_practice),
         )
     }
 
@@ -2298,5 +2357,129 @@ mod tests {
         )
         .await;
         assert_eq!(status, StatusCode::NOT_FOUND);
+    }
+
+    #[tokio::test]
+    async fn speaking_lists_six_builtin_scenarios() {
+        let app = test_router(false);
+        let (status, body) = request(&app, "/api/v1/language/speaking/scenarios").await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        let items = body["items"].as_array().expect("items");
+        assert_eq!(items.len(), 6);
+    }
+
+    #[tokio::test]
+    async fn speaking_empty_turn_is_400_and_cafe_can_complete() {
+        let app = test_router(false);
+        let request_id = format!("http-cafe-{}", std::process::id());
+        let (status, created) = post_json(
+            &app,
+            "/api/v1/language/speaking/sessions",
+            &serde_json::json!({
+                "scenarioId": "speaking:cafe",
+                "localeAssist": "zh",
+                "clientRequestId": request_id,
+            }),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{created}");
+        let session_id = created["session"]["id"].as_str().unwrap().to_string();
+        assert_eq!(created["session"]["status"], "listening");
+
+        let (status, body) = post_json(
+            &app,
+            &format!("/api/v1/language/speaking/sessions/{session_id}/turns"),
+            &serde_json::json!({ "text": "  ", "clientRequestId": format!("{request_id}-empty") }),
+        )
+        .await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+        assert_eq!(body["code"], "language_speaking_empty_turn");
+
+        for (index, text) in ["Hello!", "I'd like a latte.", "I'll pay by card."]
+            .into_iter()
+            .enumerate()
+        {
+            let (status, body) = post_json(
+                &app,
+                &format!("/api/v1/language/speaking/sessions/{session_id}/turns"),
+                &serde_json::json!({
+                    "text": text,
+                    "clientRequestId": format!("{request_id}-t{index}"),
+                }),
+            )
+            .await;
+            assert_eq!(status, StatusCode::OK, "{body}");
+        }
+        let (status, report) = request(
+            &app,
+            &format!("/api/v1/language/speaking/sessions/{session_id}/report"),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{report}");
+        assert!(
+            report["summary"]
+                .as_str()
+                .unwrap_or_default()
+                .contains("cafe")
+        );
+    }
+
+    #[tokio::test]
+    async fn speaking_audio_without_transcript_is_unavailable_without_asr() {
+        let app = test_router(false);
+        let request_id = format!("http-audio-{}", std::process::id());
+        let (status, created) = post_json(
+            &app,
+            "/api/v1/language/speaking/sessions",
+            &serde_json::json!({
+                "scenarioId": "speaking:cafe",
+                "clientRequestId": request_id,
+            }),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{created}");
+        let session_id = created["session"]["id"].as_str().unwrap().to_string();
+
+        let (status, caps) = request(&app, "/api/v1/language/speaking/capabilities").await;
+        assert_eq!(status, StatusCode::OK, "{caps}");
+        assert_eq!(caps["audioEnabled"], true);
+        assert_eq!(caps["asrConfigured"], false);
+        assert_eq!(caps["ttsConfigured"], false);
+
+        let (status, body) = post_json(
+            &app,
+            &format!("/api/v1/language/speaking/sessions/{session_id}/audio"),
+            &serde_json::json!({
+                "audioBase64": "AAAA",
+                "mimeType": "audio/webm",
+                "clientRequestId": format!("{request_id}-audio"),
+            }),
+        )
+        .await;
+        assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE, "{body}");
+        assert_eq!(body["code"], "language_speaking_asr_unavailable");
+
+        let (status, body) = post_json(
+            &app,
+            &format!("/api/v1/language/speaking/sessions/{session_id}/audio"),
+            &serde_json::json!({
+                "transcript": "Hello!",
+                "clientRequestId": format!("{request_id}-spoken"),
+            }),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        assert_eq!(body["turns"][1]["source"], "asr");
+
+        let opening = body["turns"][0]["id"].as_str().unwrap();
+        let (status, tts) = post_json(
+            &app,
+            &format!("/api/v1/language/speaking/sessions/{session_id}/tts"),
+            &serde_json::json!({ "turnId": opening }),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{tts}");
+        assert_eq!(tts["audioAvailable"], false);
+        assert_eq!(tts["text"], body["turns"][0]["text"]);
     }
 }

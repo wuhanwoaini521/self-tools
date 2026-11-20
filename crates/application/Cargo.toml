@@ -9,6 +9,7 @@ description = "DevToolbox document workflows and application DTOs."
 
 [dependencies]
 async-trait = "0.1"
+base64 = "0.22"
 devtoolbox-core = { path = "../core" }
 parking_lot.workspace = true
 futures-util.workspace = true

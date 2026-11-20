@@ -9,6 +9,7 @@ pub mod course;
 pub mod learning;
 pub mod ports;
 pub mod service;
+pub mod speaking;
 
 pub use course::{
     BookProgressView, BookView, CourseService, CourseStorePort, DictionaryService, EnglishProgress,
@@ -17,10 +18,17 @@ pub use course::{
 pub use learning::{ContinueLesson, LanguageLearningService, StudyAction, StudyCard, WeakItem};
 pub use ports::{
     LanguageCount, LanguageDetailRows, LanguageExample, LanguageStorePort, SearchHitModel,
+    SpeakingProgressPort,
 };
 pub use service::{
     ExampleView, KanjiView, LanguageInfo, LanguageSearchHit, LanguageService, RelationView,
     SourceInfo, WordDetail,
+};
+pub use speaking::{
+    CoachPayload, CreateSessionInput, ReviewImportResult, SpeakingAudioCapabilities,
+    SpeakingDictionaryPort, SpeakingLearningPort, SpeakingPracticeError, SpeakingPracticeService,
+    SpeakingPracticeStore, SpeakingSessionView, SpeechToTextPort, SubmitAudioInput,
+    SubmitTurnInput, TaskProgress, TextToSpeechPort, TtsResult,
 };
 
 #[cfg(test)]

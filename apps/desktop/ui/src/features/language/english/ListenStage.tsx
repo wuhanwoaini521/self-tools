@@ -15,7 +15,8 @@ export interface ListenStageProps {
   showEnglish: boolean;
   showChinese: boolean;
   activeSeq: number | null;
-  onToggleReveal: () => void;
+  onToggleEnglish: () => void;
+  onToggleChinese: () => void;
   onSentence: (seq: number) => void;
 }
 
@@ -24,7 +25,8 @@ export function ListenStage({
   showEnglish,
   showChinese,
   activeSeq,
-  onToggleReveal,
+  onToggleEnglish,
+  onToggleChinese,
   onSentence,
 }: ListenStageProps) {
   const [guess, setGuess] = useState("");
@@ -40,14 +42,24 @@ export function ListenStage({
         <div>
           <h2>Listening</h2>
           <p className="en-muted">
-            {showEnglish ? "已显示原文，再听一遍对照检查" : "盲听模式：只播放音频，不显示文字"}
+            {showEnglish
+              ? showChinese
+                ? "原文和译文都开着，可以再听一遍对照"
+                : "只显示英文。译文仍藏着，回忆完再打开。"
+              : "盲听：先听，再写，最后才看原文。"}
           </p>
         </div>
         <div className="en-row-actions">
-          <button type="button" className="en-ghost-btn" onClick={onToggleReveal}>
+          <button type="button" className="en-ghost-btn" onClick={onToggleEnglish}>
             {showEnglish ? <EyeSlash size={14} /> : <Eye size={14} />}
             {showEnglish ? "隐藏原文" : "显示原文"}
           </button>
+          {showEnglish ? (
+            <button type="button" className="en-ghost-btn" onClick={onToggleChinese}>
+              {showChinese ? <EyeSlash size={14} /> : <Eye size={14} />}
+              {showChinese ? "隐藏译文" : "显示译文"}
+            </button>
+          ) : null}
         </div>
       </header>
 
@@ -89,7 +101,7 @@ export function ListenStage({
                 ████████ ██████ ████
               </p>
             )}
-            {showChinese && sentence.chinese ? (
+            {showEnglish && showChinese && sentence.chinese ? (
               <p className="en-sentence-zh">{sentence.chinese}</p>
             ) : null}
           </li>
@@ -112,7 +124,7 @@ export function ListenStage({
           className="en-primary-btn"
           onClick={() => {
             setRevealedGuess(true);
-            onToggleReveal();
+            onToggleEnglish();
           }}
         >
           对照原文

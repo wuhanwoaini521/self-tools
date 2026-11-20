@@ -36,6 +36,7 @@ export interface RoadmapMetrics {
   sentence_cards: number;
   words_learned: number;
   streak_days: number;
+  speaking_scenarios_completed: number;
 }
 
 export interface RoadmapView {

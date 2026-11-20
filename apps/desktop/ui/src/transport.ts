@@ -260,6 +260,14 @@ const HTTP_ENDPOINTS: Record<string, (args: Record<string, unknown>) => string> 
     if (a.since) parts.push(`since=${encodeURIComponent(String(a.since))}`);
     return `/api/v1/language/shadow/stats${parts.length ? `?${parts.join("&")}` : ""}`;
   },
+  language_speaking_capabilities: () => "/api/v1/language/speaking/capabilities",
+  language_speaking_scenarios: () => "/api/v1/language/speaking/scenarios",
+  language_speaking_scenario: (a) =>
+    `/api/v1/language/speaking/scenarios/${encodeURIComponent(String(a.scenarioId ?? ""))}`,
+  language_speaking_session: (a) =>
+    `/api/v1/language/speaking/sessions/${encodeURIComponent(String(a.sessionId ?? ""))}`,
+  language_speaking_report: (a) =>
+    `/api/v1/language/speaking/sessions/${encodeURIComponent(String(a.sessionId ?? ""))}/report`,
 };
 
 /** 写操作：POST + JSON body。 */
@@ -322,6 +330,23 @@ const HTTP_POST_ENDPOINTS: Record<
   study_board_snapshot: (a) =>
     `/api/v1/study-boards/${encodeURIComponent(String(a.boardId ?? ""))}/snapshots`,
   language_shadow_score: () => "/api/v1/language/shadow/score",
+  language_speaking_create_session: () => "/api/v1/language/speaking/sessions",
+  language_speaking_submit_turn: (a) =>
+    `/api/v1/language/speaking/sessions/${encodeURIComponent(String(a.sessionId ?? ""))}/turns`,
+  language_speaking_submit_audio: (a) =>
+    `/api/v1/language/speaking/sessions/${encodeURIComponent(String(a.sessionId ?? ""))}/audio`,
+  language_speaking_tts: (a) =>
+    `/api/v1/language/speaking/sessions/${encodeURIComponent(String(a.sessionId ?? ""))}/tts`,
+  language_speaking_pause: (a) =>
+    `/api/v1/language/speaking/sessions/${encodeURIComponent(String(a.sessionId ?? ""))}/pause`,
+  language_speaking_resume: (a) =>
+    `/api/v1/language/speaking/sessions/${encodeURIComponent(String(a.sessionId ?? ""))}/resume`,
+  language_speaking_complete: (a) =>
+    `/api/v1/language/speaking/sessions/${encodeURIComponent(String(a.sessionId ?? ""))}/complete`,
+  language_speaking_interrupt: (a) =>
+    `/api/v1/language/speaking/sessions/${encodeURIComponent(String(a.sessionId ?? ""))}/interrupt`,
+  language_speaking_add_review: (a) =>
+    `/api/v1/language/speaking/sessions/${encodeURIComponent(String(a.sessionId ?? ""))}/review`,
   language_mining_add: (a) =>
     `/api/v1/language/mining/lesson/${encodeURIComponent(String(a.lessonId ?? ""))}` +
     `?maxPerKind=${encodeURIComponent(String(a.maxPerKind ?? 6))}`,

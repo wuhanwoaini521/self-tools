@@ -36,6 +36,7 @@ export interface EnglishHomeProps {
   onOpenReview: () => void;
   onOpenProgress: () => void;
   onOpenTravelEnglish: () => void;
+  onOpenSpeaking: () => void;
   /** 26 周交流路线图（V13 W6）。 */
   onOpenRoadmap: () => void;
   onOpenImport: () => void;
@@ -53,6 +54,7 @@ export function EnglishHome({
   onOpenReview,
   onOpenProgress,
   onOpenTravelEnglish,
+  onOpenSpeaking,
   onOpenRoadmap,
   onOpenImport,
   onOpenPlan,
@@ -144,6 +146,9 @@ export function EnglishHome({
           <button type="button" className="en-link-btn" onClick={onReload}>
             重试
           </button>
+          <button type="button" className="en-link-btn" onClick={onOpenSpeaking}>
+            开口练对话
+          </button>
           <button type="button" className="en-link-btn" onClick={onOpenTravelEnglish}>
             先练旅行英语
           </button>
@@ -176,6 +181,9 @@ export function EnglishHome({
           <div className="en-onboard-actions">
             <button type="button" className="en-primary-btn" onClick={onOpenImport}>
               <Books size={15} /> 导入新概念英语
+            </button>
+            <button type="button" className="en-ghost-btn" onClick={onOpenSpeaking}>
+              开口练对话
             </button>
             <button type="button" className="en-ghost-btn" onClick={onOpenTravelEnglish}>
               先练旅行英语
@@ -316,6 +324,20 @@ export function EnglishHome({
             ))}
           </ol>
         )}
+      </section>
+
+      <section className="en-card en-travel-entry">
+        <div>
+          <p className="en-travel-eyebrow">AI Speaking</p>
+          <h3>场景口语陪练</h3>
+          <p className="en-muted">
+            选一个场景开口。停顿后会自动发出这一句，也可以打断朗读。语法和不自然表达会当场说明；发音还没有音素测评，不会编分数。
+          </p>
+        </div>
+        <button type="button" className="en-ghost-btn" onClick={onOpenSpeaking}>
+          开始开口
+          <ArrowRight size={15} />
+        </button>
       </section>
 
       {/* ---- 旅行英语：可选的情景练习入口 ---- */}

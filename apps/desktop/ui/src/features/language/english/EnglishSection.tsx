@@ -13,6 +13,7 @@ import type {
   TodayDashboard,
   WordMark,
 } from "../../../types";
+import type { SpeakingScenario } from "../speakingPracticeTypes";
 import { errorMessage } from "../../../utils";
 import { englishClient } from "./englishClient";
 import { EnglishHome } from "./EnglishHome";
@@ -23,6 +24,8 @@ import { ReviewHub } from "./ReviewHub";
 import { ProgressView } from "./ProgressView";
 import { RoadmapPage } from "./RoadmapPage";
 import { TravelEnglishSection } from "./TravelEnglishSection";
+import { SpeakingHome } from "./SpeakingHome";
+import { SpeakingSessionPage } from "./SpeakingSessionPage";
 import { ImportDialog } from "./ImportDialog";
 import { PlanDialog } from "./PlanDialog";
 
@@ -34,7 +37,9 @@ export type EnglishView =
   | { kind: "review" }
   | { kind: "progress" }
   | { kind: "roadmap" }
-  | { kind: "travel-english" };
+  | { kind: "travel-english" }
+  | { kind: "speaking" }
+  | { kind: "speaking-session"; scenario: SpeakingScenario };
 
 export interface EnglishSectionProps {
   /** 打开全局 AI；缺省 / AI 不可用时隐藏 AI 入口。 */
@@ -202,6 +207,24 @@ export function EnglishSection({ onAskAi, aiAvailable = false }: EnglishSectionP
     return <TravelEnglishSection onBack={backToHome} />;
   }
 
+  if (view.kind === "speaking") {
+    return (
+      <SpeakingHome
+        onBack={backToHome}
+        onStart={(scenario) => setView({ kind: "speaking-session", scenario })}
+      />
+    );
+  }
+
+  if (view.kind === "speaking-session") {
+    return (
+      <SpeakingSessionPage
+        scenario={view.scenario}
+        onBack={() => setView({ kind: "speaking" })}
+      />
+    );
+  }
+
   if (view.kind === "roadmap") {
     return (
       <RoadmapPage
@@ -228,6 +251,7 @@ export function EnglishSection({ onAskAi, aiAvailable = false }: EnglishSectionP
         onOpenReview={() => setView({ kind: "review" })}
         onOpenProgress={() => setView({ kind: "progress" })}
         onOpenTravelEnglish={() => setView({ kind: "travel-english" })}
+        onOpenSpeaking={() => setView({ kind: "speaking" })}
         onOpenRoadmap={() => setView({ kind: "roadmap" })}
         onOpenImport={() => setShowImport(true)}
         onOpenPlan={() => setShowPlan(true)}

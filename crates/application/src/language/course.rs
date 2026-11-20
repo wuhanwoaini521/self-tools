@@ -22,6 +22,7 @@ use devtoolbox_core::learning::{
     UniversalReviewCard,
 };
 
+use super::ports::SpeakingProgressPort;
 use crate::error::ApplicationError;
 use crate::learning::ports::LearningPortError;
 use crate::learning::service::LearningService;
@@ -1315,6 +1316,7 @@ pub struct RoadmapMetricsView {
     pub sentence_cards: u32,
     pub words_learned: u32,
     pub streak_days: u32,
+    pub speaking_scenarios_completed: u32,
 }
 
 /// 路线图服务：把**静态计划**与**真实统计**拼成一张可执行的图。
@@ -1330,6 +1332,7 @@ pub struct RoadmapService {
     course: Arc<CourseService>,
     speaking: Arc<SpeakingService>,
     platform: Arc<LearningService>,
+    speaking_progress: Option<Arc<dyn SpeakingProgressPort>>,
 }
 
 impl RoadmapService {
@@ -1343,7 +1346,17 @@ impl RoadmapService {
             course,
             speaking,
             platform,
+            speaking_progress: None,
         }
+    }
+
+    #[must_use]
+    pub fn with_speaking_progress(
+        mut self,
+        speaking_progress: Arc<dyn SpeakingProgressPort>,
+    ) -> Self {
+        self.speaking_progress = Some(speaking_progress);
+        self
     }
 
     /// 组装路线图。
@@ -1363,6 +1376,11 @@ impl RoadmapService {
         // 没有学习记录就 `None` —— 界面会问「从哪天开始算」，而不是替你编一个。
         let started_at = self.course.first_study_day(now);
 
+        let speaking_scenarios_completed = self
+            .speaking_progress
+            .as_ref()
+            .map(|port| port.completed_sessions().unwrap_or(0))
+            .unwrap_or(0);
         let metrics = RoadmapMetrics {
             lessons_completed: progress.lessons_completed,
             spoken_seconds: spoken.spoken_seconds,
@@ -1370,6 +1388,7 @@ impl RoadmapService {
             sentence_cards,
             words_learned: progress.words_learned,
             streak_days: progress.streak_days,
+            speaking_scenarios_completed,
         };
 
         let checkpoints: Vec<RoadmapCheckpointView> = ROADMAP
@@ -1404,6 +1423,7 @@ impl RoadmapService {
                 sentence_cards: metrics.sentence_cards,
                 words_learned: metrics.words_learned,
                 streak_days: metrics.streak_days,
+                speaking_scenarios_completed: metrics.speaking_scenarios_completed,
             },
         })
     }

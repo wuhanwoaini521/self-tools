@@ -1172,62 +1172,6 @@
   font-size: 12px;
 }
 
-/* 阶段导航：3×2 网格卡片 */
-.app-shell .app-content .lang-page.is-english .en-stage-nav {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-  width: 100%;
-}
-
-.app-shell .app-content .lang-page.is-english .en-stage-tab {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  min-height: 46px;
-  padding: 0 10px;
-  border: 1px solid color-mix(in srgb, var(--accent) 10%, var(--line));
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--panel-raised) 92%, transparent);
-  color: var(--muted);
-  font-size: 12.5px;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.app-shell .app-content .lang-page.is-english .en-stage-tab .en-stage-icon {
-  display: inline-flex;
-  color: var(--muted);
-}
-
-.app-shell .app-content .lang-page.is-english .en-stage-tab .en-stage-label {
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.app-shell .app-content .lang-page.is-english .en-stage-tab .en-stage-check {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 17px;
-  height: 17px;
-  margin-left: auto;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--accent) 12%, var(--panel-raised));
-  color: var(--accent);
-}
-
-.app-shell .app-content .lang-page.is-english .en-stage-tab.is-active {
-  border-color: color-mix(in srgb, var(--accent) 40%, var(--line));
-  background: color-mix(in srgb, var(--accent) 10%, var(--panel-raised));
-  color: var(--accent);
-}
-
-.app-shell .app-content .lang-page.is-english .en-stage-tab.is-active .en-stage-icon,
-.app-shell .app-content .lang-page.is-english .en-stage-tab.is-active .en-stage-check {
-  color: var(--accent);
-}
-
 /* 音频条：白卡 + 圆形控件 + 底部进度与倍速 */
 .app-shell .app-content .lang-page.is-english .en-audio {
   display: flex;
@@ -1303,24 +1247,6 @@
   color: var(--accent);
 }
 
-@media (min-width: 900px) {
-  .app-shell .app-content .lang-page.is-english .en-stage-nav {
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-  }
-}
-
-/* 阶段标签在 3 列里要放得下：缩字号、缩图标、收紧间距 */
-.app-shell .app-content .lang-page.is-english .en-stage-tab {
-  gap: 5px;
-  padding: 0 8px;
-  font-size: 11.5px;
-}
-
-.app-shell .app-content .lang-page.is-english .en-stage-tab .en-stage-icon svg {
-  width: 15px;
-  height: 15px;
-}
-
 /* 课程 hero 独立成卡（设计稿：书本 + 课程信息 + 返回圆钮） */
 .app-shell .app-content .lang-page.is-english .en-workspace-head {
   display: flex;
@@ -1346,28 +1272,6 @@
   background: var(--panel-raised);
   color: var(--muted);
   font-size: 12px;
-}
-
-/* 阶段标签：再收一点，保证 Vocabulary/Sentence 完整显示 */
-.app-shell .app-content .lang-page.is-english .en-stage-tab {
-  gap: 4px;
-  padding: 0 7px;
-  font-size: 11px;
-}
-
-.app-shell .app-content .lang-page.is-english .en-stage-tab .en-stage-icon svg {
-  width: 14px;
-  height: 14px;
-}
-
-.app-shell .app-content .lang-page.is-english .en-stage-tab .en-stage-check {
-  width: 15px;
-  height: 15px;
-}
-
-.app-shell .app-content .lang-page.is-english .en-stage-tab .en-stage-check svg {
-  width: 11px;
-  height: 11px;
 }
 
 /* 逐句精听：标题左侧强调条 */

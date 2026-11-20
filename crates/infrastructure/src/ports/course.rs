@@ -3,10 +3,10 @@
 
 use std::sync::Arc;
 
-use devtoolbox_application::language::CourseStorePort;
+use devtoolbox_application::language::{CourseStorePort, SpeakingDictionaryPort};
 use devtoolbox_core::language::{
     BookSummary, Course, CourseBook, CourseLesson, LearningPlan, LessonListEntry, LessonProgress,
-    LessonSentence, LessonVocab, ShadowAttempt, WordEntry, WordOccurrence,
+    LessonSentence, LessonVocab, ShadowAttempt, SpeakingDictMatch, WordEntry, WordOccurrence,
 };
 use parking_lot::Mutex;
 
@@ -150,5 +150,25 @@ impl CourseStorePort for CourseStoreAdapter {
         limit: usize,
     ) -> Result<Vec<ShadowAttempt>, String> {
         map(self.store.lock().shadow_attempts(lesson_id, limit))
+    }
+}
+
+impl SpeakingDictionaryPort for CourseStoreAdapter {
+    fn lookup_word(&self, word: &str) -> Result<Option<SpeakingDictMatch>, String> {
+        Ok(self.dict_lookup(word)?.and_then(|entry| {
+            if !entry.is_meaningful() {
+                return None;
+            }
+            Some(SpeakingDictMatch {
+                word: word.to_string(),
+                lemma: if entry.lemma.is_empty() {
+                    entry.word
+                } else {
+                    entry.lemma
+                },
+                gloss: entry.translation_zh.or(entry.definition_en),
+                in_dictionary: true,
+            })
+        }))
     }
 }

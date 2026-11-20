@@ -8,6 +8,7 @@ pub mod dict;
 pub mod import;
 pub mod importing;
 pub mod nce;
+pub mod speaking;
 pub mod starter;
 pub mod store;
 pub mod vocab;

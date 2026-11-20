@@ -30,6 +30,8 @@ pub enum CheckKind {
     WordsLearned,
     /// 到期复习清零所需连续天数（连续学习）≥ 阈值。
     StreakDays,
+    /// 已完成的口语场景会话数（陪练 `completed`，不是跟读秒数）。
+    SpeakingScenarios,
     /// 学习者自评（能不能听懂 / 敢不敢说）——**不自动检测**，界面要说明。
     SelfReported,
 }
@@ -43,6 +45,7 @@ pub struct RoadmapMetrics {
     pub sentence_cards: u32,
     pub words_learned: u32,
     pub streak_days: u32,
+    pub speaking_scenarios_completed: u32,
 }
 
 /// 一条可验证的检查项。
@@ -80,6 +83,7 @@ impl Checkpoint {
             CheckKind::SentenceCards => metrics.sentence_cards >= self.threshold,
             CheckKind::WordsLearned => metrics.words_learned >= self.threshold,
             CheckKind::StreakDays => metrics.streak_days >= self.threshold,
+            CheckKind::SpeakingScenarios => metrics.speaking_scenarios_completed >= self.threshold,
             // 自评项不参与自动判定：冒充自动检测就是在骗自己。
             CheckKind::SelfReported => false,
         }
@@ -95,6 +99,7 @@ impl Checkpoint {
             CheckKind::SentenceCards => metrics.sentence_cards,
             CheckKind::WordsLearned => metrics.words_learned,
             CheckKind::StreakDays => metrics.streak_days,
+            CheckKind::SpeakingScenarios => metrics.speaking_scenarios_completed,
             CheckKind::SelfReported => 0,
         }
     }
@@ -109,6 +114,7 @@ impl Checkpoint {
             CheckKind::SentenceCards => "张句子卡",
             CheckKind::WordsLearned => "词",
             CheckKind::StreakDays => "天连续",
+            CheckKind::SpeakingScenarios => "个场景",
             CheckKind::SelfReported => "自评",
         }
     }
@@ -157,6 +163,7 @@ pub const ROADMAP: &[RoadmapWeek] = &[
         checks: &[
             c("完成 10 课", CheckKind::LessonsCompleted, 10),
             c("开口 25 分钟", CheckKind::SpokenSeconds, 1_500),
+            c("完成 1 个口语场景", CheckKind::SpeakingScenarios, 1),
             c("复习掌握度 70%", CheckKind::ReviewMastery, 70),
         ],
     },
@@ -312,6 +319,7 @@ mod tests {
             sentence_cards: 20,
             words_learned: 250,
             streak_days: 5,
+            speaking_scenarios_completed: 1,
         };
         let week = week_plan(4).expect("week 4");
         assert!(week_complete(week, &metrics), "全部达标：{metrics:?}");
@@ -336,6 +344,7 @@ mod tests {
             sentence_cards: 999,
             words_learned: 999,
             streak_days: 999,
+            speaking_scenarios_completed: 9,
         };
         let check = c("敢不敢说", CheckKind::SelfReported, 1);
         assert!(!check.is_met(&metrics), "自评项不能自动判达标");
