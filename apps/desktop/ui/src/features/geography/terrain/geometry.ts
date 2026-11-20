@@ -9,6 +9,9 @@ export interface SlabOptions {
   waterLevel?: number | null;
   /** subtle per-type hue tint */
   tint?: PaletteTint;
+  /** 绝对高程色带；缺省则退回当前模型 min/max */
+  colorMin?: number;
+  colorMax?: number;
 }
 
 /**
@@ -35,7 +38,12 @@ export function buildSlabGeometry(
   const tint = opts.tint ?? [1, 1, 1];
 
   const putColor = (idx: number, h: number) => {
-    const t = (h - hf.min) / (hf.max - hf.min || 1);
+    const colorMin = opts.colorMin ?? hf.min;
+    const colorMax = opts.colorMax ?? hf.max;
+    const t = Math.min(
+      Math.max((h - colorMin) / (colorMax - colorMin || 1), 0),
+      1,
+    );
     const ocean = water != null && h < water;
     const baseRgb = ocean
       ? rampColor(

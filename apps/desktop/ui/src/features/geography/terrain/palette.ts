@@ -1,11 +1,10 @@
 /**
- * Muted scientific terrain palette — warm geological greys/taupes that sit naturally
- * on the app's off-white + warm-orange page. No saturated greens/blues/reds.
+ * 教学用地形配色：按高程分层，让孩子一眼看出低地、坡面、山顶和水面。
  */
 
 export interface RampStop {
   t: number;
-  color: [number, number, number]; // rgb 0..1
+  color: [number, number, number];
 }
 
 export function rampColor(
@@ -28,23 +27,23 @@ export function rampColor(
   return stops[stops.length - 1].color;
 }
 
-/** dry rock/soil ramp (low -> high) */
+/** 陆地高程色带：河谷绿 → 山坡褐 → 岩灰 → 雪顶 */
 export const LAND_RAMP: RampStop[] = [
-  { t: 0.0, color: [0.86, 0.8, 0.69] }, // warm sand / beige
-  { t: 0.3, color: [0.76, 0.69, 0.56] }, // tawny earth
-  { t: 0.55, color: [0.66, 0.59, 0.47] }, // olive-grey soil
-  { t: 0.78, color: [0.56, 0.5, 0.41] }, // grey-brown
-  { t: 1.0, color: [0.48, 0.43, 0.36] }, // rocky grey
+  { t: 0.0, color: [0.42, 0.62, 0.34] },
+  { t: 0.22, color: [0.62, 0.72, 0.38] },
+  { t: 0.45, color: [0.78, 0.62, 0.38] },
+  { t: 0.68, color: [0.62, 0.48, 0.36] },
+  { t: 0.86, color: [0.55, 0.52, 0.5] },
+  { t: 1.0, color: [0.94, 0.96, 0.98] },
 ];
 
-/** submerged ocean floor ramp (below water level, darker/cooler) */
+/** 海床：深蓝到近岸浅青 */
 export const SEA_RAMP: RampStop[] = [
-  { t: 0.0, color: [0.36, 0.42, 0.46] }, // deep
-  { t: 0.6, color: [0.5, 0.55, 0.58] }, // mid shelf
-  { t: 1.0, color: [0.62, 0.66, 0.67] }, // near shore
+  { t: 0.0, color: [0.08, 0.22, 0.42] },
+  { t: 0.55, color: [0.12, 0.42, 0.62] },
+  { t: 1.0, color: [0.32, 0.7, 0.78] },
 ];
 
-/** a per-type tint multiplier applied on top of the shared ramps (subtle) */
 export type PaletteTint = [number, number, number];
 
 export const DEFAULT_TINT: PaletteTint = [1, 1, 1];

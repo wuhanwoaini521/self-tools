@@ -65,7 +65,7 @@ export function Landform3DViewer({ title, config }: Landform3DViewerProps) {
   const hotspots: LandformHotspot[] = config.hotspots;
 
   const [mode, setMode] = useState<LandformViewMode>("terrain");
-  const [labelsVisible, setLabelsVisible] = useState(false);
+  const [labelsVisible, setLabelsVisible] = useState(true);
   const [resetToken, setResetToken] = useState(0);
   const [reloadToken, setReloadToken] = useState(0);
   const [webglAvailable, setWebglAvailable] = useState<boolean | null>(null);
@@ -94,7 +94,7 @@ export function Landform3DViewer({ title, config }: Landform3DViewerProps) {
   // switching landform: back to observation mode, clear selection, reset camera
   useEffect(() => {
     setMode("terrain");
-    setLabelsVisible(false);
+    setLabelsVisible(true);
     setSelectedHotspot(null);
     setContextLost(false);
     setResetToken((value) => value + 1);
@@ -179,7 +179,7 @@ export function Landform3DViewer({ title, config }: Landform3DViewerProps) {
           <Canvas
             key={reloadToken}
             shadows
-            dpr={[1, 1.5]}
+            dpr={[1, 2]}
             camera={{ fov: 35, position: preset.camera.position }}
           >
             <TerrainScene

@@ -1,5 +1,6 @@
 export type LandformModelType =
   | "mountains"
+  | "hills"
   | "plateau"
   | "basin"
   | "plain"
@@ -59,6 +60,30 @@ export const LANDFORM_VIEWERS: Record<LandformModelType, LandformViewerConfig> =
           label: "坡面",
           description: "从山脊向山谷倾斜延伸的表面。",
           position: [-2.6, 1.1, 1.25],
+        },
+      ],
+    },
+    hills: {
+      modelType: "hills",
+      cameraPosition: [5.6, 2.7, 5.4],
+      hotspots: [
+        {
+          id: "crest",
+          label: "圆顶",
+          description: "橙色圆环套在丘顶：这里最圆、最高，没有尖角。",
+          position: [0, 1.28, 0],
+        },
+        {
+          id: "slope",
+          label: "缓坡",
+          description: "蓝线顺着坡面往下走：坡很缓，人可以慢慢走上去。",
+          position: [0.95, 0.62, 0.06],
+        },
+        {
+          id: "vale",
+          label: "浅谷",
+          description: "两座丘中间的低处：比山顶矮一截，但没有深峡谷那么深。",
+          position: [1.52, 0.22, 0.1],
         },
       ],
     },
