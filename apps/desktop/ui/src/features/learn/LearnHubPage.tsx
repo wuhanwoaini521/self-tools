@@ -1,9 +1,15 @@
-import { MapTrifold, Notebook, Scroll, Translate } from "@phosphor-icons/react";
+import { ArrowRight, Cards, MapTrifold, Notebook, Scroll, Translate } from "@phosphor-icons/react";
+import { useCallback, useEffect, useState } from "react";
+import { sourceRoute } from "../shared/sourceNavigation";
+import { learningClient } from "../learning/learningClient";
+import { errorMessage } from "../../utils";
+import type { ContinueItem } from "../../types";
 import "../../shell/product-shell.css";
 
 interface LearnHubPageProps {
   active: boolean;
-  onOpen: (page: "history" | "geography" | "language" | "study-board") => void;
+  onOpen: (page: "history" | "geography" | "language" | "study-board" | "review") => void;
+  onNavigate: (hash: string) => void;
 }
 
 const MODULES = [
@@ -33,14 +39,74 @@ const MODULES = [
   },
 ];
 
-export function LearnHubPage({ active, onOpen }: LearnHubPageProps) {
+function continueRoute(item: ContinueItem): string {
+  return (
+    sourceRoute(item.module, item.entity_type, item.entity_id) ??
+    `#${item.module}?id=${encodeURIComponent(item.entity_id)}`
+  );
+}
+
+export function LearnHubPage({ active, onOpen, onNavigate }: LearnHubPageProps) {
+  const [due, setDue] = useState<number | null>(null);
+  const [continues, setContinues] = useState<ContinueItem[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      const today = await learningClient.getToday();
+      setDue(today.pending_reviews_count);
+      setContinues(today.continue_items.slice(0, 4));
+      setLoadError(null);
+    } catch (error) {
+      setLoadError(errorMessage(error));
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!active) return;
+    void load();
+  }, [active, load]);
+
   return (
     <div className="learn-hub" aria-hidden={!active}>
       <p className="learn-hub-kicker">学习</p>
       <h1>从一门课接着往下</h1>
       <p className="learn-hub-lead">
-        历史、地理、语言和画板仍用原来的工作流。这里只是入口；进度与数据还在各模块里。
+        历史、地理、语言和画板仍用原来的工作流。进度在各模块里，这里只负责入口。
       </p>
+
+      {loadError ? (
+        <p className="learn-hub-note">{loadError}</p>
+      ) : due && due > 0 ? (
+        <button type="button" className="learn-hub-continue" onClick={() => onOpen("review")}>
+          <Cards size={18} />
+          <span>
+            <strong>{due} 张卡片待复习</strong>
+            <small>复习中心仍走原来的队列，不改计分规则</small>
+          </span>
+          <ArrowRight size={16} />
+        </button>
+      ) : null}
+
+      {continues.length > 0 ? (
+        <div className="learn-hub-resume">
+          <h2>继续学习</h2>
+          <ul>
+            {continues.map((item) => (
+              <li key={`${item.module}:${item.entity_type}:${item.entity_id}`}>
+                <button type="button" onClick={() => onNavigate(continueRoute(item))}>
+                  <strong>{item.title}</strong>
+                  <span>
+                    {item.module}
+                    {item.progress_percent == null ? "" : ` · ${Math.round(item.progress_percent)}%`}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
       <div className="learn-hub-grid">
         {MODULES.map((module) => (
           <button

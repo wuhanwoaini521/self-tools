@@ -166,6 +166,18 @@ export function RssPage({ active, version, refreshing, onRefresh, onFeedsChanged
     if (absolute) void openInBrowser(absolute);
   };
 
+  if (!isTauriRuntime()) {
+    return (
+      <div className="rss-web-empty" role="status">
+        <strong>RSS 目前只在桌面应用里刷新和阅读</strong>
+        <p>
+          订阅源与已读状态在 dashboard.db，和新闻的 news.db 是两套库。网页端还没有
+          /api/v1/rss。新闻 Tab 可以照常用来源、已读和刷新。
+        </p>
+      </div>
+    );
+  }
+
   return <div className="rss-page">
     <aside className="rss-feeds">
       <header className="rss-feeds-header">

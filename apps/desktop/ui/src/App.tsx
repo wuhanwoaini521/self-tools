@@ -927,6 +927,7 @@ export default function App() {
               {item.label}
             </button>
           ))}
+          <span className="product-subnav-note">新闻与 RSS 分库保存已读，不混源</span>
         </nav>
       ) : null}
       <div className="app-body">
@@ -948,6 +949,7 @@ export default function App() {
             <LearnHubPage
               active={page === "learn"}
               onOpen={(module) => setPage(module)}
+              onNavigate={navigateToHash}
             />
           </section>
           <section
