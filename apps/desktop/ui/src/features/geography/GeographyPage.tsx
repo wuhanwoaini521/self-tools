@@ -7,6 +7,7 @@ import {
   CaretRight,
   Compass,
   GitBranch,
+  GlobeHemisphereWest,
   MagnetStraight,
   MapPin,
   MapTrifold,
@@ -46,8 +47,11 @@ import { AmapRegionMap } from "./AmapRegionMap";
 import { LocationHistoryTimeline } from "./LocationHistoryTimeline";
 import { reviewedLocationEvents } from "./geoTimeline";
 import { GeoMap, type GeoMapLayer } from "./GeoMap";
+import { GlobeExplorer } from "./GlobeExplorer";
+import { landformGlobeMarkers } from "./globeLandformMarkers";
 import { Landform3DViewer } from "./Landform3DViewer";
 import { LANDFORM_KNOWLEDGE_ENTRIES } from "./landformKnowledgeData";
+import { getLandformLesson } from "./landformLessons";
 import { LANDFORM_VIEWERS } from "./landform3dData";
 import { getRealTerrain } from "./realTerrainData";
 import { ViewerErrorBoundary } from "./ViewerErrorBoundary";
@@ -1161,14 +1165,25 @@ function KnowledgePage({
   onOpenEntity,
   returnEntity,
   onReturnToExplore,
+  initialSelectedId,
 }: {
   onOpenEntity: (id: string) => void;
   returnEntity?: GeoEntity | null;
   onReturnToExplore?: () => void;
+  initialSelectedId?: string | null;
 }) {
   const [selectedId, setSelectedId] = useState(
-    LANDFORM_KNOWLEDGE_ENTRIES[0].id,
+    initialSelectedId &&
+      LANDFORM_KNOWLEDGE_ENTRIES.some((entry) => entry.id === initialSelectedId)
+      ? initialSelectedId
+      : LANDFORM_KNOWLEDGE_ENTRIES[0].id,
   );
+  useEffect(() => {
+    if (!initialSelectedId) return;
+    if (LANDFORM_KNOWLEDGE_ENTRIES.some((entry) => entry.id === initialSelectedId)) {
+      setSelectedId(initialSelectedId);
+    }
+  }, [initialSelectedId]);
   const [landformQuery, setLandformQuery] = useState("");
   const selected =
     LANDFORM_KNOWLEDGE_ENTRIES.find((entry) => entry.id === selectedId) ??
@@ -1189,6 +1204,7 @@ function KnowledgePage({
     "conceptual",
   );
   const realRegion = useMemo(() => getRealTerrain(selected.id), [selected.id]);
+  const lesson = getLandformLesson(selected.id);
   return (
     <section className="geo-knowledge-page">
       <header className="geo-knowledge-header">
@@ -1334,16 +1350,32 @@ function KnowledgePage({
           <div className="geo-knowledge-copy">
             <section>
               <span>01 · 它是什么</span>
-              <p>{selected.intro}</p>
+              <p>{lesson?.intro ?? selected.intro}</p>
             </section>
             <section>
               <span>02 · 怎么形成</span>
-              <p>{selected.formation}</p>
+              <p>{lesson?.formation ?? selected.formation}</p>
             </section>
             <section>
               <span>03 · 怎么辨认</span>
-              <p>{selected.identify}</p>
+              <p>{lesson?.identify ?? selected.identify}</p>
             </section>
+            {lesson ? (
+              <>
+                <section>
+                  <span>04 · 模型里看什么</span>
+                  <p>{lesson.lookFor}</p>
+                </section>
+                <section>
+                  <span>05 · 记住这一句</span>
+                  <p>{lesson.remember}</p>
+                </section>
+                <section>
+                  <span>06 · 有趣的事实</span>
+                  <p>{lesson.funFact}</p>
+                </section>
+              </>
+            ) : null}
           </div>
           <footer className="geo-knowledge-example">
             <div>
@@ -1394,6 +1426,10 @@ export function GeographyPage({
   >(null);
   const [layer, setLayer] = useState<GeoMapLayer>("terrain");
   const [view, setView] = useState<"explore" | "knowledge">("explore");
+  const [exploreSurface, setExploreSurface] = useState<"globe" | "map">("globe");
+  const [knowledgeEntryId, setKnowledgeEntryId] = useState<string | null>(null);
+  const [globeSelectionId, setGlobeSelectionId] = useState<string | null>(null);
+  const globeMarkers = useMemo(() => landformGlobeMarkers(), []);
   // 地图上的轻量选择：点击地图实体只打开浮动信息卡，详情仍走原有 openEntity。
   const [mapSelectionId, setMapSelectionId] = useState<string | null>(null);
   /** 从索引/搜索结果「在地图查看」时的观察中心；null 表示使用随机起点。 */
@@ -1456,6 +1492,11 @@ export function GeographyPage({
   );
   const retryHistory = useCallback(() => setHistoryRetry((count) => count + 1), []);
   const openLandforms = useCallback(() => setView("knowledge"), []);
+  const openLandformFromGlobe = useCallback((id: string) => {
+    setKnowledgeEntryId(id);
+    setGlobeSelectionId(id);
+    setView("knowledge");
+  }, []);
   const returnToExplore = useCallback(() => setView("explore"), []);
 
   useEffect(() => {
@@ -1750,29 +1791,54 @@ export function GeographyPage({
 
   // 加载完之前渲染骨架。之前的做法是用一份硬编码的 FALLBACK_HOME 顶着——
   // 那让「真实数据」和「假数据」在界面上无法区分。
-  if (!home && homeError) {
-    return (
-      <div className="page-scroll geography-page">
-        <section className="geo-load-error" role="alert">
-          <h1>暂时无法载入 Geography</h1>
-          <p>地理数据服务没有响应。已保存的本地资料不会被更改；请检查服务后重试。</p>
-          <button type="button" onClick={() => void loadHome()}>重新载入</button>
-        </section>
-      </div>
-    );
-  }
   if (!home) {
+    if (view === "knowledge") {
+      return (
+        <div className="page-scroll geography-page">
+          <nav className="geo-tabs" aria-label="Geography 页面">
+            <button type="button" onClick={() => setView("explore")}>
+              <Compass size={16} />
+              Explore
+            </button>
+            <button type="button" className="selected">
+              <BookOpen size={16} />
+              知识
+            </button>
+          </nav>
+          <KnowledgePage
+            onOpenEntity={handleOpenEntity}
+            onReturnToExplore={returnToExplore}
+            initialSelectedId={knowledgeEntryId}
+          />
+        </div>
+      );
+    }
     return (
-      <div className="page-scroll geography-page">
-        <div className="geo-explore-grid" aria-busy="true">
-          <section className="geo-discovery-card">
-            <div className="geo-section-label">
-              <Question size={15} /> DAILY DISCOVERY · 今日探索
-            </div>
-            <h2>正在载入今日探索…</h2>
-            <p className="geo-discovery-question">正在读取地理知识库。</p>
-          </section>
-          <div className="geo-discovery-card" />
+      <div className="page-scroll geography-page geo-globe-home" aria-busy={!homeError}>
+        <nav className="geo-tabs" aria-label="Geography 页面">
+          <button type="button" className="selected">
+            <Compass size={16} />
+            Explore
+          </button>
+          <button type="button" onClick={() => setView("knowledge")}>
+            <BookOpen size={16} />
+            知识
+          </button>
+        </nav>
+        {homeError ? (
+          <div className="geo-globe-banner" role="status">
+            <p>地点索引暂时无法载入，地球与地貌气泡仍可使用。</p>
+            <button type="button" onClick={() => void loadHome()}>重新载入</button>
+          </div>
+        ) : null}
+        <div className="geo-globe-shell">
+          <GlobeExplorer
+            active={active}
+            markers={globeMarkers}
+            selectedId={globeSelectionId}
+            onSelect={setGlobeSelectionId}
+            onOpenLandform={openLandformFromGlobe}
+          />
         </div>
       </div>
     );
@@ -1787,26 +1853,29 @@ export function GeographyPage({
     : mapSelectionId
       ? favoriteIdSet.has(mapSelectionId)
       : false;
+  const globeHome = view === "explore" && !detail && exploreSurface === "globe";
   return (
-    <div className="page-scroll geography-page">
-      <header className="geo-hero">
-        <div>
-          <span className="geo-eyebrow">
-            GEOGRAPHY EXPLORER · OFFLINE FIRST
-          </span>
-          <h1>
-            探索这个世界，<em>继续追问为什么。</em>
-          </h1>
-          <p>
-            从一个地点出发，沿着地形、气候、水系、人口与城市之间的关系，读懂它如何成为今天的样子。
-          </p>
-        </div>
-        <div className="geo-hero-orbit" aria-hidden="true">
-          <span>35.86° N</span>
-          <i />
-          <b>104.20° E</b>
-        </div>
-      </header>
+    <div className={"page-scroll geography-page" + (globeHome ? " geo-globe-home" : "")}>
+      {globeHome ? null : (
+        <header className="geo-hero">
+          <div>
+            <span className="geo-eyebrow">
+              GEOGRAPHY EXPLORER · OFFLINE FIRST
+            </span>
+            <h1>
+              探索这个世界，<em>继续追问为什么。</em>
+            </h1>
+            <p>
+              从一个地点出发，沿着地形、气候、水系、人口与城市之间的关系，读懂它如何成为今天的样子。
+            </p>
+          </div>
+          <div className="geo-hero-orbit" aria-hidden="true">
+            <span>35.86° N</span>
+            <i />
+            <b>104.20° E</b>
+          </div>
+        </header>
+      )}
       <nav className="geo-tabs" aria-label="Geography 页面">
         <button
           type="button"
@@ -1824,12 +1893,35 @@ export function GeographyPage({
           <BookOpen size={16} />
           知识
         </button>
+        {view === "explore" && !detail ? (
+          <span className="geo-surface-toggle" role="group" aria-label="探索视图">
+            <button
+              type="button"
+              className={exploreSurface === "globe" ? "selected" : ""}
+              aria-pressed={exploreSurface === "globe"}
+              onClick={() => setExploreSurface("globe")}
+            >
+              <GlobeHemisphereWest size={15} />
+              地球
+            </button>
+            <button
+              type="button"
+              className={exploreSurface === "map" ? "selected" : ""}
+              aria-pressed={exploreSurface === "map"}
+              onClick={() => setExploreSurface("map")}
+            >
+              <MapTrifold size={15} />
+              平面地图
+            </button>
+          </span>
+        ) : null}
       </nav>
       {view === "knowledge" ? (
         <KnowledgePage
           onOpenEntity={handleOpenEntity}
           returnEntity={detail?.entity ?? null}
           onReturnToExplore={returnToExplore}
+          initialSelectedId={knowledgeEntryId}
         />
       ) : detail ? (
         <EntityDetail
@@ -1851,6 +1943,30 @@ export function GeographyPage({
         />
       ) : (
         <>
+          {exploreSurface === "globe" ? (
+            <div className="geo-globe-shell">
+              <ViewerErrorBoundary
+                fallback={
+                  <div className="geo-globe-fallback" role="alert">
+                    <p>地球视图暂时无法显示。可切换到平面地图继续探索。</p>
+                    <button type="button" onClick={() => setExploreSurface("map")}>
+                      打开平面地图
+                    </button>
+                  </div>
+                }
+              >
+                <GlobeExplorer
+                  active={active}
+                  markers={globeMarkers}
+                  selectedId={globeSelectionId}
+                  onSelect={setGlobeSelectionId}
+                  onOpenLandform={openLandformFromGlobe}
+                />
+              </ViewerErrorBoundary>
+            </div>
+          ) : null}
+          {exploreSurface === "map" ? (
+          <>
           <div className="geo-search-box">
             <MagnifyingGlass size={20} />
             <input
@@ -2009,6 +2125,8 @@ export function GeographyPage({
               </p>
             )}
           </section>
+          </>
+          ) : null}
         </>
       )}
     </div>

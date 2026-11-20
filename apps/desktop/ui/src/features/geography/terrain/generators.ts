@@ -109,91 +109,78 @@ function channelIncise(
 // generators
 // ---------------------------------------------------------------------------
 
-/** 山地与山脉 — continuous ridge systems + valley incision + multi-scale erosion */
+function bump(x: number, z: number, cx: number, cz: number, rx: number, rz: number, h: number): number {
+  const u = (x - cx) / rx;
+  const v = (z - cz) / rz;
+  return h * Math.exp(-(u * u + v * v));
+}
+
+/** 有限半径的馒头丘：出了半径就是 0，丘与丘之间不会糊成一座大山 */
+function cosineMound(
+  x: number,
+  z: number,
+  cx: number,
+  cz: number,
+  radius: number,
+  height: number,
+): number {
+  const d = Math.hypot(x - cx, z - cz);
+  if (d >= radius) return 0;
+  return height * 0.5 * (1 + Math.cos(Math.PI * (d / radius)));
+}
+
+/** 山地与山脉 — 一条弯曲主脊、三座峰、一条山谷 */
 export function generateMountainTerrain(seed: number): HeightFn {
   return (x, z) => {
-    // primary chain system (elongated along u)
-    const [u, v] = rot(x, z, 0.58);
-    const c1 = ridged(u * 0.4, v * 2.2, seed, 5) ** 1.85;
-    // secondary oblique ridge system (spurs / 支脉)
-    const [u2, v2] = rot(x, z, -0.3);
-    const c2 = ridged(u2 * 0.85, v2 * 1.4, seed + 53, 4) ** 2.1 * 0.5;
-    let h = 0.6 * c1 + 0.4 * c2;
-    // broad mass variation (clusters of high ground)
-    h *= 0.72 + 0.56 * fbm(x * 0.26, z * 0.26, seed + 11, 3);
-    // multi-scale erosion texture
-    h *= 0.66 + 0.5 * fbm(x * 2.4, z * 2.4, seed + 71, 4);
-    // valley incision between ridges
-    const valley = fbm(x * 0.3, z * 0.3, seed + 97, 3);
-    const carve = Math.max(0, (valley - 0.52) / 0.48) ** 1.4;
-    h = Math.max(0, h * (1 - 0.4 * carve));
-    return h ** 1.16 * 3.6;
+    const ridgeZ = -0.15 + 0.55 * Math.sin(x * 0.42);
+    const along = Math.exp(-((z - ridgeZ) ** 2) / 1.35);
+    const peaks =
+      bump(x, z, -1.55, ridgeZ - 0.05, 1.15, 0.85, 1.55) +
+      bump(x, z, 0.15, ridgeZ + 0.12, 1.35, 0.92, 2.05) +
+      bump(x, z, 1.85, ridgeZ - 0.18, 1.05, 0.78, 1.25);
+    const spur = bump(x, z, -0.2, 1.85, 1.6, 0.7, 0.85);
+    const valley = bump(x, z, 0.4, 1.45, 2.4, 0.62, 0.72);
+    const grain = 0.045 * fbm(x * 0.55, z * 0.55, seed, 2);
+    return Math.max(0.14, 0.28 + along * 1.55 + peaks + spur - valley + grain);
   };
 }
 
-/** 高原 — high flat surface with ragged steep edges + river-cut gorges */
-export function generatePlateauTerrain(seed: number): HeightFn {
-  // a few meandering gorge lines incising the top
-  const gorgeDepth = (x: number, z: number): number => {
-    let cut = 0;
-    for (let i = 0; i < 2; i += 1) {
-      const path = buildPathSamples(riverPath2D(), 4);
-      const { dist } = nearestPath(x, z, path);
-      const w = 0.55 + i * 0.25;
-      cut += Math.exp(-(dist * dist) / (2 * w * w)) * (1.0 - i * 0.15);
-    }
-    return cut;
-  };
+/** 丘陵 — 正面一座示范丘，右侧邻丘，中间浅谷；侧视能看清圆顶和缓坡 */
+export function generateHillTerrain(_seed: number): HeightFn {
   return (x, z) => {
-    // ragged plateau edge from 5-octave fbm -> near-cliff falloff
-    const e = fbm(x * 0.5, z * 0.5, seed + 5, 5);
-    const mask = smoothstep(0.475, 0.555, e);
-    // top micro-relief
-    const relief = 0.08 * (fbm(x * 1.6, z * 1.6, seed + 23, 3) - 0.5);
-    // subtle edge gullying
-    const rim = 0.1 * (1 - mask) * (1 + fbm(x * 1.1, z * 1.1, seed + 39, 3));
-    let h = 0.28 + mask * (2.05 + relief) - rim;
-    // gorges cut deep through the plateau surface
-    h -= mask * gorgeDepth(x, z) * 0.62;
-    return Math.max(0.18, h);
+    const floor = 0.2;
+    const demo = cosineMound(x, z, 0, 0, 1.72, 1.08);
+    const neighbor = cosineMound(x, z, 3.05, 0.18, 1.42, 0.78);
+    const far = cosineMound(x, z, -2.55, 1.85, 1.15, 0.52);
+    return floor + Math.max(demo, neighbor, far);
   };
 }
 
-/** 盆地 — irregular peripheral ridge ring + low centre + outlet gap (no round bowl) */
-export function generateBasinTerrain(seed: number): HeightFn {
-  const outletAngle = -2.1; // south-west gap where a river exits
+/** 高原 — 举起来的大桌子，边缘陡，一条河谷切开桌面 */
+export function generatePlateauTerrain(_seed: number): HeightFn {
   return (x, z) => {
-    const r = Math.hypot(x, z);
+    const nx = x / 3.15;
+    const nz = z / 2.55;
+    const r = Math.hypot(nx, nz);
+    const table = smoothstep(1.08, 0.82, r);
+    const skirt = 0.22 + 1.85 * table;
+    const gorge = Math.exp(-((z + 0.15 * Math.sin(x * 0.7)) ** 2) / 0.18) * table * 0.85;
+    return Math.max(0.16, skirt - gorge);
+  };
+}
+
+/** 盆地 — 四周高、中间低，西南有一个出水口 */
+export function generateBasinTerrain(_seed: number): HeightFn {
+  const outletAngle = -2.15;
+  return (x, z) => {
+    const r = Math.hypot(x * 0.92, z);
     const ang = Math.atan2(z, x);
-    // asymmetric, angular ring radius
-    const ringR =
-      2.62 +
-      0.5 * Math.sin(ang * 2 + 0.8) +
-      0.34 * Math.sin(ang * 5 - 1.1) +
-      0.55 * (fbm(x * 0.3, z * 0.3, seed + 9, 3) - 0.5) * 2;
+    const ringR = 2.55;
     const ringDist = Math.abs(r - ringR);
-    const ring = Math.max(0, 1 - ringDist / 1.15) ** 2.2;
-    // outlet gap breaks the ring
-    const outlet = Math.exp(-(((ang - outletAngle) / 0.36) ** 2));
-    const ringBroken = ring * (1 - 0.92 * outlet);
-    // ridge detail along the ring
-    const rid = 0.85 + 0.95 * ridged(x * 0.62, z * 0.62, seed + 17, 4);
-    const axisBoost = 0.75 + 0.55 * fbm(x * 0.2, z * 0.2, seed + 7, 3);
-    const ridgeHeight = ringBroken * rid * 1.62 * axisBoost;
-    // gentle, low centre with a tilt toward the outlet
-    const floor = 0.28 + 0.2 * fbm(x * 0.85, z * 0.85, seed + 29, 3);
-    const tilt =
-      0.1 *
-      Math.max(0, x * 0.55 + z * 0.25) *
-      smoothstep(0.9, 2.2, ringR - r) *
-      0;
-    const edgeMask = smoothstep(1.45, ringR * 0.94, r);
-    // outer flank extends past the ring, descending to lowland
-    const outer = 1 + 0.35 * smoothstep(ringR * 0.98, ringR * 1.3, r);
-    let h = floor + ridgeHeight * edgeMask * outer + tilt;
-    // soften the outer edge so it reads as mountain foot, not a wall
-    h *= 1 - 0.22 * smoothstep(r, ringR + 1.6, ringR + 2.1);
-    return Math.max(0.15, h);
+    const ring = Math.max(0, 1 - ringDist / 0.95) ** 1.6;
+    const outlet = Math.exp(-(((ang - outletAngle) / 0.42) ** 2));
+    const floor = 0.22 + 0.08 * smoothstep(2.2, 0.4, r);
+    return Math.max(0.16, floor + ring * (1 - 0.92 * outlet) * 1.85);
   };
 }
 
@@ -308,25 +295,19 @@ export function generateIslandArcTerrain(seed: number): HeightFn {
   };
 }
 
-/** 火山锥 — broad shield base + tall cone + crater + lava apron (continuous terrain) */
-export function generateVolcanicTerrain(seed: number): HeightFn {
+/** 火山锥 — 光滑圆锥、顶部火山口、一侧熔岩裙 */
+export function generateVolcanicTerrain(_seed: number): HeightFn {
   return (x, z) => {
     const r = Math.hypot(x, z);
     const ang = Math.atan2(z, x);
-    // broad low shield apron
-    const apron = Math.max(0, 1 - r / 3.7) ** 1.7 * 1.0;
-    // main cone
-    const cone = r < 1.55 ? Math.max(0, 1 - r / 1.55) ** 1.32 * 2.9 : 0;
-    // crater depression near the summit
-    const crater = Math.exp(-((r - 0.24) * (r - 0.24)) / 0.05) * 0.5;
-    // smooth lava apron lobes on one flank (main lower sector)
-    const flowSector = Math.exp(-(((ang + 1.7) / 0.75) ** 2));
-    const flowBand = smoothstep(1.7, 3.1, r);
-    const lava = flowSector * flowBand * Math.exp(-(r * r) / 12) * 0.5;
-    // erosion micro-texture (stronger near base, muted on the clean cone)
-    const detail = fbm(x * 1.5, z * 1.5, seed + 31, 3);
-    const texture = 0.05 + 0.16 * detail * smoothstep(0.5, 2.6, r);
-    return Math.max(0.05, apron + cone + texture * r * 0.5 - crater + lava);
+    const apron = Math.max(0, 1 - r / 3.6) ** 1.8 * 0.85;
+    const cone = Math.max(0, 1 - r / 1.85) ** 1.05 * 3.05;
+    const crater = r < 0.38 ? (0.38 - r) * 1.85 : 0;
+    const lava =
+      Math.exp(-(((ang + 1.65) / 0.7) ** 2)) *
+      smoothstep(1.2, 3.0, r) *
+      0.55;
+    return Math.max(0.08, apron + cone - crater + lava);
   };
 }
 
@@ -359,38 +340,47 @@ export function generateGlacialTerrain(seed: number): HeightFn {
   };
 }
 
-/** 岩溶 — sharp tower karst plus dissolution sinkholes */
-export function generateKarstTerrain(seed: number): HeightFn {
-  const sink = (x: number, z: number): number => {
-    const d =
-      (Math.max(0, fbm(x * 2.0, z * 2.0, seed + 31, 3) - 0.6) / 0.4) ** 1.3;
-    return d * 0.75;
-  };
+/** 岩溶 — 几座塔状峰林 + 两个落水洞，像桂林示意 */
+export function generateKarstTerrain(_seed: number): HeightFn {
+  const towers: [number, number, number, number][] = [
+    [-2.1, -0.8, 0.55, 2.35],
+    [-0.7, 0.15, 0.62, 2.85],
+    [0.85, -1.05, 0.5, 2.15],
+    [1.95, 0.35, 0.58, 2.55],
+    [0.15, 1.65, 0.48, 1.85],
+    [2.45, 1.55, 0.42, 1.55],
+    [-1.55, 1.35, 0.4, 1.45],
+  ];
   return (x, z) => {
-    // tower field: strongly peaked residual peaks
-    const towers = ridged(x * 1.15, z * 1.15, seed, 4) ** 3.4 * 2.45;
-    // broad base plateau of the karst plain
-    const base = 0.22 + 0.12 * fbm(x * 0.6, z * 0.6, seed + 7, 3);
-    return Math.max(0.08, base + towers - sink(x, z));
+    let h = 0.22;
+    for (const [cx, cz, r, hh] of towers) {
+      const d = Math.hypot(x - cx, z - cz);
+      h += Math.max(0, 1 - d / r) ** 1.35 * hh;
+    }
+    h -= bump(x, z, 0.35, 0.45, 0.7, 0.7, 0.55);
+    h -= bump(x, z, 1.15, 1.05, 0.55, 0.55, 0.4);
+    return Math.max(0.1, h);
   };
 }
 
-/** 沙漠 — transverse / barchan dune field with asymmetric slopes + flat playa */
-export function generateDesertTerrain(seed: number): HeightFn {
+/** 沙漠 — 迎风缓、背风陡的新月形沙丘 */
+export function generateDesertTerrain(_seed: number): HeightFn {
+  const dunes: [number, number, number][] = [
+    [-1.6, -0.2, 1.15],
+    [0.35, 0.55, 1.35],
+    [2.0, -0.85, 0.95],
+    [-0.4, 1.85, 0.82],
+  ];
   return (x, z) => {
-    // undulating transverse crest lines (wind along +z)
-    const phase = fbm(x * 0.5, z * 0.55, seed, 4) * 2.4 + z * 0.85;
-    const crest = (0.55 + 0.45 * Math.sin(phase)) ** 2.5;
-    // crest height varies along the line
-    const crestH = 0.55 + 0.8 * fbm(x * 0.35, z * 0.35, seed + 13, 3);
-    let h = crest * crestH + 0.14;
-    // gentle overall dome
-    h += 0.1 * (1 - Math.min(1, Math.hypot(x / 4, z / 4) / 1.4));
-    // flatten one region into playa
-    const playa = smoothstep(2.6, 1.6, Math.hypot(x + 3, z - 3)) * 0.25;
-    h -= playa;
-    h += 0.03 * fbm(x * 1.8, z * 1.8, seed + 29, 3);
-    return Math.max(0.05, h);
+    let h = 0.16;
+    for (const [cx, cz, amp] of dunes) {
+      const dx = x - cx;
+      const dz = z - cz;
+      const along = Math.exp(-(dz * dz) / 1.15);
+      const windward = dx < 0 ? Math.exp(-(dx * dx) / 1.8) : Math.exp(-(dx * dx) / 0.38);
+      h += along * windward * amp;
+    }
+    return Math.max(0.08, h);
   };
 }
 
@@ -419,30 +409,14 @@ export function generateCoastalTerrain(seed: number): HeightFn {
   };
 }
 
-/** 构造 — parallel faults: central horst, flanking grabens, prominent scarps */
-export function generateStructuralTerrain(seed: number): HeightFn {
+/** 构造 — 中间地垒抬升，两侧地堑下陷，断层崖清楚 */
+export function generateStructuralTerrain(_seed: number): HeightFn {
   return (x, z) => {
-    const [u, v] = rot(x, z, 0.34);
-    const nz = 0.25 + 0.3 * fbm(v * 0.4, u * 0.4, seed, 3);
-    // three tilted blocks between two fault lines at u = +/- 1.2
-    const blockU = (u + 1.25) / 2.5; // 0..1 across
-    // block profile with steep scarps at the fault lines
-    const grabenLow = 0.32;
-    const horstHigh = 2.15;
-    // ramp 0 ->1 across the graben, 1 across the horst, settling into the far block
-    const inGraben = smoothstep(0.0, 0.32, blockU);
-    const inHorst = smoothstep(0.38, 0.55, blockU);
-    const outHorst = smoothstep(0.86, 1.0, blockU);
-    const raw =
-      grabenLow * (1 - inGraben) +
-      horstHigh * inGraben * (1 - inHorst) +
-      grabenLow * inHorst +
-      (grabenLow + 0.5) * outHorst;
-    // fault scarps: sharpen the two vertical jumps
-    let h = raw;
-    h = h * (0.9 + 0.35 * fbm(u * 2.2, v * 0.9, seed + 17, 3));
-    h += nz * 0;
-    return Math.max(0.1, h * 0.85 + 0.12);
+    const [u] = rot(x, z, 0.18);
+    const horst = smoothstep(-0.95, -0.72, u) * (1 - smoothstep(0.82, 1.05, u));
+    const westLow = smoothstep(-1.95, -1.7, u) * (1 - smoothstep(-0.95, -0.72, u));
+    const eastLow = smoothstep(0.82, 1.05, u) * (1 - smoothstep(2.05, 2.3, u));
+    return Math.max(0.16, 0.7 + horst * 1.45 - westLow * 0.38 - eastLow * 0.32 + 0.03 * Math.sin(z * 0.55));
   };
 }
 
@@ -480,6 +454,7 @@ export function generateMassMovementTerrain(seed: number): HeightFn {
 
 const GENERATORS: Record<string, (seed: number) => HeightFn> = {
   mountains: generateMountainTerrain,
+  hills: generateHillTerrain,
   plateau: generatePlateauTerrain,
   basin: generateBasinTerrain,
   plain: generatePlainTerrain,

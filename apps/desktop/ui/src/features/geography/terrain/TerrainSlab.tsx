@@ -17,13 +17,15 @@ export function TerrainSlab({
         thickness: preset.thickness,
         waterLevel: preset.waterLevel,
         tint: preset.tint,
+        colorMin: preset.colorMin,
+        colorMax: preset.colorMax,
       }),
     [heightfield, preset],
   );
   useEffect(() => () => geometry.dispose(), [geometry]);
   return (
     <mesh geometry={geometry} receiveShadow castShadow>
-      <meshStandardMaterial vertexColors roughness={0.96} metalness={0} />
+      <meshStandardMaterial vertexColors roughness={0.72} metalness={0} />
     </mesh>
   );
 }
@@ -37,9 +39,9 @@ export function WaterPlane({ preset }: { preset: TerrainPreset }) {
     >
       <planeGeometry args={[8, 8]} />
       <meshStandardMaterial
-        color="#7e989e"
+        color="#2f9ad6"
         transparent
-        opacity={0.5}
+        opacity={0.62}
         roughness={0.35}
         metalness={0}
         depthWrite={false}

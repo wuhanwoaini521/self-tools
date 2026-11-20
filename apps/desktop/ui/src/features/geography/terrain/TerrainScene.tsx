@@ -31,11 +31,11 @@ function CameraRig({
 function TerrainLighting() {
       return (
             <>
-                  <hemisphereLight args={["#fdf2e0", "#8a7f6b", 0.85]} />
+                  <hemisphereLight args={["#e7f4ff", "#6d8a63", 1.05]} />
                   <directionalLight
                         castShadow
                         position={[5, 8, 6]}
-                        intensity={1.9}
+                        intensity={1.65}
                         shadow-mapSize-width={2048}
                         shadow-mapSize-height={2048}
                         shadow-camera-left={-9}
@@ -105,7 +105,7 @@ export function TerrainScene({
 
       return (
             <>
-                  <color attach="background" args={["#e9e3d5"]} />
+                  <color attach="background" args={["#cfe8fb"]} />
                   <CameraRig
                         preset={preset}
                         resetToken={resetToken}

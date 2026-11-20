@@ -21,9 +21,20 @@ export interface TerrainPreset {
   section: { a: [number, number]; b: [number, number] };
   /** label-id -> world (x, z) anchor */
   labelAnchors: Record<string, [number, number]>;
+  /** 标签相对钉子的三维偏移，把文字拉开，避免叠在一起 */
+  labelOffsets?: Record<string, [number, number, number]>;
   /** subtle per-type hue tint */
   tint?: PaletteTint;
+  /**
+   * 绝对高程色带两端。所有地貌共用同一把“尺子”，
+   * 丘陵就不会因为自己是场内最高点而被涂成雪顶。
+   */
+  colorMin?: number;
+  colorMax?: number;
 }
+
+const WORLD_COLOR_MIN = -0.6;
+const WORLD_COLOR_MAX = 3.55;
 
 const P: Record<LandformModelType, TerrainPreset> = {
   mountains: {
@@ -44,6 +55,30 @@ const P: Record<LandformModelType, TerrainPreset> = {
       valley: [1.6, 0.7],
       slope: [-2.6, 1.2],
     },
+  },
+  hills: {
+    type: "hills",
+    seed: 17,
+    extent: 4,
+    resolutionDesktop: 168,
+    resolutionMobile: 112,
+    thickness: 0.7,
+    waterLevel: null,
+    contourInterval: 0.1,
+    contourBase: 0,
+    camera: { position: [5.6, 2.7, 5.4], target: [0.85, 0.48, 0.05] },
+    section: { a: [-1.6, 0], b: [3.4, 0.15] },
+    labelAnchors: {
+      crest: [0, 0],
+      slope: [0.95, 0.06],
+      vale: [1.52, 0.1],
+    },
+    labelOffsets: {
+      crest: [0.05, 1.35, -0.35],
+      slope: [1.55, 0.55, 0.25],
+      vale: [0.2, 0.95, 1.45],
+    },
+    tint: [0.96, 1.05, 0.9],
   },
   plateau: {
     type: "plateau",
@@ -270,5 +305,10 @@ const P: Record<LandformModelType, TerrainPreset> = {
 };
 
 export function getPreset(type: LandformModelType): TerrainPreset {
-  return P[type] ?? P.mountains;
+  const preset = P[type] ?? P.mountains;
+  return {
+    ...preset,
+    colorMin: preset.colorMin ?? WORLD_COLOR_MIN,
+    colorMax: preset.colorMax ?? WORLD_COLOR_MAX,
+  };
 }
