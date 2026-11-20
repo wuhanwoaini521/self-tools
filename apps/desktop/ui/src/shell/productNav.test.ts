@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  OVERFLOW_NAV_GROUPS,
   PAGE_IDS,
   PAGE_SHORTCUT_MAP,
   parseHashPath,
@@ -53,5 +54,13 @@ describe("productNav", () => {
     expect(shortcutDigitForPage("learn")).toBe("2");
     expect(shortcutDigitForPage("markdown")).toBeNull();
     expect(shortcutDigitForPage("knowledge")).toBeNull();
+  });
+
+  it("keeps overflow to learning extras and search, not removal candidates", () => {
+    const ids = OVERFLOW_NAV_GROUPS.flatMap((group) => group.items.map((item) => item.id));
+    expect(ids).toEqual(["review", "collections", "search"]);
+    expect(parseHashPath("#markdown")).toBe("markdown");
+    expect(parseHashPath("#knowledge")).toBe("knowledge");
+    expect(parseHashPath("#server")).toBe("server");
   });
 });

@@ -5,12 +5,9 @@
  */
 import {
   BookOpen,
-  Brain,
   Cards,
   Compass,
   FolderSimple,
-  HardDrives,
-  Heartbeat,
   House,
   MagnifyingGlass,
   MapTrifold,
@@ -19,7 +16,6 @@ import {
   Rss,
   Scroll,
   Translate,
-  TreeStructure,
 } from "@phosphor-icons/react";
 
 export type PageId =
@@ -109,30 +105,18 @@ export const NEWS_SUBNAV: NavItem[] = [
   { id: "rss", label: "RSS", icon: Rss },
 ];
 
-/** 溢出入口：旧功能仍可通过 hash / 更多 打开。 */
+/** 溢出入口：移出候选不进「更多」，旧 hash 仍可打开。 */
 export const OVERFLOW_NAV_GROUPS: Array<{ label: string; items: NavItem[] }> = [
   {
-    label: "学习（更多）",
+    label: "学习",
     items: [
       { id: "review", label: "复习中心", icon: Cards },
       { id: "collections", label: "收藏", icon: FolderSimple },
-      { id: "graph", label: "知识图谱", icon: TreeStructure },
     ],
   },
   {
-    label: "工具",
-    items: [
-      { id: "markdown", label: "Markdown", icon: Notebook },
-      { id: "search", label: "搜索", icon: MagnifyingGlass },
-      { id: "knowledge", label: "知识库", icon: Brain },
-    ],
-  },
-  {
-    label: "系统",
-    items: [
-      { id: "server", label: "服务器", icon: HardDrives },
-      { id: "system", label: "系统", icon: Heartbeat },
-    ],
+    label: "查找",
+    items: [{ id: "search", label: "搜索", icon: MagnifyingGlass }],
   },
 ];
 
