@@ -33,6 +33,7 @@ use devtoolbox_infrastructure::{
 // 组合根（store/服务/provider 装配）已下沉到 `devtoolbox_runtime`，桌面与网页共用。
 // NCE 英语课程学习子域（Tauri 命令）。
 pub mod language_course;
+pub mod language_speaking;
 // 系统就绪度（真实探测）。
 pub mod readiness;
 // V7：Home Server 组合根（平台适配器 + 注册表 + 安全动作层）。
@@ -1267,7 +1268,7 @@ struct PersonalAiStatus {
     tools: Vec<ToolSpec>,
 }
 
-fn load_ai_settings(
+pub(crate) fn load_ai_settings(
     app: &AppHandle,
 ) -> Result<devtoolbox_core::settings::AiSettings, CommandError> {
     let store = settings_store(app)?;
@@ -3012,6 +3013,20 @@ pub fn run() {
             language_course::language_mining_add,
             language_course::language_shadow_score,
             language_course::language_shadow_stats,
+            language_speaking::language_speaking_capabilities,
+            language_speaking::language_speaking_scenarios,
+            language_speaking::language_speaking_scenario,
+            language_speaking::language_speaking_create_session,
+            language_speaking::language_speaking_session,
+            language_speaking::language_speaking_submit_turn,
+            language_speaking::language_speaking_submit_audio,
+            language_speaking::language_speaking_tts,
+            language_speaking::language_speaking_pause,
+            language_speaking::language_speaking_resume,
+            language_speaking::language_speaking_complete,
+            language_speaking::language_speaking_report,
+            language_speaking::language_speaking_interrupt,
+            language_speaking::language_speaking_add_review,
             language_course::language_dict_lookup,
             language_course::language_dict_status,
             language_course::language_course_quiz,

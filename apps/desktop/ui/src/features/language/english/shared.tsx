@@ -36,12 +36,12 @@ export function formatTimestamp(ms: number): string {
 }
 
 export const STAGE_LABELS: Record<LessonStage, string> = {
-  vocabulary: "Vocabulary",
-  listen: "Listening",
-  read: "Reading",
-  sentence: "Sentence",
-  shadow: "Shadow",
-  quiz: "Quiz",
+  vocabulary: "词汇",
+  listen: "听力",
+  read: "阅读",
+  sentence: "逐句",
+  shadow: "跟读",
+  quiz: "测验",
   done: "完成",
 };
 
@@ -94,13 +94,18 @@ export function StageNav({
   stage,
   onChange,
   completed,
+  reached,
 }: {
   stage: LessonStage;
   onChange: (stage: LessonStage) => void;
   completed?: Partial<Record<LessonStage, boolean>>;
+  /** 进度线跟真实到达的阶段走，不跟当前正在看的页面走。 */
+  reached?: LessonStage;
 }) {
   const order: LessonStage[] = ["vocabulary", "listen", "read", "sentence", "shadow", "quiz"];
-  const progress = Math.max(0, order.indexOf(stage)) / (order.length - 1);
+  const railStage = reached ?? stage;
+  const railIndex = railStage === "done" ? order.length - 1 : Math.max(0, order.indexOf(railStage));
+  const progress = railIndex / (order.length - 1);
   return (
     <nav className="en-stage-nav" aria-label="学习阶段">
       <span className="en-stage-rail" aria-hidden="true">
@@ -159,4 +164,18 @@ export function nextStage(stage: LessonStage): LessonStage | null {
 export function prevStage(stage: LessonStage): LessonStage | null {
   const index = stageOrder(stage);
   return index > 0 ? STAGE_SEQUENCE[index - 1] : null;
+}
+
+/** 勾选只认已经走过的阶段。看过一个词、或点进后面的阶段，都不算完成。 */
+export function completedStages(
+  frontier: LessonStage,
+  quizScored: boolean,
+): Partial<Record<LessonStage, boolean>> {
+  const frontierIndex = stageOrder(frontier);
+  const done: Partial<Record<LessonStage, boolean>> = {};
+  for (const item of STAGE_SEQUENCE) {
+    if (item === "done") continue;
+    done[item] = stageOrder(item) < frontierIndex || (item === "quiz" && quizScored);
+  }
+  return done;
 }

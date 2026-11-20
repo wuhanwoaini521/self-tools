@@ -9,6 +9,7 @@ pub mod geography;
 pub mod language;
 pub mod learning;
 pub mod news;
+pub mod speaking;
 
 pub use course::CourseStoreAdapter;
 pub use feed::FeedFetcherAdapter;
@@ -16,3 +17,4 @@ pub use geography::GeographyQueryAdapter;
 pub use language::LanguageStoreAdapter;
 pub use learning::LearningStoreAdapter;
 pub use news::NewsRepositoryAdapter;
+pub use speaking::SpeakingPracticeStoreAdapter;

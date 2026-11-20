@@ -241,19 +241,21 @@ export function TravelEnglishSection({ onBack }: TravelEnglishSectionProps) {
                     <div className="en-travel-lines">
                       <h3>
                         先开口说 <small>{scene.say.length} 句</small>
-                        <button
-                          type="button"
-                          className="en-travel-say-link"
-                          onClick={() =>
-                            setExpandedSay((current) => ({
-                              ...current,
-                              [scene.id]: !current[scene.id],
-                            }))
-                          }
-                        >
-                          {expandedSay[scene.id] ? "收起" : "展开"}
-                          <CaretRight size={12} aria-hidden="true" />
-                        </button>
+                        {scene.say.length > 3 ? (
+                          <button
+                            type="button"
+                            className="en-travel-say-link"
+                            onClick={() =>
+                              setExpandedSay((current) => ({
+                                ...current,
+                                [scene.id]: !current[scene.id],
+                              }))
+                            }
+                          >
+                            {expandedSay[scene.id] ? "收起" : `展开全部 ${scene.say.length} 句`}
+                            <CaretRight size={12} aria-hidden="true" />
+                          </button>
+                        ) : null}
                       </h3>
                       {(expandedSay[scene.id] ? scene.say : scene.say.slice(0, 3)).map(([english, chinese], index) => (
                         <RevealLine
@@ -264,17 +266,6 @@ export function TravelEnglishSection({ onBack }: TravelEnglishSectionProps) {
                           onSpeak={() => speakText(english)}
                         />
                       ))}
-                      {scene.say.length > 3 ? (
-                        <button
-                          type="button"
-                          className="en-link-btn"
-                          onClick={() =>
-                            setExpandedSay((current) => ({ ...current, [scene.id]: !current[scene.id] }))
-                          }
-                        >
-                          {expandedSay[scene.id] ? "收起" : `展开全部 ${scene.say.length} 句`}
-                        </button>
-                      ) : null}
                     </div>
                   ) : null}
                   {scene.listen.length ? (

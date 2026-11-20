@@ -97,7 +97,8 @@ impl LanguageStore {
             .map_err(sqlite)?;
         self.migrate_plan_source_dir()?;
         self.migrate_lesson_vocab_user_mark()?;
-        self.migrate_shadow_attempts()
+        self.migrate_shadow_attempts()?;
+        self.migrate_speaking_practice()
     }
 
     /// 跟读尝试表（V13 W2）。`CREATE TABLE IF NOT EXISTS` 幂等，旧库启动时自动补上。

@@ -135,3 +135,8 @@ pub fn verify_source_license(source: &LanguageSource) -> Result<(), String> {
     }
     Ok(())
 }
+
+/// 口语陪练完成数（路线图用）。定义在此避免 `course` ↔ `speaking` 模块循环。
+pub trait SpeakingProgressPort: Send + Sync {
+    fn completed_sessions(&self) -> Result<u32, String>;
+}

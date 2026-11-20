@@ -61,7 +61,7 @@ pub use personal_ai::{
 };
 pub use ports::{
     FeedFetcherAdapter, GeographyQueryAdapter, LanguageStoreAdapter, LearningStoreAdapter,
-    NewsRepositoryAdapter,
+    NewsRepositoryAdapter, SpeakingPracticeStoreAdapter,
 };
 pub use rss_store::{ArticleRow, FeedRepository, FeedRow, now_unix};
 pub use server::ServerActionAuditSqlite;

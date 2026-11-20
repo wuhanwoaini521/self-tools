@@ -24,12 +24,17 @@ pub struct ApiError {
 
 impl axum::response::IntoResponse for ApiError {
     fn into_response(self) -> axum::response::Response {
-        const BAD_REQUEST_CODES: [&str; 12] = [
+        const BAD_REQUEST_CODES: [&str; 17] = [
             "invalid",
             "ai_not_configured",
             "language_invalid_mark",
             "language_shadow_empty_transcript",
             "language_shadow_no_sentence",
+            "language_speaking_empty_turn",
+            "language_speaking_empty_audio",
+            "language_speaking_audio_disabled",
+            "language_speaking_invalid",
+            "language_speaking_timeout",
             "study_board_invalid",
             "travel_plan_invalid",
             "travel_plan_proposal_invalid",
@@ -44,7 +49,9 @@ impl axum::response::IntoResponse for ApiError {
             "travel_plan_conflict" | "travel_plan_proposal_expired" | "personal_ai_cancelled" => {
                 axum::http::StatusCode::CONFLICT
             }
-            "ai_unavailable" => axum::http::StatusCode::SERVICE_UNAVAILABLE,
+            "ai_unavailable"
+            | "language_speaking_llm_unavailable"
+            | "language_speaking_asr_unavailable" => axum::http::StatusCode::SERVICE_UNAVAILABLE,
             code if BAD_REQUEST_CODES.contains(&code) => axum::http::StatusCode::BAD_REQUEST,
             _ => axum::http::StatusCode::INTERNAL_SERVER_ERROR,
         };

@@ -111,6 +111,10 @@ export function RoadmapPage({ onBack, onStart }: RoadmapViewProps) {
             <span className="en-metric-label">连续天数</span>
             <strong>{metrics.streak_days}</strong>
           </div>
+          <div className="en-metric">
+            <span className="en-metric-label">口语场景</span>
+            <strong>{metrics.speaking_scenarios_completed ?? 0}</strong>
+          </div>
         </div>
         {!started ? (
           <p className="en-muted">

@@ -13,6 +13,7 @@ mod knowledge_api;
 mod language_api;
 mod language_course_api;
 mod language_data_api;
+mod language_speaking_api;
 mod language_write_api;
 mod learning_api;
 mod news_api;
@@ -319,6 +320,7 @@ async fn main() -> ExitCode {
     let mining = Arc::clone(&core.mining);
     // 26 周能力路线图。
     let roadmap = Arc::clone(&core.roadmap);
+    let speaking_practice = Arc::clone(&core.speaking_practice);
 
     let app = routes::router(
         Arc::new(service),
@@ -344,6 +346,7 @@ async fn main() -> ExitCode {
         speaking,
         mining,
         roadmap,
+        speaking_practice,
     );
     info!(
         bind = %config.bind,

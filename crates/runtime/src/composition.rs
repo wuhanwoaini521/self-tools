@@ -81,6 +81,7 @@ use parking_lot::Mutex;
 pub use devtoolbox_infrastructure::ports::CourseStoreAdapter;
 pub use devtoolbox_infrastructure::ports::GeographyQueryAdapter;
 pub use devtoolbox_infrastructure::ports::LanguageStoreAdapter;
+pub use devtoolbox_infrastructure::ports::SpeakingPracticeStoreAdapter;
 
 use devtoolbox_application::study_board::ports::{StudyBoardStoreError, StudyBoardStorePort};
 use devtoolbox_core::study_board::{StudyBoard, StudyBoardSnapshot, StudyBoardSummary};

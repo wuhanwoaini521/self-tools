@@ -32,7 +32,8 @@ use devtoolbox_infrastructure::{FeedRepository, GeographyStore, LearningStore, f
 use crate::composition::TravelPlanStoreAdapter;
 use crate::composition::{
     CourseStoreAdapter, GeographyQueryAdapter, LanguageStoreAdapter, NewsRepositoryAdapter,
-    RssRepositoryAdapter, SettingsStoreAdapter, StudyBoardStoreAdapter,
+    RssRepositoryAdapter, SettingsStoreAdapter, SpeakingPracticeStoreAdapter,
+    StudyBoardStoreAdapter,
 };
 use crate::history_enrichment::{self, SettingsLoader};
 use crate::history_query::HistoryQueryAdapter;
@@ -88,6 +89,8 @@ pub struct AppCore {
     pub mining: Arc<devtoolbox_application::language::course::MiningService>,
     /// 26 周能力路线图（V13 W6）：静态计划 + 真实统计。
     pub roadmap: Arc<devtoolbox_application::language::course::RoadmapService>,
+    /// 场景式口语陪练（Phase 2：文本 + 可选语音闭环）。
+    pub speaking_practice: Arc<devtoolbox_application::language::SpeakingPracticeService>,
 }
 
 impl AppCore {
@@ -261,13 +264,37 @@ impl AppCore {
                 Arc::clone(&learning),
             ),
         );
+        let speaking_llm = current_settings
+            .ai
+            .is_configured()
+            .then(|| crate::personal_ai::build_provider(client.clone(), &current_settings.ai));
+        let practice_store = Arc::new(SpeakingPracticeStoreAdapter::new(Arc::clone(
+            &language_store,
+        )));
+        let speaking_practice = Arc::new(
+            devtoolbox_application::language::SpeakingPracticeService::new(
+                Arc::clone(&practice_store)
+                    as Arc<dyn devtoolbox_application::language::SpeakingPracticeStore>,
+                speaking_llm,
+            )
+            .with_dictionary(Arc::clone(&course_store)
+                as Arc<dyn devtoolbox_application::language::SpeakingDictionaryPort>)
+            .with_learning(Arc::clone(&learning)
+                as Arc<dyn devtoolbox_application::language::SpeakingLearningPort>),
+        );
         let roadmap = Arc::new(
             devtoolbox_application::language::course::RoadmapService::new(
                 Arc::clone(&course_service),
                 Arc::clone(&speaking),
                 Arc::clone(&learning),
+            )
+            .with_speaking_progress(
+                practice_store as Arc<dyn devtoolbox_application::language::SpeakingProgressPort>,
             ),
         );
+        speaking_practice
+            .seed_scenarios()
+            .map_err(|error| error.to_string())?;
 
         let rss_port: Arc<dyn devtoolbox_application::rss::RssPort> =
             Arc::clone(&rss_service) as Arc<dyn devtoolbox_application::rss::RssPort>;
@@ -329,6 +356,7 @@ impl AppCore {
             speaking,
             mining,
             roadmap,
+            speaking_practice,
         })
     }
 }

@@ -24,7 +24,14 @@ import type {
 import { errorMessage } from "../../../utils";
 import { englishClient } from "./englishClient";
 import { cx } from "../languageUi";
-import { StageNav, nextStage, prevStage, formatTimestamp, STAGE_SEQUENCE } from "./shared";
+import {
+  StageNav,
+  completedStages,
+  formatTimestamp,
+  nextStage,
+  prevStage,
+  stageOrder,
+} from "./shared";
 import { AudioPlayer } from "./AudioPlayer";
 import { SentenceText } from "./SentenceText";
 import { WordPopover } from "./WordPopover";
@@ -66,7 +73,9 @@ export function LessonWorkspace({
       context_zh: word.sentence_id ? (chineseBySentence.get(word.sentence_id) ?? null) : null,
     }));
   }, [sentences, vocab]);
-  const [stage, setStage] = useState<LessonStage>(progress.stage === "done" ? "quiz" : progress.stage);
+  const savedFrontier: LessonStage = progress.stage;
+  const [frontier, setFrontier] = useState<LessonStage>(savedFrontier);
+  const [stage, setStage] = useState<LessonStage>(savedFrontier === "done" ? "quiz" : savedFrontier);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [audioError, setAudioError] = useState<string | null>(null);
   const [activeSeq, setActiveSeq] = useState<number | null>(progress.sentence_seq || null);
@@ -74,19 +83,16 @@ export function LessonWorkspace({
   const [popover, setPopover] = useState<{ word: string; sentence: string | null } | null>(null);
   /** 沉浸式精读（V13 W1）：全屏单屏阅读，退出时回写句位与时长。 */
   const [immersive, setImmersive] = useState(false);
-  const [showTranslation, setShowTranslation] = useState(false);
+  const [showEnglish, setShowEnglish] = useState(false);
+  const [showChinese, setShowChinese] = useState(false);
+  const [showReadingTranslation, setShowReadingTranslation] = useState(false);
   const [showVocabHighlight, setShowVocabHighlight] = useState(true);
   const [rate, setRate] = useState(1);
   const [repeat, setRepeat] = useState(false);
-  const [stageDone, setStageDone] = useState<Partial<Record<LessonStage, boolean>>>({
-    vocabulary: progress.vocab_index > 0,
-    // 已经走到更后面的阶段 → 前面的阶段算完成。
-    listen: STAGE_SEQUENCE.indexOf(progress.stage) > STAGE_SEQUENCE.indexOf("listen"),
-    read: STAGE_SEQUENCE.indexOf(progress.stage) > STAGE_SEQUENCE.indexOf("read"),
-    sentence: STAGE_SEQUENCE.indexOf(progress.stage) > STAGE_SEQUENCE.indexOf("sentence"),
-    shadow: STAGE_SEQUENCE.indexOf(progress.stage) > STAGE_SEQUENCE.indexOf("shadow"),
-    quiz: progress.quiz_score !== null,
-  });
+  const stageDone = useMemo(
+    () => completedStages(frontier, progress.quiz_score !== null),
+    [frontier, progress.quiz_score],
+  );
 
   // 学习秒数累计（心跳）：进入页面开始计时，退出/卸载时写回。
   const studySecondsRef = useRef(0);
@@ -163,15 +169,27 @@ export function LessonWorkspace({
     };
   }, [flushProgress]);
 
-  const changeStage = useCallback(
-    (next: LessonStage) => {
-      setStage(next);
-      pendingPatch.current.stage = next;
-      setStageDone((previous) => ({ ...previous, [stage]: true }));
-      flushProgress(true);
-    },
-    [flushProgress, stage],
-  );
+  const showStage = useCallback((next: LessonStage) => {
+    setStage(next === "done" ? "quiz" : next);
+  }, []);
+
+  /** 只有停在真实进度上继续往前，才记完成并写入后端。点阶段路径只换页面。 */
+  const advance = useCallback(() => {
+    const next = nextStage(stage);
+    if (!next) return;
+    if (stageOrder(stage) < stageOrder(frontier)) {
+      showStage(next);
+      return;
+    }
+    if (stageOrder(stage) > stageOrder(frontier)) {
+      showStage(frontier);
+      return;
+    }
+    setFrontier(next);
+    showStage(next);
+    pendingPatch.current.stage = next;
+    flushProgress(true);
+  }, [flushProgress, frontier, showStage, stage]);
 
   const handleTick = useCallback((ms: number) => {
     pendingPatch.current.position_ms = Math.round(ms);
@@ -272,7 +290,7 @@ export function LessonWorkspace({
             </h1>
           </div>
         </div>
-        <StageNav stage={stage} onChange={changeStage} completed={stageDone} />
+        <StageNav stage={stage} reached={frontier} onChange={showStage} completed={stageDone} />
         <button
           type="button"
           className="en-ghost-btn en-immersive-btn"
@@ -313,17 +331,23 @@ export function LessonWorkspace({
               onProgressIndex={(index) => {
                 pendingPatch.current.vocab_index = index;
               }}
-              onFinish={() => changeStage("listen")}
+              onFinish={advance}
             />
           ) : null}
 
           {stage === "listen" ? (
             <ListenStage
               sentences={sentences}
-              showEnglish={showTranslation}
-              showChinese={showTranslation}
+              showEnglish={showEnglish}
+              showChinese={showChinese}
               activeSeq={activeSeq}
-              onToggleReveal={() => setShowTranslation((previous) => !previous)}
+              onToggleEnglish={() =>
+                setShowEnglish((previous) => {
+                  if (previous) setShowChinese(false);
+                  return !previous;
+                })
+              }
+              onToggleChinese={() => setShowChinese((previous) => !previous)}
               onSentence={goToSentence}
             />
           ) : null}
@@ -332,9 +356,9 @@ export function LessonWorkspace({
             <ReadingStage
               sentences={sentences}
               vocab={vocab}
-              showTranslation={showTranslation}
+              showTranslation={showReadingTranslation}
               showVocabHighlight={showVocabHighlight}
-              onToggleTranslation={() => setShowTranslation((previous) => !previous)}
+              onToggleTranslation={() => setShowReadingTranslation((previous) => !previous)}
               onToggleVocab={() => setShowVocabHighlight((previous) => !previous)}
               onWordClick={(word, sentence) => setPopover({ word, sentence })}
               activeSeq={activeSeq}
@@ -355,7 +379,7 @@ export function LessonWorkspace({
               onNext={() =>
                 goToSentence(Math.min(sentences.length - 1, (activeSeq ?? -1) + 1))
               }
-              onFinish={() => changeStage("shadow")}
+              onFinish={advance}
             />
           ) : null}
 
@@ -370,7 +394,7 @@ export function LessonWorkspace({
               onProgressSeq={(seq) => {
                 pendingPatch.current.shadow_seq = seq;
               }}
-              onFinish={() => changeStage("quiz")}
+              onFinish={advance}
             />
           ) : null}
 
@@ -379,8 +403,18 @@ export function LessonWorkspace({
               lessonId={lesson.id}
               vocab={vocab}
               sentences={sentences}
-              onCompleted={() => {
-                setStageDone((previous) => ({ ...previous, quiz: true }));
+              onCompleted={(result) => {
+                // 返回课程 / 回到首页：没有新成绩，只离开工作台。
+                if (!result) {
+                  onExit();
+                  return;
+                }
+                // 还没按顺序走到测验就交卷时，成绩留给后端，进度仍停在未完成的阶段。
+                if (frontier === "quiz" || frontier === "done") {
+                  setFrontier("done");
+                  pendingPatch.current.stage = "done";
+                  flushProgress(true);
+                }
                 onCompleted();
               }}
               onAskAi={onAskAi}
@@ -401,7 +435,7 @@ export function LessonWorkspace({
               disabled={!prevStage(stage)}
               onClick={() => {
                 const target = prevStage(stage);
-                if (target) changeStage(target);
+                if (target) showStage(target);
               }}
             >
               上一步
@@ -411,17 +445,20 @@ export function LessonWorkspace({
               {" · "}
               {formatTimestamp(positionMs)}
             </span>
-            <button
-              type="button"
-              className="en-primary-btn"
-              disabled={!nextStage(stage) || stage === "done"}
-              onClick={() => {
-                const target = nextStage(stage);
-                if (target) changeStage(target);
-              }}
-            >
-              下一步
-            </button>
+            {stageOrder(stage) > stageOrder(frontier) ? (
+              <button type="button" className="en-primary-btn" onClick={() => showStage(frontier)}>
+                回到未完成
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="en-primary-btn"
+                disabled={!nextStage(stage) || stage === "done" || frontier === "done"}
+                onClick={advance}
+              >
+                下一步
+              </button>
+            )}
           </footer>
         </main>
 
