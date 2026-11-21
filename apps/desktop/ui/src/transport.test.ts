@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, afterEach } from "vitest";
 import type { Mock } from "vitest";
-import { HttpTransportError, httpTransport } from "./transport";
+import { HttpTransportError, httpTransport, patchRequest } from "./transport";
 
 /**
  * 网页端传输层的契约测试。
@@ -199,6 +199,110 @@ describe("httpTransport：命令映射", () => {
       "/api/v1/learning/collection-items/collection-item%2F1/note",
       expect.objectContaining({ method: "PATCH", body: JSON.stringify({ note: "修订后的备注" }) }),
     );
+  });
+
+  it("Knowledge 读写映射到共享端点，请求体与桌面端 DTO 同形", async () => {
+    stubFetch();
+    fetchMock.mockResolvedValue(jsonResponse({ ok: true }));
+
+    // 单条读取：路径参数必须编码，否则带「/」的 id 会被当成多级路径。
+    await httpTransport.invoke("memory_get", { id: "memory/1" });
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      "/api/v1/memory/memory%2F1",
+      expect.objectContaining({ headers: { Accept: "application/json" } }),
+    );
+
+    await httpTransport.invoke("documents_get", { documentId: "doc/1" });
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      "/api/v1/documents/doc%2F1",
+      expect.objectContaining({ headers: { Accept: "application/json" } }),
+    );
+
+    await httpTransport.invoke("knowledge_status");
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      "/api/v1/knowledge/status",
+      expect.objectContaining({ headers: { Accept: "application/json" } }),
+    );
+
+    // 写操作：桌面端把 DTO 包在 `request` 里，HTTP 契约直接发 DTO 本体。
+    const draft = {
+      category: "preference",
+      content: "喜欢安静的咖啡馆",
+      source_type: "explicit_user",
+    };
+    await httpTransport.invoke("memory_save", { request: draft });
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      "/api/v1/memory",
+      expect.objectContaining({ method: "POST", body: JSON.stringify(draft) }),
+    );
+
+    await httpTransport.invoke("memory_confirm", { id: "memory/1" });
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      "/api/v1/memory/memory%2F1/confirm",
+      expect.objectContaining({ method: "POST" }),
+    );
+
+    await httpTransport.invoke("memory_update", {
+      request: { id: "memory/1", content: "改过的内容" },
+    });
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      "/api/v1/memory/update",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ id: "memory/1", content: "改过的内容" }),
+      }),
+    );
+
+    await httpTransport.invoke("documents_scan", { rootId: "docs" });
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      "/api/v1/documents/scan",
+      expect.objectContaining({ method: "POST", body: JSON.stringify({ rootId: "docs" }) }),
+    );
+
+    await httpTransport.invoke("documents_read", {
+      request: { document_id: "doc-1", max_chars: 500 },
+    });
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      "/api/v1/documents/read",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ document_id: "doc-1", max_chars: 500 }),
+      }),
+    );
+
+    await httpTransport.invoke("files_read_text", { target: "files/1", maxChars: 200 });
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      "/api/v1/files/read_text",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ target: "files/1", maxChars: 200 }),
+      }),
+    );
+
+    // 网页端没有 files_open：能力缺失必须显式报错，不能静默成功。
+    await expect(httpTransport.invoke("files_open", { target: "files/1" })).rejects.toThrow(
+      /尚无网页端接口/,
+    );
+  });
+
+  it("PATCH 请求体按端点显式声明，多字段更新不会被截断", () => {
+    // 旧的硬编码 `{ note }` 会把任何多字段 PATCH 静默截成单个 note。
+    const multi = {
+      conversation_update: {
+        path: (args: Record<string, unknown>) => `/api/v1/conversations/${String(args.id)}`,
+        body: (args: Record<string, unknown>) => ({ title: args.title, archived: args.archived }),
+      },
+    };
+    expect(
+      patchRequest("conversation_update", { id: "c1", title: "新标题", archived: true }, multi),
+    ).toEqual({ url: "/api/v1/conversations/c1", body: { title: "新标题", archived: true } });
+
+    // 已上线的备注端点契约保持不变。
+    expect(patchRequest("learning_update_collection_item_note", { itemId: "i1" })).toEqual({
+      url: "/api/v1/learning/collection-items/i1/note",
+      body: { note: null },
+    });
+    expect(patchRequest("not_a_patch_command", {})).toBeNull();
   });
 
   it("home 原样返回服务端结构（与桌面端同一批 Rust 结构体）", async () => {

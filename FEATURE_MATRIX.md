@@ -18,7 +18,7 @@
 | 9 | Travel | `#travel` | 城市探索 / AI 行程 | travel.db | ◐ API 已接 | Rust/HTTP/desktop 行程持久化回归 | 行程草稿已由后端持久化；路线估算仍在 React，AI provider 未配置，尚无 live Web 服务 E2E |
 | 10 | Markdown | `#markdown` | 编辑 / 工作区 / 大纲 | 本地文件系统 | ❌ | 无 | 对话框已修但 Web 无法实现 |
 | 11 | Collections | `#collections` | 专题合集 | platform collections | ✅ 已修 | 3 个 server | — |
-| 12 | Knowledge | `#knowledge` | Memory / Docs / Files | 多个 db | ◐ 部分 API | global search + read/status routes | 完整扫描、写入、打开与桌面命令等价仍缺 |
+| 12 | Knowledge | `#knowledge` | Memory / Docs / Files | 多个 db | ✅ | 3 个 server oneshot + transport 测试 | 读写/扫描/读取全部有 HTTP 端点；仅 `files_open`（唤起系统程序）属桌面能力，网页端显示能力说明 |
 | 13 | Graph | `#graph` | 跨模块知识图谱 | platform graph | ✅ 已修 | — | 无 root 时节点少 |
 | 14 | Search | `#search` | 全局检索 | platform + memory/docs/files | ⚠️ | 无 | `global_search` 已接；无结果 |
 | 15 | Server | `#server` | 家庭服务器 | server_actions.db | ❌ | 无 | Web 端硬阻断 |
@@ -58,11 +58,12 @@
 | CI / 契约 | Web 构建、视觉回归、网关测试与 OpenAPI 漂移未进门禁 | ✅ `web-quality` / `gateway-node-tests` / `contract` jobs；`mise run contract:check` / `test:gateway` |
 | CI / History 产物 | 不 checkout submodule 时 Tauri bundle resource 缺失，三平台 `cargo check` 失败；0 字节占位又让桌面启动 panic（E2E code=101）与 7 个 DuckDB 测试 FAILED | ✅ `build.rs` 自动补占位；`HistoryDuckDbRepository::open_or_attach` 让缺失/不可读降级为「History 数据不可用」；fixture 相关测试把 0 字节占位视为缺失 |
 | CI / 桌面 E2E | 产品壳改版后 E2E 仍用 `功能导航` / `.app-nav-item` / 英文页面名，全部在第一步超时 | ✅ 一级入口 + 分区子导航 + 更多页面的当前 IA；深链仍覆盖 markdown/knowledge/server/system/graph；AI 空态改用浮动气泡 |
+| Knowledge / Web | Memory 写入 / 确认 / 拒绝 / 归档 / 更新、documents/files 扫描与读取只在桌面桥 | ✅ `POST /api/v1/memory*`、`/documents/scan|read`、`/files/scan|metadata|read_text`、`GET /knowledge/status`；`documents/status` 补 `roots`、`files/status` 补明细；路径仍走 `FileService::authorize`，无任意写删；PATCH 请求体改为按端点显式声明 |
 | 设计系统 | Pixel-Lift 硬阴影 + 结构 token 分散在 4 个主题 | ✅ |
 
 ## 未修复（按影响）
 
-1. **仍有多组 desktop-only 命令**：Conversation CRUD、Server 操作和 Markdown/本地文件仍通过 Tauri；Geography、RSS 与 History enrichment 已有 HTTP 映射，Knowledge 仅部分映射。当前未枚举可复核的“未映射命令总数”。
+1. **仍有多组 desktop-only 命令**：Conversation CRUD、Server 操作、Markdown/本地文件与 `files_open` 仍通过 Tauri；Geography、RSS、History enrichment 与 Knowledge（`files_open` 除外）已有 HTTP 映射。当前未枚举可复核的“未映射命令总数”。
 2. System Readiness 已有 13 项后端检查模型和服务端 route；vision probe 当前 false，PWA/设备会话值由前端拥有，HTTP route 集成覆盖仍需补齐。
 3. Geography HTTP 路由使用共享 `GeographyStore`，覆盖 home/search/detail/favorite 和 History crosswalk；本机数据行数及内容覆盖度未核查。
 4. Geography/History 完整原生交互、Settings 凭据边界与 live Travel provider 仍未作为本轮 UI 验收项。

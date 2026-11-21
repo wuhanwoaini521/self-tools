@@ -139,6 +139,7 @@ mod tests {
             "documents" => "knowledge",
             "files" => "knowledge",
             "search" => "knowledge",
+            "knowledge" => "knowledge",
             "history" => "history",
             "language" => "language",
             "english" => "language",

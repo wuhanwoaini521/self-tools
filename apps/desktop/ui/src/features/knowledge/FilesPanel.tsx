@@ -3,7 +3,8 @@
  *
  * 只做「搜索 + 元数据 + 只读文本」，不做文件树 / Finder 克隆；所有读取都经后端
  * `FileService::authorize`（允许根 + deny 规则），前端不自行拼接路径。
- * 打开文件走系统默认程序（`@tauri-apps/plugin-opener`），浏览器预览下禁用。
+ * 打开文件走系统默认程序（`@tauri-apps/plugin-opener`），网页端无此能力
+ * （内联 capability guard；阶段 2.3 收敛到统一能力模型）。
  */
 import {
   ArrowClockwise,
@@ -116,8 +117,11 @@ export function FilesPanel({
   };
 
   const openWithSystem = async (file: FileMetadataDto) => {
+    // 能力守卫（阶段 2.3 收敛到统一 capability 模型）：网页端没有唤起本机
+    // 系统程序的等价能力 —— 这不是「没实现」，而是浏览器沙箱做不到。
+    // 读取/元数据/扫描在网页端都可用，只有这一步用桌面端。
     if (!isTauriRuntime()) {
-      setNotice("浏览器预览不支持打开本地文件。");
+      setNotice("网页端无法唤起系统程序打开文件，请在桌面端打开。");
       return;
     }
     try {
@@ -316,7 +320,7 @@ export function FilesPanel({
                             ? "该文件被规则限制"
                             : isTauriRuntime()
                               ? "用系统默认程序打开"
-                              : "浏览器预览不可用"
+                              : "网页端无法唤起系统程序"
                         }
                         onClick={() => void openWithSystem(file)}
                       >

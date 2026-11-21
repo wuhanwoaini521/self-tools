@@ -107,6 +107,25 @@ pub fn router(
             "/api/v1/memory/stats",
             get(crate::knowledge_api::memory_stats),
         )
+        // 写入：与桌面端同名命令同一用例（用户显式动作；无模型可触发路径）。
+        .route("/api/v1/memory", post(crate::knowledge_api::memory_save))
+        .route(
+            "/api/v1/memory/update",
+            post(crate::knowledge_api::memory_update),
+        )
+        .route("/api/v1/memory/{id}", get(crate::knowledge_api::memory_get))
+        .route(
+            "/api/v1/memory/{id}/confirm",
+            post(crate::knowledge_api::memory_confirm),
+        )
+        .route(
+            "/api/v1/memory/{id}/reject",
+            post(crate::knowledge_api::memory_reject),
+        )
+        .route(
+            "/api/v1/memory/{id}/archive",
+            post(crate::knowledge_api::memory_archive),
+        )
         .route(
             "/api/v1/documents/status",
             get(crate::knowledge_api::documents_status),
@@ -120,6 +139,18 @@ pub fn router(
             get(crate::knowledge_api::documents_search),
         )
         .route(
+            "/api/v1/documents/scan",
+            post(crate::knowledge_api::documents_scan),
+        )
+        .route(
+            "/api/v1/documents/read",
+            post(crate::knowledge_api::documents_read),
+        )
+        .route(
+            "/api/v1/documents/{id}",
+            get(crate::knowledge_api::documents_get),
+        )
+        .route(
             "/api/v1/files/status",
             get(crate::knowledge_api::files_status),
         )
@@ -130,6 +161,19 @@ pub fn router(
         .route(
             "/api/v1/files/search",
             get(crate::knowledge_api::files_search),
+        )
+        .route("/api/v1/files/scan", post(crate::knowledge_api::files_scan))
+        .route(
+            "/api/v1/files/metadata",
+            post(crate::knowledge_api::files_metadata),
+        )
+        .route(
+            "/api/v1/files/read_text",
+            post(crate::knowledge_api::files_read_text),
+        )
+        .route(
+            "/api/v1/knowledge/status",
+            get(crate::knowledge_api::knowledge_status),
         )
         .route(
             "/api/v1/search/global",
@@ -2832,5 +2876,190 @@ mod tests {
         .await;
         assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
         assert_eq!(body["code"], "invalid");
+    }
+
+    // ------------------------------------------------------------------
+    // Personal Knowledge 读写（阶段 1.1）：与桌面端同一批用例服务
+    // ------------------------------------------------------------------
+
+    #[tokio::test]
+    async fn knowledge_memory_write_endpoints_round_trip() {
+        let app = test_router(false);
+        let marker = format!("knowledge-web-{}", std::process::id());
+        let content = format!("{marker}：偏好安静的咖啡馆");
+
+        let (status, created) = post_json(
+            &app,
+            "/api/v1/memory",
+            &serde_json::json!({
+                "category": "preference",
+                "content": content,
+                "source_type": "explicit_user",
+            }),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{created}");
+        assert_eq!(created["status"], "active");
+        assert_eq!(created["content"], content);
+        assert_eq!(created["category"], "preference");
+        let id = created["id"].as_str().expect("memory id").to_string();
+
+        let (status, fetched) = request(&app, &format!("/api/v1/memory/{id}")).await;
+        assert_eq!(status, StatusCode::OK, "{fetched}");
+        assert_eq!(fetched["id"], id);
+
+        let (status, updated) = post_json(
+            &app,
+            "/api/v1/memory/update",
+            &serde_json::json!({ "id": id, "content": format!("{marker}：改过的内容") }),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{updated}");
+        assert_eq!(updated["content"], format!("{marker}：改过的内容"));
+
+        let (status, archived) = post_json(
+            &app,
+            &format!("/api/v1/memory/{id}/archive"),
+            &serde_json::json!({}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{archived}");
+        assert_eq!(archived["status"], "archived");
+
+        // 入参校验：未知分类是 400（`invalid`），不是 500。
+        let (status, rejected) = post_json(
+            &app,
+            "/api/v1/memory",
+            &serde_json::json!({ "category": "nope", "content": "x" }),
+        )
+        .await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{rejected}");
+        assert_eq!(rejected["code"], "invalid");
+
+        // 域错误保留桌面端错误码（页面按 code 分类展示）。
+        let (_, missing) = request(&app, "/api/v1/memory/does-not-exist").await;
+        assert_eq!(missing["code"], "memory_error");
+
+        // 候选确认 / 拒绝：候选由 AI 提议写入，网页端点只做用户决策。
+        let draft = |content: &str| devtoolbox_core::memory::MemoryDraft {
+            category: devtoolbox_core::memory::MemoryCategory::Preference,
+            content: content.to_string(),
+            source_type: devtoolbox_core::memory::MemorySourceType::ConversationCandidate,
+            source_reference: None,
+            sensitivity: devtoolbox_core::memory::MemorySensitivity::Normal,
+            confidence: 0.7,
+            expires_at: None,
+            metadata: serde_json::Value::Null,
+        };
+        let candidate = test_core()
+            .knowledge
+            .memory
+            .propose(draft(&format!("{marker}：候选一")))
+            .expect("propose candidate");
+        let (status, confirmed) = post_json(
+            &app,
+            &format!("/api/v1/memory/{}/confirm", candidate.id),
+            &serde_json::json!({}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{confirmed}");
+        assert_eq!(confirmed["status"], "active");
+
+        let rejected_candidate = test_core()
+            .knowledge
+            .memory
+            .propose(draft(&format!("{marker}：候选二")))
+            .expect("propose candidate");
+        let (status, rejected_memory) = post_json(
+            &app,
+            &format!("/api/v1/memory/{}/reject", rejected_candidate.id),
+            &serde_json::json!({}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{rejected_memory}");
+        assert_eq!(rejected_memory["status"], "rejected");
+    }
+
+    #[tokio::test]
+    async fn knowledge_status_endpoints_expose_desktop_shape() {
+        let app = test_router(false);
+
+        let (status, documents) = request(&app, "/api/v1/documents/status").await;
+        assert_eq!(status, StatusCode::OK, "{documents}");
+        // 桌面端 `DocumentStatusDto` 有 `roots`；网页端此前缺这个字段。
+        assert!(documents["roots"].is_array(), "{documents}");
+        for field in [
+            "configured",
+            "documents",
+            "chunks",
+            "content_available",
+            "metadata_only",
+            "failed",
+        ] {
+            assert!(
+                !documents[field].is_null(),
+                "documents.{field}: {documents}"
+            );
+        }
+
+        let (status, files) = request(&app, "/api/v1/files/status").await;
+        assert_eq!(status, StatusCode::OK, "{files}");
+        assert!(files["roots"].is_array(), "{files}");
+        for field in [
+            "configured",
+            "files",
+            "text_files",
+            "binary_files",
+            "restricted",
+            "failed",
+        ] {
+            assert!(!files[field].is_null(), "files.{field}: {files}");
+        }
+
+        let (status, overview) = request(&app, "/api/v1/knowledge/status").await;
+        assert_eq!(status, StatusCode::OK, "{overview}");
+        assert!(overview["sources"].is_array(), "{overview}");
+        assert!(overview["budget"].is_object(), "{overview}");
+        assert!(overview["metrics"].is_object(), "{overview}");
+        assert!(overview["configured_roots"].is_array(), "{overview}");
+    }
+
+    #[tokio::test]
+    async fn knowledge_scan_and_file_read_fail_closed_without_roots() {
+        let app = test_router(false);
+
+        // 测试环境没有配置允许根：扫描必须明确报「未配置」，而不是静默成功。
+        let (_, documents) =
+            post_json(&app, "/api/v1/documents/scan", &serde_json::json!({})).await;
+        assert_eq!(documents["code"], "documents_error");
+        assert!(
+            documents["message"]
+                .as_str()
+                .is_some_and(|message| message.contains("未配置文档目录")),
+            "{documents}"
+        );
+
+        let (_, files) = post_json(&app, "/api/v1/files/scan", &serde_json::json!({})).await;
+        assert_eq!(files["code"], "files_error");
+        assert!(
+            files["message"]
+                .as_str()
+                .is_some_and(|message| message.contains("未配置允许目录")),
+            "{files}"
+        );
+
+        // 任意路径读取同样被策略拒绝（fail-closed），错误文本受控、不回显内容。
+        let (_, metadata) = post_json(
+            &app,
+            "/api/v1/files/metadata",
+            &serde_json::json!({ "target": "../../etc/passwd" }),
+        )
+        .await;
+        assert_eq!(metadata["code"], "files_error");
+        let message = metadata["message"].as_str().unwrap_or_default();
+        assert!(!message.contains("etc/passwd"), "{metadata}");
+
+        let (_, missing_document) = request(&app, "/api/v1/documents/no-such-document").await;
+        assert_eq!(missing_document["code"], "documents_error");
     }
 }
