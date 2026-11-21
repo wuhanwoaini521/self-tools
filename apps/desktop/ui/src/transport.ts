@@ -113,6 +113,11 @@ const HTTP_ENDPOINTS: Record<string, (args: Record<string, unknown>) => string> 
     `/api/v1/documents/search?query=${encodeURIComponent(String(a.query ?? ""))}` +
     `&limit=${encodeURIComponent(String(a.limit ?? 20))}`,
   files_status: () => "/api/v1/files/status",
+  // 单条读取：与桌面端同名命令同义（文档 id / 记忆 id 由后端校验存在性）。
+  memory_get: (a) => `/api/v1/memory/${encodeURIComponent(String(a.id ?? ""))}`,
+  documents_get: (a) =>
+    `/api/v1/documents/${encodeURIComponent(String(a.documentId ?? ""))}`,
+  knowledge_status: () => "/api/v1/knowledge/status",
   files_recent: (a) => `/api/v1/files/recent?limit=${encodeURIComponent(String(a.limit ?? 20))}`,
   files_search: (a) =>
     `/api/v1/files/search?query=${encodeURIComponent(String(a.query ?? ""))}` +
@@ -352,6 +357,20 @@ const HTTP_POST_ENDPOINTS: Record<
   news_remove_source: (a) =>
     `/api/v1/news/sources/${encodeURIComponent(String(a.sourceId))}/remove`,
   study_board_save: () => "/api/v1/study-boards",
+  // ---- Personal Knowledge 写入 / 扫描（与桌面端同名命令同一用例）----
+  memory_save: () => "/api/v1/memory",
+  memory_update: () => "/api/v1/memory/update",
+  memory_confirm: (a) =>
+    `/api/v1/memory/${encodeURIComponent(String(a.id ?? ""))}/confirm`,
+  memory_reject: (a) =>
+    `/api/v1/memory/${encodeURIComponent(String(a.id ?? ""))}/reject`,
+  memory_archive: (a) =>
+    `/api/v1/memory/${encodeURIComponent(String(a.id ?? ""))}/archive`,
+  documents_scan: () => "/api/v1/documents/scan",
+  documents_read: () => "/api/v1/documents/read",
+  files_scan: () => "/api/v1/files/scan",
+  files_metadata: () => "/api/v1/files/metadata",
+  files_read_text: () => "/api/v1/files/read_text",
   study_board_snapshot: (a) =>
     `/api/v1/study-boards/${encodeURIComponent(String(a.boardId ?? ""))}/snapshots`,
   language_shadow_score: () => "/api/v1/language/shadow/score",
@@ -377,6 +396,20 @@ const HTTP_POST_ENDPOINTS: Record<
     `?maxPerKind=${encodeURIComponent(String(a.maxPerKind ?? 6))}`,
 };
 
+/**
+ * POST 请求体的例外：桌面端有些命令把 DTO 包在 `request` 里（Tauri 的入参形状），
+ * HTTP 契约不沿用这层包装 —— 直接发 DTO 本体，服务端 DTO 与桌面端一致。
+ * 未列出的命令沿用「参数对象即请求体」。
+ */
+const HTTP_POST_BODIES: Record<
+  string,
+  (args: Record<string, unknown>) => unknown
+> = {
+  memory_save: (a) => a.request ?? {},
+  memory_update: (a) => a.request ?? {},
+  documents_read: (a) => a.request ?? {},
+};
+
 const HTTP_DELETE_ENDPOINTS: Record<string, (args: Record<string, unknown>) => string> = {
   delete_rss_feed: (a) =>
     `/api/v1/rss/feeds/${encodeURIComponent(String(a.feedId ?? ""))}`,
@@ -384,10 +417,34 @@ const HTTP_DELETE_ENDPOINTS: Record<string, (args: Record<string, unknown>) => s
     `/api/v1/learning/review/cards/${encodeURIComponent(String(a.cardId ?? ""))}`,
 };
 
-const HTTP_PATCH_ENDPOINTS: Record<string, (args: Record<string, unknown>) => string> = {
-  learning_update_collection_item_note: (a) =>
-    `/api/v1/learning/collection-items/${encodeURIComponent(String(a.itemId ?? ""))}/note`,
+/**
+ * PATCH 端点：路径与请求体**都要显式声明**。
+ *
+ * 旧实现把所有 PATCH 的 body 硬编码成 `{ note }` —— 加第二个 PATCH 端点时
+ * 多字段更新会被静默截断。显式 `body` 让每个端点的契约在映射处就写清楚。
+ */
+export interface PatchEndpoint {
+  path: (args: Record<string, unknown>) => string;
+  body: (args: Record<string, unknown>) => unknown;
+}
+
+const HTTP_PATCH_ENDPOINTS: Record<string, PatchEndpoint> = {
+  learning_update_collection_item_note: {
+    path: (a) =>
+      `/api/v1/learning/collection-items/${encodeURIComponent(String(a.itemId ?? ""))}/note`,
+    body: (a) => ({ note: a.note ?? null }),
+  },
 };
+
+/** PATCH 请求的目标（路径 + 显式请求体）；命令没有映射时返回 null。 */
+export function patchRequest(
+  command: string,
+  args: Record<string, unknown>,
+  endpoints: Record<string, PatchEndpoint> = HTTP_PATCH_ENDPOINTS,
+): { url: string; body: unknown } | null {
+  const endpoint = endpoints[command];
+  return endpoint ? { url: endpoint.path(args), body: endpoint.body(args) } : null;
+}
 
 export class HttpTransportError extends Error {
   constructor(
@@ -424,27 +481,30 @@ export const httpTransport: CommandTransport = {
   invoke: async <T,>(command: string, args: Record<string, unknown> = {}): Promise<T> => {
     const post = HTTP_POST_ENDPOINTS[command];
     const remove = HTTP_DELETE_ENDPOINTS[command];
-    const patch = HTTP_PATCH_ENDPOINTS[command];
+    const patch = patchRequest(command, args);
     const endpoint = HTTP_ENDPOINTS[command];
-    if (!post && !remove && !patch && !endpoint) {
-      throw new Error(`「${command}」尚无网页端接口，请启动桌面应用使用该功能。`);
-    }
-    const url = (post ?? remove ?? patch ?? endpoint)(args);
+    let url: string;
+    if (post !== undefined) url = post(args);
+    else if (remove !== undefined) url = remove(args);
+    else if (patch !== null) url = patch.url;
+    else if (endpoint !== undefined) url = endpoint(args);
+    else throw new Error(`「${command}」尚无网页端接口，请启动桌面应用使用该功能。`);
+    const postBody = (HTTP_POST_BODIES[command] ?? ((value: Record<string, unknown>) => value))(args);
     let response: Response;
     try {
       response = post !== undefined
         ? await fetch(url, {
             method: "POST",
             headers: { "Content-Type": "application/json", Accept: "application/json" },
-            body: JSON.stringify(args),
+            body: JSON.stringify(postBody),
           })
         : remove !== undefined
           ? await fetch(url, { method: "DELETE", headers: { Accept: "application/json" } })
-          : patch !== undefined
+          : patch !== null
             ? await fetch(url, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json", Accept: "application/json" },
-                body: JSON.stringify({ note: args.note ?? null }),
+                body: JSON.stringify(patch.body),
               })
             : await fetch(url, { headers: { Accept: "application/json" } });
     } catch (error) {

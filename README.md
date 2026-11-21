@@ -127,7 +127,7 @@ powershell -ExecutionPolicy Bypass -File scripts\start-lan-web.ps1
 
 其他端口/上游可用 `SELF_TOOLS_LAN_PORT`、`SELF_TOOLS_WEB_UPSTREAM`、`SELF_TOOLS_API_UPSTREAM` 覆盖。网关测试：`node --test scripts/lan-gateway.test.mjs`。
 
-> RSS 订阅/阅读、History AI 解读已补齐 HTTP 端点，网关登录后可在 pad 上使用。仍受桌面端限制的功能见 [`FEATURE_MATRIX.md`](FEATURE_MATRIX.md)：家庭服务器操作、会话管理、Markdown 本地文件、Knowledge 写入/扫描等还没有 HTTP 端点。网关解决的是**安全访问链路**，不会自动补齐这些能力。
+> RSS 订阅/阅读、History AI 解读、Knowledge 读写（记忆保存/确认/拒绝/归档/更新，文档与文件扫描、元数据、文本读取）已补齐 HTTP 端点，网关登录后可在 pad 上使用。仍受桌面端限制的功能见 [`FEATURE_MATRIX.md`](FEATURE_MATRIX.md)：家庭服务器操作、会话管理、Markdown 本地文件、唤起系统程序打开文件等还没有 HTTP 等价能力。网关解决的是**安全访问链路**，不会自动补齐这些能力。
 
 ### 下载新概念英语教材
 
