@@ -205,6 +205,7 @@ export async function startGateway(overrides = {}) {
   const passwordHash = crypto.scryptSync(config.password, passwordSalt, 32);
   const sessionTtlMs = config.sessionHours * 3600_000;
   const failedAttempts = new Map();
+  const revokedSessions = new Set();
 
   const verifyPassword = (candidate) => {
     if (typeof candidate !== "string") return false;
@@ -215,17 +216,31 @@ export async function startGateway(overrides = {}) {
   const sign = (payload) => crypto.createHmac("sha256", sessionSecret).update(payload).digest("base64url");
 
   const issueSession = () => {
-    const payload = Buffer.from(JSON.stringify({ exp: Date.now() + sessionTtlMs, nonce: crypto.randomBytes(8).toString("hex") })).toString("base64url");
+    const now = Date.now();
+    for (const token of revokedSessions) {
+      try {
+        const [payload] = token.split(".");
+        const parsed = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
+        if (typeof parsed.exp !== "number" || parsed.exp <= now) revokedSessions.delete(token);
+      } catch {
+        revokedSessions.delete(token);
+      }
+    }
+    const payload = Buffer.from(JSON.stringify({ exp: now + sessionTtlMs, nonce: crypto.randomBytes(8).toString("hex") })).toString("base64url");
     return `${payload}.${sign(payload)}`;
   };
 
-  const isAuthenticated = (req) => {
+  const sessionToken = (req) => {
     const cookie = req.headers.cookie
       ?.split(";")
       .map((part) => part.trim())
       .find((part) => part.startsWith(`${COOKIE_NAME}=`));
-    if (!cookie) return false;
-    const token = cookie.slice(COOKIE_NAME.length + 1);
+    return cookie ? cookie.slice(COOKIE_NAME.length + 1) : null;
+  };
+
+  const isAuthenticated = (req) => {
+    const token = sessionToken(req);
+    if (!token || revokedSessions.has(token)) return false;
     const [payload, signature] = token.split(".");
     if (!payload || !signature) return false;
     const expected = Buffer.from(sign(payload));
@@ -304,6 +319,8 @@ export async function startGateway(overrides = {}) {
         json(res, 401, { code: "gateway_unauthorized", message: "请先登录" });
         return;
       }
+      const token = sessionToken(req);
+      if (token) revokedSessions.add(token);
       redirect(res, "/login", {
         "set-cookie": `${COOKIE_NAME}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${secure ? "; Secure" : ""}`,
       });
@@ -354,6 +371,10 @@ export async function startGateway(overrides = {}) {
     const target = config.webUpstream;
     const headers = copyHeaders(req.headers);
     headers.host = target.host;
+    // copyHeaders removes hop-by-hop headers for normal requests; an upgrade
+    // request must put Connection/Upgrade back or the upstream answers as plain GET.
+    headers.connection = "Upgrade";
+    headers.upgrade = req.headers.upgrade ?? "websocket";
     const upstream = (target.protocol === "https:" ? https : http).request({
       hostname: target.hostname,
       port: target.port || (target.protocol === "https:" ? 443 : 80),
@@ -364,7 +385,9 @@ export async function startGateway(overrides = {}) {
     upstream.on("upgrade", (upstreamRes, upstreamSocket, upstreamHead) => {
       const responseLines = [`HTTP/1.1 ${upstreamRes.statusCode} ${upstreamRes.statusMessage ?? ""}`];
       for (const [name, value] of Object.entries(upstreamRes.headers)) {
-        if (!HOP_BY_HOP.has(name.toLowerCase()) && value !== undefined) responseLines.push(`${name}: ${value}`);
+        // A 101 response needs Upgrade/Connection; do not apply the normal
+        // hop-by-hop filter here.
+        if (value !== undefined) responseLines.push(`${name}: ${value}`);
       }
       socket.write(`${responseLines.join("\r\n")}\r\n\r\n`);
       if (upstreamHead?.length) socket.write(upstreamHead);

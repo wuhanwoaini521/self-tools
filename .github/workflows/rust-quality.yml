@@ -43,6 +43,73 @@ jobs:
           path: output/desktop-e2e/
           if-no-files-found: ignore
 
+  web-quality:
+    name: Web build, unit tests, visual QA
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.22.0
+          cache: npm
+          cache-dependency-path: |
+            apps/desktop/package-lock.json
+            apps/desktop/ui/package-lock.json
+      - name: Install frontend dependencies
+        run: |
+          npm ci --prefix apps/desktop
+          npm ci --prefix apps/desktop/ui
+      - name: Install Playwright Chromium
+        run: npm --prefix apps/desktop exec -- playwright install --with-deps chromium
+      - name: Build web client
+        run: npm --prefix apps/desktop/ui run build
+      - name: Run unit tests
+        run: npm --prefix apps/desktop/ui test
+      - name: Run visual QA
+        env:
+          QA_OUT_DIR: output/visual-qa
+        run: npm --prefix apps/desktop run test:visual
+      - name: Upload visual QA artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-qa-artifacts
+          path: output/visual-qa/
+          if-no-files-found: ignore
+
+  gateway-node-tests:
+    name: LAN gateway Node tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.22.0
+      - run: node --test scripts/lan-gateway.test.mjs
+
+  contract:
+    name: OpenAPI and transport contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@1.95.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.22.0
+          cache: npm
+          cache-dependency-path: apps/desktop/ui/package-lock.json
+      - name: Check committed OpenAPI snapshot
+        env:
+          UPDATE_OPENAPI: "1"
+        run: |
+          cargo test -p devtoolbox-server web_transport_paths_are_in_openapi_snapshot
+          cargo test -p devtoolbox-server openapi_snapshot_matches_router_surface
+          git diff --exit-code docs/api/openapi.v1.json
+      - name: Check frontend transport contract
+        run: |
+          npm ci --prefix apps/desktop/ui
+          npm --prefix apps/desktop/ui test -- src/transport.test.ts
+
   quality:
     name: fmt, check, clippy, test (${{ matrix.os }})
     runs-on: ${{ matrix.os }}

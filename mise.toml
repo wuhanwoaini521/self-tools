@@ -82,6 +82,19 @@ description = "根据当前 Axum 路由重写 docs/api/openapi.v1.json 快照"
 env.UPDATE_OPENAPI = "1"
 run = "cargo test -p devtoolbox-server openapi_snapshot_matches_router_surface"
 
+[tasks."contract:check"]
+description = "校验 OpenAPI 快照与前端传输映射没有漂移"
+env.UPDATE_OPENAPI = "1"
+run = [
+  "cargo test -p devtoolbox-server web_transport_paths_are_in_openapi_snapshot",
+  "cargo test -p devtoolbox-server openapi_snapshot_matches_router_surface",
+  "git diff --exit-code docs/api/openapi.v1.json",
+]
+
+[tasks."test:gateway"]
+description = "局域网密码网关 Node 测试"
+run = "node --test scripts/lan-gateway.test.mjs"
+
 [tasks.data]
 description = "重建 History 语义库（submodule 的 dist/history.duckdb；拉取/换机后必跑）"
 run = "cd history-data-pipeline && uv run history-data backbone build"

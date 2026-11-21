@@ -329,7 +329,11 @@ async fn main() -> ExitCode {
         fetcher: Arc::new(devtoolbox_runtime::composition::FeedFetcherAdapter::new(
             core.client.clone(),
         )),
-        client: core.client.clone(),
+        // 文章抓取逐跳校验目标地址，绝不交给 reqwest 自动跟随重定向。
+        client: reqwest::Client::builder()
+            .redirect(reqwest::redirect::Policy::none())
+            .build()
+            .expect("rss article client"),
     });
 
     let app = routes::router(

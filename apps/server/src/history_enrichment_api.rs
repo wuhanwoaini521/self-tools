@@ -60,7 +60,9 @@ fn parse_section(value: &str) -> Result<EnrichmentSection, ApiError> {
 
 fn parse_key(body: &SectionBody) -> Result<EnrichmentKey, ApiError> {
     if body.entity_type != "event" || body.entity_id.trim().is_empty() {
-        return Err(bad("enrichment currently supports only non-empty event ids"));
+        return Err(bad(
+            "enrichment currently supports only non-empty event ids",
+        ));
     }
     Ok(EnrichmentKey::new(
         "event",
