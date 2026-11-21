@@ -105,6 +105,30 @@ mise run web-lan    # 或 make web-lan；等价于 bash scripts/self-tools-web.s
 
 > 说明：HTTP 的局域网地址不是安全上下文，浏览器不会注册 Service Worker，所以在手机上**不能**离线使用或「添加到主屏幕」。要在手机上装成 App，需要给 Vite 配 HTTPS（例如 mkcert 自签证书后在 `apps/desktop/ui/vite.config.ts` 的 `server.https` 指向证书，并在手机上信任该根证书）；只在本机使用则 127.0.0.1 本身就算安全上下文，安装不受影响。
 
+#### 带密码的局域网访问（推荐给家里的 pad）
+
+数据服务是**无认证的 loopback-only 服务**：它拒绝非本机 Host，并要求写请求带本机 Origin。因此不能直接把 8080 或裸 Vite 暴露到局域网。`scripts/lan-gateway.mjs` 是带密码的反向代理：pad 只访问网关，网关登录校验通过后才把 `/api` 转发到 127.0.0.1:8080，并重写 Host/Origin 以通过服务端守卫；同时校验同源 Origin 防止跨站写入。
+
+Windows 上一键启动（会按需启动数据服务和 Vite，然后以前台方式运行网关）：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\start-lan-web.ps1
+```
+
+输入至少 8 位访问密码后，在同一 Wi-Fi 下打开 `http://<这台电脑的局域网IP>:1421`。密码只存在于该进程的环境变量中，不写入文件；网关重启后现有登录会失效。按 Ctrl+C 会停止网关及由脚本启动的子进程。
+
+需要 PWA「添加到主屏幕」时，给网关配置 HTTPS 证书（证书与私钥需为 PEM）：
+
+```powershell
+$env:SELF_TOOLS_LAN_CERT = 'C:\path\to\cert.pem'
+$env:SELF_TOOLS_LAN_KEY = 'C:\path\to\key.pem'
+powershell -ExecutionPolicy Bypass -File scripts\start-lan-web.ps1
+```
+
+其他端口/上游可用 `SELF_TOOLS_LAN_PORT`、`SELF_TOOLS_WEB_UPSTREAM`、`SELF_TOOLS_API_UPSTREAM` 覆盖。网关测试：`node --test scripts/lan-gateway.test.mjs`。
+
+> RSS 订阅/阅读、History AI 解读已补齐 HTTP 端点，网关登录后可在 pad 上使用。仍受桌面端限制的功能见 [`FEATURE_MATRIX.md`](FEATURE_MATRIX.md)：家庭服务器操作、会话管理、Markdown 本地文件、Knowledge 写入/扫描等还没有 HTTP 端点。网关解决的是**安全访问链路**，不会自动补齐这些能力。
+
 ### 下载新概念英语教材
 
 运行后会先提示配置本地保存目录，并要求确认，再从 [byuc/NCE-Flow](https://github.com/byuc/NCE-Flow) 下载 NCE1–4 的字幕与音频；已有文件会保留并断点续传：

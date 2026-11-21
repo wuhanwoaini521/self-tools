@@ -52,7 +52,6 @@ export function RssPage({ active, version, refreshing, onRefresh, onFeedsChanged
   const [articleFilter, setArticleFilter] = useState<ArticleFilter>("all");
 
   const loadFeeds = useCallback(async () => {
-    if (!isTauriRuntime()) return;
     try {
       const list = await rssClient.listFeeds();
       setFeeds(list);
@@ -61,7 +60,6 @@ export function RssPage({ active, version, refreshing, onRefresh, onFeedsChanged
   }, [onFeedsChanged, setNotice]);
 
   const loadArticles = useCallback(async (feedId: number) => {
-    if (!isTauriRuntime()) return;
     try {
       setArticles(await rssClient.listArticles(feedId, 200));
     } catch (error) { setNotice(errorMessage(error)); }
@@ -91,7 +89,7 @@ export function RssPage({ active, version, refreshing, onRefresh, onFeedsChanged
   const markRead = useCallback(async (article: ArticleDto) => {
     if (article.is_read) return;
     try {
-      if (isTauriRuntime()) await rssClient.markArticleRead(article.id);
+      await rssClient.markArticleRead(article.id);
       const readArticle = { ...article, is_read: true };
       setSelectedArticle(readArticle);
       setArticles((previous) => previous.map((item) => (item.id === article.id ? readArticle : item)));
@@ -143,7 +141,6 @@ export function RssPage({ active, version, refreshing, onRefresh, onFeedsChanged
   /** 按需抓取文章页正文(仅当 RSS 正文被截断时手动触发)。 */
   const fetchFullText = async (article: ArticleDto) => {
     if (!article.url) return;
-    if (!isTauriRuntime()) { window.open(article.url, "_blank"); return; }
     setFetchingArticle(true);
     try {
       const html = await rssClient.fetchArticle(article.url);
@@ -153,7 +150,10 @@ export function RssPage({ active, version, refreshing, onRefresh, onFeedsChanged
         return;
       }
       setFetchedHtml(extracted);
-    } catch (error) { setNotice(errorMessage(error)); } finally { setFetchingArticle(false); }
+    } catch (error) {
+      setNotice(errorMessage(error));
+      if (!isTauriRuntime()) window.open(article.url, "_blank");
+    } finally { setFetchingArticle(false); }
   };
 
   /** 阅读面板内点击任意链接(如源站自带的「查看全文」):一律在系统浏览器打开,避免 Tauri 窗口内跳转。 */
@@ -165,18 +165,6 @@ export function RssPage({ active, version, refreshing, onRefresh, onFeedsChanged
     const absolute = resolveUrl(href, article.url || undefined);
     if (absolute) void openInBrowser(absolute);
   };
-
-  if (!isTauriRuntime()) {
-    return (
-      <div className="rss-web-empty" role="status">
-        <strong>RSS 目前只在桌面应用里刷新和阅读</strong>
-        <p>
-          订阅源与已读状态在 dashboard.db，和新闻的 news.db 是两套库。网页端还没有
-          /api/v1/rss。新闻 Tab 可以照常用来源、已读和刷新。
-        </p>
-      </div>
-    );
-  }
 
   return <div className="rss-page">
     <aside className="rss-feeds">

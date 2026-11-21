@@ -12,7 +12,7 @@ use std::sync::Arc;
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
-use axum::routing::{get, post};
+use axum::routing::{delete, get, post};
 use axum::{Json, Router};
 use serde::Serialize;
 use serde_json::json;
@@ -74,6 +74,12 @@ pub fn router(
     // 26 周能力路线图（V13 W6）：静态计划 + 真实统计。
     roadmap: Arc<devtoolbox_application::language::course::RoadmapService>,
     speaking_practice: Arc<devtoolbox_application::language::SpeakingPracticeService>,
+    // RSS 订阅/刷新/阅读：与桌面端共用同一套用例与 dashboard.db。
+    rss: Arc<crate::rss_api::RssDeps>,
+    // History AI 解读：与桌面端共用同一个 EnrichmentRunnerPort。
+    enrichment: Arc<
+        dyn devtoolbox_application::history::enrichment::ports::EnrichmentRunnerPort,
+    >,
 ) -> Router {
     let exploration = Arc::new(
         devtoolbox_application::exploration::ExplorationService::new(
@@ -131,6 +137,23 @@ pub fn router(
             "/api/v1/search/global",
             get(crate::knowledge_api::global_search),
         )
+        // RSS：此前 8 个命令只在桌面桥，网页端整页不可用。
+        .route("/api/v1/rss/feeds", get(crate::rss_api::list_feed_list).post(crate::rss_api::add_feed))
+        .route("/api/v1/rss/refresh", post(crate::rss_api::refresh_feeds))
+        .route(
+            "/api/v1/rss/feeds/{feedId}/articles",
+            get(crate::rss_api::feed_articles),
+        )
+        .route("/api/v1/rss/feeds/{feedId}", delete(crate::rss_api::remove_feed))
+        .route(
+            "/api/v1/rss/articles/latest",
+            get(crate::rss_api::latest_feed_articles),
+        )
+        .route(
+            "/api/v1/rss/articles/{articleId}/read",
+            post(crate::rss_api::mark_read),
+        )
+        .route("/api/v1/articles/fetch", post(crate::rss_api::fetch_article))
         .route("/api/v1/history/home", get(home))
         .route("/api/v1/history/search", get(search))
         .route("/api/v1/history/periods/{id}", get(period))
@@ -138,6 +161,26 @@ pub fn router(
         .route("/api/v1/history/people/{id}", get(person))
         .route("/api/v1/history/works/{id}", get(work))
         .route("/api/v1/history/stories/{id}", get(story))
+        .route(
+            "/api/v1/history/enrichment/state",
+            get(crate::history_enrichment_api::state),
+        )
+        .route(
+            "/api/v1/history/enrichment/view",
+            get(crate::history_enrichment_api::view),
+        )
+        .route(
+            "/api/v1/history/enrichment/ensure",
+            post(crate::history_enrichment_api::ensure),
+        )
+        .route(
+            "/api/v1/history/enrichment/refresh",
+            post(crate::history_enrichment_api::refresh),
+        )
+        .route(
+            "/api/v1/history/enrichment/review",
+            post(crate::history_enrichment_api::review),
+        )
         .route(
             "/api/v1/language/languages",
             get(crate::language_api::languages),
@@ -572,6 +615,8 @@ pub fn router(
         .layer(axum::Extension(mining))
         .layer(axum::Extension(roadmap))
         .layer(axum::Extension(speaking_practice))
+        .layer(axum::Extension(rss))
+        .layer(axum::Extension(enrichment))
         .with_state(AppState { service })
         // 显式擦除成 `Arc<dyn Fn()>`：`Extension<T>` 按具体类型匹配，
         // `Arc<fn() -> i64>` 与 `Arc<dyn Fn() -> i64 + Send + Sync>` 不是同一个类型。
@@ -1146,6 +1191,16 @@ mod tests {
             Arc::clone(&test_core().mining),
             Arc::clone(&test_core().roadmap),
             Arc::clone(&test_core().speaking_practice),
+            Arc::new(crate::rss_api::RssDeps {
+                repository: Arc::clone(&test_core().rss_repository),
+                fetcher: Arc::new(
+                    devtoolbox_runtime::composition::FeedFetcherAdapter::new(
+                        devtoolbox_infrastructure::feed_client().expect("http client"),
+                    ),
+                ),
+                client: devtoolbox_infrastructure::feed_client().expect("http client"),
+            }),
+            test_core().history_enrichment.clone(),
         )
     }
 

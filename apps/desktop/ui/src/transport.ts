@@ -78,6 +78,16 @@ const HTTP_ENDPOINTS: Record<string, (args: Record<string, unknown>) => string> 
     `/api/v1/history/works/${encodeURIComponent(String(a.workId ?? ""))}`,
   history_semantic_search: (a) =>
     `/api/v1/history/search?q=${encodeURIComponent(String(a.query ?? ""))}`,
+  // History AI 解读：与桌面端共用同一个 EnrichmentRunnerPort。
+  history_enrichment_state: (a) =>
+    `/api/v1/history/enrichment/state?entityType=${encodeURIComponent(String(a.entityType ?? "event"))}` +
+    `&entityId=${encodeURIComponent(String(a.entityId ?? ""))}` +
+    `&locale=${encodeURIComponent(String(a.locale ?? ""))}`,
+  history_enrichment_view: (a) =>
+    `/api/v1/history/enrichment/view?entityType=${encodeURIComponent(String(a.entityType ?? "event"))}` +
+    `&entityId=${encodeURIComponent(String(a.entityId ?? ""))}` +
+    `&section=${encodeURIComponent(String(a.section ?? "overview"))}` +
+    `&locale=${encodeURIComponent(String(a.locale ?? ""))}`,
 
   // ---- Language：与桌面端同一个 LanguageService / LanguageLearningService ----
   language_languages: () => "/api/v1/language/languages",
@@ -110,6 +120,13 @@ const HTTP_ENDPOINTS: Record<string, (args: Record<string, unknown>) => string> 
   global_search: (a) =>
     `/api/v1/search/global?query=${encodeURIComponent(String(a.query ?? ""))}` +
     `&limit=${encodeURIComponent(String(a.limit ?? 8))}`,
+  // RSS：与桌面端共用 dashboard.db，网关登录后网页/平板可订阅与阅读。
+  list_rss_feeds: () => "/api/v1/rss/feeds",
+  list_rss_articles: (a) =>
+    `/api/v1/rss/feeds/${encodeURIComponent(String(a.feedId ?? ""))}/articles` +
+    `?limit=${encodeURIComponent(String(a.limit ?? 200))}`,
+  latest_rss_articles: (a) =>
+    `/api/v1/rss/articles/latest?limit=${encodeURIComponent(String(a.limit ?? 5))}`,
   readiness_report: () => "/api/v1/readiness",
   // 语言数据导入（网页端也要能导入，别逼人切到桌面应用）
   language_data_status: () => "/api/v1/language/data-status",
@@ -317,6 +334,14 @@ const HTTP_POST_ENDPOINTS: Record<
   learning_save_knowledge_review_card: () => "/api/v1/learning/review/cards/from-knowledge",
   language_add_collection_item: (a) =>
     `/api/v1/learning/collections/${encodeURIComponent(String(a.collectionId))}/items`,
+  history_enrichment_ensure: () => "/api/v1/history/enrichment/ensure",
+  history_enrichment_refresh: () => "/api/v1/history/enrichment/refresh",
+  history_enrichment_review: () => "/api/v1/history/enrichment/review",
+  add_rss_feed: () => "/api/v1/rss/feeds",
+  refresh_rss_feeds: () => "/api/v1/rss/refresh",
+  mark_rss_article_read: (a) =>
+    `/api/v1/rss/articles/${encodeURIComponent(String(a.articleId ?? ""))}/read`,
+  fetch_article_url: () => "/api/v1/articles/fetch",
   news_add_source: () => "/api/v1/news/sources",
   news_refresh_now: () => "/api/v1/news/refresh",
   news_toggle_star: (a) =>
@@ -353,6 +378,8 @@ const HTTP_POST_ENDPOINTS: Record<
 };
 
 const HTTP_DELETE_ENDPOINTS: Record<string, (args: Record<string, unknown>) => string> = {
+  delete_rss_feed: (a) =>
+    `/api/v1/rss/feeds/${encodeURIComponent(String(a.feedId ?? ""))}`,
   learning_delete_knowledge_review_card: (a) =>
     `/api/v1/learning/review/cards/${encodeURIComponent(String(a.cardId ?? ""))}`,
 };
