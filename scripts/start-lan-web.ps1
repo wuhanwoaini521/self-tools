@@ -21,6 +21,10 @@ New-Item -ItemType Directory -Force -Path $logDir | Out-Null
 $serverExe = Join-Path $repoRoot "target\debug\devtoolbox-server.exe"
 $started = @()
 
+# 网关与上游必须读同一份数据目录：网关据此找到 gateway-signing.key
+#（首次启动由任一方生成，权限限当前用户），上游据此持久化数据。
+$env:SELF_TOOLS_DATA_DIR = Join-Path $repoRoot "config"
+
 function Test-Listening([int]$Port) {
     return [bool](Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue)
 }
@@ -55,7 +59,6 @@ try {
         if (-not (Test-Path $serverExe)) {
             throw "未找到数据服务 $serverExe，请先运行：cargo build -p devtoolbox-server"
         }
-        $env:SELF_TOOLS_DATA_DIR = Join-Path $repoRoot "config"
         Start-LoggedProcess $serverExe @() "server"
         if (-not (Wait-Listening 8080 30)) {
             throw "数据服务未能在 8080 端口就绪，请查看 output\web-logs\server.err.log"

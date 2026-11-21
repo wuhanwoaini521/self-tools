@@ -153,6 +153,7 @@ mod tests {
             "news" => "news",
             "rss" | "articles" => "rss",
             "study-boards" => "study-boards",
+            "server" => "server",
             "backups" => "backups",
             "openapi.json" => "meta",
             _ => "misc",

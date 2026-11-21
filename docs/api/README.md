@@ -21,6 +21,23 @@ This is the P0 compatibility freeze for `apps/server`:
 
 The desktop app emits the same `JobProgressEvent` shape over Tauri, so both clients see one sequence.
 
+## Home Server endpoints and gateway auth
+
+Reads (loopback or authenticated LAN gateway):
+
+- `GET /api/v1/server/status`, `/server/services`, `/server/apps`
+- `GET /api/v1/server/actions/recent?limit=20`
+- `GET /api/v1/server/logs?serviceId=…&logSourceId=…&maxLines=…&maxBytes=…&maxAgeSecs=…` — limits are clamped, output is redacted, and `untrusted: true` is always set.
+- `GET /api/v1/server/mcp`
+
+Writes require a gateway-authenticated **admin** marker:
+
+- `POST /api/v1/server/actions/restart` `{"serviceId": "…"}` → returns a confirmation ticket only.
+- `POST /api/v1/server/actions/{id}/confirm` `{"serviceId": "…"}` → executes (one-time, same principal, before expiry).
+- `POST /api/v1/server/actions/{id}/cancel` → cancels a pending ticket (same principal).
+
+Without the marker a write returns `401 {"code":"gateway_auth_required"}`; a non-admin marker returns `403 gateway_admin_required`; cross-principal or replayed tickets surface as `outcome: "denied"` and are audited. The gateway adds `X-SelfTools-Gateway-{Principal,Role,Expires,Nonce,Signature}` after stripping any client-supplied `X-SelfTools-*`/`X-Forwarded-*` headers; the signature is HMAC-SHA256 over `METHOD\nPATH\nEXPIRES\nNONCE\nPRINCIPAL\nROLE\nsha256_hex(BODY)`.
+
 Regenerate after adding, removing, or renaming a route:
 
 ```bash

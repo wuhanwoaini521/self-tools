@@ -109,6 +109,9 @@ impl ServiceControlPort for DisabledServiceControl {
     }
 }
 
+/// 桌面端固定会话 id（AI 确认路径与用户点击确认必须用同一值，否则票据无法确认）。
+pub const DESKTOP_SESSION_ID: &str = "ai-desktop";
+
 /// Home Server 运行时。
 pub struct ServerRuntime {
     settings_loader: SettingsLoader,
@@ -229,7 +232,15 @@ impl ServerRuntime {
     }
 
     /// 请求重启（模型路径）：只签发票据。
-    pub fn request_restart(&self, service_id: &str) -> Result<Confirmation, String> {
+    ///
+    /// `session_id` 是票据绑定的凭据：桌面固定 [`DESKTOP_SESSION_ID`]；HTTP 用
+    /// 网关 principal 派生 id。`trust` 决定写权限（`RemoteUntrusted` 仍 fail-closed）。
+    pub fn request_restart_for(
+        &self,
+        service_id: &str,
+        session_id: &str,
+        trust: SessionTrust,
+    ) -> Result<Confirmation, String> {
         let service = self
             .services
             .resolve(service_id)
@@ -239,12 +250,12 @@ impl ServerRuntime {
                 service_id: service.id.clone(),
                 expect: HealthStatus::Healthy,
             },
-            session_id: "ai-desktop".to_string(),
+            session_id: session_id.to_string(),
             summary: format!("重启服务「{}」", service.display_name),
             risk: ActionRisk::System,
             created_at: unix_now(),
         };
-        match self.actions.plan(&request, self.trust) {
+        match self.actions.plan(&request, trust) {
             devtoolbox_application::server::action::ActionPlan::ConfirmationRequired(
                 confirmation,
             ) => Ok(confirmation),
@@ -257,11 +268,20 @@ impl ServerRuntime {
         }
     }
 
+    /// 桌面路径的请求重启（固定桌面会话 id；信任级别取装配值）。
+    pub fn request_restart(&self, service_id: &str) -> Result<Confirmation, String> {
+        self.request_restart_for(service_id, DESKTOP_SESSION_ID, self.trust)
+    }
+
     /// 用户确认后执行（UI 路径）：重验证 → 执行 → 审计。
-    pub fn confirm_restart(
+    ///
+    /// 传入的 `session_id` 必须与签发票据时的值一致，否则 fingerprint 虽匹配也会
+    /// 以 `session_mismatch` 拒绝 —— 跨 principal 拿同一张票据同样不可执行。
+    pub fn confirm_restart_for(
         &self,
         confirmation_id: &str,
         service_id: &str,
+        session_id: &str,
     ) -> Result<ActionOutcome, String> {
         let service = self
             .services
@@ -272,7 +292,7 @@ impl ServerRuntime {
                 service_id: service.id.clone(),
                 expect: HealthStatus::Healthy,
             },
-            session_id: "ai-desktop".to_string(),
+            session_id: session_id.to_string(),
             summary: format!("重启服务「{}」", service.display_name),
             risk: ActionRisk::System,
             created_at: unix_now(),
@@ -282,9 +302,29 @@ impl ServerRuntime {
             .map_err(|error| error.to_string())
     }
 
+    /// 桌面路径的确认执行（固定桌面会话 id）。
+    pub fn confirm_restart(
+        &self,
+        confirmation_id: &str,
+        service_id: &str,
+    ) -> Result<ActionOutcome, String> {
+        self.confirm_restart_for(confirmation_id, service_id, DESKTOP_SESSION_ID)
+    }
+
     pub fn cancel(&self, confirmation_id: &str) -> Result<ActionOutcome, String> {
         self.actions
             .cancel(confirmation_id)
+            .map_err(|error| error.to_string())
+    }
+
+    /// 按会话取消（远程路径）：跨 principal 取消同样 Denied。
+    pub fn cancel_for(
+        &self,
+        confirmation_id: &str,
+        session_id: &str,
+    ) -> Result<ActionOutcome, String> {
+        self.actions
+            .cancel_for(confirmation_id, session_id)
             .map_err(|error| error.to_string())
     }
 
@@ -422,6 +462,53 @@ mod tests {
 
         // 4) 冷却期内再次请求 → 拒绝。
         assert!(runtime.request_restart("self-tools").is_err());
+    }
+
+    #[test]
+    fn gateway_admin_tickets_are_bound_to_the_issuing_principal() {
+        let directory = tempfile::tempdir().unwrap();
+        let services = vec![devtoolbox_infrastructure::server::test_support::service(
+            "self-tools",
+        )];
+        let runtime = ServerRuntime::assemble(
+            directory.path(),
+            loader(),
+            SessionTrust::RemoteUntrusted,
+            services,
+            Vec::new(),
+            Arc::new(DesktopCountingControl::default()),
+        )
+        .expect("assemble");
+
+        // 网关 admin 连接可在 RemoteUntrusted 基线上签发（每请求显式 trust）。
+        let confirmation = runtime
+            .request_restart_for(
+                "self-tools",
+                "gateway:lan-owner",
+                SessionTrust::RemoteGatewayAdmin,
+            )
+            .expect("confirmation");
+        assert_eq!(confirmation.session_id, "gateway:lan-owner");
+
+        // 另一个 principal 拿到同一张票据也无法确认或取消。
+        assert_eq!(
+            runtime
+                .confirm_restart_for(&confirmation.id, "self-tools", "gateway:intruder")
+                .expect("outcome"),
+            ActionOutcome::Denied
+        );
+        assert_eq!(
+            runtime
+                .cancel_for(&confirmation.id, "gateway:intruder")
+                .expect("outcome"),
+            ActionOutcome::Denied
+        );
+        assert_eq!(
+            runtime
+                .confirm_restart_for(&confirmation.id, "self-tools", "gateway:lan-owner")
+                .expect("outcome"),
+            ActionOutcome::Success
+        );
     }
 
     #[test]

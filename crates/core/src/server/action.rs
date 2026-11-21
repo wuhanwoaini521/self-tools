@@ -37,6 +37,10 @@ pub enum SessionTrust {
     LocalDesktop,
     /// 已认证远程会话（当前不存在；留给后续身份系统）。
     RemoteAuthenticated,
+    /// 经局域网密码网关验签的 admin 会话（§73/§74）。
+    ///
+    /// 这是**远程**身份，不是 `LocalDesktop`：写操作允许，但仍必须走确认票据与审计。
+    RemoteGatewayAdmin,
     /// 无法验证的远程客户端（§73：写操作 disabled）。
     RemoteUntrusted,
 }
@@ -47,6 +51,7 @@ impl SessionTrust {
         match self {
             SessionTrust::LocalDesktop => "local_desktop",
             SessionTrust::RemoteAuthenticated => "remote_authenticated",
+            SessionTrust::RemoteGatewayAdmin => "remote_gateway_admin",
             SessionTrust::RemoteUntrusted => "remote_untrusted",
         }
     }
@@ -56,6 +61,7 @@ impl SessionTrust {
         match raw.trim().to_ascii_lowercase().as_str() {
             "local_desktop" => Some(SessionTrust::LocalDesktop),
             "remote_authenticated" => Some(SessionTrust::RemoteAuthenticated),
+            "remote_gateway_admin" => Some(SessionTrust::RemoteGatewayAdmin),
             "remote_untrusted" => Some(SessionTrust::RemoteUntrusted),
             _ => None,
         }
@@ -66,7 +72,9 @@ impl SessionTrust {
     pub fn allows_writes(self) -> bool {
         matches!(
             self,
-            SessionTrust::LocalDesktop | SessionTrust::RemoteAuthenticated
+            SessionTrust::LocalDesktop
+                | SessionTrust::RemoteAuthenticated
+                | SessionTrust::RemoteGatewayAdmin
         )
     }
 }
@@ -200,7 +208,8 @@ pub trait ActionRiskPolicy: Send + Sync {
 
 /// 默认策略（§73/§74/§76）：
 /// - `RemoteUntrusted` → 一切非 Read 拒绝；
-/// - `LocalDesktop` / `RemoteAuthenticated` → 允许（仍需确认 + 审计）。
+/// - `LocalDesktop` / `RemoteAuthenticated` / `RemoteGatewayAdmin` → 允许
+///   （仍需确认 + 审计；远程 admin 只是「身份已被网关验证」，不是本机特权）。
 #[derive(Debug, Default, Clone, Copy)]
 pub struct DefaultActionRiskPolicy;
 
@@ -334,6 +343,8 @@ pub enum AuditSource {
     Desktop,
     /// 外部 MCP client（STDIO 或 HTTP）。
     Mcp,
+    /// 经局域网密码网关登录的浏览器 / pad（HTTP）。
+    Gateway,
 }
 
 impl AuditSource {
@@ -342,6 +353,7 @@ impl AuditSource {
         match self {
             AuditSource::Desktop => "desktop",
             AuditSource::Mcp => "mcp",
+            AuditSource::Gateway => "gateway",
         }
     }
 
@@ -350,6 +362,7 @@ impl AuditSource {
         match raw.trim().to_ascii_lowercase().as_str() {
             "desktop" => Some(AuditSource::Desktop),
             "mcp" => Some(AuditSource::Mcp),
+            "gateway" => Some(AuditSource::Gateway),
             _ => None,
         }
     }
@@ -454,6 +467,20 @@ mod tests {
             policy
                 .authorize(&action, SessionTrust::LocalDesktop)
                 .is_allowed()
+        );
+        // 网关验签通过的远程 admin：允许写，但仍是远程身份（确认 + 审计不变）。
+        assert!(
+            policy
+                .authorize(&action, SessionTrust::RemoteGatewayAdmin)
+                .is_allowed()
+        );
+        assert_eq!(
+            SessionTrust::parse("remote_gateway_admin"),
+            Some(SessionTrust::RemoteGatewayAdmin)
+        );
+        assert_eq!(
+            SessionTrust::RemoteGatewayAdmin.as_str(),
+            "remote_gateway_admin"
         );
         let denied = policy.authorize(&action, SessionTrust::RemoteUntrusted);
         assert!(!denied.is_allowed());

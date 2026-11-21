@@ -106,7 +106,7 @@ export interface ActionResultDto {
   confirmed?: boolean;
 }
 
-export type AuditSource = "desktop" | "mcp";
+export type AuditSource = "desktop" | "mcp" | "gateway";
 
 export interface AuditEntryDto {
   id: string;
@@ -171,6 +171,7 @@ export interface McpStatusDto {
 export const AUDIT_SOURCE_LABELS: Record<AuditSource, string> = {
   desktop: "本地",
   mcp: "MCP",
+  gateway: "局域网网关",
 };
 
 export const OUTCOME_LABELS: Record<ActionOutcome, string> = {
