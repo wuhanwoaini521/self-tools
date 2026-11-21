@@ -56,7 +56,8 @@
 | RSS / History 解读 | 8+5 个命令只在桌面桥 | ✅ HTTP 端点 + 前端映射，移除 Web 早退 |
 | RSS / History 解读 | 新端点无专门回归测试；文章抓取可被重定向到私网 | ✅ 13 端点 oneshot + SSRF 私网/DNS/重定向测试；抓取逐跳校验 |
 | CI / 契约 | Web 构建、视觉回归、网关测试与 OpenAPI 漂移未进门禁 | ✅ `web-quality` / `gateway-node-tests` / `contract` jobs；`mise run contract:check` / `test:gateway` |
-| CI / History 产物 | 不 checkout submodule 时 Tauri bundle resource 缺失，三平台 `cargo check` 失败；0 字节占位又让桌面启动 panic（E2E code=101） | ✅ `build.rs` 自动补占位；`HistoryDuckDbRepository::open_or_attach` 让缺失/不可读降级为「History 数据不可用」，服务端与桌面均不再启动失败 |
+| CI / History 产物 | 不 checkout submodule 时 Tauri bundle resource 缺失，三平台 `cargo check` 失败；0 字节占位又让桌面启动 panic（E2E code=101）与 7 个 DuckDB 测试 FAILED | ✅ `build.rs` 自动补占位；`HistoryDuckDbRepository::open_or_attach` 让缺失/不可读降级为「History 数据不可用」；fixture 相关测试把 0 字节占位视为缺失 |
+| CI / 桌面 E2E | 产品壳改版后 E2E 仍用 `功能导航` / `.app-nav-item` / 英文页面名，全部在第一步超时 | ✅ 一级入口 + 分区子导航 + 更多页面的当前 IA；深链仍覆盖 markdown/knowledge/server/system/graph；AI 空态改用浮动气泡 |
 | 设计系统 | Pixel-Lift 硬阴影 + 结构 token 分散在 4 个主题 | ✅ |
 
 ## 未修复（按影响）

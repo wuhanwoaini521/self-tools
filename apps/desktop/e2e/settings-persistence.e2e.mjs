@@ -8,6 +8,10 @@ describe("Settings credentials survive a desktop restart", () => {
     const result = await browser.execute(async (marker) => {
       const invoke = window.__TAURI_INTERNALS__?.invoke;
       if (typeof invoke !== "function") throw new Error("Tauri invoke bridge unavailable");
+      // 自带写入，避免依赖上一个 spec 的 UI 保存动作（spec 顺序不应决定成败）。
+      await invoke("put_secret_settings", {
+        update: { updates: [{ field: "ai_api_key", value: marker }] },
+      });
       const settings = await invoke("get_settings");
       const serialized = JSON.stringify(settings);
       await invoke("put_secret_settings", {

@@ -976,10 +976,16 @@ mod semantic_tests {
 
     /// V2 Backbone 产物路径（`dist/` 是唯一事实源）；仅在本机有构建产物时运行，
     /// 缺失时静默跳过（`dist/` 不在 Git 中）。刻意不回退 legacy `data/normalized/`。
+    ///
+    /// `apps/desktop/build.rs` 会为 Tauri 的 bundle resource 校验生成 0 字节
+    /// 占位文件，那不是可用数据源，同样按缺失处理。
     fn available_dist_repository() -> Option<HistoryDuckDbRepository> {
         let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../history-data-pipeline");
         let path = root.join("dist").join("history.duckdb");
-        if !path.is_file() {
+        let bytes = std::fs::metadata(&path)
+            .map(|metadata| metadata.len())
+            .unwrap_or(0);
+        if bytes == 0 {
             return None;
         }
         Some(HistoryDuckDbRepository::open(path).expect("open semantic database"))
