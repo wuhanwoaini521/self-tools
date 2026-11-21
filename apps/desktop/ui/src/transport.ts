@@ -10,15 +10,27 @@
 import { invoke as tauriInvoke, type InvokeArgs } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 
+export interface SubscribeOptions {
+  /**
+   * HTTP 传输用它定位具体运行的 SSE 流（`/api/v1/ai/runs/{traceId}/events`）。
+   * Tauri 事件本身已带 `trace_id`，无需此参数。
+   */
+  traceId?: string;
+}
+
 export interface CommandTransport {
   invoke<T>(command: string, args?: Record<string, unknown>): Promise<T>;
   /** 当前是否运行在 Tauri 桌面运行时（浏览器预览时返回 false）。 */
   isTauriRuntime(): boolean;
   /**
    * 订阅后端推送事件（V11：agent 进度）。返回取消订阅函数。
-   * 浏览器预览（非 Tauri）下退化为 no-op。
+   * Tauri 走 `listen`；网页端对 `agent-progress` 走 SSE，其余事件为 no-op。
    */
-  subscribe<T>(event: string, handler: (payload: T) => void): () => void;
+  subscribe<T>(
+    event: string,
+    handler: (payload: T) => void,
+    options?: SubscribeOptions,
+  ): () => void;
 }
 
 function inTauriRuntime(): boolean {
@@ -202,6 +214,11 @@ const HTTP_ENDPOINTS: Record<string, (args: Record<string, unknown>) => string> 
   // ---- 设置与 AI（与桌面端共用同一个 settings.json）----
   get_settings: () => "/api/v1/settings",
   personal_ai_status: () => "/api/v1/ai/status",
+  // 进度：状态快照 + SSE 事件流（seq 与桌面 Tauri 事件一致）。
+  ai_run_status: (a) =>
+    `/api/v1/ai/runs/${encodeURIComponent(String(a.traceId ?? ""))}`,
+  ai_run_events: (a) =>
+    `/api/v1/ai/runs/${encodeURIComponent(String(a.traceId ?? ""))}/events`,
   // ---- 会话历史（V11-K）：与桌面端同一份 conversations.db ----
   conversation_list: (a) =>
     `/api/v1/conversations?limit=${encodeURIComponent(String(a.limit ?? 20))}` +
@@ -565,8 +582,75 @@ export const httpTransport: CommandTransport = {
     return (await response.json()) as T;
   },
   isTauriRuntime: () => false,
-  subscribe: () => () => {},
+  subscribe: (event, handler, options) => {
+    if (event !== "agent-progress" || !options?.traceId) return () => {};
+    return subscribeAgentProgress(options.traceId, handler);
+  },
 };
+
+/**
+ * SSE 订阅一次运行进度。
+ *
+ * - `event: progress` + `id: {seq}`：按 seq 去重（重连 / 重放可能重复）；
+ * - 收到 `done` / `failed` 主动关闭，避免 EventSource 无意义重连；
+ * - 出错（例如游标过期返回 409）时用状态端点恢复最近状态，终态则收尾。
+ */
+function subscribeAgentProgress<T>(
+  traceId: string,
+  handler: (payload: T) => void,
+): () => void {
+  if (typeof EventSource === "undefined") return () => {};
+  const eventsUrl = HTTP_ENDPOINTS.ai_run_events({ traceId });
+  const statusUrl = HTTP_ENDPOINTS.ai_run_status({ traceId });
+  const source = new EventSource(eventsUrl);
+  let closed = false;
+  let lastSeq = 0;
+
+  const deliver = (payload: unknown) => {
+    if (!payload || typeof payload !== "object") return;
+    const progress = payload as { seq?: unknown; stage?: unknown };
+    if (typeof progress.seq === "number") {
+      if (progress.seq <= lastSeq) return;
+      lastSeq = progress.seq;
+    }
+    handler(progress as T);
+    if (progress.stage === "done" || progress.stage === "failed") {
+      closed = true;
+      source.close();
+    }
+  };
+
+  source.addEventListener("progress", (message) => {
+    if (closed) return;
+    try {
+      deliver(JSON.parse((message as MessageEvent).data));
+    } catch {
+      // 不完整帧交给下一次重连 / 状态端点恢复。
+    }
+  });
+
+  source.onerror = () => {
+    if (closed) return;
+    void fetch(statusUrl, { headers: { Accept: "application/json" } })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((snapshot: { latest?: unknown; state?: string } | null) => {
+        if (closed || !snapshot) return;
+        if (snapshot.latest) deliver(snapshot.latest);
+        if (snapshot.state === "done" || snapshot.state === "failed") {
+          closed = true;
+          source.close();
+        }
+      })
+      .catch(() => {
+        // 状态端点也不可用：让 EventSource 自己重试。
+      });
+  };
+
+  return () => {
+    closed = true;
+    source.close();
+  };
+}
 
 /**
  * 自动选择传输层：有 Tauri 宿主走 IPC，否则走 HTTP。
@@ -579,8 +663,8 @@ export const defaultTransport: CommandTransport = {
       ? tauriTransport.invoke<T>(command, args)
       : httpTransport.invoke<T>(command, args),
   isTauriRuntime: inTauriRuntime,
-  subscribe: (event, handler) =>
+  subscribe: (event, handler, options) =>
     inTauriRuntime()
-      ? tauriTransport.subscribe(event, handler)
-      : httpTransport.subscribe(event, handler),
+      ? tauriTransport.subscribe(event, handler, options)
+      : httpTransport.subscribe(event, handler, options),
 };

@@ -58,8 +58,14 @@ export interface AiClient {
  /** Confirm/cancel a backend-issued TravelPlan proposal ticket. */
  confirmTravelChange(proposalId: string): Promise<TravelPlan>;
  cancelTravelChange(proposalId: string): Promise<void>;
- /** 订阅后端推送的执行进度（V11：过程可见）。返回取消订阅函数。 */
- onProgress(handler: (progress: AgentProgressEvent) => void): () => void;
+ /**
+  * 订阅后端推送的执行进度（V11：过程可见）。返回取消订阅函数。
+  * 网页端必须给 `traceId`（SSE 按运行订阅）；桌面端可省略（事件自带 trace_id）。
+  */
+ onProgress(
+  handler: (progress: AgentProgressEvent) => void,
+  traceId?: string,
+ ): () => void;
 }
 
 export function createAiClient(
@@ -78,7 +84,12 @@ export function createAiClient(
   cancelTravelChange: async (proposalId) => {
    await transport.invoke<void>("personal_ai_cancel_travel_change", { proposalId });
   },
-  onProgress: (handler) => transport.subscribe<AgentProgressEvent>("agent-progress", handler),
+  onProgress: (handler, traceId) =>
+   transport.subscribe<AgentProgressEvent>(
+    "agent-progress",
+    handler,
+    traceId ? { traceId } : undefined,
+   ),
  };
 }
 
@@ -88,10 +99,13 @@ export const aiClient = createAiClient();
 export function useAgentProgress(
  handler: (progress: AgentProgressEvent) => void,
  enabled = true,
+ traceId: string | null = null,
 ): void {
  const [stable] = useState(() => handler);
  useEffect(() => {
-  if (!enabled || !isTauriRuntime()) return;
-  return aiClient.onProgress(stable);
- }, [enabled, stable]);
+  if (!enabled) return;
+  // 桌面端是全局事件；网页端按 trace 订阅 SSE，没有 trace 就无从订阅。
+  if (!isTauriRuntime() && !traceId) return;
+  return aiClient.onProgress(stable, traceId ?? undefined);
+ }, [enabled, stable, traceId]);
 }

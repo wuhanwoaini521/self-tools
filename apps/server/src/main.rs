@@ -169,23 +169,43 @@ impl ai_api::AiChatRunner for RuntimeAiChatRunner {
         trace_id: String,
     ) -> Pin<Box<dyn Future<Output = Result<AgentResponse, AgentError>> + Send + 'a>> {
         Box::pin(async move {
-            let settings = (self.core.settings_loader)().map_err(AgentError::provider)?;
-            if !settings.ai.is_configured() {
-                return Err(AgentError::model_unavailable("AI provider 未配置"));
+            let sink = self.core.job_events.sink(&trace_id);
+            let result = async {
+                let settings = (self.core.settings_loader)().map_err(AgentError::provider)?;
+                if !settings.ai.is_configured() {
+                    return Err(AgentError::model_unavailable("AI provider 未配置"));
+                }
+                let provider = devtoolbox_runtime::personal_ai::build_provider(
+                    self.core.client.clone(),
+                    &settings.ai,
+                );
+                let progress_sink: Arc<dyn devtoolbox_core::AgentProgressSink> = sink.clone();
+                let agent = devtoolbox_runtime::personal_ai::build_agent(
+                    provider,
+                    Arc::clone(&self.core.personal_ai),
+                    Arc::clone(&self.core.ai_session),
+                )
+                .with_progress_sink(progress_sink);
+                let mut response = self.core.ai_runs.run(&trace_id, agent.run(request)).await?;
+                response.trace_id = Some(trace_id.clone());
+                Ok(response)
             }
-            let provider = devtoolbox_runtime::personal_ai::build_provider(
-                self.core.client.clone(),
-                &settings.ai,
-            );
-            let agent = devtoolbox_runtime::personal_ai::build_agent(
-                provider,
-                Arc::clone(&self.core.personal_ai),
-                Arc::clone(&self.core.ai_session),
-            );
-            let mut response = self.core.ai_runs.run(&trace_id, agent.run(request)).await?;
-            response.trace_id = Some(trace_id);
-            Ok(response)
+            .await;
+            // 终态兜底：取消或前置失败不会经过 Agent 的 emit，也必须让订阅者收尾。
+            match &result {
+                Ok(_) => {
+                    let _ = sink.finish_done();
+                }
+                Err(error) => {
+                    let _ = sink.finish_failed(error.code(), error.message.clone());
+                }
+            }
+            result
         })
+    }
+
+    fn job_events(&self) -> Option<Arc<devtoolbox_runtime::job_events::AiJobEvents>> {
+        Some(Arc::clone(&self.core.job_events))
     }
 
     fn catalog(

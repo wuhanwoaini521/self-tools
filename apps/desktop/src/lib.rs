@@ -154,6 +154,8 @@ pub struct AppState {
     /// Personal AI 会话存储（V4 §34，内存；P1 再持久化）。
     pub ai_session: Arc<InMemorySessionStore>,
     pub ai_runs: Arc<devtoolbox_application::personal_ai::AgentRunRegistry>,
+    /// AI 进度事件扇出（Tauri 事件与网页 SSE 同源、同 seq）。
+    pub job_events: Arc<devtoolbox_runtime::job_events::AiJobEvents>,
     /// V11-K 会话历史（持久化；与 Memory 分离）。
     pub conversation: Arc<devtoolbox_application::personal_ai::ConversationService>,
     /// History Enrichment 运行器（V5 Gate 4；命令与 agent 工具共用）。
@@ -1315,21 +1317,20 @@ fn next_personal_ai_trace_id() -> String {
 
 struct TauriProgressSink {
     app: AppHandle,
-    trace_id: String,
+    sink: Arc<devtoolbox_runtime::job_events::JobProgressSink>,
+}
+
+/// 桌面事件与网页 SSE 使用同一份 `JobProgressEvent`（含 seq/state/timestamp）。
+fn emit_progress(app: &AppHandle, event: &devtoolbox_core::JobProgressEvent) {
+    // 忽略发送失败（前端可能已关闭面板）。
+    let _ = app.emit("agent-progress", event);
 }
 
 impl devtoolbox_core::AgentProgressSink for TauriProgressSink {
     fn emit(&self, progress: &devtoolbox_core::AgentProgress) {
-        // 忽略发送失败（前端可能已关闭面板）。
-        let _ = self.app.emit(
-            "agent-progress",
-            serde_json::json!({
-                "trace_id": self.trace_id,
-                "stage": progress.stage,
-                "detail": progress.detail,
-                "error_code": progress.error_code,
-            }),
-        );
+        if let Some(event) = self.sink.record(progress) {
+            emit_progress(&self.app, &event);
+        }
     }
 }
 
@@ -1352,6 +1353,7 @@ async fn personal_ai_chat(
         .unwrap_or_else(next_personal_ai_trace_id);
     let ai = load_ai_settings(&app)?;
     let provider = devtoolbox_runtime::personal_ai::build_provider(state.client.clone(), &ai);
+    let sink = state.job_events.sink(&trace_id);
     let agent = devtoolbox_runtime::personal_ai::build_agent(
         provider,
         Arc::clone(&state.ai),
@@ -1359,36 +1361,24 @@ async fn personal_ai_chat(
     )
     .with_progress_sink(Arc::new(TauriProgressSink {
         app: app.clone(),
-        trace_id: trace_id.clone(),
+        sink: Arc::clone(&sink),
     }));
-    let started = std::time::Instant::now();
     let result = state.ai_runs.run(&trace_id, agent.run(request)).await;
     let result = result.map(|mut response| {
         response.trace_id = Some(trace_id.clone());
         response
     });
+    // 终态兜底：取消或前置失败不会经过 Agent 的 emit，也必须让订阅者收尾。
     match &result {
         Ok(_) => {
-            let _ = app.emit(
-                "agent-progress",
-                serde_json::json!({
-                    "trace_id": trace_id,
-                    "stage": "done",
-                    "detail": format!("{}ms", started.elapsed().as_millis()),
-                    "error_code": null,
-                }),
-            );
+            if let Some(event) = sink.finish_done() {
+                emit_progress(&app, &event);
+            }
         }
         Err(error) => {
-            let _ = app.emit(
-                "agent-progress",
-                serde_json::json!({
-                    "trace_id": trace_id,
-                    "stage": "failed",
-                    "detail": error.message,
-                    "error_code": error.code(),
-                }),
-            );
+            if let Some(event) = sink.finish_failed(error.code(), error.message.clone()) {
+                emit_progress(&app, &event);
+            }
         }
     }
     result
@@ -2871,6 +2861,7 @@ pub fn run() {
                 ),
                 ai_session: Arc::new(InMemorySessionStore::new()),
                 ai_runs: Arc::new(devtoolbox_application::personal_ai::AgentRunRegistry::new()),
+                job_events: Arc::new(devtoolbox_runtime::job_events::AiJobEvents::default()),
                 conversation: conversation_service,
                 history_enrichment,
                 knowledge,

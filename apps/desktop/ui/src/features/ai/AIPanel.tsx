@@ -244,6 +244,10 @@ export function AIPanel({
   const [proposalBusyId, setProposalBusyId] = useState("");
   const [cancelledMessage, setCancelledMessage] = useState("");
   const activeTraceIdRef = useRef<string | null>(null);
+  // 与 ref 同步的 state：网页端要按 trace 订阅 SSE，effect 需要值变化触发。
+  const [activeTraceId, setActiveTraceId] = useState<string | null>(null);
+  // SSE 重连/重放会重复投递；只接受推进的 seq。
+  const lastProgressSeqRef = useRef(0);
   const requestGenerationRef = useRef(0);
   const contextKey = JSON.stringify(context ?? null);
   const contextKeyRef = useRef(contextKey);
@@ -304,6 +308,8 @@ export function AIPanel({
     const traceId = activeTraceIdRef.current;
     if (!traceId) return;
     activeTraceIdRef.current = null;
+    setActiveTraceId(null);
+    lastProgressSeqRef.current = 0;
     requestGenerationRef.current += 1;
     void aiClient.cancelRun(traceId).catch(() => {});
     setStatus("ready");
@@ -363,6 +369,10 @@ export function AIPanel({
   useAgentProgress(
     (progress: AgentProgressEvent) => {
       if (!activeTraceIdRef.current || progress.trace_id !== activeTraceIdRef.current) return;
+      if (typeof progress.seq === "number") {
+        if (progress.seq <= lastProgressSeqRef.current) return;
+        lastProgressSeqRef.current = progress.seq;
+      }
       if (progress.stage === "failed") {
         setFailureCode(progress.error_code ?? null);
         setStageLog((log) => [...log, { stage: "failed", detail: progress.detail }]);
@@ -370,7 +380,8 @@ export function AIPanel({
       }
       setStageLog((log) => [...log, { stage: progress.stage, detail: progress.detail }]);
     },
-    status === "loading",
+    status === "loading" && activeTraceId !== null,
+    activeTraceId,
   );
 
   const send = useCallback(
@@ -381,6 +392,8 @@ export function AIPanel({
       const generation = ++requestGenerationRef.current;
       const sentContextKey = contextKeyRef.current;
       activeTraceIdRef.current = traceId;
+      setActiveTraceId(traceId);
+      lastProgressSeqRef.current = 0;
       setInput("");
       setErrorText("");
       setCancelledMessage("");
@@ -407,6 +420,7 @@ export function AIPanel({
         }, traceId);
         if (generation !== requestGenerationRef.current || activeTraceIdRef.current !== traceId || contextKeyRef.current !== sentContextKey) return;
         activeTraceIdRef.current = null;
+        setActiveTraceId(null);
         setMessages(response.messages.slice(-MAX_MESSAGES));
         setToolTrace(response.tool_trace ?? []);
         setCitations(response.citations ?? []);
@@ -438,6 +452,7 @@ export function AIPanel({
       } catch (cause) {
         if (generation !== requestGenerationRef.current || activeTraceIdRef.current !== traceId) return;
         activeTraceIdRef.current = null;
+        setActiveTraceId(null);
         setStatus("error");
         setErrorText(errorMessage(cause));
         setFailureCode((code) => code ?? null);

@@ -70,6 +70,8 @@ pub struct AppCore {
     pub personal_ai: Arc<devtoolbox_application::personal_ai::PersonalHub>,
     pub ai_session: Arc<devtoolbox_application::personal_ai::InMemorySessionStore>,
     pub ai_runs: Arc<devtoolbox_application::personal_ai::AgentRunRegistry>,
+    /// AI 进度事件扇出：桌面 Tauri 事件与网页 SSE 订阅共用同一条序列。
+    pub job_events: Arc<crate::job_events::AiJobEvents>,
     /// 具体类型（server 的 router 需要；与 `news` 端口指向同一实例）。
     pub news_service: Arc<NewsService>,
     pub news: Arc<dyn NewsPort>,
@@ -350,6 +352,7 @@ impl AppCore {
         );
         let ai_session = Arc::new(devtoolbox_application::personal_ai::InMemorySessionStore::new());
         let ai_runs = Arc::new(devtoolbox_application::personal_ai::AgentRunRegistry::new());
+        let job_events = Arc::new(crate::job_events::AiJobEvents::default());
 
         Ok(Self {
             config_dir: config_dir.to_path_buf(),
@@ -375,6 +378,7 @@ impl AppCore {
             personal_ai,
             ai_session,
             ai_runs,
+            job_events,
             news_service,
             news,
             rss_service,

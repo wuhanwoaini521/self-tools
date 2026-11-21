@@ -669,6 +669,75 @@ pub trait AgentProgressSink: Send + Sync {
     fn emit(&self, progress: &AgentProgress);
 }
 
+/// 一次运行的整体状态。`running` 之外只有两个终态，客户端据此结束流。
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum JobState {
+    Running,
+    Done,
+    Failed,
+}
+
+impl JobState {
+    #[must_use]
+    pub fn as_str(self) -> &'static str {
+        match self {
+            JobState::Running => "running",
+            JobState::Done => "done",
+            JobState::Failed => "failed",
+        }
+    }
+
+    #[must_use]
+    pub fn is_terminal(self) -> bool {
+        matches!(self, JobState::Done | JobState::Failed)
+    }
+}
+
+/// 稳定进度事件：桌面 Tauri 事件与网页 SSE 共用同一份载荷。
+///
+/// `seq` 由服务端按 trace 单调递增（从 1 开始），既是 SSE `id:` 也是重放游标；
+/// 客户端只信任 `seq`，`timestamp` 仅用于展示。
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct JobProgressEvent {
+    pub trace_id: String,
+    pub seq: u64,
+    pub stage: AgentStage,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub detail: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error_code: Option<String>,
+    pub state: JobState,
+    /// Unix 毫秒。
+    pub timestamp: u64,
+}
+
+impl JobProgressEvent {
+    #[must_use]
+    pub fn state_for(stage: AgentStage) -> JobState {
+        match stage {
+            AgentStage::Done => JobState::Done,
+            AgentStage::Failed => JobState::Failed,
+            _ => JobState::Running,
+        }
+    }
+
+    #[must_use]
+    pub fn is_terminal(&self) -> bool {
+        self.state.is_terminal()
+    }
+}
+
+/// 运行快照（状态端点：最近状态 + 重放游标）。不含正文、prompt 或推理内容。
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct JobRunSnapshot {
+    pub trace_id: String,
+    pub state: JobState,
+    /// 已产生事件的最后序号；0 表示尚未产生事件。
+    pub cursor: u64,
+    pub latest: Option<JobProgressEvent>,
+}
+
 /// 工具调用轨迹（V4 §12 的 tool_trace metadata）。
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct ToolTraceEntry {

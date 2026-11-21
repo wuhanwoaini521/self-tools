@@ -17,9 +17,14 @@ async function listen(server) {
 }
 
 async function setup(t, overrides = {}) {
+  const { apiHandler, ...gatewayOverrides } = overrides;
   let apiHeaders = null;
   const api = http.createServer((req, res) => {
     apiHeaders = Object.fromEntries(Object.entries(req.headers).map(([k, v]) => [k.toLowerCase(), v]));
+    if (apiHandler) {
+      apiHandler(req, res);
+      return;
+    }
     if (req.url === "/api/health") {
       res.writeHead(200, { "content-type": "application/json" });
       res.end(JSON.stringify({ ok: true, seen: apiHeaders }));
@@ -46,7 +51,7 @@ async function setup(t, overrides = {}) {
     password: "a-very-secret-password",
     apiUpstream: `http://127.0.0.1:${apiPort}`,
     webUpstream: `http://127.0.0.1:${webPort}`,
-    ...overrides,
+    ...gatewayOverrides,
   });
   t.after(async () => {
     await gateway.close();
@@ -239,4 +244,48 @@ test("WebSocket upgrades require login and reach the web upstream", async (t) =>
   const authenticated = await rawUpgrade(base, cookie);
   assert.match(authenticated, /^HTTP\/1\.1 101 Switching Protocols/);
   assert.match(authenticated, /upstream-upgrade/);
+});
+
+test("SSE 进度流经网关逐块透传，不被缓冲或改写", async (t) => {
+  const apiHandler = (req, res) => {
+    if (!req.url.startsWith("/api/v1/ai/runs/run-sse/events")) {
+      res.writeHead(404, { "content-type": "application/json" });
+      res.end(JSON.stringify({ code: "not_found", message: "no such route" }));
+      return;
+    }
+    res.writeHead(200, {
+      "content-type": "text/event-stream",
+      "cache-control": "no-cache",
+      "x-accel-buffering": "no",
+    });
+    res.write('id: 1\nevent: progress\ndata: {"seq":1,"stage":"preparing"}\n\n');
+    setTimeout(() => {
+      res.write('id: 2\nevent: progress\ndata: {"seq":2,"stage":"done"}\n\n');
+      res.end();
+    }, 50);
+  };
+  const { base } = await setup(t, { apiHandler });
+  const cookie = await login(base);
+
+  const response = await fetch(`${base}/api/v1/ai/runs/run-sse/events`, {
+    headers: { cookie, accept: "text/event-stream" },
+  });
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("content-type"), "text/event-stream");
+  assert.equal(response.headers.get("cache-control"), "no-cache");
+  assert.equal(response.headers.get("x-accel-buffering"), "no");
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  // 第一块必须在连接结束前到达：网关没有把整个响应 buffer 起来。
+  const first = await reader.read();
+  assert.equal(first.done, false);
+  assert.match(decoder.decode(first.value), /id: 1/);
+  let rest = "";
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    rest += decoder.decode(value);
+  }
+  assert.match(rest, /id: 2/);
 });

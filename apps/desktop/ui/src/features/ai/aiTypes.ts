@@ -133,11 +133,15 @@ export type AgentStageName =
 
 export interface AgentProgressEvent {
   trace_id?: string | null;
+  /** 后端按 trace 单调递增（从 1 开始）；SSE 重放/重连时用于幂等。 */
+  seq?: number | null;
   stage: AgentStageName;
   /** 阶段内细节（策略名 / 耗时 / 失败原因）。 */
   detail?: string | null;
   /** 失败时的稳定错误码（failed 阶段）。 */
   error_code?: string | null;
+  /** 整体运行状态；`done` / `failed` 为终态。 */
+  state?: "running" | "done" | "failed" | null;
 }
 
 export const AGENT_STAGE_LABELS: Record<AgentStageName, string> = {

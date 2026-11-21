@@ -19,6 +19,7 @@ pub mod backup;
 pub mod composition;
 pub mod history_enrichment;
 pub mod history_query;
+pub mod job_events;
 pub mod personal_ai;
 pub mod server;
 pub mod server_adapters;

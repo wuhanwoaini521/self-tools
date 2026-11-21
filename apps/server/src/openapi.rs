@@ -174,7 +174,11 @@ mod tests {
     }
 
     fn success_content(path: &str) -> Value {
-        if path.ends_with("/audio") {
+        if path.ends_with("/events") {
+            json!({
+                "text/event-stream": { "schema": { "type": "string" } }
+            })
+        } else if path.ends_with("/audio") {
             json!({
                 "audio/mpeg": { "schema": { "type": "string", "format": "binary" } }
             })
