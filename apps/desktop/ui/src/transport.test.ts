@@ -305,6 +305,58 @@ describe("httpTransport：命令映射", () => {
     expect(patchRequest("not_a_patch_command", {})).toBeNull();
   });
 
+  it("会话历史映射到 /api/v1/conversations，HTTP 动词与桌面命令同义", async () => {
+    stubFetch();
+    fetchMock.mockResolvedValue(jsonResponse({ ok: true }));
+
+    await httpTransport.invoke("conversation_list", { limit: 20, includeArchived: true });
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      "/api/v1/conversations?limit=20&includeArchived=true",
+      expect.objectContaining({ headers: { Accept: "application/json" } }),
+    );
+
+    await httpTransport.invoke("conversation_load", { id: "conv/1" });
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      "/api/v1/conversations/conv%2F1",
+      expect.objectContaining({ headers: { Accept: "application/json" } }),
+    );
+
+    await httpTransport.invoke("conversation_create", { title: null });
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      "/api/v1/conversations",
+      expect.objectContaining({ method: "POST" }),
+    );
+
+    const message = {
+      id: "conv/1",
+      role: "assistant",
+      content: "第一天：西湖。",
+      provider: "openai-compatible",
+      model: "step-5-preview",
+    };
+    await httpTransport.invoke("conversation_append", message);
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      "/api/v1/conversations/conv%2F1/messages",
+      expect.objectContaining({ method: "POST", body: JSON.stringify(message) }),
+    );
+
+    // 多字段 PATCH：改名与归档同一条命令，body 不能被截成单字段。
+    await httpTransport.invoke("conversation_update", { id: "conv/1", title: "改名", archived: null });
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      "/api/v1/conversations/conv%2F1",
+      expect.objectContaining({
+        method: "PATCH",
+        body: JSON.stringify({ title: "改名", archived: null }),
+      }),
+    );
+
+    await httpTransport.invoke("conversation_delete", { id: "conv/1" });
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      "/api/v1/conversations/conv%2F1",
+      expect.objectContaining({ method: "DELETE" }),
+    );
+  });
+
   it("home 原样返回服务端结构（与桌面端同一批 Rust 结构体）", async () => {
     stubFetch();
     const payload = { periods: [{ id: "p1" }], stories: [], stats: { people: 5 } };

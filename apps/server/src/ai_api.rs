@@ -24,8 +24,9 @@ pub struct ApiError {
 
 impl axum::response::IntoResponse for ApiError {
     fn into_response(self) -> axum::response::Response {
-        const BAD_REQUEST_CODES: [&str; 17] = [
+        const BAD_REQUEST_CODES: [&str; 18] = [
             "invalid",
+            "conversation_invalid_role",
             "ai_not_configured",
             "language_invalid_mark",
             "language_shadow_empty_transcript",

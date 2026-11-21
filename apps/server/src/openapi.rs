@@ -145,6 +145,7 @@ mod tests {
             "english" => "language",
             "settings" => "settings",
             "ai" => "ai",
+            "conversations" => "ai",
             "travel" => "travel",
             "learning" => "learning",
             "geography" => "geography",

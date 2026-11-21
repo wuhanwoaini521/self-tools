@@ -51,6 +51,8 @@ pub fn router(
     data_dir: std::path::PathBuf,
     // Personal Knowledge 运行时（两端共用同一份索引库）。
     knowledge: Arc<devtoolbox_infrastructure::knowledge_runtime::KnowledgeRuntime>,
+    // 会话历史（与桌面端共用同一份 conversations.db；Conversation != Memory）。
+    conversation: Arc<devtoolbox_application::personal_ai::ConversationService>,
     // 语言库（课时音频端点要直接读文件；路径只取自数据库，不接受前端传参）。
     language_store: Arc<parking_lot::Mutex<devtoolbox_infrastructure::language::LanguageStore>>,
     // Travel 运行时装配（与桌面端共用 provider 与 travel.db）。
@@ -178,6 +180,22 @@ pub fn router(
         .route(
             "/api/v1/search/global",
             get(crate::knowledge_api::global_search),
+        )
+        // 会话历史（V11-K）：桌面端 conversation_* 命令的 HTTP 等价。
+        .route(
+            "/api/v1/conversations",
+            get(crate::conversation_api::list_conversations)
+                .post(crate::conversation_api::create_conversation),
+        )
+        .route(
+            "/api/v1/conversations/{id}",
+            get(crate::conversation_api::load_conversation)
+                .patch(crate::conversation_api::update_conversation)
+                .delete(crate::conversation_api::delete_conversation),
+        )
+        .route(
+            "/api/v1/conversations/{id}/messages",
+            post(crate::conversation_api::append_message),
         )
         // RSS：此前 8 个命令只在桌面桥，网页端整页不可用。
         .route(
@@ -656,6 +674,7 @@ pub fn router(
         .layer(axum::Extension(Arc::clone(&course)))
         .layer(axum::Extension(Arc::new(data_dir)))
         .layer(axum::Extension(knowledge))
+        .layer(axum::Extension(conversation))
         .layer(axum::Extension(language_store))
         .layer(axum::Extension(travel))
         .layer(axum::Extension(data_paths))
@@ -1230,6 +1249,7 @@ mod tests {
             // readiness 探测用的数据目录（测试里指向系统临时目录）。
             std::env::temp_dir(),
             test_core().knowledge.clone(),
+            test_core().conversation.clone(),
             Arc::clone(&language_store),
             Arc::new(crate::travel_api::test_deps(&std::env::temp_dir())),
             Arc::new(crate::language_data_api::DataPaths {
@@ -1953,6 +1973,26 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("POST")
+                    .uri(uri)
+                    .header("host", "127.0.0.1:8080")
+                    .header("origin", "http://127.0.0.1:1420")
+                    .header("content-type", "application/json")
+                    .body(axum::body::Body::from(payload.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let status = response.status();
+        let body = to_bytes(response.into_body(), 1 << 20).await.unwrap();
+        (status, serde_json::from_slice(&body).unwrap_or(Value::Null))
+    }
+
+    async fn patch_json(app: &axum::Router, uri: &str, payload: &Value) -> (StatusCode, Value) {
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("PATCH")
                     .uri(uri)
                     .header("host", "127.0.0.1:8080")
                     .header("origin", "http://127.0.0.1:1420")
@@ -2978,6 +3018,106 @@ mod tests {
         .await;
         assert_eq!(status, StatusCode::OK, "{rejected_memory}");
         assert_eq!(rejected_memory["status"], "rejected");
+    }
+
+    #[tokio::test]
+    async fn conversation_http_round_trip_matches_desktop_commands() {
+        let app = test_router(false);
+        let marker = format!("阶段1.2 会话 {}", std::process::id());
+
+        // 新建（桌面 `conversation_create`）。
+        let (status, created) = post_json(
+            &app,
+            "/api/v1/conversations",
+            &serde_json::json!({ "title": marker }),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{created}");
+        assert_eq!(created["title"], marker);
+        let id = created["conversation_id"]
+            .as_str()
+            .expect("conversation id")
+            .to_string();
+
+        // 列表（桌面 `conversation_list`）。
+        let (status, list) = request(&app, "/api/v1/conversations?limit=100").await;
+        assert_eq!(status, StatusCode::OK, "{list}");
+        assert!(
+            list.as_array()
+                .expect("list array")
+                .iter()
+                .any(|item| item["conversation_id"] == id && item["message_count"] == 0),
+            "{list}"
+        );
+
+        // 追加消息（桌面 `conversation_append`）。
+        let (status, appended) = post_json(
+            &app,
+            &format!("/api/v1/conversations/{id}/messages"),
+            &serde_json::json!({
+                "role": "assistant",
+                "content": "第一天：西湖。",
+                "provider": "openai-compatible",
+                "model": "step-5-preview",
+            }),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{appended}");
+
+        // 读取（桌面 `conversation_load`）：消息顺序与来源元数据一致。
+        let (status, loaded) = request(&app, &format!("/api/v1/conversations/{id}")).await;
+        assert_eq!(status, StatusCode::OK, "{loaded}");
+        assert_eq!(loaded["messages"][0]["role"], "assistant");
+        assert_eq!(loaded["messages"][0]["provider"], "openai-compatible");
+
+        // 改名 + 归档（桌面 `conversation_update` 的两个字段，一条 PATCH）。
+        let (status, updated) = patch_json(
+            &app,
+            &format!("/api/v1/conversations/{id}"),
+            &serde_json::json!({ "title": format!("{marker}（改名）"), "archived": true }),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{updated}");
+
+        let (_, loaded) = request(&app, &format!("/api/v1/conversations/{id}")).await;
+        assert_eq!(loaded["title"], format!("{marker}（改名）"));
+        assert_eq!(loaded["archived"], true);
+
+        // 归档会话默认不出现，`includeArchived=true` 才可见。
+        let (_, visible) = request(&app, "/api/v1/conversations?limit=100").await;
+        assert!(
+            !visible
+                .as_array()
+                .expect("list array")
+                .iter()
+                .any(|item| item["conversation_id"] == id),
+            "归档会话不应出现在默认列表：{visible}"
+        );
+        let (_, all) = request(&app, "/api/v1/conversations?limit=100&includeArchived=true").await;
+        assert!(
+            all.as_array()
+                .expect("list array")
+                .iter()
+                .any(|item| item["conversation_id"] == id),
+            "includeArchived=true 必须包含归档会话：{all}"
+        );
+
+        // 非法 role → 400（与桌面端 `conversation_invalid_role` 同义）。
+        let (status, rejected) = post_json(
+            &app,
+            &format!("/api/v1/conversations/{id}/messages"),
+            &serde_json::json!({ "role": "system", "content": "x" }),
+        )
+        .await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{rejected}");
+        assert_eq!(rejected["code"], "conversation_invalid_role");
+
+        // 删除（桌面 `conversation_delete`）；之后读取 404（前端映射为 null）。
+        let (status, deleted) = delete_path(&app, &format!("/api/v1/conversations/{id}")).await;
+        assert_eq!(status, StatusCode::OK, "{deleted}");
+        let (status, missing) = request(&app, &format!("/api/v1/conversations/{id}")).await;
+        assert_eq!(status, StatusCode::NOT_FOUND, "{missing}");
+        assert_eq!(missing["code"], "not_found");
     }
 
     #[tokio::test]
