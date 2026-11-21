@@ -52,7 +52,10 @@
 | Travel | 主按钮失色 / 图标被撑成巨幅 | ✅ |
 | Travel | 行程草稿只在 localStorage；桌面与 Web 无共享持久化 | ✅ `/api/v1/travel/plans` + SQLite，旧缓存只迁移一次 |
 | LAN / Web | 无认证 API 只能 loopback；Vite 只监听本机，pad 无法访问 | ✅ `scripts/lan-gateway.mjs` 密码网关 + Host/Origin 重写；`scripts/start-lan-web.ps1` 一键启动 |
+| LAN / Web | 登出只清 Cookie、旧会话仍有效；WebSocket 升级头被过滤 | ✅ 服务端撤销会话；升级请求保留 `Connection`/`Upgrade` 并透传 101 |
 | RSS / History 解读 | 8+5 个命令只在桌面桥 | ✅ HTTP 端点 + 前端映射，移除 Web 早退 |
+| RSS / History 解读 | 新端点无专门回归测试；文章抓取可被重定向到私网 | ✅ 13 端点 oneshot + SSRF 私网/DNS/重定向测试；抓取逐跳校验 |
+| CI / 契约 | Web 构建、视觉回归、网关测试与 OpenAPI 漂移未进门禁 | ✅ `web-quality` / `gateway-node-tests` / `contract` jobs；`mise run contract:check` / `test:gateway` |
 | 设计系统 | Pixel-Lift 硬阴影 + 结构 token 分散在 4 个主题 | ✅ |
 
 ## 未修复（按影响）
