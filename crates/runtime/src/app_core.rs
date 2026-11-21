@@ -31,9 +31,9 @@ use devtoolbox_infrastructure::{FeedRepository, GeographyStore, LearningStore, f
 
 use crate::composition::TravelPlanStoreAdapter;
 use crate::composition::{
-    CourseStoreAdapter, GeographyQueryAdapter, LanguageStoreAdapter, NewsRepositoryAdapter,
-    RssRepositoryAdapter, SettingsStoreAdapter, SpeakingPracticeStoreAdapter,
-    StudyBoardStoreAdapter,
+    ConversationStoreAdapter, CourseStoreAdapter, GeographyQueryAdapter, LanguageStoreAdapter,
+    NewsRepositoryAdapter, RssRepositoryAdapter, SettingsStoreAdapter,
+    SpeakingPracticeStoreAdapter, StudyBoardStoreAdapter,
 };
 use crate::history_enrichment::{self, SettingsLoader};
 use crate::history_query::HistoryQueryAdapter;
@@ -91,6 +91,10 @@ pub struct AppCore {
     pub roadmap: Arc<devtoolbox_application::language::course::RoadmapService>,
     /// 场景式口语陪练（Phase 2：文本 + 可选语音闭环）。
     pub speaking_practice: Arc<devtoolbox_application::language::SpeakingPracticeService>,
+    /// 会话历史（`config/conversations.db`）：与桌面端同一份回放记录。
+    ///
+    /// Conversation ≠ Memory：这里只存对话回放，绝不参与记忆写入/检索。
+    pub conversation: Arc<devtoolbox_application::personal_ai::ConversationService>,
 }
 
 impl AppCore {
@@ -252,6 +256,23 @@ impl AppCore {
             )));
         let study_board = Arc::new(StudyBoardService::new(Arc::clone(&study_board_store)));
 
+        // 会话历史：与桌面端同一份 config/conversations.db；打不开就退到内存库并说明原因。
+        let conversation_store = Arc::new(
+            devtoolbox_infrastructure::ConversationSqliteStore::open(
+                config_dir.join("conversations.db"),
+            )
+            .unwrap_or_else(|error| {
+                eprintln!("[conversation] store unavailable: {error}");
+                devtoolbox_infrastructure::ConversationSqliteStore::open_in_memory()
+                    .expect("in-memory conversation store")
+            }),
+        );
+        let conversation = Arc::new(
+            devtoolbox_application::personal_ai::ConversationService::new(Arc::new(
+                ConversationStoreAdapter::new(conversation_store),
+            )),
+        );
+
         // 跟读评分：与课程读写共用同一份 language.db（course_store 适配的是同一个 store）。
         let course_store_port: Arc<dyn devtoolbox_application::language::course::CourseStorePort> =
             course_store.clone();
@@ -363,6 +384,7 @@ impl AppCore {
             server: Arc::new(server),
             study_board_store,
             study_board,
+            conversation,
             speaking,
             mining,
             roadmap,

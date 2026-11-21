@@ -7,6 +7,7 @@
 
 mod ai_api;
 mod backup_api;
+mod conversation_api;
 mod exploration_api;
 mod geography_api;
 mod history_enrichment_api;
@@ -344,6 +345,7 @@ async fn main() -> ExitCode {
         course,
         config.data_dir.clone(),
         knowledge,
+        Arc::clone(&core.conversation),
         Arc::clone(&language_store),
         travel,
         Arc::new(language_data_api::DataPaths {

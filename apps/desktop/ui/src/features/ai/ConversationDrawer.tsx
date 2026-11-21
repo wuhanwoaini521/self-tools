@@ -14,7 +14,7 @@ import {
   Trash,
   X,
 } from "@phosphor-icons/react";
-import { formatRelativeTime, isTauriRuntime } from "../../utils";
+import { formatRelativeTime } from "../../utils";
 import {
   conversationClient,
   type ConversationMessageDto,
@@ -58,10 +58,10 @@ export function ConversationDrawer({
   const [showArchived, setShowArchived] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draftTitle, setDraftTitle] = useState("");
-  const supported = isTauriRuntime();
 
+  // 会话历史两端共用同一份 SQLite（`conversations.db`），网页端不再需要运行时判断；
+  // 真正的失败由后端错误显示在 notice 里，而不是前端预设「不可用」。
   const reload = useCallback(async () => {
-    if (!supported) return;
     setLoading(true);
     setNotice("");
     try {
@@ -71,7 +71,7 @@ export function ConversationDrawer({
     } finally {
       setLoading(false);
     }
-  }, [showArchived, supported]);
+  }, [showArchived]);
 
   useEffect(() => {
     if (open) void reload();
@@ -83,7 +83,6 @@ export function ConversationDrawer({
   );
 
   const createNew = useCallback(async () => {
-    if (!supported) return;
     try {
       const created = await conversationClient.create();
       onCreated(created.conversation_id);
@@ -92,11 +91,10 @@ export function ConversationDrawer({
     } catch (error) {
       setNotice(`新建失败：${error instanceof Error ? error.message : String(error)}`);
     }
-  }, [onCreated, reload, supported]);
+  }, [onCreated, reload]);
 
   const resume = useCallback(
     async (id: string) => {
-      if (!supported) return;
       try {
         const conversation = await conversationClient.load(id);
         if (!conversation) {
@@ -109,7 +107,7 @@ export function ConversationDrawer({
         setNotice(`读取失败：${error instanceof Error ? error.message : String(error)}`);
       }
     },
-    [onResume, supported],
+    [onResume],
   );
 
   const commitRename = useCallback(
@@ -195,9 +193,7 @@ export function ConversationDrawer({
         显示已归档
       </label>
 
-      {!supported ? (
-        <p className="ai-conversation-empty">会话功能需要桌面运行时（Tauri）。</p>
-      ) : loading ? (
+      {loading ? (
         <p className="ai-conversation-empty">加载中…</p>
       ) : visible.length === 0 ? (
         <p className="ai-conversation-empty">

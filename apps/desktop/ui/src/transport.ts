@@ -202,6 +202,12 @@ const HTTP_ENDPOINTS: Record<string, (args: Record<string, unknown>) => string> 
   // ---- 设置与 AI（与桌面端共用同一个 settings.json）----
   get_settings: () => "/api/v1/settings",
   personal_ai_status: () => "/api/v1/ai/status",
+  // ---- 会话历史（V11-K）：与桌面端同一份 conversations.db ----
+  conversation_list: (a) =>
+    `/api/v1/conversations?limit=${encodeURIComponent(String(a.limit ?? 20))}` +
+    `&includeArchived=${encodeURIComponent(String(a.includeArchived ?? false))}`,
+  conversation_load: (a) =>
+    `/api/v1/conversations/${encodeURIComponent(String(a.id ?? ""))}`,
 
   // ---- Learning OS：Collections / Graph / Review Center / Home 今日面板 ----
   learning_list_progress: (a) =>
@@ -307,6 +313,9 @@ const HTTP_POST_ENDPOINTS: Record<
   personal_ai_chat: () => "/api/v1/ai/chat",
   personal_ai_cancel_run: (a) =>
     `/api/v1/ai/runs/${encodeURIComponent(String(a.traceId ?? a.trace_id ?? ""))}/cancel`,
+  conversation_create: () => "/api/v1/conversations",
+  conversation_append: (a) =>
+    `/api/v1/conversations/${encodeURIComponent(String(a.id ?? ""))}/messages`,
   personal_ai_confirm_travel_change: (a) =>
     `/api/v1/ai/travel-changes/${encodeURIComponent(String(a.proposalId ?? a.proposal_id ?? ""))}/confirm`,
   personal_ai_cancel_travel_change: (a) =>
@@ -415,6 +424,8 @@ const HTTP_DELETE_ENDPOINTS: Record<string, (args: Record<string, unknown>) => s
     `/api/v1/rss/feeds/${encodeURIComponent(String(a.feedId ?? ""))}`,
   learning_delete_knowledge_review_card: (a) =>
     `/api/v1/learning/review/cards/${encodeURIComponent(String(a.cardId ?? ""))}`,
+  conversation_delete: (a) =>
+    `/api/v1/conversations/${encodeURIComponent(String(a.id ?? ""))}`,
 };
 
 /**
@@ -433,6 +444,11 @@ const HTTP_PATCH_ENDPOINTS: Record<string, PatchEndpoint> = {
     path: (a) =>
       `/api/v1/learning/collection-items/${encodeURIComponent(String(a.itemId ?? ""))}/note`,
     body: (a) => ({ note: a.note ?? null }),
+  },
+  // 改名 / 归档：多字段 PATCH，body 与桌面端 `conversation_update` 参数同形。
+  conversation_update: {
+    path: (a) => `/api/v1/conversations/${encodeURIComponent(String(a.id ?? ""))}`,
+    body: (a) => ({ title: a.title ?? null, archived: a.archived ?? null }),
   },
 };
 
