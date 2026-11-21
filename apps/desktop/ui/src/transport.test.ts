@@ -66,6 +66,22 @@ describe("httpTransport：命令映射", () => {
     );
   });
 
+  it("maps RSS reads, writes, and deletion to the shared HTTP endpoints", async () => {
+    stubFetch();
+    fetchMock.mockResolvedValue(jsonResponse([]));
+    await httpTransport.invoke("list_rss_feeds");
+    expect(fetchMock).toHaveBeenLastCalledWith("/api/v1/rss/feeds", expect.any(Object));
+    await httpTransport.invoke("list_rss_articles", { feedId: 7, limit: 50 });
+    expect(fetchMock).toHaveBeenLastCalledWith("/api/v1/rss/feeds/7/articles?limit=50", expect.any(Object));
+    await httpTransport.invoke("add_rss_feed", { url: "https://example.com/feed.xml" });
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      "/api/v1/rss/feeds",
+      expect.objectContaining({ method: "POST", body: JSON.stringify({ url: "https://example.com/feed.xml" }) }),
+    );
+    await httpTransport.invoke("delete_rss_feed", { feedId: 7 });
+    expect(fetchMock).toHaveBeenLastCalledWith("/api/v1/rss/feeds/7", expect.objectContaining({ method: "DELETE" }));
+  });
+
   it("maps PersonalAgent chat, cancellation, and Travel proposal resolution to versioned REST endpoints", async () => {
     stubFetch();
     fetchMock.mockResolvedValue(jsonResponse({ messages: [], actions: [], citations: [], proposed_changes: [] }));

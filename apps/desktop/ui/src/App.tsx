@@ -409,7 +409,6 @@ export default function App() {
   }, []);
 
   const reloadLatest = useCallback(async () => {
-    if (!isTauriRuntime()) return;
     try {
       setLatestArticles(await rssClient.latestArticles(6));
     } catch {
@@ -420,7 +419,6 @@ export default function App() {
   /** 刷新全部订阅(手动按钮 / 定时任务 / 启动时各一次)。 */
   const refreshFeeds = useCallback(
     async (silent = false) => {
-      if (!isTauriRuntime()) return;
       setRssRefreshing(true);
       try {
         const report = await rssClient.refreshFeeds();
@@ -446,13 +444,12 @@ export default function App() {
 
   // 启动时静默刷新一次;之后按设置的间隔定时刷新(间隔可在设置中调整)。
   useEffect(() => {
-    if (!isTauriRuntime() || startupRefreshed.current) return;
+    if (startupRefreshed.current) return;
     startupRefreshed.current = true;
     void refreshFeeds(true);
   }, [refreshFeeds]);
 
   useEffect(() => {
-    if (!isTauriRuntime()) return;
     const minutes = Math.max(1, settings.rss_refresh_minutes || 30);
     const timer = window.setInterval(
       () => void refreshFeeds(true),

@@ -9,6 +9,7 @@ mod ai_api;
 mod backup_api;
 mod exploration_api;
 mod geography_api;
+mod history_enrichment_api;
 mod knowledge_api;
 mod language_api;
 mod language_course_api;
@@ -20,6 +21,7 @@ mod news_api;
 mod openapi;
 mod readiness_api;
 mod routes;
+mod rss_api;
 mod security;
 mod study_board_api;
 mod travel_api;
@@ -321,6 +323,18 @@ async fn main() -> ExitCode {
     // 26 周能力路线图。
     let roadmap = Arc::clone(&core.roadmap);
     let speaking_practice = Arc::clone(&core.speaking_practice);
+    // RSS：桌面端 8 个命令的 HTTP 等价，共用同一个仓储与抓取器。
+    let rss = Arc::new(rss_api::RssDeps {
+        repository: Arc::clone(&core.rss_repository),
+        fetcher: Arc::new(devtoolbox_runtime::composition::FeedFetcherAdapter::new(
+            core.client.clone(),
+        )),
+        // 文章抓取逐跳校验目标地址，绝不交给 reqwest 自动跟随重定向。
+        client: reqwest::Client::builder()
+            .redirect(reqwest::redirect::Policy::none())
+            .build()
+            .expect("rss article client"),
+    });
 
     let app = routes::router(
         Arc::new(service),
@@ -347,6 +361,8 @@ async fn main() -> ExitCode {
         mining,
         roadmap,
         speaking_practice,
+        rss,
+        Arc::clone(&core.history_enrichment),
     );
     info!(
         bind = %config.bind,

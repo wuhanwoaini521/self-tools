@@ -97,7 +97,9 @@ impl AppCore {
     /// 从数据目录装配全部能力。
     ///
     /// `history_db` 由调用方给出（桌面端从 Tauri 资源解析，网页端用同一份 duckdb 路径）。
-    /// 失败一律返回 `Err`，**不静默降级** —— 半装配的运行时比启动失败更难排查。
+    /// 可写存储（settings / SQLite）失败一律返回 `Err`，**不静默降级** —— 半装配的
+    /// 运行时比启动失败更难排查。唯一例外是只读的 `history.duckdb`：它是 pipeline
+    /// 的 gitignored 产物，缺失或不可读时降级为"History 查询报错"，其余能力照常启动。
     pub fn build(
         config_dir: &Path,
         history_db: std::path::PathBuf,
@@ -136,9 +138,17 @@ impl AppCore {
             Arc::clone(&travel_store),
         ));
 
-        let history_repo = Arc::new(
-            HistoryDuckDbRepository::open(&history_db).map_err(|error| error.to_string())?,
-        );
+        // History 是 pipeline 的 gitignored 构建产物：缺失/不可读时只让
+        // History 相关查询报错，不阻止整个运行时启动（与桌面端一致）。
+        let (history_repo, history_unavailable) =
+            HistoryDuckDbRepository::open_or_attach(&history_db);
+        if let Some(error) = &history_unavailable {
+            eprintln!(
+                "[warn] history data unavailable ({}): {error}",
+                history_db.display()
+            );
+        }
+        let history_repo = Arc::new(history_repo);
         let history_port: Arc<dyn HistoryQueryPort> =
             Arc::new(HistoryQueryAdapter::new(Arc::clone(&history_repo)));
         let history_enrichment: Arc<dyn EnrichmentRunnerPort> = history_enrichment::build_runner(

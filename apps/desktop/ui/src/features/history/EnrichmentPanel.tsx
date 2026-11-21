@@ -17,7 +17,7 @@ import {
   Warning,
 } from "@phosphor-icons/react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { errorMessage, isTauriRuntime } from "../../utils";
+import { errorMessage } from "../../utils";
 import type {
   EnrichmentPayloadDto,
   EnrichmentSectionInfo,
@@ -57,7 +57,6 @@ export function EnrichmentPanel({
   const timerRef = useRef<number | null>(null);
 
   const reload = useCallback(async () => {
-    if (!isTauriRuntime()) return;
     try {
       setSections(await enrichmentClient.state("event", eventId, locale));
     } catch (cause) {
@@ -192,7 +191,6 @@ function EnrichmentRow({
       setLoading(false);
       return;
     }
-    if (!isTauriRuntime()) return;
     let cancelled = false;
     setLoading(true);
     void enrichmentClient
@@ -218,7 +216,7 @@ function EnrichmentRow({
         <button
           type="button"
           className="history-enrichment-action"
-          disabled={busy || !isTauriRuntime()}
+          disabled={busy}
           onClick={onGenerate}
         >
           {busy ? (

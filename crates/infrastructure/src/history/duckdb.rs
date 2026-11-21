@@ -43,6 +43,20 @@ impl HistoryDuckDbRepository {
         Ok(repository)
     }
 
+    /// 打开可用仓库；产物缺失或不可读时降级为 [`Self::attach_without_probe`]。
+    ///
+    /// `history.duckdb` 是 pipeline 的 gitignored 构建产物，CI、全新克隆和
+    /// 尚未跑过 `backbone build` 的机器都拿不到它。调用方需要的是"History
+    /// 页面报告数据不可用"，而不是整个进程启动失败；降级原因由调用方决定
+    /// 是否记录，返回的 `Option` 只是让调用方有机会提示。
+    pub fn open_or_attach(path: impl AsRef<Path>) -> (Self, Option<InfrastructureError>) {
+        let path = path.as_ref().to_path_buf();
+        match Self::open(&path) {
+            Ok(repository) => (repository, None),
+            Err(error) => (Self::attach_without_probe(&path), Some(error)),
+        }
+    }
+
     /// 构造一个**不做存在性与表结构探测**的仓库：交给它一个尚不存在的
     /// 路径也能成功，之后每次查询都会以 DuckDB 的 IO 错误失败。
     ///
@@ -962,10 +976,16 @@ mod semantic_tests {
 
     /// V2 Backbone 产物路径（`dist/` 是唯一事实源）；仅在本机有构建产物时运行，
     /// 缺失时静默跳过（`dist/` 不在 Git 中）。刻意不回退 legacy `data/normalized/`。
+    ///
+    /// `apps/desktop/build.rs` 会为 Tauri 的 bundle resource 校验生成 0 字节
+    /// 占位文件，那不是可用数据源，同样按缺失处理。
     fn available_dist_repository() -> Option<HistoryDuckDbRepository> {
         let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../history-data-pipeline");
         let path = root.join("dist").join("history.duckdb");
-        if !path.is_file() {
+        let bytes = std::fs::metadata(&path)
+            .map(|metadata| metadata.len())
+            .unwrap_or(0);
+        if bytes == 0 {
             return None;
         }
         Some(HistoryDuckDbRepository::open(path).expect("open semantic database"))

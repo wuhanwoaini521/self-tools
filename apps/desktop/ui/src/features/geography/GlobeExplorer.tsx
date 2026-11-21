@@ -169,10 +169,8 @@ function MarkerBubble({
     setVisible((current) => (current === facing ? current : facing));
   });
 
-  if (!visible) return null;
-
   return (
-    <group position={position}>
+    <group position={position} visible={visible}>
       <mesh>
         <sphereGeometry args={[selected ? 0.035 : 0.024, 12, 12]} />
         <meshBasicMaterial color={color} />
@@ -181,7 +179,10 @@ function MarkerBubble({
         center
         transform={false}
         zIndexRange={[20, 0]}
-        style={{ pointerEvents: "auto" }}
+        style={{
+          pointerEvents: visible ? "auto" : "none",
+          opacity: visible ? 1 : 0,
+        }}
       >
         <button
           type="button"

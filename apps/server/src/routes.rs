@@ -12,7 +12,7 @@ use std::sync::Arc;
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
-use axum::routing::{get, post};
+use axum::routing::{delete, get, post};
 use axum::{Json, Router};
 use serde::Serialize;
 use serde_json::json;
@@ -74,6 +74,10 @@ pub fn router(
     // 26 周能力路线图（V13 W6）：静态计划 + 真实统计。
     roadmap: Arc<devtoolbox_application::language::course::RoadmapService>,
     speaking_practice: Arc<devtoolbox_application::language::SpeakingPracticeService>,
+    // RSS 订阅/刷新/阅读：与桌面端共用同一套用例与 dashboard.db。
+    rss: Arc<crate::rss_api::RssDeps>,
+    // History AI 解读：与桌面端共用同一个 EnrichmentRunnerPort。
+    enrichment: Arc<dyn devtoolbox_application::history::enrichment::ports::EnrichmentRunnerPort>,
 ) -> Router {
     let exploration = Arc::new(
         devtoolbox_application::exploration::ExplorationService::new(
@@ -131,6 +135,32 @@ pub fn router(
             "/api/v1/search/global",
             get(crate::knowledge_api::global_search),
         )
+        // RSS：此前 8 个命令只在桌面桥，网页端整页不可用。
+        .route(
+            "/api/v1/rss/feeds",
+            get(crate::rss_api::list_feed_list).post(crate::rss_api::add_feed),
+        )
+        .route("/api/v1/rss/refresh", post(crate::rss_api::refresh_feeds))
+        .route(
+            "/api/v1/rss/feeds/{feedId}/articles",
+            get(crate::rss_api::feed_articles),
+        )
+        .route(
+            "/api/v1/rss/feeds/{feedId}",
+            delete(crate::rss_api::remove_feed),
+        )
+        .route(
+            "/api/v1/rss/articles/latest",
+            get(crate::rss_api::latest_feed_articles),
+        )
+        .route(
+            "/api/v1/rss/articles/{articleId}/read",
+            post(crate::rss_api::mark_read),
+        )
+        .route(
+            "/api/v1/articles/fetch",
+            post(crate::rss_api::fetch_article),
+        )
         .route("/api/v1/history/home", get(home))
         .route("/api/v1/history/search", get(search))
         .route("/api/v1/history/periods/{id}", get(period))
@@ -138,6 +168,26 @@ pub fn router(
         .route("/api/v1/history/people/{id}", get(person))
         .route("/api/v1/history/works/{id}", get(work))
         .route("/api/v1/history/stories/{id}", get(story))
+        .route(
+            "/api/v1/history/enrichment/state",
+            get(crate::history_enrichment_api::state),
+        )
+        .route(
+            "/api/v1/history/enrichment/view",
+            get(crate::history_enrichment_api::view),
+        )
+        .route(
+            "/api/v1/history/enrichment/ensure",
+            post(crate::history_enrichment_api::ensure),
+        )
+        .route(
+            "/api/v1/history/enrichment/refresh",
+            post(crate::history_enrichment_api::refresh),
+        )
+        .route(
+            "/api/v1/history/enrichment/review",
+            post(crate::history_enrichment_api::review),
+        )
         .route(
             "/api/v1/language/languages",
             get(crate::language_api::languages),
@@ -572,6 +622,8 @@ pub fn router(
         .layer(axum::Extension(mining))
         .layer(axum::Extension(roadmap))
         .layer(axum::Extension(speaking_practice))
+        .layer(axum::Extension(rss))
+        .layer(axum::Extension(enrichment))
         .with_state(AppState { service })
         // 显式擦除成 `Arc<dyn Fn()>`：`Extension<T>` 按具体类型匹配，
         // `Arc<fn() -> i64>` 与 `Arc<dyn Fn() -> i64 + Send + Sync>` 不是同一个类型。
@@ -976,6 +1028,19 @@ mod tests {
         }
     }
 
+    /// 仓库内的 History 产物。CI 与全新克隆拿不到它（submodule 的 gitignored
+    /// 构建产物），此时 `AppCore` 降级为"History 查询报错"；依赖真实数据的
+    /// 用例用 `history_fixture_available()` 自行跳过。
+    fn history_fixture_path() -> std::path::PathBuf {
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../history-data-pipeline/dist/history.duckdb")
+    }
+
+    /// 0 字节占位（`apps/desktop/build.rs` 为 Tauri bundle 校验生成）不算可用 fixture。
+    fn history_fixture_available() -> bool {
+        std::fs::metadata(history_fixture_path()).is_ok_and(|metadata| metadata.len() > 0)
+    }
+
     /// 历史路由测试用的装配：Language 侧给内存库（这些用例只断言 history）。
     /// 测试用共享运行时：走 AppCore 一次装配（与真实启动同一路径）。
     fn test_core() -> Arc<devtoolbox_runtime::AppCore> {
@@ -987,8 +1052,7 @@ mod tests {
             let _ = std::fs::create_dir_all(&dir);
             // History 用仓库里那份真实 duckdb（与开发/生产一致）；
             // 其余库落临时目录，不污染开发者的 config/。
-            let history_db = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-                .join("../../history-data-pipeline/dist/history.duckdb");
+            let history_db = history_fixture_path();
             Arc::new(
                 devtoolbox_runtime::AppCore::build(
                     &dir,
@@ -1146,6 +1210,17 @@ mod tests {
             Arc::clone(&test_core().mining),
             Arc::clone(&test_core().roadmap),
             Arc::clone(&test_core().speaking_practice),
+            Arc::new(crate::rss_api::RssDeps {
+                repository: Arc::clone(&test_core().rss_repository),
+                fetcher: Arc::new(devtoolbox_runtime::composition::FeedFetcherAdapter::new(
+                    devtoolbox_infrastructure::feed_client().expect("http client"),
+                )),
+                client: reqwest::Client::builder()
+                    .redirect(reqwest::redirect::Policy::none())
+                    .build()
+                    .expect("rss article client"),
+            }),
+            test_core().history_enrichment.clone(),
         )
     }
 
@@ -1657,6 +1732,13 @@ mod tests {
 
     #[tokio::test]
     async fn exploration_location_uses_reviewed_crosswalk_and_real_history_data() {
+        if !history_fixture_available() {
+            eprintln!(
+                "skip: history fixture missing ({}); run `backbone build` in history-data-pipeline",
+                history_fixture_path().display()
+            );
+            return;
+        }
         let history = Arc::new(HistoryService::new(Box::new(
             devtoolbox_runtime::history_query::HistoryQueryAdapter::new(Arc::clone(
                 &test_core().history_repo,
@@ -1832,6 +1914,25 @@ mod tests {
                     .header("origin", "http://127.0.0.1:1420")
                     .header("content-type", "application/json")
                     .body(axum::body::Body::from(payload.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let status = response.status();
+        let body = to_bytes(response.into_body(), 1 << 20).await.unwrap();
+        (status, serde_json::from_slice(&body).unwrap_or(Value::Null))
+    }
+
+    async fn delete_path(app: &axum::Router, uri: &str) -> (StatusCode, Value) {
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("DELETE")
+                    .uri(uri)
+                    .header("host", "127.0.0.1:8080")
+                    .header("origin", "http://127.0.0.1:1420")
+                    .body(axum::body::Body::empty())
                     .unwrap(),
             )
             .await
@@ -2481,5 +2582,255 @@ mod tests {
         assert_eq!(status, StatusCode::OK, "{tts}");
         assert_eq!(tts["audioAvailable"], false);
         assert_eq!(tts["text"], body["turns"][0]["text"]);
+    }
+
+    #[test]
+    fn rss_and_enrichment_routes_are_registered() {
+        let router = test_router(false);
+        let source = include_str!("routes.rs");
+        for path in [
+            "/api/v1/rss/feeds",
+            "/api/v1/rss/refresh",
+            "/api/v1/rss/feeds/{feedId}/articles",
+            "/api/v1/rss/feeds/{feedId}",
+            "/api/v1/rss/articles/latest",
+            "/api/v1/rss/articles/{articleId}/read",
+            "/api/v1/articles/fetch",
+            "/api/v1/history/enrichment/state",
+            "/api/v1/history/enrichment/view",
+            "/api/v1/history/enrichment/ensure",
+            "/api/v1/history/enrichment/refresh",
+            "/api/v1/history/enrichment/review",
+        ] {
+            assert!(source.contains(path), "路由未注册：{path}");
+        }
+        let _ = router;
+    }
+
+    #[tokio::test]
+    async fn rss_http_endpoints_cover_full_lifecycle() {
+        use axum::routing::get;
+
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind local feed server");
+        let addr = listener.local_addr().expect("local address");
+        let xml = r#"<?xml version="1.0" encoding="UTF-8"?><rss version="2.0"><channel><title>Local test feed</title><link>http://example.com</link><description>test</description><item><title>First article</title><link>http://example.com/1</link><guid>local-1</guid><description>hello</description></item></channel></rss>"#
+            .to_string();
+        let feed = axum::Router::new().route(
+            "/feed",
+            get(move || {
+                let body = xml.clone();
+                async move { body }
+            }),
+        );
+        let server = tokio::spawn(async move {
+            let _ = axum::serve(listener, feed).await;
+        });
+
+        let app = test_router(false);
+        let url = format!("http://{addr}/feed?run={}", std::process::id());
+
+        let (status, body) = post_json(
+            &app,
+            "/api/v1/rss/feeds",
+            &serde_json::json!({ "url": "ftp://example.com/feed" }),
+        )
+        .await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+        assert_eq!(body["code"], "invalid");
+
+        let (status, dto) = post_json(
+            &app,
+            "/api/v1/rss/feeds",
+            &serde_json::json!({ "url": url }),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{dto}");
+        let feed_id = dto["id"].as_i64().expect("feed id");
+
+        let (status, feeds) = request(&app, "/api/v1/rss/feeds").await;
+        assert_eq!(status, StatusCode::OK, "{feeds}");
+        assert!(
+            feeds
+                .as_array()
+                .expect("feeds array")
+                .iter()
+                .any(|feed| feed["id"].as_i64() == Some(feed_id))
+        );
+
+        let (status, articles) = request(
+            &app,
+            &format!("/api/v1/rss/feeds/{feed_id}/articles?limit=5"),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{articles}");
+        let articles = articles.as_array().expect("articles array");
+        assert!(!articles.is_empty(), "local feed must yield one article");
+        let article_id = articles[0]["id"].as_i64().expect("article id");
+
+        let (status, latest) = request(&app, "/api/v1/rss/articles/latest?limit=5").await;
+        assert_eq!(status, StatusCode::OK, "{latest}");
+        assert!(
+            latest
+                .as_array()
+                .expect("latest array")
+                .iter()
+                .any(|article| article["id"].as_i64() == Some(article_id))
+        );
+
+        let (status, body) = post_json(
+            &app,
+            &format!("/api/v1/rss/articles/{article_id}/read"),
+            &serde_json::json!({}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+
+        let (status, report) = post_json(&app, "/api/v1/rss/refresh", &serde_json::json!({})).await;
+        assert_eq!(status, StatusCode::OK, "{report}");
+
+        let (status, body) = delete_path(&app, &format!("/api/v1/rss/feeds/{feed_id}")).await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        let (status, body) = request(&app, &format!("/api/v1/rss/feeds/{feed_id}/articles")).await;
+        assert_eq!(status, StatusCode::NOT_FOUND, "{body}");
+        assert_eq!(body["code"], "not_found");
+        let (status, body) = delete_path(&app, &format!("/api/v1/rss/feeds/{feed_id}")).await;
+        assert_eq!(status, StatusCode::NOT_FOUND, "{body}");
+        assert_eq!(body["code"], "not_found");
+
+        server.abort();
+    }
+
+    #[tokio::test]
+    async fn rss_article_fetch_rejects_redirect_to_private_network() {
+        use axum::routing::get;
+        use std::sync::atomic::{AtomicUsize, Ordering};
+
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind local redirect server");
+        let addr = listener.local_addr().expect("local address");
+        let private_hits = std::sync::Arc::new(AtomicUsize::new(0));
+        let hits = Arc::clone(&private_hits);
+        let private_url = format!("http://{addr}/private");
+        let redirect = axum::Router::new()
+            .route(
+                "/redirect",
+                get({
+                    let location = private_url.clone();
+                    move || {
+                        let location = location.clone();
+                        async move {
+                            (
+                                axum::http::StatusCode::FOUND,
+                                [(axum::http::header::LOCATION, location)],
+                            )
+                        }
+                    }
+                }),
+            )
+            .route(
+                "/private",
+                get(move || {
+                    let hits = Arc::clone(&hits);
+                    async move {
+                        hits.fetch_add(1, Ordering::SeqCst);
+                        "must not be fetched"
+                    }
+                }),
+            );
+        let server = tokio::spawn(async move {
+            let _ = axum::serve(listener, redirect).await;
+        });
+
+        let app = test_router(false);
+        let (status, body) = post_json(
+            &app,
+            "/api/v1/articles/fetch",
+            &serde_json::json!({ "url": format!("http://{addr}/redirect") }),
+        )
+        .await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+        assert_eq!(body["code"], "invalid");
+        assert_eq!(
+            private_hits.load(Ordering::SeqCst),
+            0,
+            "private target was fetched"
+        );
+
+        server.abort();
+    }
+
+    #[tokio::test]
+    async fn history_enrichment_http_endpoints_cover_read_and_validation() {
+        let app = test_router(false);
+        let event_id = format!("http-test-{}", std::process::id());
+
+        let (status, sections) = request(
+            &app,
+            &format!(
+                "/api/v1/history/enrichment/state?entityType=event&entityId={event_id}&locale=zh-CN"
+            ),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{sections}");
+        let sections = sections.as_array().expect("sections array");
+        assert_eq!(sections.len(), 3);
+        assert!(
+            sections.iter().any(|section| {
+                section["section"] == "overview" && section["state"] == "MISSING"
+            })
+        );
+
+        let (status, view) = request(
+            &app,
+            &format!(
+                "/api/v1/history/enrichment/view?entityType=event&entityId={event_id}&section=overview&locale=zh-CN"
+            ),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{view}");
+        assert_eq!(view["state"], "MISSING");
+
+        let (status, body) = post_json(
+            &app,
+            "/api/v1/history/enrichment/review",
+            &serde_json::json!({
+                "entityType": "event",
+                "entityId": event_id,
+                "section": "overview",
+                "locale": "zh-CN",
+            }),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        assert_eq!(body["ok"], true);
+
+        for (field, value) in [
+            ("entityType", serde_json::json!("person")),
+            ("entityId", serde_json::json!("")),
+            ("section", serde_json::json!("unknown")),
+        ] {
+            let mut payload = serde_json::json!({
+                "entityType": "event",
+                "entityId": "http-test-event",
+                "section": "overview",
+                "locale": "zh-CN",
+            });
+            payload[field] = value;
+            let (status, body) =
+                post_json(&app, "/api/v1/history/enrichment/ensure", &payload).await;
+            assert_eq!(status, StatusCode::BAD_REQUEST, "{field}: {body}");
+            assert_eq!(body["code"], "invalid");
+        }
+
+        let (status, body) = request(
+            &app,
+            "/api/v1/history/enrichment/view?entityType=event&entityId=x&section=unknown&locale=zh-CN",
+        )
+        .await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+        assert_eq!(body["code"], "invalid");
     }
 }

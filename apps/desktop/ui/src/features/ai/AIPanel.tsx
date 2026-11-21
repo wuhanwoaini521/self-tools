@@ -67,7 +67,7 @@ import {
   memoryListItems,
 } from "./aiTypes";
 
-export type AiPanelState = "unconfigured" | "ready" | "loading" | "error";
+export type AiPanelState = "unconfigured" | "unavailable" | "ready" | "loading" | "error";
 
 export interface AIPanelProps {
   open: boolean;
@@ -336,12 +336,12 @@ export function AIPanel({
         if (cancelled) return;
         setCapabilities(state.modules.map((module) => module.id));
         setStatus(state.configured ? "ready" : "unconfigured");
-      } catch {
-        // 探测失败 = 服务不可达。此时「未配置」文案已经说明了该做什么，
-        // 再叠加一句 "Not in Tauri runtime" 之类的内部错误只会让人困惑。
+      } catch (cause) {
+        // 探测失败只说明服务不可达，不等于 provider 未配置；
+        // 不能把连接错误伪装成配置问题，否则会误导用户去设置页（而 Web 又不能写设置）。
         if (cancelled) return;
-        setStatus("unconfigured");
-        setErrorText("");
+        setStatus("unavailable");
+        setErrorText(errorMessage(cause));
       }
     })();
     return () => {
@@ -613,6 +613,21 @@ export function AIPanel({
             <button className="ai-go-settings" onClick={onOpenSettings}>
               打开设置
             </button>
+            <button className="ai-close-hint" onClick={onClose}>
+              关闭
+            </button>
+          </div>
+        </div>
+      ) : status === "unavailable" ? (
+        <div className="ai-panel-unconfigured" role="alert">
+          <Sparkle size={28} />
+          <p>AI 服务暂不可用。</p>
+          <p className="ai-unconfigured-hint">
+            无法连接本地数据服务或 AI 状态接口，请确认 127.0.0.1:8080 的数据服务已启动。
+            这不代表 provider 未配置。
+          </p>
+          {errorText ? <p className="ai-unconfigured-error">{errorText}</p> : null}
+          <div className="ai-unconfigured-actions">
             <button className="ai-close-hint" onClick={onClose}>
               关闭
             </button>

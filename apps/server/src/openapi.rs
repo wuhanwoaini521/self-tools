@@ -149,6 +149,7 @@ mod tests {
             "geography" => "geography",
             "exploration" => "exploration",
             "news" => "news",
+            "rss" | "articles" => "rss",
             "study-boards" => "study-boards",
             "backups" => "backups",
             "openapi.json" => "meta",

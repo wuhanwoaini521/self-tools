@@ -4,28 +4,59 @@ import { openPage, waitForApp } from "./helpers.mjs";
 describe("桌面导航与主要页面", () => {
   before(async () => waitForApp());
 
-  it("每个主导航入口都能打开对应页面", async () => {
-    const pages = [
-      ["Home", "home"],
-      ["Markdown", "markdown"],
-      ["RSS", "rss"],
-      ["News", "news"],
-      ["Travel", "travel"],
-      ["Geography", "geography"],
-      ["History", "history"],
-      ["Language", "language"],
-      ["Knowledge", "knowledge"],
-      ["Study", "study-board"],
-      ["Server", "server"],
-      ["System", "system"],
-      ["Search", "search"],
-    ];
+  it("一级入口、分区子导航与更多页面都能打开对应页面", async () => {
+    const primaryLink = (label) =>
+      $(
+        `//nav[@aria-label='主导航']//button[contains(@class,'app-bar-primary-link') and contains(.,'${label}')]`,
+      );
 
-    for (const [label, id] of pages) {
-      await openPage(label, id);
-      await expect($(".app-nav-item.active")).toBeDisplayed();
+    // 首页由品牌进入（顶栏不含单独的「首页」链接）。
+    await $(".brand").click();
+    await expect($(".page-pane:not(.page-hidden)")).toBeDisplayed();
+
+    for (const label of ["学习", "旅行", "资讯"]) {
+      const link = await primaryLink(label);
+      await link.click();
+      await expect(link).toHaveAttribute("aria-current", "page");
+      await expect($(".page-pane:not(.page-hidden)")).toBeDisplayed();
+    }
+
+    // 学习分区：四个学科通过子导航打开，语言页仍保留标题断言。
+    await (await primaryLink("学习")).click();
+    for (const [label, id] of [
+      ["历史", "history"],
+      ["地理", "geography"],
+      ["语言", "language"],
+      ["画板", "study-board"],
+    ]) {
+      const link = await $(`//nav[@aria-label='学习分区']//button[contains(.,'${label}')]`);
+      await link.click();
+      await expect(link).toHaveAttribute("aria-current", "page");
       await expect($(".page-pane:not(.page-hidden)")).toBeDisplayed();
       if (id === "language") await expect($(".lang-page h1")).toHaveText("Language");
+    }
+
+    // 资讯分区：新闻 / RSS 分库，各自是独立页面。
+    await (await primaryLink("资讯")).click();
+    for (const label of ["新闻", "RSS"]) {
+      const link = await $(`//nav[@aria-label='资讯分区']//button[contains(.,'${label}')]`);
+      await link.click();
+      await expect(link).toHaveAttribute("aria-current", "page");
+      await expect($(".page-pane:not(.page-hidden)")).toBeDisplayed();
+    }
+
+    // 「更多页面」抽屉：复习中心 / 收藏 / 搜索，选择后应自动收起。
+    for (const label of ["复习中心", "收藏", "搜索"]) {
+      await $("button[aria-label='更多页面']").click();
+      const item = await $(`//div[@id='app-more-sheet']//button[contains(.,'${label}')]`);
+      await item.click();
+      await expect($("#app-more-sheet")).not.toBeDisplayed();
+      await expect($(".page-pane:not(.page-hidden)")).toBeDisplayed();
+    }
+
+    // 已移出一级导航的页面仍必须能通过旧深链打开（productNav 契约）。
+    for (const id of ["markdown", "knowledge", "server", "system", "graph"]) {
+      await openPage(id);
     }
   });
 
@@ -57,11 +88,13 @@ describe("桌面导航与主要页面", () => {
     await browser.waitUntil(async () => await $(".review-receipt").isDisplayed());
 
     await openPage("Home", "home");
+    // Personal Hub 的完成数文案与 class 都随改版变化；按可见文本定位，不绑 DOM 结构。
+    const learningFooter = () => $("//span[contains(normalize-space(.), '今日学习') and strong]");
     await browser.waitUntil(async () =>
-      (await $(".hub-learning-footer").getText()).includes("今日完成 1 项"),
+      (await learningFooter().getText()).includes("今日学习 1 个主题"),
     );
     expect(cardId).toContain("knowledge:history:event:sprint10-home-refresh-");
-    expect(await $(".hub-learning-footer").getText()).toContain("今日完成 1 项");
+    expect(await learningFooter().getText()).toContain("今日学习 1 个主题");
   });
 
   it("设置对话框打开、修改主题并在关闭后保留选择", async () => {
@@ -145,8 +178,9 @@ describe("桌面导航与主要页面", () => {
   });
 
   it("AI 面板在未配置模型时仍能显示受控空态", async () => {
-    await openPage("Home", "home");
-    await $("button[aria-label='Ask AI']").click();
+    // 首页把 AI 引导放在页面内，浮动气泡在其它页面才可见。
+    await openPage("travel");
+    await $(".ai-bubble-launch").click();
     await expect($(".ai-panel")).toBeDisplayed();
     await expect($(".ai-panel-unconfigured")).toBeDisplayed();
     await $(".ai-panel button[title='关闭']").click();

@@ -304,7 +304,10 @@ mod tests {
         // cwd 随调用方变化；用 manifest 目录定位仓库内 fixture。
         let fixture = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../../history-data-pipeline/dist/history.duckdb");
-        if !fixture.is_file() {
+        // 0 字节占位文件由 `apps/desktop/build.rs` 生成（只为了让 Tauri 的
+        // bundle resource 校验通过），不是可用 fixture。
+        let fixture_bytes = std::fs::metadata(&fixture).map(|m| m.len()).unwrap_or(0);
+        if fixture_bytes == 0 {
             eprintln!(
                 "skip: history fixture missing ({}); run `backbone build` in history-data-pipeline",
                 fixture.display()

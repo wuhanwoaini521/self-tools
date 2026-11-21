@@ -361,15 +361,19 @@ fn semantic_history_path(app: &AppHandle) -> Result<PathBuf, CommandError> {
 
 /// 装配历史语义仓库。
 ///
-/// 当历史数据库产物（history.duckdb）存在时，正常打开；若尚未构建生成，
-/// 则退化为"连得上但查询失败"（通过 attach_without_probe），避免启动期直接崩溃，
+/// 当历史数据库产物（history.duckdb）存在且可读时，正常打开；若尚未构建生成，
+/// **或产物存在但不可读**（例如 CI / 开发机上的 0 字节占位文件），则退化为
+/// "连得上但查询失败"（通过 attach_without_probe），避免启动期直接崩溃，
 /// 由前端 History 页面捕获错误并向用户展示清晰的引导卡片。
 fn history_repository(app: &AppHandle) -> Result<HistoryDuckDbRepository, CommandError> {
     match semantic_history_path(app) {
-        Ok(path) => HistoryDuckDbRepository::open(path).map_err(|error| CommandError {
-            code: "history_data_unreadable",
-            message: error.to_string(),
-        }),
+        Ok(path) => {
+            let (repository, unavailable) = HistoryDuckDbRepository::open_or_attach(&path);
+            if let Some(error) = unavailable {
+                eprintln!("[warn] [history_data_unreadable] {error}");
+            }
+            Ok(repository)
+        }
         Err(error) => {
             eprintln!("[warn] [{}] {}", error.code, error.message);
             let expected = std::env::current_dir()
