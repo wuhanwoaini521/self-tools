@@ -68,7 +68,6 @@ export function ServerPage({ active, setNotice }: ServerPageProps) {
   const [pendingService, setPendingService] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
-    if (!isTauriRuntime()) return;
     setLoading(true);
     try {
       const fixture = e2eServerFixture();
@@ -88,11 +87,13 @@ export function ServerPage({ active, setNotice }: ServerPageProps) {
           serverClient.actionsRecent(20),
           serverClient.mcpStatus().catch(() => null),
         ]);
-      setStatus(nextStatus);
-      setServices(nextServices);
-      setApps(nextApps);
-      setAudit(nextAudit);
-      setMcp(nextMcp);
+      // 网页端在数据服务未启动时会拿到 404（transport 契约返回 null）：
+      // 列表必须退回空数组，否则 `services.map` 会把整页渲染打崩。
+      setStatus(nextStatus ?? null);
+      setServices(nextServices ?? []);
+      setApps(nextApps ?? []);
+      setAudit(nextAudit ?? []);
+      setMcp(nextMcp ?? null);
     } catch (error) {
       setNotice(`服务器状态读取失败：${errorMessage(error)}`);
     } finally {
@@ -176,7 +177,12 @@ export function ServerPage({ active, setNotice }: ServerPageProps) {
 
   const openApp = async (url: string) => {
     try {
-      await openUrl(url);
+      if (isTauriRuntime()) {
+        await openUrl(url);
+      } else {
+        // 网页端等价能力：新标签打开。阶段 2.3 会收敛成统一 capability guard。
+        window.open(url, "_blank", "noopener,noreferrer");
+      }
     } catch (error) {
       setNotice(`打开失败：${errorMessage(error)}`);
     }
@@ -186,16 +192,6 @@ export function ServerPage({ active, setNotice }: ServerPageProps) {
     auditFilter === "all"
       ? audit
       : audit.filter((entry) => entry.source === auditFilter);
-
-  if (!isTauriRuntime()) {
-    return (
-      <div className="server-page">
-        <p className="knowledge-empty">
-          浏览器预览不支持家庭服务器，请在桌面端使用。
-        </p>
-      </div>
-    );
-  }
 
   const health = status?.health?.overall ?? "unknown";
 
@@ -359,7 +355,7 @@ export function ServerPage({ active, setNotice }: ServerPageProps) {
         <div className="server-block-head">
           <h3>Recent Actions</h3>
           <div className="server-audit-filter">
-            {(["all", "desktop", "mcp"] as const).map((option) => (
+            {(["all", "desktop", "mcp", "gateway"] as const).map((option) => (
               <button
                 key={option}
                 className={auditFilter === option ? "active" : ""}

@@ -2290,7 +2290,11 @@ fn services_restart(
 ) -> Result<serde_json::Value, CommandError> {
     let confirmation = state
         .server
-        .request_restart(&request.service_id)
+        .request_restart_for(
+            &request.service_id,
+            devtoolbox_runtime::server::DESKTOP_SESSION_ID,
+            devtoolbox_runtime::server::desktop_trust(),
+        )
         .map_err(|message| CommandError {
             code: "server_error",
             message,
@@ -2320,7 +2324,11 @@ fn confirm_action(
 ) -> Result<serde_json::Value, CommandError> {
     let outcome = state
         .server
-        .confirm_restart(&request.confirmation_id, &request.service_id)
+        .confirm_restart_for(
+            &request.confirmation_id,
+            &request.service_id,
+            devtoolbox_runtime::server::DESKTOP_SESSION_ID,
+        )
         .map_err(|message| CommandError {
             code: "server_error",
             message,

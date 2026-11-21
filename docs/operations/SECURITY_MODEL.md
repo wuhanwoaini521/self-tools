@@ -66,7 +66,19 @@ Web/PWA（HTTPS） → Device Session（authenticated）
 | 票据重放 | PASS | 一次性消费 + TTL（30..120s）+ 冷却 |
 | 审计完整 | PASS | `server_actions.db` 记录每次确认与结果 |
 
-### 2.7 Agent 能力提升
+### 2.7 LAN 网关认证标记（Phase 1.4）
+
+| 检查 | 结论 | 证据 |
+| --- | --- | --- |
+| 局域网仍只能经密码网关 | PASS | 原始 API 只监听 loopback；`local_http_guard` 未删除 |
+| 上游能区分登录者，但不冒充桌面 | PASS | `gateway_auth.rs` 验签后注入 `AuthenticatedRemote`，信任级别为 `RemoteGatewayAdmin`；绝不映射为 `LocalDesktop` |
+| 客户端伪造标记 | PASS | 网关转发前剥离全部 `X-SelfTools-*` / `X-Forwarded-*` / `Authorization` / `Cookie`，再重注入；上游缺任一头或签名不符 → 401 `gateway_auth_required` |
+| 重放 / 过期 / body 篡改 | PASS | nonce 一次性缓存、exp ≤ 300s、HMAC 绑定 method+path+exp+nonce+principal+role+sha256(body)；Node/Rust 各有一组攻击用例 |
+| 共享密钥管理 | PASS | `SELF_TOOLS_GATEWAY_SIGNING_KEY` 或首次生成 `<data_dir>/gateway-signing.key`（Unix 0600）；不进日志/响应；不复用每次启动随机的会话密钥 |
+| 远程写仍受 SafeAction 约束 | PASS | restart 只签票据；确认需同 principal，一次性、TTL、冷却、会话上限、审计全部沿用；审计来源 `gateway` |
+| 日志隐私 | PASS | 先 `clamp_limits` 再 `LogRedactor::redact`，响应标 `untrusted: true`；审计不记录请求体 |
+
+### 2.8 Agent 能力提升
 | 检查 | 结论 | 证据 |
 | --- | --- | --- |
 | capability escalation | PASS | `DelegatedCapabilitySet::intersect` + `is_subset_of` 双重保险 |
@@ -74,7 +86,7 @@ Web/PWA（HTTPS） → Device Session（authenticated）
 | Decision 不能提权 | PASS | `decision_security_tests`（7 条）+ `failure_injection_tests` 的 hostile 用例 |
 | Decision 不能 bypass SafeAction | PASS | 决策层只返策略；SYSTEM 语义只在票据 |
 
-### 2.8 隐私 / 日志 / 备份 / PWA
+### 2.9 隐私 / 日志 / 备份 / PWA
 | 检查 | 结论 | 证据 |
 | --- | --- | --- |
 | 日志隐私 | PASS | §2.1 |

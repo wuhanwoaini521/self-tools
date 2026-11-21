@@ -1,9 +1,13 @@
 import assert from "node:assert/strict";
+import crypto from "node:crypto";
 import http from "node:http";
 import net from "node:net";
 import test from "node:test";
 
-import { startGateway } from "./lan-gateway.mjs";
+import { gatewaySignature, startGateway } from "./lan-gateway.mjs";
+
+/** 测试用共享密钥（与上游 `gateway_auth` 的 32..256 字符规则一致）。 */
+const SIGNING_KEY = "test-gateway-signing-key-0123456789abcdef";
 
 async function listen(server) {
   await new Promise((resolve, reject) => {
@@ -51,6 +55,8 @@ async function setup(t, overrides = {}) {
     password: "a-very-secret-password",
     apiUpstream: `http://127.0.0.1:${apiPort}`,
     webUpstream: `http://127.0.0.1:${webPort}`,
+    signingKey: SIGNING_KEY,
+    principal: "lan-owner",
     ...gatewayOverrides,
   });
   t.after(async () => {
@@ -113,6 +119,26 @@ async function login(base) {
   return cookie;
 }
 
+// 与 `apps/server/src/gateway_auth.rs` 的
+// `signature_matches_the_node_gateway_test_vector` 使用同一组输入与期望值：
+// 任何一侧改了 canonical 拼接方式，这两个测试会有一个先失败。
+test("gateway signature matches the Rust verifier test vector", () => {
+  const signature = gatewaySignature({
+    key: "test-gateway-signing-key-0123456789abcdef",
+    method: "POST",
+    path: "/api/v1/server/actions/restart",
+    expires: 1_800_000_120,
+    nonce: "0123456789abcdef0123456789abcdef",
+    principal: "lan-owner",
+    role: "admin",
+    body: Buffer.from('{"serviceId":"self-tools"}'),
+  });
+  assert.equal(
+    signature,
+    "6e53cd9d24e1206762b74810c6d4be60fa1439985fbcef97f1104e065283dd5d",
+  );
+});
+
 test("unauthenticated page request redirects to login", async (t) => {
   const { base } = await setup(t);
   const response = await fetch(`${base}/`, { redirect: "manual" });
@@ -142,6 +168,125 @@ test("api proxy rewrites Host and Origin for the loopback API", async (t) => {
   assert.equal(body.seen.host, `127.0.0.1:${apiPort}`);
   assert.equal(body.seen.origin, `http://127.0.0.1:${webPort}`);
   assert.equal(body.seen.cookie, undefined);
+});
+
+test("authenticated /api requests carry a fresh signed gateway marker", async (t) => {
+  const { base, seen } = await setup(t);
+  const cookie = await login(base);
+
+  const before = Math.floor(Date.now() / 1000);
+  const response = await fetch(`${base}/api/health`, { headers: { cookie } });
+  assert.equal(response.status, 200);
+  const seenHeaders = seen();
+  const expires = Number(seenHeaders["x-selftools-gateway-expires"]);
+  assert.equal(seenHeaders["x-selftools-gateway-principal"], "lan-owner");
+  assert.equal(seenHeaders["x-selftools-gateway-role"], "admin");
+  assert.ok(expires > before && expires <= before + 300, "short-lived marker");
+  assert.match(seenHeaders["x-selftools-gateway-nonce"], /^[0-9a-f]{32}$/);
+  assert.match(seenHeaders["x-selftools-gateway-signature"], /^[0-9a-f]{64}$/);
+
+  // 同一算法逐字节复算：path 是网关实际转发的 path+query，body 为空。
+  const expected = gatewaySignature({
+    key: SIGNING_KEY,
+    method: "GET",
+    path: "/api/health",
+    expires,
+    nonce: seenHeaders["x-selftools-gateway-nonce"],
+    principal: "lan-owner",
+    role: "admin",
+    body: Buffer.alloc(0),
+  });
+  assert.equal(seenHeaders["x-selftools-gateway-signature"], expected);
+
+  // 第二次请求必须使用新 nonce（上游据此拒绝重放）。
+  await fetch(`${base}/api/health`, { headers: { cookie } });
+  assert.notEqual(seen()["x-selftools-gateway-nonce"], seenHeaders["x-selftools-gateway-nonce"]);
+});
+
+test("client-supplied gateway and forwarding headers are stripped and re-injected", async (t) => {
+  const apiHandler = (req, res) => {
+    const chunks = [];
+    req.on("data", (chunk) => chunks.push(chunk));
+    req.on("end", () => {
+      const body = Buffer.concat(chunks);
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(
+        JSON.stringify({
+          seen: Object.fromEntries(
+            Object.entries(req.headers).map(([name, value]) => [name.toLowerCase(), value]),
+          ),
+          body: body.toString("utf8"),
+          bodyHash: crypto.createHash("sha256").update(body).digest("hex"),
+        }),
+      );
+    });
+  };
+  const { base } = await setup(t, { apiHandler });
+  const cookie = await login(base);
+  const payload = JSON.stringify({ serviceId: "self-tools" });
+  const response = await fetch(`${base}/api/v1/server/actions/restart`, {
+    method: "POST",
+    headers: {
+      cookie,
+      origin: base,
+      "content-type": "application/json",
+      authorization: "Bearer attacker-token",
+      "x-forwarded-for": "10.0.0.9",
+      "x-selftools-gateway-principal": "attacker",
+      "x-selftools-gateway-role": "admin",
+      "x-selftools-gateway-signature": "f".repeat(64),
+    },
+    body: payload,
+  });
+  assert.equal(response.status, 200);
+  const seen = await response.json();
+
+  assert.equal(seen.seen["x-selftools-gateway-principal"], "lan-owner");
+  assert.equal(seen.seen["x-selftools-gateway-role"], "admin");
+  assert.equal(seen.seen.authorization, undefined);
+  assert.equal(seen.seen["x-forwarded-for"], undefined);
+  assert.equal(seen.seen.cookie, undefined);
+  assert.equal(seen.body, payload);
+
+  const expected = gatewaySignature({
+    key: SIGNING_KEY,
+    method: "POST",
+    path: "/api/v1/server/actions/restart",
+    expires: Number(seen.seen["x-selftools-gateway-expires"]),
+    nonce: seen.seen["x-selftools-gateway-nonce"],
+    principal: "lan-owner",
+    role: "admin",
+    body: Buffer.from(seen.body, "utf8"),
+  });
+  assert.equal(seen.seen["x-selftools-gateway-signature"], expected);
+
+  // body 不同 → 签名不同；篡改任一 hex 字符 → 复算不匹配（上游据此 fail-closed）。
+  const withOtherBody = gatewaySignature({
+    key: SIGNING_KEY,
+    method: "POST",
+    path: "/api/v1/server/actions/restart",
+    expires: Number(seen.seen["x-selftools-gateway-expires"]),
+    nonce: seen.seen["x-selftools-gateway-nonce"],
+    principal: "lan-owner",
+    role: "admin",
+    body: Buffer.from('{"serviceId":"other"}', "utf8"),
+  });
+  assert.notEqual(withOtherBody, expected);
+  const tampered = `${expected.slice(0, -1)}${expected.endsWith("0") ? "1" : "0"}`;
+  assert.notEqual(tampered, expected);
+});
+
+test("oversized signed request bodies are rejected before proxying", async (t) => {
+  const { base, seen } = await setup(t);
+  const cookie = await login(base);
+  const response = await fetch(`${base}/api/v1/server/actions/restart`, {
+    method: "POST",
+    headers: { cookie, origin: base, "content-type": "application/json" },
+    body: JSON.stringify({ padding: "x".repeat(1024 * 1024 + 16) }),
+  });
+  assert.equal(response.status, 413);
+  assert.equal((await response.json()).code, "gateway_body_too_large");
+  assert.equal(seen(), null);
 });
 
 test("cross-site writes are rejected before proxying", async (t) => {

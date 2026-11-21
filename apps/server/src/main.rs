@@ -9,6 +9,7 @@ mod ai_api;
 mod backup_api;
 mod conversation_api;
 mod exploration_api;
+mod gateway_auth;
 mod geography_api;
 mod history_enrichment_api;
 mod knowledge_api;
@@ -24,6 +25,7 @@ mod readiness_api;
 mod routes;
 mod rss_api;
 mod security;
+mod server_api;
 mod study_board_api;
 mod travel_api;
 
@@ -280,6 +282,11 @@ async fn main() -> ExitCode {
             return ExitCode::from(3);
         }
     };
+    // 网页进程的 Server 写操作只可能来自局域网网关；审计来源固定标记 gateway，
+    // 具体是哪个 principal 由票据绑定的 session_id 记录（不记录请求体）。
+    core.server
+        .actions
+        .set_audit_source(devtoolbox_core::server::AuditSource::Gateway);
     info!(
         db = %config.history_db.display(),
         "runtime ready (shared with desktop)"
@@ -385,6 +392,7 @@ async fn main() -> ExitCode {
         speaking_practice,
         rss,
         Arc::clone(&core.history_enrichment),
+        Arc::clone(&core.server),
     );
     info!(
         bind = %config.bind,

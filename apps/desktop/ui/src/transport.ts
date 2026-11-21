@@ -313,6 +313,26 @@ const HTTP_ENDPOINTS: Record<string, (args: Record<string, unknown>) => string> 
     `/api/v1/language/speaking/sessions/${encodeURIComponent(String(a.sessionId ?? ""))}`,
   language_speaking_report: (a) =>
     `/api/v1/language/speaking/sessions/${encodeURIComponent(String(a.sessionId ?? ""))}/report`,
+  // ---- Home Server（Phase 1.4）：读开放；写端点由网关 admin 标记授权 ----
+  server_status: () => "/api/v1/server/status",
+  server_services_list: () => "/api/v1/server/services",
+  server_apps_list: () => "/api/v1/server/apps",
+  server_actions_recent: (a) =>
+    `/api/v1/server/actions/recent?limit=${encodeURIComponent(String(a.limit ?? 20))}`,
+  services_get_logs: (a) => {
+    const parts: string[] = [];
+    const push = (name: string, value: unknown) => {
+      if (value === undefined || value === null || value === "") return;
+      parts.push(`${name}=${encodeURIComponent(String(value))}`);
+    };
+    push("serviceId", a.serviceId);
+    push("logSourceId", a.logSourceId);
+    push("maxLines", a.maxLines);
+    push("maxBytes", a.maxBytes);
+    push("maxAgeSecs", a.maxAgeSecs);
+    return `/api/v1/server/logs${parts.length ? `?${parts.join("&")}` : ""}`;
+  },
+  mcp_status: () => "/api/v1/server/mcp",
 };
 
 /** 写操作：POST + JSON body。 */
@@ -420,6 +440,12 @@ const HTTP_POST_ENDPOINTS: Record<
   language_mining_add: (a) =>
     `/api/v1/language/mining/lesson/${encodeURIComponent(String(a.lessonId ?? ""))}` +
     `?maxPerKind=${encodeURIComponent(String(a.maxPerKind ?? 6))}`,
+  // Home Server 写操作：restart 只签票据；confirm/cancel 才动执行链。
+  services_restart: () => "/api/v1/server/actions/restart",
+  confirm_action: (a) =>
+    `/api/v1/server/actions/${encodeURIComponent(String(a.confirmationId ?? ""))}/confirm`,
+  cancel_action: (a) =>
+    `/api/v1/server/actions/${encodeURIComponent(String(a.confirmationId ?? ""))}/cancel`,
 };
 
 /**
@@ -434,6 +460,10 @@ const HTTP_POST_BODIES: Record<
   memory_save: (a) => a.request ?? {},
   memory_update: (a) => a.request ?? {},
   documents_read: (a) => a.request ?? {},
+  // HTTP 契约只发 DTO 本体（桌面 Tauri 命令的 `request` 包装不沿用）。
+  services_restart: (a) => ({ serviceId: a.serviceId ?? null }),
+  confirm_action: (a) => ({ serviceId: a.serviceId ?? null }),
+  cancel_action: () => ({}),
 };
 
 const HTTP_DELETE_ENDPOINTS: Record<string, (args: Record<string, unknown>) => string> = {

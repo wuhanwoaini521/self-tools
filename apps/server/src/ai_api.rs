@@ -52,7 +52,13 @@ impl axum::response::IntoResponse for ApiError {
         ];
         let status = match self.code {
             "not_found" | "job_not_found" => axum::http::StatusCode::NOT_FOUND,
-            "settings_write_requires_desktop" => axum::http::StatusCode::FORBIDDEN,
+            "gateway_auth_required" => axum::http::StatusCode::UNAUTHORIZED,
+            "settings_write_requires_desktop"
+            | "gateway_admin_required"
+            | "server_action_denied" => axum::http::StatusCode::FORBIDDEN,
+            "server_invalid_target" => axum::http::StatusCode::BAD_REQUEST,
+            "server_action_rate_limited" => axum::http::StatusCode::CONFLICT,
+            "server_not_available" => axum::http::StatusCode::SERVICE_UNAVAILABLE,
             "travel_plan_conflict"
             | "travel_plan_proposal_expired"
             | "personal_ai_cancelled"
