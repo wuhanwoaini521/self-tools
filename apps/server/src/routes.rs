@@ -1028,6 +1028,19 @@ mod tests {
         }
     }
 
+    /// 仓库内的 History 产物。CI 与全新克隆拿不到它（submodule 的 gitignored
+    /// 构建产物），此时 `AppCore` 降级为"History 查询报错"；依赖真实数据的
+    /// 用例用 `history_fixture_available()` 自行跳过。
+    fn history_fixture_path() -> std::path::PathBuf {
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../history-data-pipeline/dist/history.duckdb")
+    }
+
+    /// 0 字节占位（`apps/desktop/build.rs` 为 Tauri bundle 校验生成）不算可用 fixture。
+    fn history_fixture_available() -> bool {
+        std::fs::metadata(history_fixture_path()).is_ok_and(|metadata| metadata.len() > 0)
+    }
+
     /// 历史路由测试用的装配：Language 侧给内存库（这些用例只断言 history）。
     /// 测试用共享运行时：走 AppCore 一次装配（与真实启动同一路径）。
     fn test_core() -> Arc<devtoolbox_runtime::AppCore> {
@@ -1039,8 +1052,7 @@ mod tests {
             let _ = std::fs::create_dir_all(&dir);
             // History 用仓库里那份真实 duckdb（与开发/生产一致）；
             // 其余库落临时目录，不污染开发者的 config/。
-            let history_db = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-                .join("../../history-data-pipeline/dist/history.duckdb");
+            let history_db = history_fixture_path();
             Arc::new(
                 devtoolbox_runtime::AppCore::build(
                     &dir,
@@ -1720,6 +1732,13 @@ mod tests {
 
     #[tokio::test]
     async fn exploration_location_uses_reviewed_crosswalk_and_real_history_data() {
+        if !history_fixture_available() {
+            eprintln!(
+                "skip: history fixture missing ({}); run `backbone build` in history-data-pipeline",
+                history_fixture_path().display()
+            );
+            return;
+        }
         let history = Arc::new(HistoryService::new(Box::new(
             devtoolbox_runtime::history_query::HistoryQueryAdapter::new(Arc::clone(
                 &test_core().history_repo,
