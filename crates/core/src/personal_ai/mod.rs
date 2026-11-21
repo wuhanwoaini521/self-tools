@@ -22,7 +22,8 @@ pub use provider::{
 pub use types::{
     Action, ActionKind, AgentCitation, AgentCitationRole, AgentMessage, AgentProgress,
     AgentProgressSink, AgentProposedChange, AgentRequest, AgentResponse, AgentStage, AgentUsage,
-    AppContext, ContentPart, EntityRef, ModelCapabilities, ModuleDescriptor, OrchestrationRunView,
-    OrchestrationTraceView, SelectionRef, ToolCallRequest, ToolResult, ToolRisk, ToolSpec,
-    ToolTraceEntry, UiBlock, UiBlockKind,
+    AppContext, ContentPart, EntityRef, JobProgressEvent, JobRunSnapshot, JobState,
+    ModelCapabilities, ModuleDescriptor, OrchestrationRunView, OrchestrationTraceView,
+    SelectionRef, ToolCallRequest, ToolResult, ToolRisk, ToolSpec, ToolTraceEntry, UiBlock,
+    UiBlockKind,
 };

@@ -35,10 +35,10 @@ pub use personal_ai::{
     Action, ActionKind, AgentCitation, AgentCitationRole, AgentError, AgentErrorKind, AgentMessage,
     AgentProgress, AgentProgressSink, AgentProposedChange, AgentRequest, AgentResponse, AgentStage,
     AgentUsage, AppContext, ChatMessage, ChatModelProvider, ChatRequest, ChatResponse, ChatRole,
-    ChatToolCall, ChatToolSpec, ChatUsage, ContentPart, EntityRef, ModelCapabilities,
-    ModuleDescriptor, OrchestrationRunView, OrchestrationTraceView, ProviderError,
-    ProviderErrorKind, SelectionRef, ToolCallRequest, ToolResult, ToolRisk, ToolSpec,
-    ToolTraceEntry, UiBlock, UiBlockKind,
+    ChatToolCall, ChatToolSpec, ChatUsage, ContentPart, EntityRef, JobProgressEvent,
+    JobRunSnapshot, JobState, ModelCapabilities, ModuleDescriptor, OrchestrationRunView,
+    OrchestrationTraceView, ProviderError, ProviderErrorKind, SelectionRef, ToolCallRequest,
+    ToolResult, ToolRisk, ToolSpec, ToolTraceEntry, UiBlock, UiBlockKind,
 };
 
 pub use language::{

@@ -60,6 +60,7 @@
 | CI / 桌面 E2E | 产品壳改版后 E2E 仍用 `功能导航` / `.app-nav-item` / 英文页面名，全部在第一步超时 | ✅ 一级入口 + 分区子导航 + 更多页面的当前 IA；深链仍覆盖 markdown/knowledge/server/system/graph；AI 空态改用浮动气泡 |
 | Knowledge / Web | Memory 写入 / 确认 / 拒绝 / 归档 / 更新、documents/files 扫描与读取只在桌面桥 | ✅ `POST /api/v1/memory*`、`/documents/scan|read`、`/files/scan|metadata|read_text`、`GET /knowledge/status`；`documents/status` 补 `roots`、`files/status` 补明细；路径仍走 `FileService::authorize`，无任意写删；PATCH 请求体改为按端点显式声明 |
 | AI 会话 / Web | 会话列表 / 新建 / 改名 / 归档 / 删除 / 追加消息只有 Tauri 命令，抽屉在网页端直接显示「需要桌面运行时」 | ✅ `/api/v1/conversations*` 六个端点复用 `ConversationService` 与 `conversations.db`；`conversationClient` 注入 `CommandTransport`，抽屉移除 Web 早退；非法 role 400 |
+| AI 进度 / Web | 网页端收不到 `agent-progress`（`transport.subscribe` 在 HTTP 下是 no-op），也没有断线重放 | ✅ `GET /api/v1/ai/runs/{trace_id}`（状态/游标）+ `/events`（SSE，`event: progress`、`id: seq`、15s 心跳、游标过期 409）；桌面 Tauri 与网页 HTTP 共用 runtime `AiJobEvents` 的同一份载荷/seq 规则（各自进程内扇出）；`AIPanel` 按 `seq` 幂等 |
 | 设计系统 | Pixel-Lift 硬阴影 + 结构 token 分散在 4 个主题 | ✅ |
 
 ## 未修复（按影响）

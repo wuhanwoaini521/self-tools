@@ -11,9 +11,10 @@ devtoolbox-application = { path = "../../crates/application" }
 devtoolbox-core = { path = "../../crates/core" }
 devtoolbox-infrastructure = { path = "../../crates/infrastructure" }
 devtoolbox-runtime = { path = "../../crates/runtime" }
+async-stream = "0.3"
 axum = { version = "0.8", features = ["macros"] }
 parking_lot.workspace = true
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal", "net"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal", "net", "sync"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tracing = "0.1"

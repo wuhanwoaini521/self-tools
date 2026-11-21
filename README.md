@@ -127,7 +127,7 @@ powershell -ExecutionPolicy Bypass -File scripts\start-lan-web.ps1
 
 其他端口/上游可用 `SELF_TOOLS_LAN_PORT`、`SELF_TOOLS_WEB_UPSTREAM`、`SELF_TOOLS_API_UPSTREAM` 覆盖。网关测试：`node --test scripts/lan-gateway.test.mjs`。
 
-> RSS 订阅/阅读、History AI 解读、Knowledge 读写（记忆保存/确认/拒绝/归档/更新，文档与文件扫描、元数据、文本读取）、AI 会话历史（列表/新建/改名/归档/删除/追加消息，与桌面共用 `conversations.db`）已补齐 HTTP 端点，网关登录后可在 pad 上使用。仍受桌面端限制的功能见 [`FEATURE_MATRIX.md`](FEATURE_MATRIX.md)：家庭服务器操作、Markdown 本地文件、唤起系统程序打开文件等还没有 HTTP 等价能力。网关解决的是**安全访问链路**，不会自动补齐这些能力。
+> RSS 订阅/阅读、History AI 解读、Knowledge 读写（记忆保存/确认/拒绝/归档/更新，文档与文件扫描、元数据、文本读取）、AI 会话历史（列表/新建/改名/归档/删除/追加消息，与桌面共用 `conversations.db`）已补齐 HTTP 端点，网关登录后可在 pad 上使用。AI 执行进度也通过 SSE（`GET /api/v1/ai/runs/{trace_id}/events`）实时推送，与桌面 Tauri 事件共用同一事件源和 `seq`，断线可按游标重放；状态快照见 `GET /api/v1/ai/runs/{trace_id}`。仍受桌面端限制的功能见 [`FEATURE_MATRIX.md`](FEATURE_MATRIX.md)：家庭服务器操作、Markdown 本地文件、唤起系统程序打开文件等还没有 HTTP 等价能力。网关解决的是**安全访问链路**，不会自动补齐这些能力。
 
 ### 下载新概念英语教材
 

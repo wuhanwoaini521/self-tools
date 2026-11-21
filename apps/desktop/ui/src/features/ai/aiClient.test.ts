@@ -14,6 +14,30 @@ describe("AI client wire contract", () => {
     expect(invoke).toHaveBeenNthCalledWith(2, "personal_ai_cancel_run", { traceId: "run-http-1" });
   });
 
+  it("passes the trace id to progress subscriptions (SSE needs the run)", () => {
+    const subscribe = vi.fn(() => () => {});
+    const transport: CommandTransport = {
+      invoke: async <T,>() => ({}) as T,
+      isTauriRuntime: () => false,
+      subscribe,
+    };
+    const client = createAiClient(transport);
+
+    client.onProgress(() => {}, "run-sse-1");
+    expect(subscribe).toHaveBeenCalledWith(
+      "agent-progress",
+      expect.any(Function),
+      { traceId: "run-sse-1" },
+    );
+
+    client.onProgress(() => {});
+    expect(subscribe).toHaveBeenLastCalledWith(
+      "agent-progress",
+      expect.any(Function),
+      undefined,
+    );
+  });
+
   it("uses camelCase trace id for Tauri IPC", async () => {
     const invoke = vi.fn();
     const transport: CommandTransport = { invoke: async <T,>(command: string, args?: Record<string, unknown>) => { invoke(command, args); return {} as T; }, isTauriRuntime: () => true, subscribe: () => () => {} };

@@ -396,6 +396,15 @@ pub fn router(
         )
         .route("/api/v1/ai/status", get(crate::ai_api::ai_status))
         .route("/api/v1/ai/chat", post(crate::ai_api::ai_chat))
+        // 进度：状态快照 + SSE 事件流（与桌面 Tauri 事件同源、同序列）。
+        .route(
+            "/api/v1/ai/runs/{trace_id}",
+            get(crate::ai_api::ai_run_status),
+        )
+        .route(
+            "/api/v1/ai/runs/{trace_id}/events",
+            get(crate::ai_api::ai_run_events),
+        )
         .route(
             "/api/v1/ai/runs/{trace_id}/cancel",
             post(crate::ai_api::ai_cancel_run),
@@ -1389,6 +1398,19 @@ mod tests {
                 .is_some_and(|m| m.contains("未配置")),
             "错误信息应说明未配置：{body}"
         );
+    }
+
+    /// 进度端点必须在路由表里，且没有运行时时明确 fail-closed（不是 404 路由缺失）。
+    #[tokio::test]
+    async fn ai_run_progress_routes_are_registered_and_fail_closed() {
+        let app = test_router(false);
+        let (status, body) = request(&app, "/api/v1/ai/runs/run-1").await;
+        assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
+        assert_eq!(body["code"], "ai_unavailable");
+
+        let (status, body) = request(&app, "/api/v1/ai/runs/run-1/events").await;
+        assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
+        assert_eq!(body["code"], "ai_unavailable");
     }
 
     #[tokio::test]

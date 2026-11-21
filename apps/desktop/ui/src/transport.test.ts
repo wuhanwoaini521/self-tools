@@ -1,6 +1,11 @@
 import { describe, expect, it, vi, afterEach } from "vitest";
 import type { Mock } from "vitest";
-import { HttpTransportError, httpTransport, patchRequest } from "./transport";
+import {
+  HttpTransportError,
+  defaultTransport,
+  httpTransport,
+  patchRequest,
+} from "./transport";
 
 /**
  * 网页端传输层的契约测试。
@@ -411,5 +416,113 @@ describe("httpTransport：错误语义", () => {
     // 因此反例必须随接线进度更新——现在选一个仍然只存在于桌面端的命令。
     await expect(httpTransport.invoke("server_services_list")).rejects.toThrow(/尚无网页端接口/);
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("httpTransport：AI 进度 SSE 订阅", () => {
+  class FakeEventSource {
+    static instances: FakeEventSource[] = [];
+    readonly url: string;
+    closed = false;
+    onerror: (() => void) | null = null;
+    private listeners = new Map<string, ((event: MessageEvent) => void)[]>();
+
+    constructor(url: string) {
+      this.url = url;
+      FakeEventSource.instances.push(this);
+    }
+
+    addEventListener(type: string, listener: (event: MessageEvent) => void): void {
+      const listeners = this.listeners.get(type) ?? [];
+      listeners.push(listener);
+      this.listeners.set(type, listeners);
+    }
+
+    close(): void {
+      this.closed = true;
+    }
+
+    emit(type: string, payload: unknown): void {
+      for (const listener of this.listeners.get(type) ?? []) {
+        listener({ data: JSON.stringify(payload) } as MessageEvent);
+      }
+    }
+
+    fail(): void {
+      this.onerror?.();
+    }
+  }
+
+  function stubEventSource(): void {
+    FakeEventSource.instances = [];
+    vi.stubGlobal("EventSource", FakeEventSource);
+  }
+
+  it("按 trace 打开 SSE，按 seq 幂等投递，并在终态主动关闭", () => {
+    stubEventSource();
+    const handler = vi.fn();
+    const stop = httpTransport.subscribe("agent-progress", handler, { traceId: "run-1" });
+
+    const source = FakeEventSource.instances[0];
+    expect(source.url).toBe("/api/v1/ai/runs/run-1/events");
+
+    source.emit("progress", { trace_id: "run-1", seq: 1, stage: "preparing", state: "running" });
+    source.emit("progress", { trace_id: "run-1", seq: 2, stage: "thinking", state: "running" });
+    source.emit("progress", { trace_id: "run-1", seq: 2, stage: "thinking", state: "running" });
+    expect(handler).toHaveBeenCalledTimes(2);
+
+    source.emit("progress", { trace_id: "run-1", seq: 3, stage: "done", state: "done" });
+    expect(handler).toHaveBeenCalledTimes(3);
+    expect(source.closed).toBe(true);
+
+    stop();
+    expect(source.closed).toBe(true);
+  });
+
+  it("defaultTransport 把 traceId 透传给 HTTP 分支", () => {
+    stubEventSource();
+    // 测试环境没有浏览器 window；补一个空对象让运行时探测走 HTTP 分支。
+    vi.stubGlobal("window", {});
+    defaultTransport.subscribe("agent-progress", vi.fn(), { traceId: "run-9" });
+    expect(FakeEventSource.instances[0].url).toBe("/api/v1/ai/runs/run-9/events");
+  });
+
+  it("没有 trace 或不是进度事件时退化为 no-op", () => {
+    stubEventSource();
+    const handler = vi.fn();
+    const stop = httpTransport.subscribe("agent-progress", handler);
+    expect(stop).toBeTypeOf("function");
+    stop();
+    expect(FakeEventSource.instances).toHaveLength(0);
+
+    httpTransport.subscribe("other-event", handler, { traceId: "run-1" });
+    expect(FakeEventSource.instances).toHaveLength(0);
+  });
+
+  it("SSE 出错时用状态端点恢复最近状态（游标过期/断线）", async () => {
+    stubEventSource();
+    stubFetch();
+    fetchMock.mockResolvedValue(
+      jsonResponse({
+        trace_id: "run-1",
+        state: "done",
+        cursor: 4,
+        latest: { trace_id: "run-1", seq: 4, stage: "done", state: "done" },
+      }),
+    );
+    const handler = vi.fn();
+    httpTransport.subscribe("agent-progress", handler, { traceId: "run-1" });
+    const source = FakeEventSource.instances[0];
+
+    source.fail();
+    await vi.waitFor(() => expect(handler).toHaveBeenCalledTimes(1));
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/v1/ai/runs/run-1",
+      expect.objectContaining({ headers: { Accept: "application/json" } }),
+    );
+    expect(handler).toHaveBeenCalledWith(
+      expect.objectContaining({ seq: 4, stage: "done" }),
+    );
+    await vi.waitFor(() => expect(source.closed).toBe(true));
   });
 });
