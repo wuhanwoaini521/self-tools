@@ -1607,6 +1607,140 @@ mod tests {
         );
     }
 
+    /// 就绪度 HTTP 契约（13 项固定 id）：网页端不得谎报，也不得把前端项
+    /// 当成后端结论。此前 `/api/v1/readiness` 只注册、零测试。
+    #[tokio::test]
+    async fn readiness_http_report_covers_every_check_id() {
+        let app = test_router(false);
+        let (status, body) = get_query(&app, "/api/v1/readiness").await;
+        assert_eq!(status, StatusCode::OK, "body={body}");
+
+        let checks = body["checks"].as_array().expect("checks array");
+        assert_eq!(checks.len(), 13, "报告必须包含完整 13 项");
+
+        let mut actual: Vec<&str> = checks
+            .iter()
+            .map(|check| check["id"].as_str().expect("id is string"))
+            .collect();
+        actual.sort_unstable();
+        let mut expected: Vec<&str> = devtoolbox_core::readiness::ReadinessCheckId::ALL
+            .iter()
+            .map(|id| id.as_str())
+            .collect();
+        expected.sort_unstable();
+        assert_eq!(actual, expected, "id 集合是稳定契约");
+
+        for check in checks {
+            for key in ["id", "label", "status", "detail", "blocking"] {
+                assert!(check.get(key).is_some(), "缺少字段 {key}：{check}");
+            }
+            assert!(
+                matches!(
+                    check["status"].as_str(),
+                    Some("ready" | "degraded" | "not_configured" | "failed")
+                ),
+                "status 必须是固定的 snake_case 值：{check}"
+            );
+            assert!(
+                check["detail"].as_str().unwrap_or_default().chars().count() <= 200,
+                "detail 是受控短文本：{check}"
+            );
+            assert!(
+                check["label"]
+                    .as_str()
+                    .is_some_and(|label| !label.is_empty())
+            );
+        }
+
+        let find = |id: &str| {
+            checks
+                .iter()
+                .find(|check| check["id"] == id)
+                .unwrap_or_else(|| panic!("missing check {id}"))
+                .clone()
+        };
+
+        // 测试数据目录存在 → 这两项必须是后端真实结论（不是「未配置」）。
+        assert_eq!(find("backend")["status"].as_str(), Some("ready"));
+        assert_eq!(find("database")["status"].as_str(), Some("ready"));
+
+        // 前端拥有项：后端只能占位，不得伪造 ready / degraded。
+        for id in ["pwa_secure_context", "device_session"] {
+            assert_eq!(
+                find(id)["detail"].as_str(),
+                Some(devtoolbox_core::readiness::FRONTEND_OWNED_DETAIL),
+                "{id} 应由前端判定"
+            );
+            assert_eq!(find(id)["blocking"], false);
+        }
+    }
+
+    /// 就绪度响应不携带设置/凭据：detail 只允许「已配置 / 未配置」类陈述。
+    #[tokio::test]
+    async fn readiness_http_never_leaks_configured_secrets() {
+        let app = test_router(false);
+        let (status, report) = get_query(&app, "/api/v1/readiness").await;
+        assert_eq!(status, StatusCode::OK);
+        let (status, diagnostics) = get_query(&app, "/api/v1/readiness/diagnostics").await;
+        assert_eq!(status, StatusCode::OK);
+
+        for body in [&report, &diagnostics] {
+            let text = body.to_string();
+            for secret in [
+                "server-test-secret-marker",
+                "weather-test-secret-marker",
+                "sk-",
+            ] {
+                assert!(!text.contains(secret), "响应泄漏了凭据：{secret}");
+            }
+            // 不返回设置对象本身（哪怕只有字段名也等于告诉调用方去哪找）。
+            for key in ["api_key", "apiKey", "secrets", "Authorization"] {
+                assert!(!text.contains(key), "响应包含了凭据字段名：{key}");
+            }
+        }
+    }
+
+    /// 诊断视图与报告同源同文案：诊断面板不能显示一个后端没测过的结论。
+    #[tokio::test]
+    async fn readiness_diagnostics_mirror_the_report() {
+        let app = test_router(false);
+        let (status, report) = get_query(&app, "/api/v1/readiness").await;
+        assert_eq!(status, StatusCode::OK);
+        let (status, diagnostics) = get_query(&app, "/api/v1/readiness/diagnostics").await;
+        assert_eq!(status, StatusCode::OK, "body={diagnostics}");
+
+        let checks = report["checks"].as_array().expect("checks array");
+        let items = diagnostics.as_array().expect("diagnostics array");
+        assert_eq!(items.len(), checks.len(), "诊断项与报告项必须一一对应");
+
+        for (check, item) in checks.iter().zip(items) {
+            assert_eq!(item["id"], check["id"]);
+            assert_eq!(item["status"], check["status"]);
+            assert_eq!(item["blocking"], check["blocking"]);
+            assert_eq!(item["detail"], check["detail"], "诊断与报告文案必须一致");
+
+            // 形状固定为 5 个字段：不夹带 request/response 载荷或额外下钻内容。
+            let keys: Vec<&str> = item
+                .as_object()
+                .expect("diagnostic object")
+                .keys()
+                .map(String::as_str)
+                .collect();
+            assert_eq!(keys.len(), 5, "诊断项字段固定：{keys:?}");
+        }
+
+        for item in items {
+            let id = item["id"].as_str().unwrap_or_default();
+            if matches!(id, "pwa_secure_context" | "device_session") {
+                assert_eq!(
+                    item["detail"].as_str(),
+                    Some(devtoolbox_core::readiness::FRONTEND_OWNED_DETAIL),
+                    "诊断里的 {id} 不能显示后端（占位 false）得出的结论"
+                );
+            }
+        }
+    }
+
     #[tokio::test]
     async fn travel_provider_tests_use_stored_secrets_and_ignore_request_keys() {
         let app = test_router(false);

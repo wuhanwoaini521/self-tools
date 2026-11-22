@@ -22,7 +22,7 @@
 | 13 | Graph | `#graph` | 跨模块知识图谱 | platform graph | ✅ 已修 | — | 无 root 时节点少 |
 | 14 | Search | `#search` | 全局检索 | platform + memory/docs/files | ⚠️ | 无 | `global_search` 已接；无结果 |
 | 15 | Server | `#server` | 家庭服务器 | server_actions.db | ✅ | gateway + server_api + 前端 transport | 读开放；重启仍需网关 admin 标记 + 确认票据 + 审计 |
-| 16 | System | `#system` | 就绪状态 / 诊断 | readiness service | ◐ API 已接 | application probes/tests | 13 项检查模型；vision probe 当前 false，尚无 HTTP route integration test |
+| 16 | System | `#system` | 就绪状态 / 诊断 | readiness service | ◐ API 已接 | 3 个 HTTP 契约测试 + application probes/tests | 13 项固定检查；`vision` probe 当前 false；`pwa_secure_context`/`device_session` 由前端判定（后端只占位） |
 
 ## 能力覆盖
 
@@ -65,12 +65,13 @@
 | 设置写入 / Web | 主题 / AI provider / Travel / 决策层与 Provider 凭据只能在本机桌面修改；网页端设置面板明说「不持久化」 | ✅ `PUT /api/v1/settings/public`（`PublicSettingsUpdate` 白名单，拒绝 `workspace_path`/`knowledge`/`server` 等主机绑定字段）+ `POST /api/v1/settings/secrets`（枚举字段、只回 `*_configured`），均要求网关 admin 标记；读失败中止写盘；审计只记字段名 |
 | Provider 连接测试 / Web | 设置在网页端总是回「连接测试目前只在本机桌面应用提供」，但后端 `POST /api/v1/travel/test/{llm,amap,qweather}` 早就在（与桌面同一 provider、同一句判词） | ✅ 移除 `SettingsDialog.runTest` 的运行时早退；地理旧凭据清理按钮改用 `canWriteSettings()`；凭据仍只从后端已保存设置读取 |
 | 平台能力适配 | 外链/本机文件/设置写入的 `isTauriRuntime()` 判断散落在 `App`/`RssPage`/`TravelGuide`/`NewsPage`/`FilesPanel`/`SettingsDialog`，网页端外链分支还漏了 `noopener`，`NewsPage` 直接调插件（网页端抛错） | ✅ `platform.ts` 统一 `canOpenExternalUrl` / `canOpenLocalPath` / `canWriteSettings` / `openExternalUrl` / `revealLocalPath`；`RssPage`、`TravelGuide`、`NewsPage`、`FilesPanel`、`App`、`ServerParts` 全部改走适配层；新增 `platform.test.ts` 覆盖桌面/网页/弹窗被拦截三条路径 |
+| System 就绪度 / 契约 | `/api/v1/readiness` 与 `/readiness/diagnostics` 只注册、零测试；诊断面板还把后端对 `pwa_secure_context`/`device_session` 的 `false` 占位当成结论展示 | ✅ 3 个 oneshot 契约测试（13 项 id 集合、不泄漏 configured 的凭据标记与字段名、诊断与报告同源同文案/固定 5 字段）；`mark_frontend_owned` 下沉到 `core::readiness`，server 与 desktop 的报告和诊断共用同一句占位文案 |
 | Language 数据缺口 / Web | NCE/ECDICT 导入无法取消（取消标志是局部变量）、Starter 安装与跟读评分没有 HTTP 端点、News 分类不能改 | ✅ 取消标志移入 `ImportTracker` 并按 `jobId` 取消（旧 id 404）；`POST /language/starter/install`；`POST /language/speaking/feedback` 由服务端按 `sentenceId` 查目标句；`POST /news/sources/{id}/category`；网页端导入改为填服务器路径 + 轮询状态 + 取消 |
 | 设计系统 | Pixel-Lift 硬阴影 + 结构 token 分散在 4 个主题 | ✅ |
 
 ## 未修复（按影响）
 
 1. **仍有多组 desktop-only 命令**：Markdown/本地文件、`files_open`、知识库根目录/服务注册表/MCP 设置仍通过 Tauri；Server（只读面板 + 重启票据）、设置写入（公开字段 + 凭据）、Provider 连接测试、Geography、RSS、History enrichment、Knowledge（`files_open` 除外）与 Conversation CRUD 已有 HTTP 映射。当前未枚举可复核的“未映射命令总数”。
-2. System Readiness 已有 13 项后端检查模型和服务端 route；vision probe 当前 false，PWA/设备会话值由前端拥有，HTTP route 集成覆盖仍需补齐。
+2. System Readiness 的 13 项检查模型、服务端 route 与前端合并逻辑均有测试；`vision` probe 当前 false，`pwa_secure_context`/`device_session` 由前端覆盖（后端只占位）。
 3. Geography HTTP 路由使用共享 `GeographyStore`，覆盖 home/search/detail/favorite 和 History crosswalk；本机数据行数及内容覆盖度未核查。
 4. Geography/History 完整原生交互、Settings 凭据边界与 live Travel provider 仍未作为本轮 UI 验收项。
