@@ -12,15 +12,12 @@ use std::sync::Arc;
 use tauri::AppHandle;
 
 use devtoolbox_application::readiness::{ReadinessProbe, ReadinessService, default_probes};
-use devtoolbox_core::readiness::{DiagnosticCheck, ReadinessReport};
+use devtoolbox_core::readiness::{
+    DiagnosticCheck, ReadinessReport, mark_frontend_owned as mark_frontend_owned_report,
+    mark_frontend_owned_diagnostics,
+};
 
 use crate::CommandError;
-
-/// 前端侧两项（安全上下文 / 设备会话）由浏览器判定，后端无法得知。
-/// 这里如实标记为「由前端判定」，而不是伪造一个 ready。
-fn frontend_owned_ids() -> [&'static str; 2] {
-    ["pwa_secure_context", "device_session"]
-}
 
 fn build_service(app: &AppHandle) -> Result<ReadinessService, CommandError> {
     let config_dir = crate::project_config_directory_public(app)?;
@@ -50,7 +47,9 @@ fn build_service(app: &AppHandle) -> Result<ReadinessService, CommandError> {
 pub fn readiness_report(app: AppHandle) -> Result<ReadinessReport, CommandError> {
     let service = build_service(&app)?;
     let mut report = service.report();
-    mark_frontend_owned(&mut report);
+    // 前端侧两项（安全上下文 / 设备会话）由浏览器判定，后端无法得知。
+    // 共用 core 的标记函数，而不是各自拼一句文案。
+    mark_frontend_owned_report(&mut report.checks);
     Ok(report)
 }
 
@@ -58,14 +57,8 @@ pub fn readiness_report(app: AppHandle) -> Result<ReadinessReport, CommandError>
 #[tauri::command]
 pub fn readiness_diagnostics(app: AppHandle) -> Result<Vec<DiagnosticCheck>, CommandError> {
     let service = build_service(&app)?;
-    Ok(service.diagnostics())
-}
-
-/// 把「由前端判定」的两项标成占位，避免它们被误读为后端结论。
-fn mark_frontend_owned(report: &mut ReadinessReport) {
-    for check in &mut report.checks {
-        if frontend_owned_ids().contains(&check.id.as_str()) {
-            check.detail = "由前端判定（安全上下文 / 设备会话）".to_string();
-        }
-    }
+    let mut diagnostics = service.diagnostics();
+    // 诊断面板也必须说「由前端判定」，否则这里会显示一个后端并未测过的结论。
+    mark_frontend_owned_diagnostics(&mut diagnostics);
+    Ok(diagnostics)
 }

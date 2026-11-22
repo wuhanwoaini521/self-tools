@@ -21,6 +21,14 @@ This is the P0 compatibility freeze for `apps/server`:
 
 The desktop app emits the same `JobProgressEvent` shape over Tauri, so both clients see one sequence.
 
+## Readiness (read-only, no auth)
+
+- `GET /api/v1/readiness` → `{overall, checks[13], generated_at}`. `overall` follows the aggregate rule (blocking `failed` > `degraded` > `ready`; `not_configured` never affects it). Check ids are the stable `ReadinessCheckId` set (`backend`, `database`, `ai_provider`, `vision`, `decision`, `jev`, `search`, `mcp_local`, `mcp_remote`, `home_server`, `backup`, `pwa_secure_context`, `device_session`); labels are Chinese display text.
+- `GET /api/v1/readiness/diagnostics` → the same 13 items as a flat array (`id`, `label`, `status`, `detail`, `blocking`), same status and wording as the report.
+- `detail` is controlled display text only (`已配置` / `未配置` / capability booleans): no key, base URL, model name or path ever appears, so the response is safe to serve over the LAN gateway.
+- `pwa_secure_context` and `device_session` are owned by the frontend: the backend only knows `false` and marks them `由前端判定（安全上下文 / 设备会话）` instead of fabricating a verdict. Clients must override those two with browser facts.
+- Contract tests: `cargo test -p devtoolbox-server readiness_`.
+
 ## Home Server endpoints and gateway auth
 
 Reads (loopback or authenticated LAN gateway):

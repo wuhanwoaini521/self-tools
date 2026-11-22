@@ -110,6 +110,7 @@ Web/PWA（HTTPS） → Device Session（authenticated）
 | Service Worker 不缓存 token | PASS | 同上（network-only + 不写任何 cache） |
 | 多模态上传隐私 | PASS | 图片默认不进 Memory；保存需显式用户动作（§106） |
 | Study Board 隐私 | PASS | 笔迹是私有数据；`strokes_summary` 有界且不含坐标 |
+| 就绪度响应隐私 | PASS | `/api/v1/readiness*` 的 `detail` 只允许受控文本；契约测试断言已配置的 secret 标记与 `api_key`/`secrets` 字段名均不出现在报告与诊断里 |
 
 ## 3. 已修复的 Medium 项（V11 评审中发现）
 

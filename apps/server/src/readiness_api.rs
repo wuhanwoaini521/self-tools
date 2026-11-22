@@ -8,7 +8,9 @@ use std::sync::Arc;
 
 use axum::Extension;
 use devtoolbox_application::readiness::{ReadinessProbe, ReadinessService, default_probes};
-use devtoolbox_core::readiness::{DiagnosticCheck, ReadinessReport};
+use devtoolbox_core::readiness::{
+    DiagnosticCheck, ReadinessReport, mark_frontend_owned, mark_frontend_owned_diagnostics,
+};
 use devtoolbox_infrastructure::knowledge_runtime::KnowledgeRuntime;
 
 use crate::ai_api::SettingsAccess;
@@ -34,13 +36,9 @@ fn build(
     ReadinessService::new(probes)
 }
 
-/// 前端会覆盖的两项（安全上下文 / 设备会话）在此标记清楚。
-fn mark_frontend_owned(report: &mut ReadinessReport) {
-    for check in &mut report.checks {
-        if matches!(check.id.as_str(), "pwa_secure_context" | "device_session") {
-            check.detail = "由前端判定（安全上下文 / 设备会话）".to_string();
-        }
-    }
+/// 前端会覆盖的两项（安全上下文 / 设备会话）在报告与诊断里都标清楚。
+fn mark_report(report: &mut ReadinessReport) {
+    mark_frontend_owned(&mut report.checks);
 }
 
 /// `GET /api/v1/readiness`
@@ -55,7 +53,7 @@ pub async fn readiness_report(
         knowledge.search.source_count(),
     )
     .report();
-    mark_frontend_owned(&mut report);
+    mark_report(&mut report);
     Ok(axum::Json(report))
 }
 
@@ -65,12 +63,13 @@ pub async fn readiness_diagnostics(
     Extension(data_dir): Extension<Arc<PathBuf>>,
     Extension(knowledge): Extension<Arc<KnowledgeRuntime>>,
 ) -> Result<axum::Json<Vec<DiagnosticCheck>>, crate::ai_api::ApiError> {
-    Ok(axum::Json(
-        build(
-            store.as_ref(),
-            data_dir.as_path(),
-            knowledge.search.source_count(),
-        )
-        .diagnostics(),
-    ))
+    let mut diagnostics = build(
+        store.as_ref(),
+        data_dir.as_path(),
+        knowledge.search.source_count(),
+    )
+    .diagnostics();
+    // 诊断面板与报告必须说同一句话：后端对这两项只有占位，没有结论。
+    mark_frontend_owned_diagnostics(&mut diagnostics);
+    Ok(axum::Json(diagnostics))
 }

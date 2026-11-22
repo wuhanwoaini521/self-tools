@@ -109,6 +109,41 @@ impl ReadinessCheckId {
         let trimmed = raw.trim();
         Self::ALL.into_iter().find(|id| id.as_str() == trimmed)
     }
+
+    /// 只有前端能给出真结论的项：浏览器安全上下文与设备会话。
+    ///
+    /// 后端只能用 `false` 占位（进程无法知道浏览器是否 HTTPS / 在线），
+    /// 因此这两项的 `detail` 必须标成「由前端判定」，不能被当成后端结论。
+    #[must_use]
+    pub fn is_frontend_owned(self) -> bool {
+        matches!(
+            self,
+            ReadinessCheckId::PwaSecureContext | ReadinessCheckId::DeviceSession
+        )
+    }
+}
+
+/// 前端拥有项的占位说明（报告与诊断共用同一句，避免两端说法漂移）。
+pub const FRONTEND_OWNED_DETAIL: &str = "由前端判定（安全上下文 / 设备会话）";
+
+fn mark_frontend_owned_detail(id: &str, detail: &mut String) {
+    if ReadinessCheckId::parse(id).is_some_and(ReadinessCheckId::is_frontend_owned) {
+        *detail = FRONTEND_OWNED_DETAIL.to_string();
+    }
+}
+
+/// 把报告里前端拥有的两项标成占位（不伪造 ready / degraded）。
+pub fn mark_frontend_owned(checks: &mut [ReadinessCheck]) {
+    for check in checks {
+        mark_frontend_owned_detail(&check.id, &mut check.detail);
+    }
+}
+
+/// 诊断视图的同一处理：诊断面板与报告必须给出一致说法。
+pub fn mark_frontend_owned_diagnostics(checks: &mut [DiagnosticCheck]) {
+    for check in checks {
+        mark_frontend_owned_detail(&check.id, &mut check.detail);
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -436,5 +471,50 @@ mod tests {
         assert!(json.contains("\"overall\":\"ready\""));
         assert!(json.contains("\"id\":\"ai_provider\""));
         assert!(json.contains("\"status\":\"not_configured\""));
+    }
+
+    #[test]
+    fn frontend_owned_ids_are_only_secure_context_and_device_session() {
+        let owned: Vec<&str> = ReadinessCheckId::ALL
+            .into_iter()
+            .filter(|id| id.is_frontend_owned())
+            .map(ReadinessCheckId::as_str)
+            .collect();
+        assert_eq!(owned, vec!["pwa_secure_context", "device_session"]);
+    }
+
+    #[test]
+    fn marking_frontend_owned_never_fabricates_a_status() {
+        // 后端只知道 false：状态可以保留占位，但 detail 必须改成「由前端判定」。
+        let mut checks = vec![
+            ReadinessCheck::new(
+                ReadinessCheckId::PwaSecureContext,
+                ReadinessStatus::Degraded,
+                "非安全上下文：手机/iPad 装 PWA 需要 HTTPS",
+            ),
+            ReadinessCheck::new(ReadinessCheckId::Backend, ReadinessStatus::Ready, "已响应"),
+        ];
+        mark_frontend_owned(&mut checks);
+        assert_eq!(checks[0].detail, FRONTEND_OWNED_DETAIL);
+        assert_eq!(
+            checks[0].status,
+            ReadinessStatus::Degraded,
+            "不得把占位改成就绪"
+        );
+        assert_eq!(checks[1].detail, "已响应", "其他项不受影响");
+    }
+
+    #[test]
+    fn diagnostics_get_the_same_frontend_owned_wording() {
+        let mut diagnostics: Vec<DiagnosticCheck> = vec![
+            ReadinessCheck::new(
+                ReadinessCheckId::DeviceSession,
+                ReadinessStatus::NotConfigured,
+                "未配置身份提供者（远程设备不可信）",
+            )
+            .into(),
+        ];
+        mark_frontend_owned_diagnostics(&mut diagnostics);
+        assert_eq!(diagnostics[0].detail, FRONTEND_OWNED_DETAIL);
     }
 }

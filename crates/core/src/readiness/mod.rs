@@ -11,6 +11,6 @@
 pub mod model;
 
 pub use model::{
-    DiagnosticCheck, ReadinessCheck, ReadinessCheckId, ReadinessReport, ReadinessStatus,
-    aggregate_status,
+    DiagnosticCheck, FRONTEND_OWNED_DETAIL, ReadinessCheck, ReadinessCheckId, ReadinessReport,
+    ReadinessStatus, aggregate_status, mark_frontend_owned, mark_frontend_owned_diagnostics,
 };
