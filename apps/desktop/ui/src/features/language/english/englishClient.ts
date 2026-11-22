@@ -99,6 +99,29 @@ export interface EnglishClient {
   nceCancel(): Promise<void>;
   dictImport(path: string): Promise<DictImportReport>;
   dictCancel(): Promise<void>;
+
+  // ---- 网页端：异步导入（服务端排队执行，按 jobId 取消） ----
+  importNceAsync(sourceDir: string): Promise<{ jobId: string }>;
+  importDictAsync(path: string): Promise<{ jobId: string }>;
+  importStatus(): Promise<ImportStatusView>;
+  cancelNceImport(jobId: string): Promise<void>;
+  cancelDictImport(jobId: string): Promise<void>;
+}
+
+/** `GET /api/v1/language/import-status` 的形状（服务端 camelCase）。 */
+export interface ImportStatusView {
+  running: boolean;
+  jobId: string | null;
+  kind: "nce" | "dict" | null;
+  nceBooks: number;
+  nceLessons: number;
+  nceSentences: number;
+  nceVocab: number;
+  mediaFiles: number;
+  dictEntries: number;
+  issues: string[];
+  lastError: string | null;
+  cancelled: boolean;
 }
 
 export function createEnglishClient(
@@ -195,6 +218,16 @@ export function createEnglishClient(
     nceCancel: () => transport.invoke<void>("language_nce_cancel"),
     dictImport: (path) => transport.invoke<DictImportReport>("language_dict_import", { path }),
     dictCancel: () => transport.invoke<void>("language_dict_cancel"),
+    importNceAsync: (sourceDir) =>
+      transport.invoke<{ jobId: string }>("language_nce_import", { sourceDir }),
+    importDictAsync: (path) =>
+      transport.invoke<{ jobId: string }>("language_dict_import", { path }),
+    importStatus: () =>
+      transport.invoke<ImportStatusView>("language_import_status"),
+    cancelNceImport: (jobId) =>
+      transport.invoke<void>("language_nce_import_cancel", { jobId }),
+    cancelDictImport: (jobId) =>
+      transport.invoke<void>("language_dict_import_cancel", { jobId }),
   };
 }
 

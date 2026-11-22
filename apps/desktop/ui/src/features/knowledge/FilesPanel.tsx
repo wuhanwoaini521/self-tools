@@ -3,8 +3,8 @@
  *
  * 只做「搜索 + 元数据 + 只读文本」，不做文件树 / Finder 克隆；所有读取都经后端
  * `FileService::authorize`（允许根 + deny 规则），前端不自行拼接路径。
- * 打开文件走系统默认程序（`@tauri-apps/plugin-opener`），网页端无此能力
- * （内联 capability guard；阶段 2.3 收敛到统一能力模型）。
+ * 打开文件走系统默认程序（`@tauri-apps/plugin-opener`），网页端无此能力；
+ * 能力判断与实际调用都收敛在 `../../platform` 适配层，组件不再自己判断运行时。
  */
 import {
   ArrowClockwise,
@@ -14,9 +14,13 @@ import {
   Lock,
   MagnifyingGlass,
 } from "@phosphor-icons/react";
-import { openPath } from "@tauri-apps/plugin-opener";
 import { useCallback, useEffect, useState } from "react";
-import { errorMessage, formatRelativeTime, isTauriRuntime } from "../../utils";
+import {
+  canOpenLocalPath,
+  LOCAL_PATH_UNAVAILABLE,
+  revealLocalPath,
+} from "../../platform";
+import { errorMessage, formatRelativeTime } from "../../utils";
 import { knowledgeClient } from "./knowledgeClient";
 import type {
   FileIndexReportDto,
@@ -117,11 +121,10 @@ export function FilesPanel({
   };
 
   const openWithSystem = async (file: FileMetadataDto) => {
-    // 能力守卫（阶段 2.3 收敛到统一 capability 模型）：网页端没有唤起本机
-    // 系统程序的等价能力 —— 这不是「没实现」，而是浏览器沙箱做不到。
-    // 读取/元数据/扫描在网页端都可用，只有这一步用桌面端。
-    if (!isTauriRuntime()) {
-      setNotice("网页端无法唤起系统程序打开文件，请在桌面端打开。");
+    // 网页端没有唤起本机系统程序的等价能力 —— 这不是「没实现」，而是浏览器
+    // 沙箱做不到。读取/元数据/扫描在网页端都可用，只有这一步用桌面端。
+    if (!canOpenLocalPath()) {
+      setNotice(LOCAL_PATH_UNAVAILABLE);
       return;
     }
     try {
@@ -129,7 +132,7 @@ export function FilesPanel({
       const target = result.action?.target as { path?: unknown } | undefined;
       const path =
         typeof target?.path === "string" ? target.path : result.file.path;
-      await openPath(path);
+      await revealLocalPath(path);
     } catch (error) {
       setNotice(errorMessage(error));
     }
@@ -314,11 +317,11 @@ export function FilesPanel({
                       </button>
                       <button
                         className="memory-action primary"
-                        disabled={!isTauriRuntime() || file.restricted}
+                        disabled={!canOpenLocalPath() || file.restricted}
                         title={
                           file.restricted
                             ? "该文件被规则限制"
-                            : isTauriRuntime()
+                            : canOpenLocalPath()
                               ? "用系统默认程序打开"
                               : "网页端无法唤起系统程序"
                         }

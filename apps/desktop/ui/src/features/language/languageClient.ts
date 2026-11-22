@@ -59,8 +59,12 @@ export interface LanguageClient {
   sentences(language: LanguageCode, limit: number): Promise<SentenceRecord[]>;
   sources(): Promise<SourceInfo[]>;
   installStarter(): Promise<StarterReport>;
+  /**
+   * 跟读评分。目标句由后端按 `sentenceId` 查库，客户端不传目标文本
+   * （否则等于让调用方自己挑一句最好读的来对比）。
+   */
   speakingFeedback(
-    target: string,
+    sentenceId: string,
     transcript: string,
     durationMs: number,
     targetMs: number,
@@ -129,9 +133,9 @@ export function createLanguageClient(
     sources: () => transport.invoke<SourceInfo[]>("language_sources"),
     installStarter: () =>
       transport.invoke<StarterReport>("language_install_starter", { only: null }),
-    speakingFeedback: (target, transcript, durationMs, targetMs, longPausesMs) =>
+    speakingFeedback: (sentenceId, transcript, durationMs, targetMs, longPausesMs) =>
       transport.invoke<SpeakingScore>("language_speaking_feedback", {
-        request: { target, transcript, durationMs, targetMs, longPausesMs },
+        request: { sentenceId, transcript, durationMs, targetMs, longPausesMs },
       }),
 
     learningItem: (entityId) =>

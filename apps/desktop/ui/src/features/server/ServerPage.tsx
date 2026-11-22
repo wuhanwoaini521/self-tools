@@ -7,8 +7,8 @@
  */
 import { useCallback, useEffect, useState } from "react";
 import { ArrowClockwise, Cpu, HardDrives, Memory as MemoryIcon, Warning } from "@phosphor-icons/react";
-import { openUrl } from "@tauri-apps/plugin-opener";
-import { errorMessage, isTauriRuntime } from "../../utils";
+import { errorMessage } from "../../utils";
+import { openExternalUrl } from "../../platform";
 import {
   AppRow,
   AuditRow,
@@ -177,12 +177,8 @@ export function ServerPage({ active, setNotice }: ServerPageProps) {
 
   const openApp = async (url: string) => {
     try {
-      if (isTauriRuntime()) {
-        await openUrl(url);
-      } else {
-        // 网页端等价能力：新标签打开。阶段 2.3 会收敛成统一 capability guard。
-        window.open(url, "_blank", "noopener,noreferrer");
-      }
+      // 桌面 = 系统浏览器，网页 = 新标签；差异收敛在 platform 适配层。
+      await openExternalUrl(url);
     } catch (error) {
       setNotice(`打开失败：${errorMessage(error)}`);
     }

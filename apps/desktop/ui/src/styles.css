@@ -21202,6 +21202,17 @@ main.history-v2-period {
   gap: var(--space-2);
   flex-wrap: wrap;
 }
+/* 网页端没有原生文件选择器：直接填写服务器路径。 */
+.en-path-input {
+  flex: 1 1 260px;
+  min-width: 0;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font: var(--text-secondary);
+}
 .en-scan-result {
   display: flex;
   flex-direction: column;

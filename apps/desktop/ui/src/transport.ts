@@ -363,6 +363,12 @@ const HTTP_POST_ENDPOINTS: Record<
   language_nce_scan: () => "/api/v1/language/nce/scan",
   language_nce_import: () => "/api/v1/language/nce/import",
   language_dict_import: () => "/api/v1/language/dict/import",
+  language_nce_import_cancel: (a) =>
+    `/api/v1/language/nce/import/${encodeURIComponent(String(a.jobId ?? ""))}/cancel`,
+  language_dict_import_cancel: (a) =>
+    `/api/v1/language/dict/import/${encodeURIComponent(String(a.jobId ?? ""))}/cancel`,
+  language_install_starter: () => "/api/v1/language/starter/install",
+  language_speaking_feedback: () => "/api/v1/language/speaking/feedback",
   test_travel_llm: () => "/api/v1/travel/test/llm",
   test_travel_amap: () => "/api/v1/travel/test/amap",
   test_travel_qweather: () => "/api/v1/travel/test/qweather",
@@ -446,6 +452,10 @@ const HTTP_POST_ENDPOINTS: Record<
     `/api/v1/server/actions/${encodeURIComponent(String(a.confirmationId ?? ""))}/confirm`,
   cancel_action: (a) =>
     `/api/v1/server/actions/${encodeURIComponent(String(a.confirmationId ?? ""))}/cancel`,
+  // 凭据写入：只发枚举字段 + 值；响应只有 `*_configured` 布尔。
+  put_secret_settings: () => "/api/v1/settings/secrets",
+  news_set_category: (a) =>
+    `/api/v1/news/sources/${encodeURIComponent(String(a.sourceId ?? ""))}/category`,
 };
 
 /**
@@ -460,10 +470,13 @@ const HTTP_POST_BODIES: Record<
   memory_save: (a) => a.request ?? {},
   memory_update: (a) => a.request ?? {},
   documents_read: (a) => a.request ?? {},
+  language_speaking_feedback: (a) => a.request ?? {},
   // HTTP 契约只发 DTO 本体（桌面 Tauri 命令的 `request` 包装不沿用）。
   services_restart: (a) => ({ serviceId: a.serviceId ?? null }),
   confirm_action: (a) => ({ serviceId: a.serviceId ?? null }),
   cancel_action: () => ({}),
+  put_secret_settings: (a) => a.update ?? { updates: [] },
+  news_set_category: (a) => ({ category: a.category ?? "" }),
 };
 
 const HTTP_DELETE_ENDPOINTS: Record<string, (args: Record<string, unknown>) => string> = {
@@ -509,6 +522,73 @@ export function patchRequest(
   return endpoint ? { url: endpoint.path(args), body: endpoint.body(args) } : null;
 }
 
+/**
+ * 远端可写的设置字段（与服务端 `PublicSettingsUpdate` 白名单逐项对应）。
+ *
+ * `workspace_path` / `recent_files` / `knowledge` / `server` 刻意不在列表里：
+ * 它们绑定本机路径与可执行命令，网页端改了也不该上行（服务端会 400）。
+ */
+const PUBLIC_SETTINGS_KEYS = [
+  "theme_mode",
+  "ui_theme",
+  "rss_refresh_minutes",
+  "editor_font_size",
+  "auto_save",
+  "markdown_default_view",
+] as const;
+const PUBLIC_SETTINGS_GROUPS: Record<string, readonly string[]> = {
+  ai: ["provider", "model", "base_url", "timeout_secs"],
+  travel: ["search_backend", "searxng_url", "llm_base_url", "llm_model", "qweather_api_host"],
+  decision: [
+    "mode",
+    "jev_base_url",
+    "jev_model",
+    "jev_timeout_secs",
+    "jev_failure_fallback",
+    "multi_agent_enabled",
+    "max_workers",
+  ],
+};
+
+/** 把完整设置裁成 `PUT /settings/public` 的请求体（null 字符串 → 空串 = 清空）。 */
+export function publicSettingsBody(settings: unknown): Record<string, unknown> {
+  const source = (settings ?? {}) as Record<string, unknown>;
+  const body: Record<string, unknown> = {};
+  for (const key of PUBLIC_SETTINGS_KEYS) {
+    const value = source[key];
+    if (value !== undefined) body[key] = value;
+  }
+  for (const [group, keys] of Object.entries(PUBLIC_SETTINGS_GROUPS)) {
+    const value = source[group];
+    if (!value || typeof value !== "object") continue;
+    const nested: Record<string, unknown> = {};
+    for (const key of keys) {
+      const field = (value as Record<string, unknown>)[key];
+      if (field === undefined) continue;
+      nested[key] = field === null ? "" : field;
+    }
+    if (Object.keys(nested).length > 0) body[group] = nested;
+  }
+  return body;
+}
+
+const HTTP_PUT_ENDPOINTS: Record<string, PatchEndpoint> = {
+  put_settings: {
+    path: () => "/api/v1/settings/public",
+    body: (a) => publicSettingsBody(a.settings),
+  },
+};
+
+/** PUT 请求的目标（路径 + 显式请求体）；命令没有映射时返回 null。 */
+export function putRequest(
+  command: string,
+  args: Record<string, unknown>,
+  endpoints: Record<string, PatchEndpoint> = HTTP_PUT_ENDPOINTS,
+): { url: string; body: unknown } | null {
+  const endpoint = endpoints[command];
+  return endpoint ? { url: endpoint.path(args), body: endpoint.body(args) } : null;
+}
+
 export class HttpTransportError extends Error {
   constructor(
     message: string,
@@ -545,11 +625,13 @@ export const httpTransport: CommandTransport = {
     const post = HTTP_POST_ENDPOINTS[command];
     const remove = HTTP_DELETE_ENDPOINTS[command];
     const patch = patchRequest(command, args);
+    const put = putRequest(command, args);
     const endpoint = HTTP_ENDPOINTS[command];
     let url: string;
     if (post !== undefined) url = post(args);
     else if (remove !== undefined) url = remove(args);
     else if (patch !== null) url = patch.url;
+    else if (put !== null) url = put.url;
     else if (endpoint !== undefined) url = endpoint(args);
     else throw new Error(`「${command}」尚无网页端接口，请启动桌面应用使用该功能。`);
     const postBody = (HTTP_POST_BODIES[command] ?? ((value: Record<string, unknown>) => value))(args);
@@ -569,7 +651,13 @@ export const httpTransport: CommandTransport = {
                 headers: { "Content-Type": "application/json", Accept: "application/json" },
                 body: JSON.stringify(patch.body),
               })
-            : await fetch(url, { headers: { Accept: "application/json" } });
+            : put !== null
+              ? await fetch(url, {
+                  method: "PUT",
+                  headers: { "Content-Type": "application/json", Accept: "application/json" },
+                  body: JSON.stringify(put.body),
+                })
+              : await fetch(url, { headers: { Accept: "application/json" } });
     } catch (error) {
       throw new Error(
         `无法连接本地数据服务（${url}）：${

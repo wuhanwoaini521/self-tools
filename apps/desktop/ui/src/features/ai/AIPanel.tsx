@@ -19,7 +19,7 @@ import {
   X,
 } from "@phosphor-icons/react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { openUrl } from "@tauri-apps/plugin-opener";
+import { openExternalUrl } from "../../platform";
 import { errorMessage, formatRelativeTime } from "../../utils";
 import { MemoryConfirmCard } from "../knowledge/MemoryConfirmCard";
 import {
@@ -444,7 +444,12 @@ export function AIPanel({
             onOpenDocument(action.target as unknown as OpenDocumentTarget);
           } else if (action.type === "open_app") {
             const target = action.target as { url?: string | null };
-            if (typeof target.url === "string" && target.url) void openUrl(target.url);
+            if (typeof target.url === "string" && target.url) {
+              // 桌面交给系统浏览器，网页新标签；失败只提示，不打断对话。
+              void openExternalUrl(target.url).catch((error) =>
+                setErrorText(errorMessage(error)),
+              );
+            }
           }
         }
         setStageLog((log) => log.filter((entry) => entry.stage !== "done").concat([{ stage: "done" }]));

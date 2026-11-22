@@ -115,6 +115,117 @@ describe("httpTransport：命令映射", () => {
     );
   });
 
+  it("uploads only remote-safe settings fields and posts secrets separately", async () => {
+    stubFetch();
+    fetchMock.mockResolvedValue(jsonResponse({}));
+    const settings = {
+      schema_version: 1,
+      recent_files: ["E:/notes/a.md"],
+      workspace_path: "E:/work",
+      theme_mode: "dark",
+      ui_theme: "warm-editorial",
+      rss_refresh_minutes: 30,
+      editor_font_size: 15,
+      auto_save: true,
+      markdown_default_view: "preview",
+      travel: {
+        search_backend: "auto",
+        searxng_url: null,
+        llm_base_url: null,
+        llm_model: "deepseek-chat",
+        qweather_api_host: null,
+      },
+      geography: {},
+      ai: { provider: "openai", model: "gpt-5", base_url: null, timeout_secs: 60 },
+      knowledge: { roots: [] },
+      server: { services: [], applications: [] },
+      decision: {
+        mode: "rule",
+        jev_base_url: null,
+        jev_model: null,
+        jev_timeout_secs: 30,
+        jev_failure_fallback: true,
+        multi_agent_enabled: false,
+        max_workers: 2,
+      },
+      secrets: { ai_api_key_configured: true },
+    };
+
+    await httpTransport.invoke("put_settings", { settings });
+    const [url, init] = fetchMock.mock.calls.at(-1) as [string, RequestInit];
+    expect(url).toBe("/api/v1/settings/public");
+    expect(init.method).toBe("PUT");
+    const body = JSON.parse(String(init.body)) as Record<string, unknown>;
+    // 主机绑定字段与凭据状态都不上行；服务端对它们会直接 400。
+    for (const blocked of ["workspace_path", "recent_files", "knowledge", "server", "secrets"]) {
+      expect(body).not.toHaveProperty(blocked);
+    }
+    expect(body.ui_theme).toBe("warm-editorial");
+    expect(body.ai).toEqual({
+      provider: "openai",
+      model: "gpt-5",
+      base_url: "",
+      timeout_secs: 60,
+    });
+
+    await httpTransport.invoke("put_secret_settings", {
+      update: { updates: [{ field: "ai_api_key", value: "sk-test" }] },
+    });
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      "/api/v1/settings/secrets",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ updates: [{ field: "ai_api_key", value: "sk-test" }] }),
+      }),
+    );
+  });
+
+  it("maps language data writes: starter install, async import cancel, speaking feedback", async () => {
+    stubFetch();
+    fetchMock.mockResolvedValue(jsonResponse({}));
+
+    await httpTransport.invoke("language_install_starter", { only: null });
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      "/api/v1/language/starter/install",
+      expect.objectContaining({ method: "POST", body: JSON.stringify({ only: null }) }),
+    );
+
+    await httpTransport.invoke("language_nce_import_cancel", { jobId: "job-1" });
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      "/api/v1/language/nce/import/job-1/cancel",
+      expect.objectContaining({ method: "POST" }),
+    );
+    await httpTransport.invoke("language_dict_import_cancel", { jobId: "job-2" });
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      "/api/v1/language/dict/import/job-2/cancel",
+      expect.objectContaining({ method: "POST" }),
+    );
+
+    // 评分请求只发 sentenceId + 转写；目标句由服务端查库。
+    await httpTransport.invoke("language_speaking_feedback", {
+      request: {
+        sentenceId: "sentence-1",
+        transcript: "hello",
+        durationMs: 1200,
+        targetMs: 1000,
+        longPausesMs: [],
+      },
+    });
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      "/api/v1/language/speaking/feedback",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          sentenceId: "sentence-1",
+          transcript: "hello",
+          durationMs: 1200,
+          targetMs: 1000,
+          longPausesMs: [],
+        }),
+      }),
+    );
+  });
+
   it("maps RSS reads, writes, and deletion to the shared HTTP endpoints", async () => {
     stubFetch();
     fetchMock.mockResolvedValue(jsonResponse([]));
