@@ -62,11 +62,15 @@
 | AI 会话 / Web | 会话列表 / 新建 / 改名 / 归档 / 删除 / 追加消息只有 Tauri 命令，抽屉在网页端直接显示「需要桌面运行时」 | ✅ `/api/v1/conversations*` 六个端点复用 `ConversationService` 与 `conversations.db`；`conversationClient` 注入 `CommandTransport`，抽屉移除 Web 早退；非法 role 400 |
 | AI 进度 / Web | 网页端收不到 `agent-progress`（`transport.subscribe` 在 HTTP 下是 no-op），也没有断线重放 | ✅ `GET /api/v1/ai/runs/{trace_id}`（状态/游标）+ `/events`（SSE，`event: progress`、`id: seq`、15s 心跳、游标过期 409）；桌面 Tauri 与网页 HTTP 共用 runtime `AiJobEvents` 的同一份载荷/seq 规则（各自进程内扇出）；`AIPanel` 按 `seq` 幂等 |
 | Server / Web | 家庭服务器面板与重启操作只有 Tauri 命令；网页端硬阻断，且服务端无法区分登录者 | ✅ `/api/v1/server/{status,services,apps,actions/recent,logs,mcp}` 读开放；写端点要求网关 HMAC 标记 + admin 角色（`RemoteGatewayAdmin`），票据一次性、绑 principal、过期即废，跨 principal 确认/取消 Denied；审计来源 `gateway`，日志先 clamp 再脱敏并标 `untrusted`；直连 8080 写请求 401 |
+| 设置写入 / Web | 主题 / AI provider / Travel / 决策层与 Provider 凭据只能在本机桌面修改；网页端设置面板明说「不持久化」 | ✅ `PUT /api/v1/settings/public`（`PublicSettingsUpdate` 白名单，拒绝 `workspace_path`/`knowledge`/`server` 等主机绑定字段）+ `POST /api/v1/settings/secrets`（枚举字段、只回 `*_configured`），均要求网关 admin 标记；读失败中止写盘；审计只记字段名 |
+| Provider 连接测试 / Web | 设置在网页端总是回「连接测试目前只在本机桌面应用提供」，但后端 `POST /api/v1/travel/test/{llm,amap,qweather}` 早就在（与桌面同一 provider、同一句判词） | ✅ 移除 `SettingsDialog.runTest` 的运行时早退；地理旧凭据清理按钮改用 `canWriteSettings()`；凭据仍只从后端已保存设置读取 |
+| 平台能力适配 | 外链/本机文件/设置写入的 `isTauriRuntime()` 判断散落在 `App`/`RssPage`/`TravelGuide`/`NewsPage`/`FilesPanel`/`SettingsDialog`，网页端外链分支还漏了 `noopener`，`NewsPage` 直接调插件（网页端抛错） | ✅ `platform.ts` 统一 `canOpenExternalUrl` / `canOpenLocalPath` / `canWriteSettings` / `openExternalUrl` / `revealLocalPath`；`RssPage`、`TravelGuide`、`NewsPage`、`FilesPanel`、`App`、`ServerParts` 全部改走适配层；新增 `platform.test.ts` 覆盖桌面/网页/弹窗被拦截三条路径 |
+| Language 数据缺口 / Web | NCE/ECDICT 导入无法取消（取消标志是局部变量）、Starter 安装与跟读评分没有 HTTP 端点、News 分类不能改 | ✅ 取消标志移入 `ImportTracker` 并按 `jobId` 取消（旧 id 404）；`POST /language/starter/install`；`POST /language/speaking/feedback` 由服务端按 `sentenceId` 查目标句；`POST /news/sources/{id}/category`；网页端导入改为填服务器路径 + 轮询状态 + 取消 |
 | 设计系统 | Pixel-Lift 硬阴影 + 结构 token 分散在 4 个主题 | ✅ |
 
 ## 未修复（按影响）
 
-1. **仍有多组 desktop-only 命令**：Markdown/本地文件与 `files_open` 仍通过 Tauri；Server（只读面板 + 重启票据）、Geography、RSS、History enrichment、Knowledge（`files_open` 除外）与 Conversation CRUD 已有 HTTP 映射。当前未枚举可复核的“未映射命令总数”。
+1. **仍有多组 desktop-only 命令**：Markdown/本地文件、`files_open`、知识库根目录/服务注册表/MCP 设置仍通过 Tauri；Server（只读面板 + 重启票据）、设置写入（公开字段 + 凭据）、Provider 连接测试、Geography、RSS、History enrichment、Knowledge（`files_open` 除外）与 Conversation CRUD 已有 HTTP 映射。当前未枚举可复核的“未映射命令总数”。
 2. System Readiness 已有 13 项后端检查模型和服务端 route；vision probe 当前 false，PWA/设备会话值由前端拥有，HTTP route 集成覆盖仍需补齐。
 3. Geography HTTP 路由使用共享 `GeographyStore`，覆盖 home/search/detail/favorite 和 History crosswalk；本机数据行数及内容覆盖度未核查。
 4. Geography/History 完整原生交互、Settings 凭据边界与 live Travel provider 仍未作为本轮 UI 验收项。

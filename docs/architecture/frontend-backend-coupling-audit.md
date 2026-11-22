@@ -89,7 +89,19 @@ Supersedes the “no OpenAPI / contract tests FAIL” inventory for **operation 
 ## P1 secret boundary (2026-11-19)
 
 - Settings GET (HTTP and desktop) returns public DTO + `*_configured` flags; `secret_settings_field_paths` fails the build if credential field names appear.
-- Credential writes remain `put_secret_settings` / desktop-only HTTP POST `/api/v1/settings` stays forbidden.
+- Credential writes go through `put_secret_settings`; the legacy `POST /api/v1/settings` stays forbidden (`403 settings_write_requires_desktop`). Remote write was desktop-only at this point in time — superseded by P1.5 below.
 - Travel provider tests (`test_travel_*`) read stored keys; request bodies that include `api_key` are ignored and must not be echoed.
 - Geography map UI does not load `webapi.amap.com` or accept JS keys.
+- Not in scope: moving `theme_mode` / `ui_theme` off the backend settings document.
+
+## P1.5 remote settings and language-data writes (2026-11-19)
+
+Supersedes the “remote settings write stays desktop-only” part of P1 without changing the secret boundary:
+
+- `PUT /api/v1/settings/public` accepts only `PublicSettingsUpdate` (theme / UI / RSS / editor + whitelisted `ai` / `travel` / `decision` groups). `workspace_path`, `recent_files`, `knowledge`, `server` and `secrets` are rejected at deserialization, so the settings page cannot become a command-execution or retrieval-root editor from the web.
+- `POST /api/v1/settings/secrets` takes `SecretSettingsField` enum entries and answers with `SecretSettingsStatus` (`*_configured` booleans). Values never leave the backend, never enter audit (`target_id` is field names), and settings-file parse errors abort the write instead of overwriting with defaults.
+- Both require the gateway admin marker; a direct loopback write is `401 gateway_auth_required`. Audit entries (`settings_update` / `settings_secret_update`) carry the principal, changed field names, outcome and duration.
+- Provider connectivity tests do not need a desktop-only path: web reuses `POST /api/v1/travel/test/{llm,amap,qweather}`, reading credentials from stored backend settings.
+- Still desktop-only by design: `workspace_path` / `recent_files`, `knowledge.roots`, `server.services.*.command`, MCP binding, `files_open`, and Markdown local-file IO.
+- Frontend capability checks live in `apps/desktop/ui/src/platform.ts` (`canOpenExternalUrl` / `canOpenLocalPath` / `canWriteSettings`); components no longer branch on `isTauriRuntime()` to pick an API.
 - Not in scope: moving `theme_mode` / `ui_theme` off the backend settings document.

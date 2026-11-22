@@ -38,6 +38,24 @@ Writes require a gateway-authenticated **admin** marker:
 
 Without the marker a write returns `401 {"code":"gateway_auth_required"}`; a non-admin marker returns `403 gateway_admin_required`; cross-principal or replayed tickets surface as `outcome: "denied"` and are audited. The gateway adds `X-SelfTools-Gateway-{Principal,Role,Expires,Nonce,Signature}` after stripping any client-supplied `X-SelfTools-*`/`X-Forwarded-*` headers; the signature is HMAC-SHA256 over `METHOD\nPATH\nEXPIRES\nNONCE\nPRINCIPAL\nROLE\nsha256_hex(BODY)`.
 
+## Settings writes (gateway admin only)
+
+- `PUT /api/v1/settings/public` — partial update of `PublicSettingsUpdate`: `theme_mode`, `ui_theme`, `rss_refresh_minutes`, `editor_font_size`, `auto_save`, `markdown_default_view`, and the whitelisted `ai` / `travel` / `decision` groups. Unknown fields (including `workspace_path`, `knowledge`, `server`, `secrets`) are rejected with 400. Empty strings clear optional values; numbers/bools cannot be unset.
+- `POST /api/v1/settings/secrets` — body `{"updates":[{"field":"ai_api_key","value":"…"}]}`; `field` is the `SecretSettingsField` enum, `value: null` clears. The response is `SecretSettingsStatus` (booleans only); the value is never returned, logged, or audited.
+- `GET /api/v1/settings` keeps its redacted shape; the legacy `POST /api/v1/settings` stays `403 settings_write_requires_desktop`.
+
+Both write endpoints require the gateway admin marker; a direct loopback write returns `401 gateway_auth_required`. A settings file that fails to parse aborts the write (`settings_write_failed`) instead of being overwritten with defaults. Each successful change is audited as `settings_update` / `settings_secret_update` with the changed field names as `target_id` and no values.
+
+Provider connectivity tests need no desktop-only path: `POST /api/v1/travel/test/llm|amap|qweather` use the same providers and wording as the desktop commands, read credentials from stored settings, and ignore request-body keys.
+
+## Language data and News gaps
+
+- `POST /api/v1/language/nce/import` / `POST /api/v1/language/dict/import` return `{"started":true,"jobId":"…"}`; progress is polled at `GET /api/v1/language/import-status` (`running`, `jobId`, `kind`, counts, `cancelled`, `lastError`).
+- `POST /api/v1/language/nce/import/{jobId}/cancel` and `POST /api/v1/language/dict/import/{jobId}/cancel` cancel the active job only; an old or unknown id returns `404 job_not_found`.
+- `POST /api/v1/language/starter/install` `{"only": null}` installs the built-in starter datasets (idempotent).
+- `POST /api/v1/language/speaking/feedback` takes `{sentenceId, transcript, durationMs, targetMs, longPausesMs}`; the target sentence is looked up server-side, so a client cannot choose its own scoring target.
+- `POST /api/v1/news/sources/{id}/category` `{"category":"tech"}` reclassifies a news source (same categories as the desktop command); invalid values return `400 news_invalid_category`.
+
 Regenerate after adding, removing, or renaming a route:
 
 ```bash

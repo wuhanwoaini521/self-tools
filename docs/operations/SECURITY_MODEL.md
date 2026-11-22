@@ -78,7 +78,19 @@ Web/PWA（HTTPS） → Device Session（authenticated）
 | 远程写仍受 SafeAction 约束 | PASS | restart 只签票据；确认需同 principal，一次性、TTL、冷却、会话上限、审计全部沿用；审计来源 `gateway` |
 | 日志隐私 | PASS | 先 `clamp_limits` 再 `LogRedactor::redact`，响应标 `untrusted: true`；审计不记录请求体 |
 
-### 2.8 Agent 能力提升
+### 2.8 设置写入（Phase 1.5）
+
+| 检查 | 结论 | 证据 |
+| --- | --- | --- |
+| 远程写需要身份 | PASS | `PUT /api/v1/settings/public` 与 `POST /api/v1/settings/secrets` 都要求网关 admin 标记；直连 loopback 写 401 `gateway_auth_required` |
+| 公开字段白名单 | PASS | `PublicSettingsUpdate` 只含主题 / UI / RSS / 编辑器 / AI / Travel 公开项 / 决策层；`deny_unknown_fields` 让 `workspace_path`、`knowledge`、`server`、`secrets` 直接 400 |
+| 主机绑定字段不可远程改 | PASS | `server.services.*.command` 是可执行命令模板、`knowledge.roots` 是检索根目录：都不在写 DTO 里，避免「设置页变命令执行入口」 |
+| 凭据只写不读 | PASS | secrets 端点只接受 `SecretSettingsField` 枚举；响应是 `SecretSettingsStatus`（仅 `*_configured`），测试断言值不出现在响应与审计里 |
+| 写前读、失败中止 | PASS | `SettingsAccess::load_for_write` 区分「读」与「写」：settings.json 损坏时报错而不是用默认值覆盖；保存为临时文件 + rename |
+| 审计不记值 | PASS | `settings_update` / `settings_secret_update` 审计的 `target_id` 只有字段名；`record_config_change` 由调用方传入字段列表 |
+| 出站目标校验 | PASS | `ai.base_url` / `travel.*_url` / `decision.jev_base_url` 只接受 http(s)，超时与 worker 数量有范围 |
+
+### 2.9 Agent 能力提升
 | 检查 | 结论 | 证据 |
 | --- | --- | --- |
 | capability escalation | PASS | `DelegatedCapabilitySet::intersect` + `is_subset_of` 双重保险 |
@@ -86,7 +98,7 @@ Web/PWA（HTTPS） → Device Session（authenticated）
 | Decision 不能提权 | PASS | `decision_security_tests`（7 条）+ `failure_injection_tests` 的 hostile 用例 |
 | Decision 不能 bypass SafeAction | PASS | 决策层只返策略；SYSTEM 语义只在票据 |
 
-### 2.9 隐私 / 日志 / 备份 / PWA
+### 2.10 隐私 / 日志 / 备份 / PWA
 | 检查 | 结论 | 证据 |
 | --- | --- | --- |
 | 日志隐私 | PASS | §2.1 |

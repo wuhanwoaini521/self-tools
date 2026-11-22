@@ -632,4 +632,4 @@ After the redesign lands, re-run and confirm:
 | RSS 三栏挤压 | 已修 | ≤900px 单列 + 阅读返回 |
 | 深色主题未验证 | 已修 | 14 路由 × 深色 × 手机/桌面 全量截图（56 个视口无溢出/报错） |
 
-仍未完成：History 时间轴的信息密度（并发多时仍需横向滑动）、Markdown 移动端侧栏目前是隐藏而非抽屉、Server/System 仅桌面可用。
+仍未完成：History 时间轴的信息密度（并发多时仍需横向滑动）、Markdown 移动端侧栏目前是隐藏而非抽屉、Markdown 本地文件仍仅桌面可用。Server（读开放 + 重启票据）、设置写入与 Provider 连接测试已可在网页端使用（网关 admin）；System 的就绪检查仍以桌面为主。
