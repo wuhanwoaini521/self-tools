@@ -80,7 +80,16 @@ pub fn router(
     rss: Arc<crate::rss_api::RssDeps>,
     // History AI 解读：与桌面端共用同一个 EnrichmentRunnerPort。
     enrichment: Arc<dyn devtoolbox_application::history::enrichment::ports::EnrichmentRunnerPort>,
+    // Home Server 运行时：只读状态 + 经网关 admin 标记的重启票据流。
+    server: Arc<devtoolbox_runtime::server::ServerRuntime>,
 ) -> Router {
+    // 网关验签器：密钥来自环境变量或数据目录（首次启动生成，权限限当前用户）。
+    let gateway_verifier = Arc::new(crate::gateway_auth::GatewayVerifier::load(&data_dir));
+    if gateway_verifier.key_configured() {
+        tracing::info!("gateway authentication markers enabled");
+    } else {
+        tracing::warn!("gateway signing key unavailable; LAN gateway markers will be rejected");
+    }
     let exploration = Arc::new(
         devtoolbox_application::exploration::ExplorationService::new(
             Arc::clone(&geography),
@@ -671,6 +680,28 @@ pub fn router(
             "/api/v1/study-boards/{id}/snapshots",
             post(crate::study_board_api::save_snapshot),
         )
+        // ---- Home Server（Phase 1.4）：读开放，写必须带网关 admin 标记 ----
+        .route("/api/v1/server/status", get(crate::server_api::status))
+        .route("/api/v1/server/services", get(crate::server_api::services))
+        .route("/api/v1/server/apps", get(crate::server_api::apps))
+        .route(
+            "/api/v1/server/actions/recent",
+            get(crate::server_api::recent_actions),
+        )
+        .route("/api/v1/server/logs", get(crate::server_api::logs))
+        .route("/api/v1/server/mcp", get(crate::server_api::mcp_status))
+        .route(
+            "/api/v1/server/actions/restart",
+            post(crate::server_api::request_restart),
+        )
+        .route(
+            "/api/v1/server/actions/{id}/confirm",
+            post(crate::server_api::confirm_action),
+        )
+        .route(
+            "/api/v1/server/actions/{id}/cancel",
+            post(crate::server_api::cancel_action),
+        )
         .layer(axum::Extension(Arc::clone(&content)))
         .layer(axum::Extension(Arc::clone(&dictionary)))
         .layer(axum::Extension(Arc::clone(&learning)))
@@ -696,6 +727,7 @@ pub fn router(
         .layer(axum::Extension(speaking_practice))
         .layer(axum::Extension(rss))
         .layer(axum::Extension(enrichment))
+        .layer(axum::Extension(server))
         .with_state(AppState { service })
         // 显式擦除成 `Arc<dyn Fn()>`：`Extension<T>` 按具体类型匹配，
         // `Arc<fn() -> i64>` 与 `Arc<dyn Fn() -> i64 + Send + Sync>` 不是同一个类型。
@@ -705,6 +737,12 @@ pub fn router(
         ))
         .layer(axum::extract::DefaultBodyLimit::max(1024 * 1024))
         .layer(axum::middleware::from_fn(crate::security::local_http_guard))
+        // 最外层：网关标记验签。只处理携带 `x-selftools-gateway-*` 的请求，
+        // 普通 loopback 请求原样透传（写端点仍会因缺 Extension 被拒）。
+        .layer(axum::middleware::from_fn_with_state(
+            gateway_verifier,
+            crate::gateway_auth::gateway_auth,
+        ))
 }
 
 async fn health() -> Json<serde_json::Value> {
@@ -1294,6 +1332,7 @@ mod tests {
                     .expect("rss article client"),
             }),
             test_core().history_enrichment.clone(),
+            test_core().server.clone(),
         )
     }
 
@@ -2075,6 +2114,37 @@ mod tests {
         let (status, body) = request(&test_router(false), "/health").await;
         assert_eq!(status, StatusCode::OK);
         assert_eq!(body, serde_json::json!({ "status": "ok" }));
+    }
+
+    #[tokio::test]
+    async fn server_reads_are_open_but_direct_writes_require_a_gateway_marker() {
+        let app = test_router(false);
+
+        for path in [
+            "/api/v1/server/status",
+            "/api/v1/server/services",
+            "/api/v1/server/apps",
+            "/api/v1/server/actions/recent?limit=5",
+            "/api/v1/server/mcp",
+        ] {
+            let (status, body) = request(&app, path).await;
+            assert_eq!(status, StatusCode::OK, "{path}: {body}");
+        }
+
+        // 直连 loopback 没有网关注入的 Extension → fail-closed（不是 403 跨站）。
+        let (status, body) = post_json(
+            &app,
+            "/api/v1/server/actions/restart",
+            &serde_json::json!({ "serviceId": "self-tools" }),
+        )
+        .await;
+        assert_eq!(status, StatusCode::UNAUTHORIZED, "body={body}");
+        assert_eq!(body["code"], "gateway_auth_required");
+
+        // 缺 serviceId 的日志读取走稳定错误码，而不是 panic。
+        let (status, body) = request(&app, "/api/v1/server/logs").await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "body={body}");
+        assert_eq!(body["code"], "server_invalid_target");
     }
 
     #[tokio::test]

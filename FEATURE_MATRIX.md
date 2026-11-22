@@ -21,7 +21,7 @@
 | 12 | Knowledge | `#knowledge` | Memory / Docs / Files | 多个 db | ✅ | 3 个 server oneshot + transport 测试 | 读写/扫描/读取全部有 HTTP 端点；仅 `files_open`（唤起系统程序）属桌面能力，网页端显示能力说明 |
 | 13 | Graph | `#graph` | 跨模块知识图谱 | platform graph | ✅ 已修 | — | 无 root 时节点少 |
 | 14 | Search | `#search` | 全局检索 | platform + memory/docs/files | ⚠️ | 无 | `global_search` 已接；无结果 |
-| 15 | Server | `#server` | 家庭服务器 | server_actions.db | ❌ | 无 | Web 端硬阻断 |
+| 15 | Server | `#server` | 家庭服务器 | server_actions.db | ✅ | gateway + server_api + 前端 transport | 读开放；重启仍需网关 admin 标记 + 确认票据 + 审计 |
 | 16 | System | `#system` | 就绪状态 / 诊断 | readiness service | ◐ API 已接 | application probes/tests | 13 项检查模型；vision probe 当前 false，尚无 HTTP route integration test |
 
 ## 能力覆盖
@@ -61,11 +61,12 @@
 | Knowledge / Web | Memory 写入 / 确认 / 拒绝 / 归档 / 更新、documents/files 扫描与读取只在桌面桥 | ✅ `POST /api/v1/memory*`、`/documents/scan|read`、`/files/scan|metadata|read_text`、`GET /knowledge/status`；`documents/status` 补 `roots`、`files/status` 补明细；路径仍走 `FileService::authorize`，无任意写删；PATCH 请求体改为按端点显式声明 |
 | AI 会话 / Web | 会话列表 / 新建 / 改名 / 归档 / 删除 / 追加消息只有 Tauri 命令，抽屉在网页端直接显示「需要桌面运行时」 | ✅ `/api/v1/conversations*` 六个端点复用 `ConversationService` 与 `conversations.db`；`conversationClient` 注入 `CommandTransport`，抽屉移除 Web 早退；非法 role 400 |
 | AI 进度 / Web | 网页端收不到 `agent-progress`（`transport.subscribe` 在 HTTP 下是 no-op），也没有断线重放 | ✅ `GET /api/v1/ai/runs/{trace_id}`（状态/游标）+ `/events`（SSE，`event: progress`、`id: seq`、15s 心跳、游标过期 409）；桌面 Tauri 与网页 HTTP 共用 runtime `AiJobEvents` 的同一份载荷/seq 规则（各自进程内扇出）；`AIPanel` 按 `seq` 幂等 |
+| Server / Web | 家庭服务器面板与重启操作只有 Tauri 命令；网页端硬阻断，且服务端无法区分登录者 | ✅ `/api/v1/server/{status,services,apps,actions/recent,logs,mcp}` 读开放；写端点要求网关 HMAC 标记 + admin 角色（`RemoteGatewayAdmin`），票据一次性、绑 principal、过期即废，跨 principal 确认/取消 Denied；审计来源 `gateway`，日志先 clamp 再脱敏并标 `untrusted`；直连 8080 写请求 401 |
 | 设计系统 | Pixel-Lift 硬阴影 + 结构 token 分散在 4 个主题 | ✅ |
 
 ## 未修复（按影响）
 
-1. **仍有多组 desktop-only 命令**：Server 操作、Markdown/本地文件与 `files_open` 仍通过 Tauri；Geography、RSS、History enrichment、Knowledge（`files_open` 除外）与 Conversation CRUD 已有 HTTP 映射。当前未枚举可复核的“未映射命令总数”。
+1. **仍有多组 desktop-only 命令**：Markdown/本地文件与 `files_open` 仍通过 Tauri；Server（只读面板 + 重启票据）、Geography、RSS、History enrichment、Knowledge（`files_open` 除外）与 Conversation CRUD 已有 HTTP 映射。当前未枚举可复核的“未映射命令总数”。
 2. System Readiness 已有 13 项后端检查模型和服务端 route；vision probe 当前 false，PWA/设备会话值由前端拥有，HTTP route 集成覆盖仍需补齐。
 3. Geography HTTP 路由使用共享 `GeographyStore`，覆盖 home/search/detail/favorite 和 History crosswalk；本机数据行数及内容覆盖度未核查。
 4. Geography/History 完整原生交互、Settings 凭据边界与 live Travel provider 仍未作为本轮 UI 验收项。

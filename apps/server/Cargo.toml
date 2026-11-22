@@ -13,6 +13,9 @@ devtoolbox-infrastructure = { path = "../../crates/infrastructure" }
 devtoolbox-runtime = { path = "../../crates/runtime" }
 async-stream = "0.3"
 axum = { version = "0.8", features = ["macros"] }
+hmac = "0.12"
+sha2 = "0.10"
+uuid = { version = "1.26", features = ["v4"] }
 parking_lot.workspace = true
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal", "net", "sync"] }
 serde = { workspace = true }

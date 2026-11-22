@@ -14,11 +14,21 @@
 //   SELF_TOOLS_API_UPSTREAM   default http://127.0.0.1:8080
 //   SELF_TOOLS_LAN_CERT / _KEY  optional PEM pair to enable HTTPS (PWA install)
 //   SELF_TOOLS_LAN_SESSION_HOURS default 168
+//   SELF_TOOLS_GATEWAY_SIGNING_KEY  shared HMAC key with the loopback API (optional;
+//                                   otherwise generated once into the data dir)
+//   SELF_TOOLS_DATA_DIR       default "config" (where gateway-signing.key lives)
+//   SELF_TOOLS_LAN_PRINCIPAL  default "lan-owner" (recorded in request markers/audit)
+//
+// Every authenticated /api request is forwarded with signed gateway headers
+// (principal / role / expires / nonce / signature). The loopback API verifies
+// them before treating the request as a logged-in LAN principal — a direct
+// request to 127.0.0.1:8080 has no such markers and cannot perform writes.
 
 import crypto from "node:crypto";
 import fs from "node:fs";
 import http from "node:http";
 import https from "node:https";
+import path from "node:path";
 import { pathToFileURL } from "node:url";
 
 const COOKIE_NAME = "self_tools_lan";
@@ -35,6 +45,18 @@ const HOP_BY_HOP = new Set([
 const MAX_LOGIN_BODY = 8 * 1024;
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCKOUT_MS = 15 * 60 * 1000;
+/** 与上游 `apps/server/src/gateway_auth.rs` 保持一致。 */
+const SIGNING_KEY_ENV = "SELF_TOOLS_GATEWAY_SIGNING_KEY";
+const SIGNING_KEY_FILE = "gateway-signing.key";
+const SIGNATURE_TTL_SECS = 120;
+const MAX_SIGNED_BODY = 1024 * 1024;
+const GATEWAY_HEADERS = {
+  principal: "x-selftools-gateway-principal",
+  role: "x-selftools-gateway-role",
+  expires: "x-selftools-gateway-expires",
+  nonce: "x-selftools-gateway-nonce",
+  signature: "x-selftools-gateway-signature",
+};
 
 function loadConfig(overrides = {}) {
   const env = process.env;
@@ -47,6 +69,11 @@ function loadConfig(overrides = {}) {
     cert: overrides.cert ?? env.SELF_TOOLS_LAN_CERT,
     key: overrides.key ?? env.SELF_TOOLS_LAN_KEY,
     sessionHours: Number(overrides.sessionHours ?? env.SELF_TOOLS_LAN_SESSION_HOURS ?? 168),
+    principal: overrides.principal ?? env.SELF_TOOLS_LAN_PRINCIPAL ?? "lan-owner",
+    role: overrides.role ?? "admin",
+    signingKey: overrides.signingKey ?? env[SIGNING_KEY_ENV],
+    dataDir: overrides.dataDir ?? env.SELF_TOOLS_DATA_DIR ?? "config",
+    signingKeyFile: overrides.signingKeyFile,
   };
   if (typeof config.password !== "string" || config.password.length < 8) {
     throw new Error("SELF_TOOLS_LAN_PASSWORD must be set and at least 8 characters long");
@@ -64,7 +91,63 @@ function loadConfig(overrides = {}) {
     }
     config[name] = parsed;
   }
+  if (typeof config.principal !== "string" || !/^[A-Za-z0-9._:@-]{1,128}$/.test(config.principal)) {
+    throw new Error("SELF_TOOLS_LAN_PRINCIPAL must be 1-128 characters of [A-Za-z0-9._:@-]");
+  }
+  if (!["admin", "viewer"].includes(config.role)) {
+    throw new Error("gateway role must be admin or viewer");
+  }
   return config;
+}
+
+/** 校验密钥形态（与上游一致：32..256 个非空白字符）。 */
+export function validateSigningKey(raw) {
+  if (typeof raw !== "string") throw new Error("gateway signing key must be a string");
+  const key = raw.trim();
+  if (key.length < 32 || key.length > 256 || /\s/.test(key)) {
+    throw new Error("gateway signing key must be 32-256 non-whitespace characters");
+  }
+  return key;
+}
+
+/**
+ * 读取共享验签密钥：显式覆盖 → 环境变量 → 数据目录文件（首次生成）。
+ * 生成使用 `wx`（不覆盖别人刚写入的密钥），与上游 Rust 实现同一套规则。
+ */
+export function loadSigningKey(config) {
+  if (config.signingKey) return validateSigningKey(config.signingKey);
+  const file = config.signingKeyFile ?? path.join(config.dataDir, SIGNING_KEY_FILE);
+  try {
+    return validateSigningKey(fs.readFileSync(file, "utf8"));
+  } catch (error) {
+    if (error.code !== "ENOENT") throw error;
+  }
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  const generated = crypto.randomBytes(32).toString("hex");
+  try {
+    fs.writeFileSync(file, `${generated}\n`, { flag: "wx", mode: 0o600 });
+    return generated;
+  } catch (error) {
+    if (error.code === "EEXIST") {
+      return validateSigningKey(fs.readFileSync(file, "utf8"));
+    }
+    throw error;
+  }
+}
+
+/** 计算上游验签用的签名（小写 hex）。修改时必须同步 `gateway_auth.rs`。 */
+export function gatewaySignature({ key, method, path: requestPath, expires, nonce, principal, role, body }) {
+  const bodyHash = crypto.createHash("sha256").update(body).digest("hex");
+  const canonical = [
+    String(method).toUpperCase(),
+    requestPath,
+    String(expires),
+    nonce,
+    principal,
+    role,
+    bodyHash,
+  ].join("\n");
+  return crypto.createHmac("sha256", key).update(canonical).digest("hex");
 }
 
 function copyHeaders(headers, { dropCookie = true } = {}) {
@@ -72,7 +155,10 @@ function copyHeaders(headers, { dropCookie = true } = {}) {
   for (const [name, value] of Object.entries(headers)) {
     const lower = name.toLowerCase();
     if (HOP_BY_HOP.has(lower)) continue;
-    if (dropCookie && (lower === "cookie" || lower === "authorization")) continue;
+    // 客户端永远不能提供网关标记 / 转发链头：网关注入前先全部剥离。
+    if (lower.startsWith("x-selftools-") || lower.startsWith("x-forwarded-")) continue;
+    if (lower === "authorization") continue;
+    if (dropCookie && lower === "cookie") continue;
     result[name] = value;
   }
   return result;
@@ -154,6 +240,35 @@ function readBody(req, limit) {
   });
 }
 
+/** 读取原始请求体（签名需要逐字节哈希）；超过上限时以 413 拒绝。 */
+function readBodyBuffer(req, limit) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    let size = 0;
+    let settled = false;
+    req.on("data", (chunk) => {
+      if (settled) return;
+      size += chunk.length;
+      if (size > limit) {
+        settled = true;
+        const error = new Error("request body too large");
+        error.statusCode = 413;
+        error.code = "gateway_body_too_large";
+        reject(error);
+        req.resume();
+        return;
+      }
+      chunks.push(chunk);
+    });
+    req.on("end", () => {
+      if (!settled) resolve(Buffer.concat(chunks));
+    });
+    req.on("error", (error) => {
+      if (!settled) reject(error);
+    });
+  });
+}
+
 function send(res, status, body, headers = {}) {
   res.writeHead(status, { "content-type": "text/plain; charset=utf-8", ...headers });
   res.end(body);
@@ -168,21 +283,45 @@ function redirect(res, location, headers = {}) {
   res.end();
 }
 
-function proxy(req, res, target, { origin, secure = false } = {}) {
+async function proxy(req, res, target, { origin, secure = false, signing = null } = {}) {
   const headers = copyHeaders(req.headers);
   headers.host = target.host;
   if (origin) headers.origin = origin;
-  if (secure) {
-    headers["x-forwarded-proto"] = "https";
-  } else if (headers["x-forwarded-proto"] === undefined) {
-    headers["x-forwarded-proto"] = "http";
+  headers["x-forwarded-proto"] = secure ? "https" : "http";
+  const upstreamPath = `${target.pathname}${target.search}`;
+
+  // 写请求必须先完整缓冲才能对 body 求哈希；上限与上游 DefaultBodyLimit 一致。
+  let signedBody = null;
+  if (signing) {
+    const method = req.method ?? "GET";
+    signedBody = ["GET", "HEAD", "OPTIONS"].includes(method)
+      ? Buffer.alloc(0)
+      : await readBodyBuffer(req, MAX_SIGNED_BODY);
+    const expires = Math.floor(Date.now() / 1000) + SIGNATURE_TTL_SECS;
+    const nonce = crypto.randomBytes(16).toString("hex");
+    const signature = gatewaySignature({
+      key: signing.key,
+      method,
+      path: upstreamPath,
+      expires,
+      nonce,
+      principal: signing.principal,
+      role: signing.role,
+      body: signedBody,
+    });
+    headers[GATEWAY_HEADERS.principal] = signing.principal;
+    headers[GATEWAY_HEADERS.role] = signing.role;
+    headers[GATEWAY_HEADERS.expires] = String(expires);
+    headers[GATEWAY_HEADERS.nonce] = nonce;
+    headers[GATEWAY_HEADERS.signature] = signature;
   }
+
   const upstream = (target.protocol === "https:" ? https : http).request(
     {
       hostname: target.hostname,
       port: target.port || (target.protocol === "https:" ? 443 : 80),
       method: req.method,
-      path: `${target.pathname}${target.search}`,
+      path: upstreamPath,
       headers,
     },
     (upstreamRes) => {
@@ -195,12 +334,15 @@ function proxy(req, res, target, { origin, secure = false } = {}) {
     if (!res.headersSent) json(res, 502, { code: "gateway_upstream_unavailable", message: `上游服务不可用：${error.message}` });
     else res.destroy(error);
   });
-  req.pipe(upstream);
+  if (signedBody !== null) upstream.end(signedBody);
+  else req.pipe(upstream);
 }
 
 export async function startGateway(overrides = {}) {
   const config = loadConfig(overrides);
+  // 进程级随机会话密钥只用于登录 cookie；网关标记必须用跨进程持久的共享密钥。
   const sessionSecret = crypto.randomBytes(32);
+  const signingKey = loadSigningKey(config);
   const passwordSalt = crypto.randomBytes(16);
   const passwordHash = crypto.scryptSync(config.password, passwordSalt, 32);
   const sessionTtlMs = config.sessionHours * 3600_000;
@@ -351,11 +493,26 @@ export async function startGateway(overrides = {}) {
       // The loopback API refuses unsafe browser requests whose Origin is not
       // loopback. After the gateway authenticates the request, rewrite Origin
       // to the local web origin; Host is rewritten by proxy().
-      proxy(req, res, apiUrl, { origin: config.webUpstream.origin, secure });
+      try {
+        await proxy(req, res, apiUrl, {
+          origin: config.webUpstream.origin,
+          secure,
+          signing: { key: signingKey, principal: config.principal, role: config.role },
+        });
+      } catch (error) {
+        if (res.headersSent) {
+          res.destroy(error);
+          return;
+        }
+        json(res, error.statusCode ?? 502, {
+          code: error.code ?? "gateway_proxy_failed",
+          message: error.statusCode === 413 ? "请求体过大（上限 1 MiB）" : `网关转发失败：${error.message}`,
+        });
+      }
       return;
     }
 
-    proxy(req, res, new URL(req.url, config.webUpstream), { secure });
+    await proxy(req, res, new URL(req.url, config.webUpstream), { secure });
   };
 
   const server = config.cert && config.key
@@ -424,6 +581,9 @@ if (invokedDirectly) {
     console.log(`Self Tools LAN gateway listening on ${scheme}://${host}:${gateway.port}`);
     console.log(`Web upstream: ${process.env.SELF_TOOLS_WEB_UPSTREAM || "http://127.0.0.1:1420"}`);
     console.log(`API upstream: ${process.env.SELF_TOOLS_API_UPSTREAM || "http://127.0.0.1:8080"} (loopback only)`);
+    console.log(
+      `Gateway signing key: ${process.env.SELF_TOOLS_GATEWAY_SIGNING_KEY ? "SELF_TOOLS_GATEWAY_SIGNING_KEY" : `${process.env.SELF_TOOLS_DATA_DIR || "config"}/${SIGNING_KEY_FILE}`}`,
+    );
   } catch (error) {
     console.error(`LAN gateway failed to start: ${error.message}`);
     process.exitCode = 1;

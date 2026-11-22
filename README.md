@@ -127,7 +127,9 @@ powershell -ExecutionPolicy Bypass -File scripts\start-lan-web.ps1
 
 其他端口/上游可用 `SELF_TOOLS_LAN_PORT`、`SELF_TOOLS_WEB_UPSTREAM`、`SELF_TOOLS_API_UPSTREAM` 覆盖。网关测试：`node --test scripts/lan-gateway.test.mjs`。
 
-> RSS 订阅/阅读、History AI 解读、Knowledge 读写（记忆保存/确认/拒绝/归档/更新，文档与文件扫描、元数据、文本读取）、AI 会话历史（列表/新建/改名/归档/删除/追加消息，与桌面共用 `conversations.db`）已补齐 HTTP 端点，网关登录后可在 pad 上使用。AI 执行进度也通过 SSE（`GET /api/v1/ai/runs/{trace_id}/events`）实时推送，与桌面 Tauri 事件共用同一事件源和 `seq`，断线可按游标重放；状态快照见 `GET /api/v1/ai/runs/{trace_id}`。仍受桌面端限制的功能见 [`FEATURE_MATRIX.md`](FEATURE_MATRIX.md)：家庭服务器操作、Markdown 本地文件、唤起系统程序打开文件等还没有 HTTP 等价能力。网关解决的是**安全访问链路**，不会自动补齐这些能力。
+网关登录后，每个 `/api` 请求都会带上 `X-SelfTools-Gateway-*` 标记（principal / role / expires / nonce / HMAC-SHA256 签名，绑定 method、path、body 摘要）。上游 `apps/server/src/gateway_auth.rs` 验签后才注入远程身份；客户端自带的这些头会被网关先剥离，伪造/过期/重放都会被 401 拒绝。共享密钥来自 `SELF_TOOLS_GATEWAY_SIGNING_KEY`，未设置时首次启动生成到 `<数据目录>/gateway-signing.key`（Unix 下 0600；Windows 继承用户目录 ACL），**不会**写入日志或 API 响应。轮换时先停止网关与数据服务，替换/删除双方的密钥文件（或同时设置同一个新环境变量），再依次启动；旧登录会话和在途请求会立即失效。
+
+> RSS 订阅/阅读、History AI 解读、Knowledge 读写（记忆保存/确认/拒绝/归档/更新，文档与文件扫描、元数据、文本读取）、AI 会话历史（列表/新建/改名/归档/删除/追加消息，与桌面共用 `conversations.db`）、家庭服务器面板（状态/服务/应用/审计/脱敏日志）已补齐 HTTP 端点，网关登录后可在 pad 上使用。AI 执行进度也通过 SSE（`GET /api/v1/ai/runs/{trace_id}/events`）实时推送，与桌面 Tauri 事件共用同一事件源和 `seq`，断线可按游标重放；状态快照见 `GET /api/v1/ai/runs/{trace_id}`。服务重启仍是「先签票据、再确认」：`POST /api/v1/server/actions/restart` 只返回一次性、绑 principal、带有效期的票据，`confirm` 才执行，所有尝试进 `server_actions.db` 审计（来源标记 `gateway`）。仍受桌面端限制的功能见 [`FEATURE_MATRIX.md`](FEATURE_MATRIX.md)：Markdown 本地文件、唤起系统程序打开文件等还没有 HTTP 等价能力。网关解决的是**安全访问链路**，不会自动补齐这些能力。
 
 ### 下载新概念英语教材
 

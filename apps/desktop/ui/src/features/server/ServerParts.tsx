@@ -176,7 +176,7 @@ export function ConfirmActionCard({
     <section className="server-confirm" role="dialog" aria-label="确认系统操作">
       <header>
         <ShieldWarning size={16} />
-        AI 请求执行系统操作
+        请求执行系统操作
       </header>
       <p className="server-confirm-summary">{confirmation.summary}</p>
       <dl className="server-confirm-meta">
@@ -200,7 +200,11 @@ export function ConfirmActionCard({
         </div>
         <div>
           <dt>有效期</dt>
-          <dd>{remaining > 0 ? `${remaining} 秒后失效` : "已过期"}</dd>
+          <dd>
+            {remaining > 0
+              ? `${remaining} 秒后失效`
+              : "票据已过期，请取消后重新发起请求"}
+          </dd>
         </div>
       </dl>
       <div className="server-confirm-actions">

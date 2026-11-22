@@ -364,6 +364,21 @@ impl SafeActionService {
         Ok(ActionOutcome::Cancelled)
     }
 
+    /// 按会话取消（远程路径）：票据绑定签发会话，跨 principal 取消同样 Denied（§103）。
+    pub fn cancel_for(
+        &self,
+        confirmation_id: &str,
+        session_id: &str,
+    ) -> Result<ActionOutcome, crate::error::ApplicationError> {
+        let Some(confirmation) = self.confirmations.get(confirmation_id) else {
+            return Ok(ActionOutcome::Denied);
+        };
+        if confirmation.session_id != session_id {
+            return Ok(ActionOutcome::Denied);
+        }
+        self.cancel(confirmation_id)
+    }
+
     /// 最近审计（§66 UI）。
     #[must_use]
     pub fn recent_audit(&self, limit: usize) -> Vec<AuditEntry> {

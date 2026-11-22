@@ -19,9 +19,6 @@ import type {
   ServiceListItemDto,
 } from "./serverTypes";
 
-/** 浏览器预览下的统一错误文案（页面据此展示空态）。 */
-export const BROWSER_PREVIEW_MESSAGE = "浏览器预览不支持家庭服务器，请在桌面端使用。";
-
 export interface ServerClient {
   status(): Promise<ServerStatusDto>;
   servicesList(): Promise<ServiceListItemDto[]>;
@@ -39,56 +36,41 @@ export interface ServerClient {
 export function createServerClient(
   transport: CommandTransport = defaultTransport,
 ): ServerClient {
-  const guard = () => {
-    if (!transport.isTauriRuntime()) {
-      throw new Error(BROWSER_PREVIEW_MESSAGE);
-    }
-  };
-
   return {
     async status() {
-      guard();
       return transport.invoke<ServerStatusDto>("server_status");
     },
     async servicesList() {
-      guard();
       return transport.invoke<ServiceListItemDto[]>("server_services_list");
     },
     async appsList() {
-      guard();
       return transport.invoke<AppListItemDto[]>("server_apps_list");
     },
     async requestRestart(serviceId: string) {
-      guard();
       return transport.invoke<ConfirmationDto>("services_restart", {
         serviceId,
       });
     },
     async confirmAction(confirmationId: string, serviceId: string) {
-      guard();
       return transport.invoke<ActionResultDto>("confirm_action", {
         confirmationId,
         serviceId,
       });
     },
     async cancelAction(confirmationId: string) {
-      guard();
       return transport.invoke<ActionResultDto>("cancel_action", {
         confirmationId,
       });
     },
     async actionsRecent(limit = 20) {
-      guard();
       return transport.invoke<AuditEntryDto[]>("server_actions_recent", {
         limit,
       });
     },
     async mcpStatus() {
-      guard();
       return transport.invoke<McpStatusDto>("mcp_status");
     },
     async logs(request: LogsRequestDto) {
-      guard();
       return transport.invoke<LogsResultDto>("services_get_logs", {
         serviceId: request.serviceId,
         logSourceId: request.logSourceId,

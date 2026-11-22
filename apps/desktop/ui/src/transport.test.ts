@@ -71,6 +71,50 @@ describe("httpTransport：命令映射", () => {
     );
   });
 
+  it("maps Home Server reads and the restart ticket flow to /api/v1/server", async () => {
+    stubFetch();
+    fetchMock.mockResolvedValue(jsonResponse({}));
+
+    await httpTransport.invoke("server_status");
+    expect(fetchMock).toHaveBeenLastCalledWith("/api/v1/server/status", expect.anything());
+    await httpTransport.invoke("server_services_list");
+    expect(fetchMock).toHaveBeenLastCalledWith("/api/v1/server/services", expect.anything());
+    await httpTransport.invoke("server_apps_list");
+    expect(fetchMock).toHaveBeenLastCalledWith("/api/v1/server/apps", expect.anything());
+    await httpTransport.invoke("server_actions_recent", { limit: 5 });
+    expect(fetchMock).toHaveBeenLastCalledWith("/api/v1/server/actions/recent?limit=5", expect.anything());
+    await httpTransport.invoke("services_get_logs", {
+      serviceId: "self-tools",
+      maxLines: 60,
+      maxBytes: 4096,
+    });
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      "/api/v1/server/logs?serviceId=self-tools&maxLines=60&maxBytes=4096",
+      expect.anything(),
+    );
+    await httpTransport.invoke("mcp_status");
+    expect(fetchMock).toHaveBeenLastCalledWith("/api/v1/server/mcp", expect.anything());
+
+    await httpTransport.invoke("services_restart", { serviceId: "self-tools" });
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      "/api/v1/server/actions/restart",
+      expect.objectContaining({ method: "POST", body: JSON.stringify({ serviceId: "self-tools" }) }),
+    );
+    await httpTransport.invoke("confirm_action", {
+      confirmationId: "cfm-1",
+      serviceId: "self-tools",
+    });
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      "/api/v1/server/actions/cfm-1/confirm",
+      expect.objectContaining({ method: "POST", body: JSON.stringify({ serviceId: "self-tools" }) }),
+    );
+    await httpTransport.invoke("cancel_action", { confirmationId: "cfm-1" });
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      "/api/v1/server/actions/cfm-1/cancel",
+      expect.objectContaining({ method: "POST", body: "{}" }),
+    );
+  });
+
   it("maps RSS reads, writes, and deletion to the shared HTTP endpoints", async () => {
     stubFetch();
     fetchMock.mockResolvedValue(jsonResponse([]));
@@ -414,7 +458,7 @@ describe("httpTransport：错误语义", () => {
     // 历史上这里先后用过 geography_home、memory_list：它们当时都没端点，
     // 后来接上了，这个反例就变成了假阳性（断言命令未映射，但命令其实已映射）。
     // 因此反例必须随接线进度更新——现在选一个仍然只存在于桌面端的命令。
-    await expect(httpTransport.invoke("server_services_list")).rejects.toThrow(/尚无网页端接口/);
+    await expect(httpTransport.invoke("cycle_task_lines")).rejects.toThrow(/尚无网页端接口/);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });
