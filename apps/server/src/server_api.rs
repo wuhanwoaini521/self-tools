@@ -237,7 +237,7 @@ pub async fn cancel_action(
     Ok(Json(json!({ "outcome": outcome.as_str() })))
 }
 
-fn require_admin(
+pub(crate) fn require_admin(
     remote: Option<Extension<AuthenticatedRemote>>,
 ) -> Result<AuthenticatedRemote, ApiError> {
     let Some(Extension(remote)) = remote else {

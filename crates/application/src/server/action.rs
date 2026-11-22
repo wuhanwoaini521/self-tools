@@ -472,6 +472,33 @@ impl SafeActionService {
         });
     }
 
+    /// 记录一次配置写入（设置更新不是 SafeAction，但同样要进审计）。
+    ///
+    /// `target_id` 只放字段名，调用者**不得**把写入的值（尤其是凭据）拼进来。
+    pub fn record_config_change(
+        &self,
+        session_id: &str,
+        action_type: &str,
+        target_id: &str,
+        outcome: ActionOutcome,
+        error_code: Option<&str>,
+        duration: std::time::Duration,
+    ) {
+        self.audit.record(&AuditEntry {
+            id: self.next_id("aud"),
+            timestamp: now_unix(),
+            source: *self.audit_source.lock(),
+            session_id: session_id.to_string(),
+            action_type: action_type.to_string(),
+            target_id: target_id.to_string(),
+            risk: ActionRisk::SensitiveWrite,
+            confirmed: true,
+            result: outcome,
+            duration_ms: duration.as_millis() as u64,
+            error_code: error_code.map(str::to_string),
+        });
+    }
+
     fn cooldown_violation(&self, action: &RegisteredAction) -> Option<String> {
         let key = action.target_id().to_string();
         let now = now_unix();

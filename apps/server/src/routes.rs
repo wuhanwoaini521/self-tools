@@ -398,10 +398,18 @@ pub fn router(
             "/api/v1/language/weak-items",
             get(crate::language_api::weak_items),
         )
-        // ---- 设置状态与 AI：HTTP 只读脱敏状态；配置写入暂限本机 Tauri ----
+        // ---- 设置状态与 AI：读是脱敏状态；写入走独立白名单端点（网关 admin） ----
         .route(
             "/api/v1/settings",
             get(crate::ai_api::get_settings).post(crate::ai_api::save_settings),
+        )
+        .route(
+            "/api/v1/settings/public",
+            axum::routing::put(crate::settings_api::put_public_settings),
+        )
+        .route(
+            "/api/v1/settings/secrets",
+            post(crate::settings_api::put_secret_settings),
         )
         .route("/api/v1/ai/status", get(crate::ai_api::ai_status))
         .route("/api/v1/ai/chat", post(crate::ai_api::ai_chat))
@@ -441,8 +449,16 @@ pub fn router(
             post(crate::language_data_api::nce_import),
         )
         .route(
+            "/api/v1/language/nce/import/{jobId}/cancel",
+            post(crate::language_data_api::nce_import_cancel),
+        )
+        .route(
             "/api/v1/language/dict/import",
             post(crate::language_data_api::dict_import),
+        )
+        .route(
+            "/api/v1/language/dict/import/{jobId}/cancel",
+            post(crate::language_data_api::dict_import_cancel),
         )
         .route(
             "/api/v1/language/dict/status",
@@ -451,6 +467,14 @@ pub fn router(
         .route(
             "/api/v1/language/import-status",
             get(crate::language_data_api::import_status),
+        )
+        .route(
+            "/api/v1/language/starter/install",
+            post(crate::language_data_api::starter_install),
+        )
+        .route(
+            "/api/v1/language/speaking/feedback",
+            post(crate::language_data_api::speaking_feedback),
         )
         // Travel（城市研究与攻略）：provider 装配已下沉，桌面与网页共用同一套。
         .route(
@@ -583,6 +607,10 @@ pub fn router(
         .route(
             "/api/v1/news/sources/{id}/remove",
             post(crate::news_api::remove_source),
+        )
+        .route(
+            "/api/v1/news/sources/{id}/category",
+            post(crate::news_api::set_category),
         )
         .route(
             "/api/v1/news/articles/{id}/star",
@@ -1366,6 +1394,14 @@ mod tests {
             settings.travel.qweather_api_key = Some("weather-test-secret-marker".into());
             settings
         }
+
+        fn load_for_write(&self) -> Result<devtoolbox_core::settings::AppSettings, String> {
+            Ok(self.load())
+        }
+
+        fn save(&self, _settings: &devtoolbox_core::settings::AppSettings) -> Result<(), String> {
+            Err("test settings are read-only".to_string())
+        }
     }
 
     /// 契约护栏：前端 `transport.ts` 的映射必须与服务端路由一一对应。
@@ -1492,6 +1528,83 @@ mod tests {
         assert_eq!(status, StatusCode::FORBIDDEN);
         assert_eq!(body["code"], "settings_write_requires_desktop");
         assert!(!body.to_string().contains("attacker-controlled"));
+    }
+
+    /// Phase 1.5 的四个缺口端点：分类校验、评分入口、导入取消的 404 语义。
+    #[tokio::test]
+    async fn language_and_news_gap_endpoints_have_stable_errors() {
+        let app = test_router(false);
+
+        let (status, body) = post_json(
+            &app,
+            "/api/v1/news/sources/1/category",
+            &serde_json::json!({ "category": "not-a-category" }),
+        )
+        .await;
+        assert_eq!(status, StatusCode::BAD_REQUEST);
+        assert_eq!(body["code"], "news_invalid_category");
+
+        let (status, body) = post_json(
+            &app,
+            "/api/v1/language/speaking/feedback",
+            &serde_json::json!({ "sentenceId": "sentence-unknown", "transcript": "  " }),
+        )
+        .await;
+        assert_eq!(status, StatusCode::BAD_REQUEST);
+        assert_eq!(body["code"], "language_speaking_empty_turn");
+
+        let (status, body) = post_json(
+            &app,
+            "/api/v1/language/nce/import/missing-job/cancel",
+            &serde_json::json!({}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::NOT_FOUND);
+        assert_eq!(body["code"], "job_not_found");
+
+        let (status, body) = post_json(
+            &app,
+            "/api/v1/language/dict/import/missing-job/cancel",
+            &serde_json::json!({}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::NOT_FOUND);
+        assert_eq!(body["code"], "job_not_found");
+    }
+
+    /// 设置写入端点只认网关 admin 标记：直连 loopback 一律 401，且不落盘。
+    #[tokio::test]
+    async fn settings_write_endpoints_require_a_gateway_marker() {
+        let app = test_router(false);
+        let (status, body) = put_json(
+            &app,
+            "/api/v1/settings/public",
+            &serde_json::json!({ "ui_theme": "warm-editorial" }),
+        )
+        .await;
+        assert_eq!(status, StatusCode::UNAUTHORIZED);
+        assert_eq!(body["code"], "gateway_auth_required");
+
+        let (status, body) = post_json(
+            &app,
+            "/api/v1/settings/secrets",
+            &serde_json::json!({ "updates": [] }),
+        )
+        .await;
+        assert_eq!(status, StatusCode::UNAUTHORIZED);
+        assert_eq!(body["code"], "gateway_auth_required");
+
+        // 白名单之外的字段在到达 handler 前就被 serde 拒绝（400，不是 401 之外的语义）。
+        let (status, body) = put_json(
+            &app,
+            "/api/v1/settings/public",
+            &serde_json::json!({ "server": { "services": [] } }),
+        )
+        .await;
+        assert!(
+            status.is_client_error(),
+            "unexpected status {status}: {body}"
+        );
     }
 
     #[tokio::test]
@@ -2054,6 +2167,26 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("PATCH")
+                    .uri(uri)
+                    .header("host", "127.0.0.1:8080")
+                    .header("origin", "http://127.0.0.1:1420")
+                    .header("content-type", "application/json")
+                    .body(axum::body::Body::from(payload.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let status = response.status();
+        let body = to_bytes(response.into_body(), 1 << 20).await.unwrap();
+        (status, serde_json::from_slice(&body).unwrap_or(Value::Null))
+    }
+
+    async fn put_json(app: &axum::Router, uri: &str, payload: &Value) -> (StatusCode, Value) {
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("PUT")
                     .uri(uri)
                     .header("host", "127.0.0.1:8080")
                     .header("origin", "http://127.0.0.1:1420")

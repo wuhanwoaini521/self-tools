@@ -1082,7 +1082,8 @@ fn travel_plan_save(
 #[derive(Debug, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SpeakingScoreRequest {
-    pub target: String,
+    /// 目标句由服务端按 id 查库得到；不接受调用方自带的目标文本。
+    pub sentence_id: String,
     pub transcript: String,
     pub duration_ms: u64,
     pub target_ms: u64,

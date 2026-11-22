@@ -26,6 +26,7 @@ mod routes;
 mod rss_api;
 mod security;
 mod server_api;
+mod settings_api;
 mod study_board_api;
 mod travel_api;
 

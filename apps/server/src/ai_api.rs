@@ -30,8 +30,10 @@ pub struct ApiError {
 
 impl axum::response::IntoResponse for ApiError {
     fn into_response(self) -> axum::response::Response {
-        const BAD_REQUEST_CODES: [&str; 18] = [
+        const BAD_REQUEST_CODES: [&str; 20] = [
             "invalid",
+            "settings_invalid",
+            "news_invalid_category",
             "conversation_invalid_role",
             "ai_not_configured",
             "language_invalid_mark",
@@ -73,9 +75,16 @@ impl axum::response::IntoResponse for ApiError {
     }
 }
 
-/// 设置读取所需的最小能力（由组合根注入）。
+/// 设置读写能力（由组合根注入）。
+///
+/// 读接口沿用「坏文件回退默认值」的宽容语义；写接口必须区分二者：设置文件
+/// 解析失败时要用错误中止，**绝不能**拿默认值覆盖用户现有的配置。
 pub trait SettingsAccess: Send + Sync {
     fn load(&self) -> AppSettings;
+    /// 写入前的读取：失败必须上抛。
+    fn load_for_write(&self) -> Result<AppSettings, String>;
+    /// 原子写回（临时文件 + rename）。
+    fn save(&self, settings: &AppSettings) -> Result<(), String>;
 }
 
 /// Public HTTP view: `PublicAppSettings` plus `ai_configured`. No credentials.
@@ -460,6 +469,14 @@ impl SettingsAccess for FileSettingsAccess {
     fn load(&self) -> AppSettings {
         self.store.load().unwrap_or_default()
     }
+
+    fn load_for_write(&self) -> Result<AppSettings, String> {
+        self.store.load().map_err(|error| error.to_string())
+    }
+
+    fn save(&self, settings: &AppSettings) -> Result<(), String> {
+        self.store.save(settings).map_err(|error| error.to_string())
+    }
 }
 
 #[cfg(test)]
@@ -473,6 +490,14 @@ mod tests {
     impl SettingsAccess for TestSettings {
         fn load(&self) -> AppSettings {
             self.0.clone()
+        }
+
+        fn load_for_write(&self) -> Result<AppSettings, String> {
+            Ok(self.0.clone())
+        }
+
+        fn save(&self, _settings: &AppSettings) -> Result<(), String> {
+            Err("test settings are read-only".to_string())
         }
     }
 

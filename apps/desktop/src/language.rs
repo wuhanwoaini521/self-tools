@@ -169,8 +169,22 @@ pub fn language_speaking_feedback(
     state: State<'_, AppState>,
     request: SpeakingScoreRequest,
 ) -> Result<SpeakingScore, CommandError> {
+    // 目标句从库里按 id 取：评分对象不能由调用方自己指定。
+    let target = state
+        .language_store
+        .lock()
+        .item(&request.sentence_id)
+        .map_err(|error| CommandError {
+            code: "language_error",
+            message: error.to_string(),
+        })?
+        .map(|item| item.text)
+        .ok_or_else(|| CommandError {
+            code: "not_found",
+            message: format!("句子 {} 不存在", request.sentence_id),
+        })?;
     Ok(language_service(&state).speaking_feedback(
-        &request.target,
+        &target,
         &request.transcript,
         request.duration_ms,
         request.target_ms,
