@@ -1,8 +1,8 @@
-import { openUrl } from "@tauri-apps/plugin-opener";
 import { ArrowBendUpLeft, ArrowSquareOut, ArrowsClockwise, Check, Plus, Rss, TextT, TrashSimple } from "@phosphor-icons/react";
 import { useCallback, useEffect, useState, type MouseEvent } from "react";
 import type { ArticleDto, FeedDto } from "../../types";
-import { errorMessage, formatDateTime, formatRelativeTime, isTauriRuntime } from "../../utils";
+import { errorMessage, formatDateTime, formatRelativeTime } from "../../utils";
+import { openExternalUrl } from "../../platform";
 import { prepareRssContent, stripRssHtml } from "./rssContent";
 import { rssClient } from "./rssClient";
 
@@ -131,8 +131,12 @@ export function RssPage({ active, version, refreshing, onRefresh, onFeedsChanged
 
   const openInBrowser = async (url: string) => {
     if (!url) return;
-    if (isTauriRuntime()) await openUrl(url);
-    else window.open(url, "_blank");
+    try {
+      // 桌面 = 系统浏览器，网页 = 新标签；差异收敛在 platform 适配层。
+      await openExternalUrl(url);
+    } catch (error) {
+      setNotice(errorMessage(error));
+    }
   };
 
   /** 切换文章时重置抓取结果 */
@@ -152,7 +156,8 @@ export function RssPage({ active, version, refreshing, onRefresh, onFeedsChanged
       setFetchedHtml(extracted);
     } catch (error) {
       setNotice(errorMessage(error));
-      if (!isTauriRuntime()) window.open(article.url, "_blank");
+      // 抓取失败时给一个可直接打开原文的退路（两端都能用）。
+      void openExternalUrl(article.url).catch(() => {});
     } finally { setFetchingArticle(false); }
   };
 

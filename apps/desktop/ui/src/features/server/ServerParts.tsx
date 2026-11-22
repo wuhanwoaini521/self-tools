@@ -6,7 +6,6 @@
  */
 import { useEffect, useState } from "react";
 import { CaretRight, FileText, Plug, ShieldWarning } from "@phosphor-icons/react";
-import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   HEALTH_LABELS,
   OUTCOME_LABELS,
@@ -216,5 +215,3 @@ export function ConfirmActionCard({
     </section>
   );
 }
-
-export { openUrl };

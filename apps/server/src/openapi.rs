@@ -333,6 +333,8 @@ mod tests {
                 method = "delete";
             } else if line.contains("HTTP_PATCH_ENDPOINTS") {
                 method = "patch";
+            } else if line.contains("HTTP_PUT_ENDPOINTS") {
+                method = "put";
             } else if line.contains("HTTP_ENDPOINTS") {
                 method = "get";
             }

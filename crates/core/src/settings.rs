@@ -202,6 +202,23 @@ pub enum SecretSettingsField {
     JevApiKey,
 }
 
+impl SecretSettingsField {
+    /// 审计用的稳定字段名（与 serde 的 `snake_case` 一致）；只出现名字，不出现值。
+    #[must_use]
+    pub fn as_str(self) -> &'static str {
+        match self {
+            SecretSettingsField::AiApiKey => "ai_api_key",
+            SecretSettingsField::TravelLlmApiKey => "travel_llm_api_key",
+            SecretSettingsField::TravelAmapApiKey => "travel_amap_api_key",
+            SecretSettingsField::TravelQweatherApiKey => "travel_qweather_api_key",
+            SecretSettingsField::TravelBaiduMapApiKey => "travel_baidu_map_api_key",
+            SecretSettingsField::GeographyAmapApiKey => "geography_amap_api_key",
+            SecretSettingsField::GeographyAmapSecurityJsCode => "geography_amap_security_js_code",
+            SecretSettingsField::JevApiKey => "jev_api_key",
+        }
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct SecretSettingsValueUpdate {
     pub field: SecretSettingsField,
@@ -214,6 +231,173 @@ pub struct SecretSettingsValueUpdate {
 #[serde(default)]
 pub struct SecretSettingsUpdate {
     pub updates: Vec<SecretSettingsValueUpdate>,
+}
+
+/// 远程可写的公开设置子集（`PUT /api/v1/settings/public`）。
+///
+/// 每个字段都是「可选 = 不修改」，并且刻意**不包含**下列字段：
+///
+/// - `workspace_path` / `recent_files`：主机文件路径；
+/// - `knowledge`：检索根目录，等价于扩大 AI 可读范围；
+/// - `server`：`server.services/*.command` 是可执行命令模板，远程可写等于
+///   把「设置页」变成任意命令执行入口。
+///
+/// `deny_unknown_fields` 让上面这些字段（以及任何 `*_api_key`）在请求体里
+/// 直接 400，而不是被静默忽略。
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct PublicSettingsUpdate {
+    pub theme_mode: Option<ThemeMode>,
+    pub ui_theme: Option<String>,
+    pub rss_refresh_minutes: Option<u32>,
+    pub editor_font_size: Option<u8>,
+    pub auto_save: Option<bool>,
+    pub markdown_default_view: Option<MarkdownView>,
+    pub ai: Option<AiSettingsUpdate>,
+    pub travel: Option<TravelSettingsUpdate>,
+    pub decision: Option<DecisionSettingsUpdate>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct AiSettingsUpdate {
+    pub provider: Option<String>,
+    pub model: Option<String>,
+    pub base_url: Option<String>,
+    pub timeout_secs: Option<u64>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct TravelSettingsUpdate {
+    pub search_backend: Option<TravelSearchBackend>,
+    pub searxng_url: Option<String>,
+    pub llm_base_url: Option<String>,
+    pub llm_model: Option<String>,
+    pub qweather_api_host: Option<String>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct DecisionSettingsUpdate {
+    pub mode: Option<String>,
+    pub jev_base_url: Option<String>,
+    pub jev_model: Option<String>,
+    pub jev_timeout_secs: Option<u64>,
+    pub jev_failure_fallback: Option<bool>,
+    pub multi_agent_enabled: Option<bool>,
+    pub max_workers: Option<usize>,
+}
+
+impl PublicSettingsUpdate {
+    /// 把已提供的字段合并进一份完整设置，返回被改动的字段名（供审计用）。
+    ///
+    /// 可选字符串传空串 = 清空（与凭据写入语义一致）；未出现 = 保持不变。
+    #[must_use]
+    pub fn apply_to(&self, settings: &mut AppSettings) -> Vec<&'static str> {
+        let mut touched = Vec::new();
+        if let Some(value) = &self.theme_mode {
+            settings.theme_mode.clone_from(value);
+            touched.push("theme_mode");
+        }
+        if let Some(value) = &self.ui_theme {
+            settings.ui_theme.clone_from(value);
+            touched.push("ui_theme");
+        }
+        if let Some(value) = self.rss_refresh_minutes {
+            settings.rss_refresh_minutes = value;
+            touched.push("rss_refresh_minutes");
+        }
+        if let Some(value) = self.editor_font_size {
+            settings.editor_font_size = value;
+            touched.push("editor_font_size");
+        }
+        if let Some(value) = self.auto_save {
+            settings.auto_save = value;
+            touched.push("auto_save");
+        }
+        if let Some(value) = &self.markdown_default_view {
+            settings.markdown_default_view.clone_from(value);
+            touched.push("markdown_default_view");
+        }
+        if let Some(ai) = &self.ai {
+            if let Some(value) = &ai.provider {
+                settings.ai.provider = optional_text(value);
+                touched.push("ai.provider");
+            }
+            if let Some(value) = &ai.model {
+                settings.ai.model = optional_text(value);
+                touched.push("ai.model");
+            }
+            if let Some(value) = &ai.base_url {
+                settings.ai.base_url = optional_text(value);
+                touched.push("ai.base_url");
+            }
+            if let Some(value) = ai.timeout_secs {
+                settings.ai.timeout_secs = Some(value);
+                touched.push("ai.timeout_secs");
+            }
+        }
+        if let Some(travel) = &self.travel {
+            if let Some(value) = &travel.search_backend {
+                settings.travel.search_backend.clone_from(value);
+                touched.push("travel.search_backend");
+            }
+            if let Some(value) = &travel.searxng_url {
+                settings.travel.searxng_url = optional_text(value);
+                touched.push("travel.searxng_url");
+            }
+            if let Some(value) = &travel.llm_base_url {
+                settings.travel.llm_base_url = optional_text(value);
+                touched.push("travel.llm_base_url");
+            }
+            if let Some(value) = &travel.llm_model {
+                settings.travel.llm_model = optional_text(value);
+                touched.push("travel.llm_model");
+            }
+            if let Some(value) = &travel.qweather_api_host {
+                settings.travel.qweather_api_host = optional_text(value);
+                touched.push("travel.qweather_api_host");
+            }
+        }
+        if let Some(decision) = &self.decision {
+            if let Some(value) = &decision.mode {
+                settings.decision.mode.clone_from(value);
+                touched.push("decision.mode");
+            }
+            if let Some(value) = &decision.jev_base_url {
+                settings.decision.jev_base_url = optional_text(value);
+                touched.push("decision.jev_base_url");
+            }
+            if let Some(value) = &decision.jev_model {
+                settings.decision.jev_model = optional_text(value);
+                touched.push("decision.jev_model");
+            }
+            if let Some(value) = decision.jev_timeout_secs {
+                settings.decision.jev_timeout_secs = value;
+                touched.push("decision.jev_timeout_secs");
+            }
+            if let Some(value) = decision.jev_failure_fallback {
+                settings.decision.jev_failure_fallback = value;
+                touched.push("decision.jev_failure_fallback");
+            }
+            if let Some(value) = decision.multi_agent_enabled {
+                settings.decision.multi_agent_enabled = value;
+                touched.push("decision.multi_agent_enabled");
+            }
+            if let Some(value) = decision.max_workers {
+                settings.decision.max_workers = value;
+                touched.push("decision.max_workers");
+            }
+        }
+        touched
+    }
+}
+
+/// 远程写入的字符串字段：空串表示清空，首尾空白不进存储。
+fn optional_text(value: &str) -> Option<String> {
+    let trimmed = value.trim();
+    (!trimmed.is_empty()).then(|| trimmed.to_string())
 }
 
 impl AppSettings {
@@ -927,5 +1111,58 @@ mod tests {
             }],
         });
         assert_eq!(settings.ai.api_key, None);
+    }
+
+    #[test]
+    fn public_settings_update_only_touches_provided_fields() {
+        let mut settings = AppSettings {
+            workspace_path: Some(PathBuf::from("E:/work")),
+            ui_theme: "default".into(),
+            ..AppSettings::default()
+        };
+
+        let update: PublicSettingsUpdate = serde_json::from_str(
+            r#"{
+                "ui_theme": "warm-editorial",
+                "ai": { "provider": "  openai  ", "base_url": "https://api.example.test/v1" },
+                "travel": { "llm_model": "" }
+            }"#,
+        )
+        .expect("valid update");
+        let touched = update.apply_to(&mut settings);
+
+        assert_eq!(settings.ui_theme, "warm-editorial");
+        assert_eq!(settings.ai.provider.as_deref(), Some("openai"));
+        assert_eq!(
+            settings.ai.base_url.as_deref(),
+            Some("https://api.example.test/v1")
+        );
+        // 空串 = 清空，而不是写入空字符串。
+        assert_eq!(settings.travel.llm_model, None);
+        assert_eq!(
+            settings.workspace_path.as_deref(),
+            Some(std::path::Path::new("E:/work"))
+        );
+        assert!(touched.contains(&"ui_theme"));
+        assert!(!touched.iter().any(|field| field.starts_with("server")));
+    }
+
+    #[test]
+    fn public_settings_update_rejects_host_bound_and_secret_fields() {
+        for payload in [
+            r#"{"workspace_path":"E:/elsewhere"}"#,
+            r#"{"recent_files":["E:/a.md"]}"#,
+            r#"{"knowledge":{"roots":[]}}"#,
+            r#"{"server":{"services":[]}}"#,
+            r#"{"secrets":{}}"#,
+            r#"{"ai":{"api_key":"leak"}}"#,
+            r#"{"ai":{"provider":"openai","llm_api_key":"leak"}}"#,
+        ] {
+            let parsed = serde_json::from_str::<PublicSettingsUpdate>(payload);
+            assert!(
+                parsed.is_err(),
+                "remote settings update must reject {payload}"
+            );
+        }
     }
 }

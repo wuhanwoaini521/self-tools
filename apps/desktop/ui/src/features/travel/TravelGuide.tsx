@@ -1,4 +1,3 @@
-import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   Airplane,
   ArrowDown,
@@ -59,7 +58,8 @@ import type {
   VerifiedValue,
   WeatherForecast,
 } from "../../types";
-import { errorMessage, formatDateTime, isTauriRuntime } from "../../utils";
+import { errorMessage, formatDateTime } from "../../utils";
+import { openExternalUrl } from "../../platform";
 import {
   explorationClient,
   type LocationHistoryContext,
@@ -77,9 +77,11 @@ import {
 } from "./travelPlanPersistence";
 import { isTravelPlanConflict, travelClient } from "./travelClient";
 
+/** 外链一律交给系统浏览器/新标签：差异收敛在 platform 适配层（带 noopener）。 */
 function openLink(url: string) {
-  if (isTauriRuntime()) void openUrl(url);
-  else window.open(url, "_blank");
+  void openExternalUrl(url).catch(() => {
+    // 弹窗被拦截或系统打开失败：链接仍显示在卡片上，用户可手动复制。
+  });
 }
 
 function Section({

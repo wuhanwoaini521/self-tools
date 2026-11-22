@@ -24,7 +24,7 @@ import type {
   NceImportReport,
   NceScanReport,
 } from "../../../types";
-import { errorMessage } from "../../../utils";
+import { errorMessage, isTauriRuntime } from "../../../utils";
 import { defaultTransport } from "../../../transport";
 import { englishClient } from "./englishClient";
 import { cx } from "../languageUi";
@@ -51,7 +51,21 @@ export function ImportDialog({ onClose, onImported }: ImportDialogProps) {
     null,
   );
   const [sourceDir, setSourceDir] = useState("");
+  const [dictPath, setDictPath] = useState("");
+  const [job, setJob] = useState<{ id: string; kind: "nce" | "dict" } | null>(null);
+  const [webSummary, setWebSummary] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
+  // 网页端没有原生文件选择器：改由用户填写服务器上的路径，导入在服务端排队执行。
+  const webMode = !isTauriRuntime();
+
+  /** 轮询导入状态直到任务结束（网页端异步导入）。 */
+  const waitForImport = useCallback(async (): Promise<import("./englishClient").ImportStatusView> => {
+    for (;;) {
+      await new Promise((resolve) => window.setTimeout(resolve, 800));
+      const status = await englishClient.importStatus();
+      if (!status.running) return status;
+    }
+  }, []);
 
   const refresh = useCallback(async () => {
     try {
@@ -127,6 +141,42 @@ export function ImportDialog({ onClose, onImported }: ImportDialogProps) {
     }
   }, [refresh]);
 
+  /** 网页端：按服务器路径启动异步导入并轮询到结束。 */
+  const runDictImport = useCallback(
+    async (csvPath: string) => {
+      setError(null);
+      setWebSummary(null);
+      setPhase("importing");
+      setProgress(null);
+      try {
+        const started = await englishClient.importDictAsync(csvPath);
+        setJob({ id: started.jobId, kind: "dict" });
+        const status = await waitForImport();
+        if (status.lastError) {
+          setError(status.lastError);
+        } else {
+          setDictReport({
+            entries: status.dictEntries,
+            skipped: 0,
+            cancelled: status.cancelled,
+          });
+          setWebSummary(
+            status.cancelled
+              ? "已取消导入。"
+              : `本次导入 ${status.dictEntries.toLocaleString()} 条。`,
+          );
+        }
+        await refresh();
+      } catch (cause) {
+        setError(errorMessage(cause));
+      } finally {
+        setJob(null);
+        setPhase("idle");
+      }
+    },
+    [refresh, waitForImport],
+  );
+
   const runScan = useCallback(async () => {
     if (!sourceDir) return;
     setPhase("scanning");
@@ -144,7 +194,27 @@ export function ImportDialog({ onClose, onImported }: ImportDialogProps) {
     if (!sourceDir) return;
     setPhase("importing");
     setError(null);
+    setWebSummary(null);
     try {
+      if (webMode) {
+        const started = await englishClient.importNceAsync(sourceDir);
+        setJob({ id: started.jobId, kind: "nce" });
+        const status = await waitForImport();
+        if (status.lastError) {
+          setError(status.lastError);
+          setPhase("idle");
+          return;
+        }
+        setWebSummary(
+          status.cancelled
+            ? "已取消导入。"
+            : `导入完成：${status.nceBooks} 册 / ${status.nceLessons} 课 / ${status.nceSentences} 句 / ${status.nceVocab} 个生词`,
+        );
+        setPhase("done");
+        await refresh();
+        onImported();
+        return;
+      }
       const result = await englishClient.nceImport(sourceDir);
       setReport(result);
       setPhase("done");
@@ -154,13 +224,21 @@ export function ImportDialog({ onClose, onImported }: ImportDialogProps) {
       setError(errorMessage(cause));
       setPhase("idle");
     } finally {
+      setJob(null);
       setProgress(null);
     }
-  }, [onImported, refresh, sourceDir]);
+  }, [onImported, refresh, sourceDir, waitForImport, webMode]);
 
   const cancelImport = useCallback(async () => {
+    if (webMode) {
+      if (!job) return;
+      await (job.kind === "nce"
+        ? englishClient.cancelNceImport(job.id)
+        : englishClient.cancelDictImport(job.id));
+      return;
+    }
     await englishClient.nceCancel();
-  }, []);
+  }, [job, webMode]);
 
   const missingAudio =
     scan?.books
@@ -273,13 +351,28 @@ export function ImportDialog({ onClose, onImported }: ImportDialogProps) {
           </p>
 
           <div className="en-import-path">
-            <button type="button" className="en-ghost-btn" onClick={() => void pickFolder()}>
-              <FolderOpen size={14} /> 选择教材文件夹
-            </button>
-            {sourceDir ? (
-              <code className="is-selected">{sourceDir}</code>
+            {webMode ? (
+              <input
+                className="en-path-input"
+                value={sourceDir}
+                placeholder="服务器上的教材文件夹路径，例如 E:\\我的NCE"
+                onChange={(event) => {
+                  setSourceDir(event.target.value);
+                  setScan(null);
+                }}
+                aria-label="教材文件夹路径"
+              />
             ) : (
-              <span className="en-muted">尚未选择</span>
+              <>
+                <button type="button" className="en-ghost-btn" onClick={() => void pickFolder()}>
+                  <FolderOpen size={14} /> 选择教材文件夹
+                </button>
+                {sourceDir ? (
+                  <code className="is-selected">{sourceDir}</code>
+                ) : (
+                  <span className="en-muted">尚未选择</span>
+                )}
+              </>
             )}
           </div>
 
@@ -312,6 +405,14 @@ export function ImportDialog({ onClose, onImported }: ImportDialogProps) {
               </div>
               <p className="en-muted">
                 {progress.done}/{progress.total} · {progress.message}
+              </p>
+            </div>
+          ) : null}
+
+          {webSummary ? (
+            <div className="en-import-report">
+              <p>
+                <CheckCircle size={14} /> {webSummary}
               </p>
             </div>
           ) : null}
@@ -382,16 +483,36 @@ export function ImportDialog({ onClose, onImported }: ImportDialogProps) {
               {dictReport.cancelled ? "（已取消）" : ""}
             </p>
           ) : null}
-          <div>
-            <button
-              type="button"
-              className="en-ghost-btn"
-              onClick={() => void pickCsv()}
-              disabled={phase !== "idle"}
-            >
-              <FileArrowDown size={14} /> 选择 ecdict.csv
-            </button>
-          </div>
+          {webMode ? (
+            <div className="en-import-path">
+              <input
+                className="en-path-input"
+                value={dictPath}
+                placeholder="服务器上的 ecdict.csv 路径"
+                onChange={(event) => setDictPath(event.target.value)}
+                aria-label="ECDICT 文件路径"
+              />
+              <button
+                type="button"
+                className="en-ghost-btn"
+                onClick={() => void runDictImport(dictPath)}
+                disabled={phase !== "idle" || dictPath.trim() === ""}
+              >
+                <FileArrowDown size={14} /> 导入词典
+              </button>
+            </div>
+          ) : (
+            <div>
+              <button
+                type="button"
+                className="en-ghost-btn"
+                onClick={() => void pickCsv()}
+                disabled={phase !== "idle"}
+              >
+                <FileArrowDown size={14} /> 选择 ecdict.csv
+              </button>
+            </div>
+          )}
         </section>
 
         {/* ================= 怎么拿到数据 ================= */}

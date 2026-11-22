@@ -8,7 +8,7 @@ import {
   UserCircle,
   X,
 } from "@phosphor-icons/react";
-import { openPath } from "@tauri-apps/plugin-opener";
+import { revealLocalPath } from "./platform";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SettingsDialog } from "./SettingsDialog";
 import { HomePage } from "./features/home/HomePage";
@@ -88,7 +88,7 @@ import type {
   TravelPlan,
   TravelPlanContext,
 } from "./types";
-import { errorMessage, isTauriRuntime } from "./utils";
+import { errorMessage } from "./utils";
 
 /**
  * Self Tools 外壳：顶栏一级（学习 / 旅行 / 资讯）+ 分区子导航。
@@ -365,10 +365,12 @@ export default function App() {
     applyTheme(themeId);
   }, [themeId]);
 
-  /** 全局设置更新:写入 settings.json(浏览器模式仅内存)。 */
+  /**
+   * 全局设置更新：桌面走 Tauri 命令，网页经网关 admin 标记写
+   * `PUT /api/v1/settings/public`（只上行白名单字段）。
+   */
   const updateSettings = useCallback(async (next: AppSettings) => {
     setSettings(next);
-    if (!isTauriRuntime()) return;
     try {
       await settingsClient.put(next);
     } catch (error) {
@@ -397,8 +399,9 @@ export default function App() {
         setSettings(resolvedSettings);
         themeIdRef.current = resolvedThemeId;
         setThemeId(resolvedThemeId);
-        if (themeChangedByUserRef.current && isTauriRuntime()) {
-          await settingsClient.put(resolvedSettings);
+        if (themeChangedByUserRef.current) {
+          // 两端都能写公开设置；非网关 admin 时授权失败，但不应打断首屏。
+          await settingsClient.put(resolvedSettings).catch(() => {});
         }
         setSettingsLoaded(true);
       })
@@ -1343,7 +1346,8 @@ export default function App() {
           }
         }}
         onOpenFile={(target) => {
-          void openPath(target.path).catch((error) =>
+          // 网页端没有本机程序唤起能力：能力适配层会给出明确原因。
+          void revealLocalPath(target.path).catch((error) =>
             setNotice(`打开文件失败：${errorMessage(error)}`),
           );
         }}

@@ -30,62 +30,125 @@ fn err(code: &'static str, message: impl Into<String>) -> ApiError {
     }
 }
 
+/// 导入任务种类（状态端点与审计共用）。
+#[derive(Clone, Copy, Debug, Eq, PartialEq, serde::Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ImportKind {
+    Nce,
+    Dict,
+}
+
 /// 导入状态（供前端轮询）。
 #[derive(Clone, Debug, Default, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ImportStatus {
     pub running: bool,
+    /// 当前（或最近一次）任务的 id；取消端点用它定位任务。
+    pub job_id: Option<String>,
+    pub kind: Option<ImportKind>,
     pub nce_books: usize,
     pub nce_lessons: usize,
     pub nce_sentences: usize,
     pub nce_vocab: usize,
     pub media_files: usize,
+    pub dict_entries: usize,
     pub issues: Vec<String>,
     pub last_error: Option<String>,
+    /// 最近一次任务是否被用户取消（取消不是错误）。
+    pub cancelled: bool,
+}
+
+struct ActiveJob {
+    id: String,
+    cancel: Arc<std::sync::atomic::AtomicBool>,
 }
 
 /// 进程内导入状态（单例；同一时刻只允许一个导入任务）。
+///
+/// 取消标志随任务一起存在这里：`begin` 返回**该任务自己的** `AtomicBool`，
+/// 取消端点只能通过 job id 命中当前任务，旧 id 无法影响新任务。
 #[derive(Default)]
 pub struct ImportTracker {
     inner: Mutex<ImportStatus>,
-    busy: Mutex<bool>,
+    job: Mutex<Option<ActiveJob>>,
 }
 
 impl ImportTracker {
-    fn begin(&self) -> bool {
-        let mut busy = self.busy.lock();
-        if *busy {
-            return false;
+    fn begin(&self, kind: ImportKind) -> Option<(String, Arc<std::sync::atomic::AtomicBool>)> {
+        let mut job = self.job.lock();
+        if job.is_some() {
+            return None;
         }
-        *busy = true;
-        self.inner.lock().running = true;
-        self.inner.lock().last_error = None;
-        true
+        let id = uuid::Uuid::new_v4().simple().to_string();
+        let cancel = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        *job = Some(ActiveJob {
+            id: id.clone(),
+            cancel: Arc::clone(&cancel),
+        });
+        let mut status = self.inner.lock();
+        status.running = true;
+        status.job_id = Some(id.clone());
+        status.kind = Some(kind);
+        status.last_error = None;
+        status.cancelled = false;
+        drop(status);
+        drop(job);
+        Some((id, cancel))
     }
 
-    fn fail(&self, message: String) {
+    /// 结束后释放任务槽（job id 保留在状态里，便于前端展示"已完成/已取消"）。
+    fn finish(&self, job_id: &str) {
+        let mut job = self.job.lock();
+        if job.as_ref().is_some_and(|active| active.id == job_id) {
+            *job = None;
+        }
         let mut status = self.inner.lock();
         status.running = false;
-        status.last_error = Some(message);
     }
 
-    fn record_nce(&self, report: &devtoolbox_infrastructure::language::NceImportReport) {
-        let mut status = self.inner.lock();
-        status.nce_books = report.books;
-        status.nce_lessons = report.lessons;
-        status.nce_sentences = report.sentences;
-        status.nce_vocab = report.vocab;
-        status.media_files = report.media_files;
-        status.issues = report.issues.clone();
-        status.running = false;
+    fn fail(&self, job_id: &str, message: String) {
+        self.finish(job_id);
+        self.inner.lock().last_error = Some(message);
     }
 
-    fn record_dict(&self, report: &devtoolbox_infrastructure::language::DictImportReport) {
+    fn record_nce(
+        &self,
+        job_id: &str,
+        report: &devtoolbox_infrastructure::language::NceImportReport,
+    ) {
+        {
+            let mut status = self.inner.lock();
+            status.nce_books = report.books;
+            status.nce_lessons = report.lessons;
+            status.nce_sentences = report.sentences;
+            status.nce_vocab = report.vocab;
+            status.media_files = report.media_files;
+            status.issues = report.issues.clone();
+        }
+        self.finish(job_id);
+    }
+
+    fn record_dict(
+        &self,
+        job_id: &str,
+        report: &devtoolbox_infrastructure::language::DictImportReport,
+    ) {
+        self.finish(job_id);
         let mut status = self.inner.lock();
+        status.dict_entries = report.entries;
         if report.cancelled {
-            status.running = false;
-            return;
+            status.cancelled = true;
         }
-        status.running = false;
+    }
+
+    /// 只取消当前任务：旧 job id 或已完成的任务返回 `None`（404）。
+    fn cancel(&self, job_id: &str) -> Option<bool> {
+        let job = self.job.lock();
+        let active = job.as_ref().filter(|active| active.id == job_id)?;
+        active
+            .cancel
+            .store(true, std::sync::atomic::Ordering::SeqCst);
+        Some(true)
     }
 
     fn snapshot(&self) -> ImportStatus {
@@ -154,27 +217,30 @@ pub async fn nce_import(
             format!("{} 不是一个目录", body.source_dir),
         ));
     }
-    if !tracker.begin() {
+    let Some((job_id, cancel)) = tracker.begin(ImportKind::Nce) else {
         return Err(err("language_import_busy", "已有导入任务在进行中"));
-    }
+    };
     let media_dir = paths.config_dir.join("language").join("nce");
     let store_for_task = Arc::clone(&store);
     let tracker_for_task = Arc::clone(&tracker);
+    let job_for_task = job_id.clone();
     // rusqlite Connection 非 Send：交给 spawn_blocking 在工作线程里执行。
     drop(tokio::task::spawn_blocking(move || {
         let options = devtoolbox_infrastructure::language::NceImport {
             source_dir: source,
             media_dir,
-            cancel: Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            cancel,
             on_progress: Box::new(|_| {}),
         };
         let guard = store_for_task.lock();
         match devtoolbox_infrastructure::language::import_nce(&guard, &options) {
-            Ok(report) => tracker_for_task.record_nce(&report),
-            Err(message) => tracker_for_task.fail(message),
+            Ok(report) => tracker_for_task.record_nce(&job_for_task, &report),
+            Err(message) => tracker_for_task.fail(&job_for_task, message),
         }
     }));
-    Ok(axum::Json(serde_json::json!({ "started": true })))
+    Ok(axum::Json(
+        serde_json::json!({ "started": true, "jobId": job_id }),
+    ))
 }
 
 /// `POST /api/v1/language/dict/import` —— 导入 ECDICT csv（长任务）。
@@ -190,13 +256,13 @@ pub async fn dict_import(
             format!("{} 不是文件", body.path),
         ));
     }
-    if !tracker.begin() {
+    let Some((job_id, cancel)) = tracker.begin(ImportKind::Dict) else {
         return Err(err("language_import_busy", "已有导入任务在进行中"));
-    }
+    };
     let store_for_task = Arc::clone(&store);
     let tracker_for_task = Arc::clone(&tracker);
+    let job_for_task = job_id.clone();
     drop(tokio::task::spawn_blocking(move || {
-        let cancel = Arc::new(std::sync::atomic::AtomicBool::new(false));
         let guard = store_for_task.lock();
         match devtoolbox_infrastructure::language::import_ecdict_csv(
             &guard,
@@ -204,11 +270,120 @@ pub async fn dict_import(
             &cancel,
             &|_| {},
         ) {
-            Ok(report) => tracker_for_task.record_dict(&report),
-            Err(message) => tracker_for_task.fail(message),
+            Ok(report) => tracker_for_task.record_dict(&job_for_task, &report),
+            Err(message) => tracker_for_task.fail(&job_for_task, message),
         }
     }));
-    Ok(axum::Json(serde_json::json!({ "started": true })))
+    Ok(axum::Json(
+        serde_json::json!({ "started": true, "jobId": job_id }),
+    ))
+}
+
+/// `POST /api/v1/language/nce/import/{jobId}/cancel`
+pub async fn nce_import_cancel(
+    Extension(tracker): Extension<Arc<ImportTracker>>,
+    axum::extract::Path(job_id): axum::extract::Path<String>,
+) -> Result<axum::Json<serde_json::Value>, ApiError> {
+    cancel_job(&tracker, ImportKind::Nce, &job_id)
+}
+
+/// `POST /api/v1/language/dict/import/{jobId}/cancel`
+pub async fn dict_import_cancel(
+    Extension(tracker): Extension<Arc<ImportTracker>>,
+    axum::extract::Path(job_id): axum::extract::Path<String>,
+) -> Result<axum::Json<serde_json::Value>, ApiError> {
+    cancel_job(&tracker, ImportKind::Dict, &job_id)
+}
+
+/// 只允许取消**当前正在跑**的那个任务；种类不符或已结束都是 404。
+fn cancel_job(
+    tracker: &ImportTracker,
+    kind: ImportKind,
+    job_id: &str,
+) -> Result<axum::Json<serde_json::Value>, ApiError> {
+    let snapshot = tracker.snapshot();
+    if snapshot.kind != Some(kind) || !snapshot.running {
+        return Err(err("job_not_found", "该导入任务不存在或已经结束"));
+    }
+    match tracker.cancel(job_id) {
+        Some(_) => Ok(axum::Json(
+            serde_json::json!({ "cancelled": true, "jobId": job_id }),
+        )),
+        None => Err(err("job_not_found", "该导入任务不存在或已经结束")),
+    }
+}
+
+/// `POST /api/v1/language/starter/install` —— 安装内置 Starter 数据（幂等）。
+pub async fn starter_install(
+    Extension(store): Extension<Arc<Mutex<devtoolbox_infrastructure::language::LanguageStore>>>,
+    Json(body): Json<StarterBody>,
+) -> Result<axum::Json<serde_json::Value>, ApiError> {
+    let only = body.only;
+    let report = tokio::task::spawn_blocking(move || {
+        let mut guard = store.lock();
+        devtoolbox_infrastructure::language::starter::install_starter(&mut guard, only.as_deref())
+            .map_err(|error| error.to_string())
+    })
+    .await
+    .map_err(|error| err("language_error", error.to_string()))?
+    .map_err(|message| err("language_error", message))?;
+    serde_json::to_value(report)
+        .map(axum::Json)
+        .map_err(|error| err("language_encode", error.to_string()))
+}
+
+#[derive(Default, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct StarterBody {
+    pub only: Option<String>,
+}
+
+#[derive(Default, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct SpeakingFeedbackBody {
+    pub sentence_id: String,
+    pub transcript: String,
+    pub duration_ms: u64,
+    pub target_ms: u64,
+    pub long_pauses_ms: Vec<u64>,
+}
+
+/// `POST /api/v1/language/speaking/feedback` —— 跟读评分。
+///
+/// 目标句由 `sentenceId` 在服务端查库得到，客户端**不能**自带 `target`：
+/// 否则「评分」变成调用方自己挑一句最顺口的话来对比。
+pub async fn speaking_feedback(
+    Extension(store): Extension<Arc<Mutex<devtoolbox_infrastructure::language::LanguageStore>>>,
+    Json(body): Json<SpeakingFeedbackBody>,
+) -> Result<axum::Json<serde_json::Value>, ApiError> {
+    let sentence_id = body.sentence_id.trim();
+    if sentence_id.is_empty() {
+        return Err(err("language_speaking_invalid", "缺少 sentenceId"));
+    }
+    if body.transcript.trim().is_empty() {
+        return Err(err("language_speaking_empty_turn", "转写为空，无法评分"));
+    }
+    if body.transcript.chars().count() > 2_000 || body.long_pauses_ms.len() > 256 {
+        return Err(err("language_speaking_invalid", "评分请求超出长度上限"));
+    }
+    let target = store
+        .lock()
+        .item(sentence_id)
+        .map_err(|error| err("language_error", error.to_string()))?
+        .map(|item| item.text);
+    let Some(target) = target else {
+        return Err(err("not_found", format!("句子 {sentence_id} 不存在")));
+    };
+    let score = devtoolbox_core::language::score(
+        &target,
+        &body.transcript,
+        body.duration_ms,
+        body.target_ms,
+        &body.long_pauses_ms,
+    );
+    serde_json::to_value(score)
+        .map(axum::Json)
+        .map_err(|error| err("language_encode", error.to_string()))
 }
 
 /// `GET /api/v1/language/import-status` —— 导入进度（前端轮询）。
@@ -236,4 +411,85 @@ pub async fn delete_lesson(
         .delete_lesson(&lesson_id)
         .map_err(|error| err("language_error", error.to_string()))?;
     Ok(axum::Json(serde_json::json!({ "ok": true })))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn cancel_only_matches_the_active_job() {
+        let tracker = ImportTracker::default();
+        let (first, cancel) = tracker.begin(ImportKind::Nce).expect("job starts");
+        assert!(tracker.snapshot().running);
+        assert_eq!(tracker.snapshot().job_id.as_deref(), Some(first.as_str()));
+
+        // 旧 id / 乱填 id 都不能命中。
+        assert!(tracker.cancel("not-the-job").is_none());
+        assert!(!cancel.load(std::sync::atomic::Ordering::SeqCst));
+
+        assert!(tracker.cancel(&first).is_some());
+        assert!(cancel.load(std::sync::atomic::Ordering::SeqCst));
+
+        // 第二个任务在进行中时，第一个 id 已失效。
+        tracker.finish(&first);
+        let (second, _) = tracker.begin(ImportKind::Dict).expect("second job");
+        assert_ne!(first, second);
+        assert!(tracker.cancel(&first).is_none());
+        assert!(cancel.load(std::sync::atomic::Ordering::SeqCst));
+    }
+
+    #[test]
+    fn only_one_import_may_run_at_a_time() {
+        let tracker = ImportTracker::default();
+        let (job, _) = tracker.begin(ImportKind::Nce).expect("first job");
+        assert!(tracker.begin(ImportKind::Dict).is_none());
+        tracker.finish(&job);
+        assert!(!tracker.snapshot().running);
+        assert!(tracker.begin(ImportKind::Dict).is_some());
+    }
+
+    #[tokio::test]
+    async fn speaking_feedback_never_trusts_a_client_supplied_target() {
+        let directory = tempfile::tempdir().expect("tempdir");
+        let store = Arc::new(Mutex::new(
+            devtoolbox_infrastructure::language::LanguageStore::open(
+                directory.path().join("language.db"),
+            )
+            .expect("store"),
+        ));
+
+        let empty_sentence = speaking_feedback(
+            Extension(Arc::clone(&store)),
+            Json(SpeakingFeedbackBody::default()),
+        )
+        .await
+        .expect_err("sentenceId required");
+        assert_eq!(empty_sentence.code, "language_speaking_invalid");
+
+        let empty_turn = speaking_feedback(
+            Extension(Arc::clone(&store)),
+            Json(SpeakingFeedbackBody {
+                sentence_id: "sentence-1".into(),
+                transcript: "   ".into(),
+                ..SpeakingFeedbackBody::default()
+            }),
+        )
+        .await
+        .expect_err("empty transcript");
+        assert_eq!(empty_turn.code, "language_speaking_empty_turn");
+
+        let missing = speaking_feedback(
+            Extension(Arc::clone(&store)),
+            Json(SpeakingFeedbackBody {
+                sentence_id: "sentence-unknown".into(),
+                transcript: "hello".into(),
+                ..SpeakingFeedbackBody::default()
+            }),
+        )
+        .await
+        .expect_err("unknown sentence");
+        assert_eq!(missing.code, "not_found");
+        assert!(missing.message.contains("sentence-unknown"));
+    }
 }

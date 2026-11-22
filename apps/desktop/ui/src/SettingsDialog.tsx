@@ -19,6 +19,7 @@ import { languageClient } from "./features/language/languageClient";
 import { travelClient } from "./features/travel/travelClient";
 import { allThemes, getTheme } from "./theme/ThemeManager";
 import { errorMessage, isTauriRuntime } from "./utils";
+import { canWriteSettings } from "./platform";
 
 interface SettingsDialogProps {
   themeId: string;
@@ -70,7 +71,11 @@ export function SettingsDialog({
   onClose,
 }: SettingsDialogProps) {
   const current = getTheme(themeId);
-  const canManageSettings = isTauriRuntime();
+  // 设置写入两端都有：桌面走 Tauri 命令，网页走网关 admin 端点
+  // （`PUT /api/v1/settings/public` 与 `POST /api/v1/settings/secrets`）。
+  // 只有绑定本机路径/服务命令的区块仍限桌面（见下方 canManageHostSettings）。
+  const settingsWritable = canWriteSettings();
+  const canManageHostSettings = isTauriRuntime();
   const [testing, setTesting] = useState<"llm" | "amap" | "qweather" | null>(null);
   const [testResults, setTestResults] = useState<
     Partial<Record<"llm" | "amap" | "qweather", string>>
@@ -87,7 +92,7 @@ export function SettingsDialog({
   const updateKnowledge = (patch: Partial<KnowledgeSettings>) =>
     onKnowledgeChange({ ...knowledge, ...patch });
   const persistSecretUpdates = async (updates: SecretSettingsUpdate["updates"]) => {
-    if (!isTauriRuntime() || updates.length === 0) return;
+    if (updates.length === 0) return;
     setSavingSecrets(true);
     setSecretNotice("");
     try {
@@ -117,7 +122,8 @@ export function SettingsDialog({
     setSecretDrafts((current) => ({ ...current, [field]: value }));
 
   const runTest = async (kind: "llm" | "amap" | "qweather") => {
-    if (!isTauriRuntime()) return;
+    // 两端都能测：服务端 `/api/v1/travel/test/*` 与桌面 `test_travel_*` 共用
+    // 同一套 provider、同一句判词（凭据只从后端已保存的设置里读）。
     setTesting(kind);
     setTestResults((current) => ({ ...current, [kind]: "" }));
     try {
@@ -156,9 +162,11 @@ export function SettingsDialog({
           </button>
         </header>
         <div className="settings-body">
-          {!canManageSettings ? (
+          {!isTauriRuntime() ? (
             <p className="settings-hint" role="status">
-              当前为网页预览：配置更改不会持久化，凭据保存和 Provider 测试仅可在本机桌面应用中使用；服务端认证管理接口尚未启用。
+              网页端经网关管理员身份保存公开设置与凭据（凭据只写不回显，审计只记字段名），
+              连接测试由后端直连 provider，两端结果一致；
+              知识库根目录、家庭服务器注册表与 MCP 绑定本机路径/命令，只能在桌面端修改。
             </p>
           ) : null}
           {secretNotice ? <p className="settings-hint" role="status">{secretNotice}</p> : null}
@@ -217,7 +225,7 @@ export function SettingsDialog({
                 <p className="settings-hint">检测到旧的高德浏览器凭据，仍安全保存在后端且不会传给页面；目前不会被地图使用。</p>
                 <button
                   className="settings-test-button"
-                  disabled={savingSecrets || !isTauriRuntime()}
+                  disabled={savingSecrets || !settingsWritable}
                   onClick={() => void persistSecretUpdates([
                     { field: "geography_amap_api_key", value: null },
                     { field: "geography_amap_security_js_code", value: null },
@@ -340,7 +348,7 @@ export function SettingsDialog({
             <input
               className="settings-select"
               id="travel-llm-key"
-              disabled={!canManageSettings}
+              disabled={!settingsWritable}
               type="password"
               placeholder={secretStatus.travel_llm_api_key_configured ? "已保存；输入新值以替换" : "sk-..."}
               value={secretDrafts.travel_llm_api_key ?? ""}
@@ -348,18 +356,18 @@ export function SettingsDialog({
             />
             <button
               className="settings-test-button"
-              disabled={!canManageSettings || savingSecrets || secretDrafts.travel_llm_api_key === undefined}
+              disabled={!settingsWritable || savingSecrets || secretDrafts.travel_llm_api_key === undefined}
               onClick={() => saveSecretFields(["travel_llm_api_key"])}
             >
               保存 Travel LLM Key
             </button>
             {secretStatus.travel_llm_api_key_configured ? (
-              <button className="settings-test-button" disabled={!canManageSettings || savingSecrets} onClick={() => clearSecret("travel_llm_api_key")}>清除已保存的 Key</button>
+              <button className="settings-test-button" disabled={!settingsWritable || savingSecrets} onClick={() => clearSecret("travel_llm_api_key")}>清除已保存的 Key</button>
             ) : null}
             <button
               className="settings-test-button"
               disabled={
-                !canManageSettings ||
+                !settingsWritable ||
                 testing !== null ||
                 !travel.llm_base_url?.trim() ||
                 !travel.llm_model?.trim()
@@ -427,7 +435,7 @@ export function SettingsDialog({
             <input
               className="settings-select"
               id="ai-key"
-              disabled={!canManageSettings}
+              disabled={!settingsWritable}
               type="password"
               placeholder={secretStatus.ai_api_key_configured ? "已保存；输入新值以替换" : "sk-..."}
               value={secretDrafts.ai_api_key ?? ""}
@@ -435,13 +443,13 @@ export function SettingsDialog({
             />
             <button
               className="settings-test-button"
-              disabled={!canManageSettings || savingSecrets || secretDrafts.ai_api_key === undefined}
+              disabled={!settingsWritable || savingSecrets || secretDrafts.ai_api_key === undefined}
               onClick={() => saveSecretFields(["ai_api_key"])}
             >
               保存 AI Key
             </button>
             {secretStatus.ai_api_key_configured ? (
-              <button className="settings-test-button" disabled={!canManageSettings || savingSecrets} onClick={() => clearSecret("ai_api_key")}>清除已保存的 Key</button>
+              <button className="settings-test-button" disabled={!settingsWritable || savingSecrets} onClick={() => clearSecret("ai_api_key")}>清除已保存的 Key</button>
             ) : null}
             <label
               className="settings-label"
@@ -477,7 +485,7 @@ export function SettingsDialog({
             <input
               className="settings-select"
               type="password"
-              disabled={!canManageSettings}
+              disabled={!settingsWritable}
               placeholder={secretStatus.travel_amap_api_key_configured ? "已保存；输入新值以替换" : "高德 AMAP_API_KEY（Web服务类型）"}
               value={secretDrafts.travel_amap_api_key ?? ""}
               onChange={(event) => changeSecretDraft("travel_amap_api_key", event.target.value)}
@@ -485,7 +493,7 @@ export function SettingsDialog({
             />
             <button
               className="settings-test-button"
-              disabled={!canManageSettings || testing !== null || !secretStatus.travel_amap_api_key_configured}
+              disabled={!settingsWritable || testing !== null || !secretStatus.travel_amap_api_key_configured}
               onClick={() => void runTest("amap")}
             >
               {testing === "amap" ? "正在测试…" : "测试高德连接"}
@@ -514,7 +522,7 @@ export function SettingsDialog({
             <input
               className="settings-select"
               type="password"
-              disabled={!canManageSettings}
+              disabled={!settingsWritable}
               placeholder={secretStatus.travel_qweather_api_key_configured ? "已保存；输入新值以替换" : "和风天气 QWEATHER_API_KEY（可选）"}
               value={secretDrafts.travel_qweather_api_key ?? ""}
               onChange={(event) => changeSecretDraft("travel_qweather_api_key", event.target.value)}
@@ -523,7 +531,7 @@ export function SettingsDialog({
             <button
               className="settings-test-button"
               disabled={
-                !canManageSettings ||
+                !settingsWritable ||
                 testing !== null ||
                 !secretStatus.travel_qweather_api_key_configured ||
                 !travel.qweather_api_host?.trim()
@@ -535,7 +543,7 @@ export function SettingsDialog({
             <input
               className="settings-select"
               type="password"
-              disabled={!canManageSettings}
+              disabled={!settingsWritable}
               placeholder={secretStatus.travel_baidu_map_api_key_configured ? "已保存；输入新值以替换" : "百度地图 BAIDU_MAP_API_KEY（预留）"}
               value={secretDrafts.travel_baidu_map_api_key ?? ""}
               onChange={(event) => changeSecretDraft("travel_baidu_map_api_key", event.target.value)}
@@ -543,7 +551,7 @@ export function SettingsDialog({
             />
             <button
               className="settings-test-button"
-              disabled={!canManageSettings || savingSecrets || ![
+              disabled={!settingsWritable || savingSecrets || ![
                 "travel_amap_api_key",
                 "travel_qweather_api_key",
                 "travel_baidu_map_api_key",
@@ -556,9 +564,9 @@ export function SettingsDialog({
             >
               保存数据源凭据
             </button>
-            {secretStatus.travel_amap_api_key_configured ? <button className="settings-test-button" disabled={!canManageSettings || savingSecrets} onClick={() => clearSecret("travel_amap_api_key")}>清除高德 Key</button> : null}
-            {secretStatus.travel_qweather_api_key_configured ? <button className="settings-test-button" disabled={!canManageSettings || savingSecrets} onClick={() => clearSecret("travel_qweather_api_key")}>清除和风天气 Key</button> : null}
-            {secretStatus.travel_baidu_map_api_key_configured ? <button className="settings-test-button" disabled={!canManageSettings || savingSecrets} onClick={() => clearSecret("travel_baidu_map_api_key")}>清除百度地图 Key</button> : null}
+            {secretStatus.travel_amap_api_key_configured ? <button className="settings-test-button" disabled={!settingsWritable || savingSecrets} onClick={() => clearSecret("travel_amap_api_key")}>清除高德 Key</button> : null}
+            {secretStatus.travel_qweather_api_key_configured ? <button className="settings-test-button" disabled={!settingsWritable || savingSecrets} onClick={() => clearSecret("travel_qweather_api_key")}>清除和风天气 Key</button> : null}
+            {secretStatus.travel_baidu_map_api_key_configured ? <button className="settings-test-button" disabled={!settingsWritable || savingSecrets} onClick={() => clearSecret("travel_baidu_map_api_key")}>清除百度地图 Key</button> : null}
             {testResults.qweather ? (
               <p
                 className={
@@ -581,12 +589,26 @@ export function SettingsDialog({
             </p>
             <LanguageDataSection />
           </section>
-          <KnowledgeSection
-            knowledge={knowledge}
-            onChange={updateKnowledge}
-          />
-          <ServerSection server={server} onChange={onServerChange} />
-          <McpSection server={server} onChange={onServerChange} />
+          {canManageHostSettings ? (
+            <>
+              <KnowledgeSection
+                knowledge={knowledge}
+                onChange={updateKnowledge}
+              />
+              <ServerSection server={server} onChange={onServerChange} />
+              <McpSection server={server} onChange={onServerChange} />
+            </>
+          ) : (
+            <section className="settings-section">
+              <span className="settings-label">
+                知识库根目录 · 家庭服务器 · MCP
+              </span>
+              <p className="settings-hint">
+                这些设置绑定本机文件路径与服务命令，只能在桌面端修改；网页端可以在
+                「Home Server」页查看运行状态、日志与执行审计。
+              </p>
+            </section>
+          )}
         </div>
       </section>
     </div>
@@ -600,8 +622,8 @@ function LanguageDataSection() {
   const [installing, setInstalling] = useState(false);
 
   const reload = useCallback(async () => {
-    if (!isTauriRuntime()) return;
     try {
+      // 来源清单两端都有 HTTP 端点；读失败时保持静默（面板不整体报错）。
       setSources(await languageClient.sources());
     } catch {
       // 设置面板静默失败
@@ -613,7 +635,7 @@ function LanguageDataSection() {
   }, [reload]);
 
   const install = async () => {
-    if (!isTauriRuntime() || installing) return;
+    if (installing) return;
     setInstalling(true);
     setInstallNotice("");
     try {

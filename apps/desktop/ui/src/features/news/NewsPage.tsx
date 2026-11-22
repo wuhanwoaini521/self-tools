@@ -22,7 +22,7 @@ import {
   TextT,
   Warning,
 } from "@phosphor-icons/react";
-import { openUrl } from "@tauri-apps/plugin-opener";
+import { openExternalUrl } from "../../platform";
 import type { AppContextPayload } from "../ai/aiTypes";
 import type {
   NewsArticle,
@@ -310,10 +310,17 @@ export function NewsPage({
     [setNotice],
   );
 
-  const openInBrowser = useCallback((url: string) => {
-    if (!url) return;
-    void openUrl(url);
-  }, []);
+  const openInBrowser = useCallback(
+    (url: string) => {
+      if (!url) return;
+      // 两端都能开：桌面交系统浏览器，网页新标签（带 noopener）；
+      // 之前直接调插件，网页端会抛 `__TAURI_INTERNALS__` 不存在。
+      void openExternalUrl(url).catch(() => {
+        /* 弹窗被拦时链接仍然可见，用户可手动复制 */
+      });
+    },
+    [],
+  );
 
   /** 统一 AI 出口：单篇新闻 + 用户问题。 */
   const askAbout = useCallback(

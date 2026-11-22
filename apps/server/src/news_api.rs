@@ -234,6 +234,29 @@ pub async fn mark_read(
     Ok(axum::Json(serde_json::json!({ "ok": true })))
 }
 
+/// `POST /api/v1/news/sources/{id}/category` —— 改新闻源分类（与 RSS 无关）。
+pub async fn set_category(
+    axum::Extension(news): axum::Extension<Arc<NewsService>>,
+    axum::extract::Path(source_id): axum::extract::Path<i64>,
+    axum::Json(request): axum::Json<SetCategoryRequest>,
+) -> Result<axum::Json<serde_json::Value>, ApiError> {
+    let category = parse_category(&request.category).ok_or_else(|| ApiError {
+        code: "news_invalid_category",
+        message: format!("unknown news category: {}", request.category),
+    })?;
+    news.set_category(source_id, category)
+        .map_err(|error| ApiError {
+            code: "news_failed",
+            message: error.to_string(),
+        })?;
+    Ok(axum::Json(serde_json::json!({ "ok": true })))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SetCategoryRequest {
+    pub category: String,
+}
+
 #[derive(Debug, Deserialize)]
 pub struct LimitQuery {
     pub limit: Option<usize>,
